@@ -53,7 +53,7 @@ bake_selfdef = bool(os.environ.get("SOVEREIGN_OS_BAKE_SELFDEF"))
 node_major = os.environ.get("SOVEREIGN_OS_NODE_MAJOR", "22")
 
 # ── prepacking (profiles/<id>.yaml provisioning:) — bake the operator user +
-#    repo + selfdef + ghostproxy + dashboards + firstboot INTO the image so a
+#    repo + selfdef + root-modules + dashboards + firstboot INTO the image so a
 #    flashed SAIN-01 boots to a ready workstation (operator directive
 #    2026-07-08). The profile can DEFAULT the bakes on; env still forces on.
 prov = (p.get("provisioning") or {})
@@ -62,7 +62,7 @@ prov_operator = (prov.get("operator") or {})
 bake_dev_tools = bake_dev_tools or bool(prov_bake.get("dev_tools"))
 bake_selfdef = bake_selfdef or bool(prov_bake.get("selfdef"))
 bake_repo = bool(prov_bake.get("repo"))
-bake_ghostproxy = bool(prov_bake.get("root_ghostproxy"))
+bake_ghostproxy = bool(prov_bake.get("root_modules", prov_bake.get("root_ghostproxy")))  # renamed 2026-07-19; legacy key honored
 def _env_bake(name, profile_val):
     """SDD-709: let the build configurator / operator override a bake toggle from the
     build-host env — '1' forces on, '0' forces off, unset inherits the profile. So the
@@ -631,8 +631,9 @@ if bake_selfdef:
     _stage_tree(_find_checkout("SOVEREIGN_OS_SELFDEF_DIR", "selfdef"),
                 extra_opt / "selfdef", ["target/", ".git/", "node_modules/"])
 if bake_ghostproxy:
-    _stage_tree(_find_checkout("SOVEREIGN_OS_GHOSTPROXY_DIR", "root-ghostproxy"),
-                extra_opt / "root-ghostproxy", ["target/", "node_modules/"])
+    _stage_tree(_find_checkout("SOVEREIGN_OS_GHOSTPROXY_DIR", "root-modules")
+                or _find_checkout("SOVEREIGN_OS_GHOSTPROXY_DIR", "root-ghostproxy"),
+                extra_opt / "root-modules", ["target/", "node_modules/"])
 if bake_dev_tools:
     # Offline Claude Code: stage the build host's global npm tree (@anthropic-ai/
     # claude-code — pure JS, no version-sensitive native addons, ~473 MB) so it

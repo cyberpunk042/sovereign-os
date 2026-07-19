@@ -125,7 +125,7 @@ EXEMPT_PATTERNS: list[tuple[str, str]] = [
      "particles); surfaced on the /science webapp panel — dashboard-tier info, "
      "an operator-run sample sim, not a paging runtime-health signal (R558/SDD-070)."),
     (r"^sovereign_os_ghostproxy_endpoint_install_(result|last_run_timestamp)$",
-     "first-boot root-ghostproxy envelope install-hook telemetry (SDD-046; "
+     "first-boot root-modules envelope install-hook telemetry (SDD-046; "
      "report-only/installed/install-failed one-shot + last-run marker); the "
      "RUNTIME health signal is the weekly verify pair, paged via "
      "SovereignOsGhostproxyEnvelopeUnhealthy / SovereignOsGhostproxyVerifyStale."),

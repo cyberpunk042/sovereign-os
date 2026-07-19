@@ -1,10 +1,10 @@
 #!/bin/bash
 # scripts/build/provision-bake.sh — BUILD-TIME provisioner. Runs INSIDE the
 # image during the mkosi postinst (chroot, root, network available), AFTER the
-# repo / selfdef / root-ghostproxy trees have been staged into the image and
+# repo / selfdef / root-modules trees have been staged into the image and
 # the dev-tools / selfdef bake blocks have run. Turns the lean root-only base
 # OS into a prepacked SAIN-01: an operator account, the sovereign-os repo in
-# place + connected to git, the scoped operator sudoers, the root-ghostproxy
+# place + connected to git, the scoped operator sudoers, the root-modules
 # endpoint envelope, the dashboards hub, and the first-boot hardware automation.
 #
 # Driven by profiles/<id>.yaml `provisioning:` (mkosi-emit exports the values as
@@ -138,7 +138,9 @@ else
   log "repo NOT staged at ${REPO} — skipping repo/dashboards/firstboot wiring that depends on it"
 fi
 
-# ── 2b. make ~/selfdef + ~/root-ghostproxy resolve to the /opt trees ──────
+# ── 2b. make ~/selfdef + ~/root-modules resolve to the /opt trees ──────
+# (root-modules renamed from root-ghostproxy 2026-07-19; both /opt names + both
+#  $HOME symlink names are handled so pre-rename images/checkouts keep working)
 # `sovereign-osctl selfdef {install-units,on}` defaults SOVEREIGN_OS_SELFDEF_DIR
 # to $HOME/selfdef; the ghostproxy verify/sync hooks look under $HOME too. The
 # staged trees live in /opt, so symlink them into both the operator's and
@@ -146,7 +148,8 @@ fi
 for _u in "${OPERATOR}" root; do
   _h="$(getent passwd "${_u}" 2>/dev/null | cut -d: -f6)"; _h="${_h:-/root}"
   [ -d /opt/selfdef ] && { ln -sfn /opt/selfdef "${_h}/selfdef" 2>/dev/null; chown -h "${_u}:" "${_h}/selfdef" 2>/dev/null || true; }
-  [ -d /opt/root-ghostproxy ] && { ln -sfn /opt/root-ghostproxy "${_h}/root-ghostproxy" 2>/dev/null; chown -h "${_u}:" "${_h}/root-ghostproxy" 2>/dev/null || true; }
+  _gp_opt=""; for _d in /opt/root-modules /opt/root-ghostproxy; do [ -d "${_d}" ] && { _gp_opt="${_d}"; break; }; done
+  [ -n "${_gp_opt}" ] && { ln -sfn "${_gp_opt}" "${_h}/root-modules" 2>/dev/null; chown -h "${_u}:" "${_h}/root-modules" 2>/dev/null || true; ln -sfn "${_gp_opt}" "${_h}/root-ghostproxy" 2>/dev/null; chown -h "${_u}:" "${_h}/root-ghostproxy" 2>/dev/null || true; }
 done
 [ -d /opt/selfdef ] && log "selfdef linked into ~${OPERATOR} + ~root (turn on: sovereign-osctl selfdef install-units && selfdef on)"
 
@@ -156,15 +159,16 @@ if [ -x "${REPO}/scripts/operator/operator-sudoers.sh" ]; then
     | sed 's/^/provision-bake:   /' >&2 || log "operator-sudoers install failed (non-fatal)"
 fi
 
-# ── 4. root-ghostproxy endpoint envelope (installed, NOT started) ─────────
-if [ "${SOVEREIGN_OS_BAKE_GHOSTPROXY:-}" = "1" ] && [ -d /opt/root-ghostproxy ]; then
-  chown -R "${OPERATOR}:${OPERATOR}" /opt/root-ghostproxy 2>/dev/null || true
-  if [ -x /opt/root-ghostproxy/install.sh ]; then
-    log "installing root-ghostproxy (endpoint mode, no bridge/wifi) as ${OPERATOR}"
-    runuser -u "${OPERATOR}" -- /opt/root-ghostproxy/install.sh --mode endpoint --no-bridge --no-wifi 2>&1 \
-      | sed 's/^/provision-bake:   /' >&2 || log "root-ghostproxy install failed (non-fatal — provision post-flash)"
+# ── 4. root-modules endpoint envelope (installed, NOT started) ─────────
+_GP_TREE=""; for _d in /opt/root-modules /opt/root-ghostproxy; do [ -d "${_d}" ] && { _GP_TREE="${_d}"; break; }; done
+if [ "${SOVEREIGN_OS_BAKE_GHOSTPROXY:-}" = "1" ] && [ -n "${_GP_TREE}" ]; then
+  chown -R "${OPERATOR}:${OPERATOR}" "${_GP_TREE}" 2>/dev/null || true
+  if [ -x "${_GP_TREE}/install.sh" ]; then
+    log "installing root-modules (endpoint mode, no bridge/wifi) as ${OPERATOR}"
+    runuser -u "${OPERATOR}" -- "${_GP_TREE}/install.sh" --mode endpoint --no-bridge --no-wifi 2>&1 \
+      | sed 's/^/provision-bake:   /' >&2 || log "root-modules install failed (non-fatal — provision post-flash)"
   else
-    log "/opt/root-ghostproxy/install.sh absent — skipping"
+    log "${_GP_TREE}/install.sh absent — skipping"
   fi
 fi
 

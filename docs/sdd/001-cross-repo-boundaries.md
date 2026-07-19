@@ -29,7 +29,7 @@ the contract is verified.
 | **sovereign-os** | OS-image generation pipeline; profile schema; whitelabel mechanism; TDD harness; lifecycle-management tools | Architectural design ABOUT the OS (that's info-hub); runtime security policy (selfdef) |
 | **info-hub** | Architectural design + L0/L1/L2/L3 knowledge; SAIN-01 milestone + 11 epics; operator-directive verbatim; comparison + recommendation matrices | Implementation artifacts (scripts / configs / build tooling — those live in sovereign-os) |
 | **selfdef** | Security daemon + agent-guard module + 12 notifier channels + persistent escalation engine; security threat model; runtime-defense decisions | OS-image construction; profile schema (sovereign-os owns); architectural baseline (info-hub owns) |
-| **root-ghostproxy** | (dormant at the time this contract locked; received /view + /questions skill installs in a prior arc. **Re-activated 2026-07-03 as an endpoint-mode consumption dependency — see SDD-046**, which decides the re-activation this SDD scoped out) | — |
+| **root-ghostproxy** | (dormant at the time this contract locked; received /view + /questions skill installs in a prior arc. **Re-activated 2026-07-03 as an endpoint-mode consumption dependency — see SDD-046**, which decides the re-activation this SDD scoped out. **Renamed to `root-modules` 2026-07-19** — contract-time text above retains the old name) | — |
 
 ### 2. Cross-repo verbs (what "flows" between repos)
 

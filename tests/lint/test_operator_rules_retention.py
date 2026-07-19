@@ -6,13 +6,13 @@ do-not-minimize, ask-when-unclear, no-random-side-quests, mid-work-messages-
 are-interrupts, …) live in Claude Code per-project memory that a fresh flash
 would wipe. sovereign-os versions them in ``assets/operator-memory/`` and
 re-applies them on provision so the OS RETAINS them — with NO dependency on
-root-ghostproxy.
+root-modules.
 
 These locks prove: the store is populated; a simulated fresh flash re-applies
 every rule + MEMORY.md; re-apply is idempotent; capture round-trips; the
-cross-module boundary vs root-ghostproxy holds (disjoint paths, collision
+cross-module boundary vs root-modules holds (disjoint paths, collision
 detected); and provision.sh wires both the always-on rules apply and the
-opt-out, proxy-free root-ghostproxy endpoint install.
+opt-out, proxy-free root-modules endpoint install.
 """
 from __future__ import annotations
 
@@ -129,7 +129,7 @@ def test_capture_round_trips(tmp_path):
 
 
 def test_compat_disjoint_against_real_live():
-    """The default live memory dir must be disjoint from every root-ghostproxy
+    """The default live memory dir must be disjoint from every root-modules
     global surface — the cross-module boundary that lets both coexist."""
     import json
     r = _run(["compat", "--json"])
@@ -171,13 +171,13 @@ def test_provision_wires_rules_apply_and_ghostproxy_endpoint():
     assert "operator-rules.py apply" in body, (
         "provision.sh must re-apply the operator rules on a fresh flash"
     )
-    # root-ghostproxy installed WITHOUT the proxy half
+    # root-modules installed WITHOUT the proxy half
     assert "--mode endpoint" in body and "--no-bridge" in body and "--no-wifi" in body, (
-        "provision.sh must install root-ghostproxy in endpoint mode with NO proxy "
+        "provision.sh must install root-modules in endpoint mode with NO proxy "
         "(--mode endpoint --no-bridge --no-wifi)"
     )
     # default-on but opt-out + self-contained (rules never depend on ghostproxy)
-    assert "PROVISION_GHOSTPROXY" in body, "root-ghostproxy must be opt-out-able"
+    assert "PROVISION_GHOSTPROXY" in body, "root-modules must be opt-out-able"
 
 
 def test_help_text_advertises_operator_rules():

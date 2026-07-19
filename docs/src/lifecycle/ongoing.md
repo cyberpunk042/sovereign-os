@@ -50,7 +50,7 @@ Ordered most-frequent first:
 | `sovereign-ms003-verify.timer` | Daily 04:30 | MS003 ledger-signature integrity sweep (F-2026-034) |
 | `sovereign-zfs-scrub.timer` | Weekly (Sun 02:00) | ZFS pool scrub |
 | `sovereign-selfdef-sync.timer` | Weekly (Sun 05:30) | selfdef checkout freshness check (SDD-001) |
-| `sovereign-ghostproxy-verify.timer` | Weekly (Sun 06:00) | root-ghostproxy AI-agent envelope drift verify — read-only `--check`, endpoint mode (SDD-046) |
+| `sovereign-ghostproxy-verify.timer` | Weekly (Sun 06:00) | root-modules AI-agent envelope drift verify — read-only `--check`, endpoint mode (SDD-046) |
 
 This table is the operator-facing mirror of the canonical recurrent-hook
 cadence locked by `tests/lint/test_recurrent_hooks_contract.py`

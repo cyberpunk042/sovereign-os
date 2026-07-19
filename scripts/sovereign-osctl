@@ -718,9 +718,9 @@ COMMANDS:
                                ~/.claude/projects/<project>/memory/. status
                                shows drift; apply re-installs (fresh-flash
                                resume); capture versions live edits; compat
-                               checks path-disjointness vs root-ghostproxy.
+                               checks path-disjointness vs root-modules.
                                sovereign-os-owned — works with NO opt-in to
-                               root-ghostproxy.
+                               root-modules.
   mcp-aggregate manifest [--upstream-selfdef H:P] [--config P] [--json|--human]
   mcp-aggregate probe-upstream H:P [--timeout SECS] [--json]
                                R286 (E7.M5 / SDD-031): cross-repo
@@ -6815,7 +6815,7 @@ PYEOF
   operator-rules)
     # Retain + re-apply the operator's Claude Code interaction rules across a
     # fresh flash (sovereign-os-owned; store = assets/operator-memory/; live =
-    # ~/.claude/projects/<project>/memory/). Disjoint from root-ghostproxy.
+    # ~/.claude/projects/<project>/memory/). Disjoint from root-modules.
     sub="${1:-status}"
     shift || true
     case "${sub}" in

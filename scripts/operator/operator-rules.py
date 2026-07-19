@@ -11,16 +11,16 @@ etc. They live in Claude Code's PER-PROJECT memory at
 This module versions them inside sovereign-os (``assets/operator-memory/``)
 and re-applies them on provision / on demand, so the OS RETAINS them with
 NO dependency on any other project. If the operator never opts into
-root-ghostproxy, this alone keeps the rules intact.
+root-modules, this alone keeps the rules intact.
 
 Verbs:
   status    show drift between the versioned store and the live memory dir
   apply     copy store -> live memory dir (the fresh-flash re-apply; idempotent)
   capture   copy live memory dir -> store (version new / edited rules)
-  compat    check cross-module path-disjointness vs root-ghostproxy
+  compat    check cross-module path-disjointness vs root-modules
 
 Cross-module boundary (why the two never collide):
-  root-ghostproxy (optional, endpoint mode) owns ~/.claude/ GLOBAL config —
+  root-modules (optional, endpoint mode) owns ~/.claude/ GLOBAL config —
   settings.json / CLAUDE.md / hooks/ / rules/ / skills/. THIS module owns
   ONLY ~/.claude/projects/<project>/memory/. Disjoint paths => no clobber.
 
@@ -56,7 +56,7 @@ PROJECT_KEY = str(REPO_ROOT).replace("/", "-")
 _DEFAULT_LIVE = Path.home() / ".claude" / "projects" / PROJECT_KEY / "memory"
 LIVE = Path(os.environ.get("SOVEREIGN_OS_CLAUDE_MEMORY_DIR", str(_DEFAULT_LIVE)))
 
-# root-ghostproxy GLOBAL-config surfaces under ~/.claude/ (NOT under
+# root-modules GLOBAL-config surfaces under ~/.claude/ (NOT under
 # projects/). Our LIVE dir must stay disjoint from every one of these so the
 # two modules can both be installed without clobbering each other.
 _GLOBAL_CLAUDE = Path.home() / ".claude"
@@ -191,7 +191,7 @@ def cmd_capture(args) -> int:
 def cmd_compat(args) -> int:
     """Verify the cross-module boundary: our live memory dir must live under
     ~/.claude/projects/<project>/memory/ and be disjoint from every
-    root-ghostproxy-owned ~/.claude/ global surface — so both modules can be
+    root-modules-owned ~/.claude/ global surface — so both modules can be
     installed without clobbering one another."""
     problems: list[str] = []
     live_resolved = LIVE.resolve() if LIVE.exists() else LIVE
@@ -208,7 +208,7 @@ def cmd_compat(args) -> int:
         o = owned.resolve() if owned.exists() else owned
         if live_resolved == o or str(live_resolved).startswith(str(o) + os.sep):
             problems.append(f"COLLISION: our dir overlaps ghostproxy-owned {owned}")
-    gp_present = (Path.home() / "root-ghostproxy").is_dir()
+    gp_present = (Path.home() / "root-modules").is_dir() or (Path.home() / "root-ghostproxy").is_dir()
     if args.json:
         print(json.dumps({
             "live": str(LIVE),
@@ -218,10 +218,10 @@ def cmd_compat(args) -> int:
             "problems": problems,
         }, indent=2))
         return 0 if not problems else 1
-    print(f"cross-module compat (sovereign-os operator-rules ⟷ root-ghostproxy)")
+    print(f"cross-module compat (sovereign-os operator-rules ⟷ root-modules)")
     print(f"  our memory dir:        {LIVE}")
     print(f"  ghostproxy owns:       ~/.claude/{{settings.json,CLAUDE.md,hooks,rules,skills,agents,commands,modes}}")
-    print(f"  root-ghostproxy here:  {'yes (~/root-ghostproxy)' if gp_present else 'no'}")
+    print(f"  root-modules here:     {'yes (~/root-modules or legacy ~/root-ghostproxy)' if gp_present else 'no'}")
     if problems:
         for p in problems:
             print(f"  ✗ {p}")
@@ -246,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     p_capture = sub.add_parser("capture", help="live → store (version edits)")
     p_capture.add_argument("--dry-run", action="store_true")
     p_capture.set_defaults(func=cmd_capture)
-    p_compat = sub.add_parser("compat", help="check disjointness vs root-ghostproxy")
+    p_compat = sub.add_parser("compat", help="check disjointness vs root-modules")
     p_compat.add_argument("--json", action="store_true")
     p_compat.set_defaults(func=cmd_compat)
     args = ap.parse_args(argv)

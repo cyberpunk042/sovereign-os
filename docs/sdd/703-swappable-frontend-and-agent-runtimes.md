@@ -62,7 +62,7 @@ A loopback/private baseUrl accepts a non-secret placeholder key. Runs as a syste
   `profiles/*.yaml` on the image path.
 - **selfdef is the reusable optional-component template** (`mkosi-emit.sh:375-410` posture-gated
   unit install + `sovereign-osctl` `cmd_selfdef()` `:1917-2015` full `status|install-units|on|off|
-  start|stop|logs|sync|doctor` lifecycle). root-ghostproxy is the *weaker* template (build-time
+  start|stop|logs|sync|doctor` lifecycle). root-modules is the *weaker* template (build-time
   only, no CLI). **OpenClaw follows the selfdef shape.**
 - The dashboard hub (`sovereign-dashboards.service` → `build-configurator-api.py`, **:8100**)
   already serves every `webapp/<panel>/index.html`; a kiosk browser at `http://127.0.0.1:8100/`
