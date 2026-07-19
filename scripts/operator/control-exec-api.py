@@ -34,6 +34,11 @@ Endpoints:
                                  GREYS force-incompatible options; warn/suggest
                                  annotate). Read-only; same registry truth as
                                  the execute() pre-change gate.
+  GET  /api/control/notifykit    the effective notifykit settings (base TOML +
+                                 JSON overlay) — the SAME payload as
+                                 `sovereign-osctl notifykit show --json`, so
+                                 the header 🔔 overlay prefills from live
+                                 state instead of blank selects. Read-only.
   POST /api/control/execute      body {control_id, args?, confirm?} ->
                                  _action_exec.execute() ; HTTP status mirrors
                                  the primitive's result code (200/400/403/404/409/…)
@@ -63,6 +68,14 @@ try:
     import compat as _compat  # noqa: E402 — the compat preview is optional
 except Exception:  # noqa: BLE001 — a broken compat module never kills the rail
     _compat = None
+
+# tools/notifykit lives at the repo root — the live-state payload for the
+# header 🔔 overlay (same truth as `sovereign-osctl notifykit show --json`).
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+try:
+    from tools.notifykit import cli as _notifykit_cli  # noqa: E402
+except Exception:  # noqa: BLE001 — optional; the overlay degrades to blanks
+    _notifykit_cli = None
 
 # The Plan Mode / User Approval Auto-mode safety classifier (lib/). Import
 # directly so this daemon can gate destructive controls before they execute.
@@ -158,10 +171,20 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(200, preview)
             return
+        if path == "/api/control/notifykit":
+            if _notifykit_cli is None:
+                self._send_json(503, {"error": "notifykit module unavailable"})
+                return
+            try:
+                self._send_json(200, _notifykit_cli.show_payload())
+            except Exception as e:  # noqa: BLE001 — read path must not crash the daemon
+                self._send_json(500, {"error": f"notifykit state unreadable: {e}"})
+            return
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/api/control/registry", "/api/control/compat",
-                          "/api/control/execute (POST)", "/version", "/healthz"],
+                          "/api/control/notifykit", "/api/control/execute (POST)",
+                          "/version", "/healthz"],
         })
 
     def do_HEAD(self) -> None:  # noqa: N802

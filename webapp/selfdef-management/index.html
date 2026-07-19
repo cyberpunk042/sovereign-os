@@ -833,7 +833,51 @@ adoption pattern.
         '</div></div>'));
     var notifModal=document.getElementById('so-notif-modal'), notifOpen=document.getElementById('so-notif-open'), notifClose=document.getElementById('so-notif-close');
     function notifSet(open){ notifModal.hidden=!open; }
-    if(notifOpen) notifOpen.addEventListener('click',function(){ setPaneOpen(false); notifSet(true); });
+    // ── Live-state prefill (2026-07-19 follow-on): GET /api/control/notifykit
+    //    returns the SAME payload as `sovereign-osctl notifykit show --json`
+    //    (base TOML + JSON overlay), so the overlay opens showing the box's
+    //    ACTUAL channel enables, effective gates, static pins, and global
+    //    override — not blank selects. Silent no-op when the exec API is
+    //    absent (static / DEMO serving); the selects stay blank + usable. ──
+    function soNotifLive(){
+      fetch('/api/control/notifykit',{headers:{Accept:'application/json'}})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(p){
+          if(!p || !p.channels) return;
+          SO_NOTIF_CHANNELS.forEach(function(c){
+            var ch=p.channels[c.ch]; if(!ch) return;
+            var en=notifModal.querySelector('select[data-nen="'+c.ch+'"]');
+            var pr=notifModal.querySelector('select[data-nprio="'+c.ch+'"]');
+            var ur=notifModal.querySelector('select[data-nurg="'+c.ch+'"]');
+            var st=notifModal.querySelector('input[data-nstatic="'+c.ch+'"]');
+            var res=notifModal.querySelector('[data-notifresult="'+c.ch+'"]');
+            if(en) en.value=ch.enabled?'on':'off';
+            var gate=ch.effective_gate||{};
+            if(pr && gate.min_priority) pr.value=gate.min_priority;
+            if(ur && gate.min_urgency) ur.value=gate.min_urgency;
+            if(st) st.checked=!!(ch.static_keys&&ch.static_keys.length);
+            if(res) soExecMsg(res,'muted','live: '+(ch.enabled?'ON':'off')+' · gate '+
+              (gate.min_priority||'?')+'/'+(gate.min_urgency||'?')+
+              (ch.static_keys&&ch.static_keys.length?(' · static ['+ch.static_keys.join(', ')+']'):''));
+          });
+          var ovRes=notifModal.querySelector('[data-notifresult="override"]');
+          if(ovRes){
+            var ov=p.global_override||{}; var keys=Object.keys(ov);
+            soExecMsg(ovRes,'muted', keys.length ?
+              ('live: '+keys.map(function(k){return k+'='+ov[k];}).join(' · ')+' (static pins remain as is)') :
+              'live: no global override set');
+          }
+          var trRes=notifModal.querySelector('[data-notifresult="trigger"]');
+          if(trRes){
+            var tr=p.triggers||{}; var names=Object.keys(tr);
+            soExecMsg(trRes,'muted', names.length ?
+              ('live: '+names.map(function(n){ var props=tr[n]||{};
+                return n+' {'+Object.keys(props).map(function(k){return k+':'+props[k];}).join(', ')+'}'; }).join(' · ')) :
+              'live: no trigger props set');
+          }
+        },function(){}).catch(function(){});
+    }
+    if(notifOpen) notifOpen.addEventListener('click',function(){ setPaneOpen(false); notifSet(true); soNotifLive(); });
     if(notifClose) notifClose.addEventListener('click',function(){ notifSet(false); });
     notifModal.addEventListener('click',function(e){ if(e.target===notifModal) notifSet(false); });
     document.addEventListener('keydown',function(e){ if(notifModal && !notifModal.hidden && e.key==='Escape') notifSet(false); });

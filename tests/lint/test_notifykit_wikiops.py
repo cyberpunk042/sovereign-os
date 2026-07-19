@@ -541,3 +541,65 @@ def test_notify_test_channel_notifykit(tmp_path):
         [sys.executable, str(DISPATCH), "test", "--channel", "notifykit"],
         capture_output=True, text=True, env=env2)
     assert r2.returncode == 2 and "bridge inactive" in r2.stdout
+
+
+# ── #8 live-state prefill: overlay reads `notifykit show --json` truth ──
+# (2026-07-19 follow-on — the header 🔔 overlay opens prefilled from the
+# box's ACTUAL settings via GET /api/control/notifykit, same payload as
+# the CLI's show --json.)
+
+
+def test_show_payload_is_the_show_json_truth(tmp_path, monkeypatch):
+    base = tmp_path / "notifykit.toml"
+    base.write_text(
+        '[global_override]\nmin_priority = "high"\n\n'
+        '[channels.file]\nkind = "file"\nenabled = true\n'
+        f'path = "{tmp_path}/sink.jsonl"\n\n'
+        '[channels.ntfy]\nkind = "ntfy"\nenabled = false\n'
+        'min_priority = { value = "low", static = true }\n',
+        encoding="utf-8")
+    monkeypatch.setenv("SOVEREIGN_OS_NOTIFYKIT_CONFIG", str(base))
+    monkeypatch.setenv("SOVEREIGN_OS_NOTIFYKIT_OVERRIDES",
+                       str(tmp_path / "ov.json"))
+    from tools.notifykit import cli
+    payload = cli.show_payload()
+    # the shape the overlay prefills from
+    assert set(payload) >= {"base", "overrides", "sms_present",
+                            "global_override", "channels", "triggers"}
+    assert payload["global_override"] == {"min_priority": "high"}
+    ch = payload["channels"]
+    assert ch["file"]["enabled"] is True
+    # override sweeps file, static pin holds ntfy (the verbatim rule C)
+    assert ch["file"]["effective_gate"]["min_priority"] == "high"
+    assert ch["ntfy"]["effective_gate"]["min_priority"] == "low"
+    assert ch["ntfy"]["static_keys"] == ["min_priority"]
+    # and it is byte-for-byte what `show --json` prints
+    r = subprocess.run(
+        [sys.executable, "-c",
+         f"import sys; sys.path.insert(0, {str(REPO_ROOT)!r}); "
+         "from tools.notifykit.cli import main; "
+         "sys.exit(main(['show', '--json']))"],
+        capture_output=True, text=True,
+        env={**__import__('os').environ,
+             "SOVEREIGN_OS_NOTIFYKIT_CONFIG": str(base),
+             "SOVEREIGN_OS_NOTIFYKIT_OVERRIDES": str(tmp_path / "ov.json")})
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout) == payload
+
+
+def test_exec_api_serves_notifykit_live_state():
+    api = (REPO_ROOT / "scripts" / "operator" /
+           "control-exec-api.py").read_text(encoding="utf-8")
+    assert "/api/control/notifykit" in api
+    assert "show_payload" in api
+    # degrades cleanly when the module is absent — never kills the rail
+    assert "notifykit module unavailable" in api
+
+
+def test_overlay_prefills_from_live_state():
+    shell = (REPO_ROOT / "webapp" / "_shared" /
+             "app-shell-snippet.html").read_text(encoding="utf-8")
+    assert "soNotifLive" in shell
+    assert "'/api/control/notifykit'" in shell
+    # prefill fires when the overlay opens
+    assert "notifSet(true); soNotifLive();" in shell
