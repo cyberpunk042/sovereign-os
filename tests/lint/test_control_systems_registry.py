@@ -10,6 +10,7 @@ real dashboard in config/dashboard-catalog.yaml (no dead references).
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -139,6 +140,48 @@ def test_applies_to_slugs_exist_in_catalog():
             if slug not in slugs:
                 problems.append(f"{s['id']} → unknown dashboard {slug!r}")
     assert not problems, "control systems reference non-existent dashboards: " + "; ".join(problems)
+
+
+_ENUM_RE = re.compile(r"\{[a-z0-9|_-]+\}")
+
+
+def _enum_safe(options) -> bool:
+    """True iff every option is a bare token the control-surface (and
+    _action_exec.resolve_argv) can render as a `{a|b}` enum — i.e. matches
+    [a-z0-9_-]+. A value with a dot / uppercase / space (e.g. `gpu.utilization`)
+    is NOT enum-renderable and legitimately stays a free `<input>`."""
+    return bool(options) and all(re.fullmatch(r"[a-z0-9_-]+", str(o)) for o in options)
+
+
+def test_pick_one_mode_profile_controls_are_one_click_enum():
+    """A `mode`/`profile` control is a PICK-ONE: when its whole option set is
+    enum-renderable, its change_cli MUST use a `{a|b}` placeholder so the card
+    renders one-click segmented buttons — NOT a generic free `<input>` the
+    operator has to type into (the wart that hid the real choice on jobs-store
+    and 12 sibling controls until 2026-07-19). Controls with a non-enum-safe
+    option (e.g. flex-profile's `gpu.utilization`) are exempt — they stay free."""
+    offenders = []
+    for s in _systems():
+        if s["kind"] in ("mode", "profile") and _enum_safe(s.get("options")):
+            if not _ENUM_RE.search(s.get("change_cli") or ""):
+                offenders.append(s["id"])
+    assert not offenders, (
+        "pick-one mode/profile controls render a free <input> instead of "
+        "one-click enum buttons: " + ", ".join(offenders)
+    )
+
+
+def test_non_modeprofile_closed_pick_controls_stay_one_click():
+    """A few `toggle`/`lifecycle` controls are also closed picks on their KEY
+    field (jobs-store backend, workload-knobs knob, eval-run benchmark). Lock
+    them to the enum form so they don't regress to a free box either."""
+    byid = {s["id"]: s for s in _systems()}
+    for cid in ("jobs-store", "workload-knobs", "eval-run"):
+        cc = byid[cid].get("change_cli") or ""
+        assert _ENUM_RE.search(cc), (
+            f"{cid} must keep its one-click enum toggle (a `{{a|b}}` placeholder), "
+            f"got change_cli={cc!r}"
+        )
 
 
 def test_every_dashboard_governed_or_catalog_only():
