@@ -445,8 +445,9 @@ systems:
       Warm a running GPU tier (SDD-049) — send a 1-token /v1/completions prime
       request to the tier's vLLM server (logic :8082 / oracle :8083) to load
       weights and prime the KV cache. Non-privileged (loopback HTTP, no host
-      mutation); graceful when the tier is down. A richer profile/dtype-aware
-      warm is a later follow-up.
+      mutation); graceful when the tier is down. Profile/dtype aware: reports the
+      loaded precision + active runtime mode and flags a drift when the tier
+      serves a different model than model-state records loaded.
     options: [logic, oracle]
     options_cli: "sovereign-osctl inference health"
     state_cli: "sovereign-osctl inference health"
