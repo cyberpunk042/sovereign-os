@@ -345,6 +345,81 @@ CHANNEL_DELIVERERS = {
 }
 
 
+# ------------------------------------------------- notifykit bridge (2026-07-19)
+#
+# The shared notification library (tools/notifykit — the 2026-07-19
+# standing directive's "new shared library" decision) becomes reachable
+# from the R228 health fan-out ADDITIVELY: the three legacy channels
+# above stay byte-identical (their contract is pinned by
+# tests/nspawn/test_notify_dispatch.sh); when a notifykit config exists
+# ($SOVEREIGN_OS_NOTIFYKIT_CONFIG, default /etc/sovereign-os/
+# notifykit.toml), every derived event ALSO dispatches through the
+# library's gated channels — which is how health transitions reach
+# Resend email + Twilio SMS under the operator's verbatim gates (SMS
+# needs priority>=high AND urgency>=high; no-SMS Resend starts at
+# high/urgent), the global override + static pins, and the
+# `r228-health` trigger's frontmatter props.
+#
+# Severity -> the two axes (mirrors the legacy ntfy mapping 4/5):
+#   attention -> priority high, urgency high
+#   down      -> priority max,  urgency urgent
+SEVERITY_AXES = {
+    "attention": ("high", "high"),
+    "down": ("max", "urgent"),
+}
+
+
+def notifykit_config_path() -> Path:
+    return Path(os.environ.get(
+        "SOVEREIGN_OS_NOTIFYKIT_CONFIG", "/etc/sovereign-os/notifykit.toml"))
+
+
+def deliver_notifykit_bridge(
+    events: list[dict[str, Any]], dry_run: bool
+) -> tuple[bool, str] | None:
+    """Dispatch events through the notifykit registry. Returns None when
+    the bridge is inactive (no config file) — the legacy contract then
+    holds exactly. Never raises: the health dispatch must not die on a
+    notification-library problem."""
+    cfg_path = notifykit_config_path()
+    if not cfg_path.is_file():
+        return None
+    try:
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(REPO_ROOT))
+        from tools.notifykit import ChannelRegistry, Event, NotifyConfig
+        registry = ChannelRegistry(NotifyConfig.load(cfg_path))
+        if dry_run:
+            enabled = [n for n, c in registry.config.channels.items()
+                       if c.enabled]
+            return (True, f"would dispatch {len(events)} event(s) through "
+                          f"notifykit channels {enabled or '(none enabled)'}")
+        sent = gated = failed = 0
+        for ev in events:
+            prio, urg = SEVERITY_AXES.get(
+                str(ev.get("severity")), ("normal", "normal"))
+            receipts = registry.dispatch(Event(
+                title=f"sovereign-os {ev.get('probe')} {ev.get('severity')}",
+                message=(f"{ev.get('detail') or ''} "
+                         f"(transition={ev.get('transition')})").strip(),
+                priority=prio, urgency=urg,
+                tags=["warning", "sovereign-os"],
+                source="r228-health",
+            ))
+            for r in receipts:
+                if r.skipped:
+                    gated += 1
+                elif r.ok:
+                    sent += 1
+                else:
+                    failed += 1
+        msg = (f"notifykit: {sent} delivered, {gated} gated/disabled, "
+               f"{failed} failed ({cfg_path})")
+        return (failed == 0, msg)
+    except Exception as e:
+        return (False, f"notifykit bridge error: {e}")
+
+
 def enabled_channels(config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """Return [(name, channel_cfg)] for channels with enabled=true."""
     out: list[tuple[str, dict[str, Any]]] = []
@@ -387,6 +462,16 @@ def cmd_dispatch(args: argparse.Namespace) -> int:
             deliveries.append({"channel": name, "ok": ok, "detail": detail})
             if not ok:
                 any_failed = True
+        # 2026-07-19 additive bridge: events ALSO flow through the shared
+        # notifykit stack when its config exists (None = inactive; the
+        # legacy contract — incl. deliveries==[] with 0 events — holds).
+        bridge = deliver_notifykit_bridge(events, dry_run=bool(dry))
+        if bridge is not None:
+            b_ok, b_detail = bridge
+            deliveries.append(
+                {"channel": "notifykit-bridge", "ok": b_ok, "detail": b_detail})
+            if not b_ok:
+                any_failed = True
 
     # Always update state (even on dry-run? No — only on real runs).
     if not dry and events:
@@ -413,7 +498,7 @@ def cmd_dispatch(args: argparse.Namespace) -> int:
 
 
 def print_dispatch_human(r: dict[str, Any]) -> None:
-    print(f"── R228 / SDD-026 Z-6 notify dispatch ──")
+    print("── R228 / SDD-026 Z-6 notify dispatch ──")
     print(f"  config:    {r.get('config_source')}")
     print(f"  state:     {r.get('state_path')}")
     print(f"  dry-run:   {r.get('dry_run')}")
@@ -435,6 +520,24 @@ def print_dispatch_human(r: dict[str, Any]) -> None:
 
 
 def cmd_test(args: argparse.Namespace) -> int:
+    # 2026-07-19: `test --channel notifykit` exercises the ADDITIVE bridge
+    # (synthetic event through the shared library's gated channels).
+    if args.channel == "notifykit":
+        synth = [{
+            "probe": "synthetic", "severity": args.severity,
+            "detail": "test event from `sovereign-osctl notify test`",
+            "transition": "test",
+        }]
+        dry = bool(args.dry_run) or os.environ.get("SOVEREIGN_OS_DRY_RUN")
+        bridge = deliver_notifykit_bridge(synth, dry_run=bool(dry))
+        if bridge is None:
+            print(f"channel=notifykit ok=False detail=bridge inactive — "
+                  f"no config at {notifykit_config_path()}")
+            return 2
+        b_ok, b_detail = bridge
+        print(f"channel=notifykit ok={b_ok} detail={b_detail}")
+        return 0 if b_ok else 1
+
     cfg_path = resolve_config_path(args.config)
     config = load_config(cfg_path)
     ch_cfg = (config.get("channels") or {}).get(args.channel)
@@ -449,7 +552,8 @@ def cmd_test(args: argparse.Namespace) -> int:
     if fn is None:
         print(
             f"ERROR no deliverer for channel '{args.channel}' "
-            f"(known: {sorted(CHANNEL_DELIVERERS.keys())})",
+            f"(known: {sorted(CHANNEL_DELIVERERS.keys())} + 'notifykit' "
+            f"via `test --channel notifykit`)",
             file=sys.stderr,
         )
         return 2
@@ -490,11 +594,18 @@ def cmd_list_channels(args: argparse.Namespace) -> int:
             channels.append(
                 {"name": builtin, "enabled": False, "has_deliverer": True}
             )
+    nk_path = notifykit_config_path()
     out = {
         "round": "R228",
         "vector": "SDD-026 Z-6",
         "config_source": config.get("_source"),
         "channels": sorted(channels, key=lambda c: c["name"]),
+        # 2026-07-19 additive bridge status — a SEPARATE key so the
+        # legacy `channels` contract stays byte-stable.
+        "notifykit_bridge": {
+            "active": nk_path.is_file(),
+            "config": str(nk_path),
+        },
     }
     if args.json:
         print(json.dumps(out, indent=2))
@@ -504,6 +615,9 @@ def cmd_list_channels(args: argparse.Namespace) -> int:
             mark = "[on] " if c["enabled"] else "[off]"
             shipped = "shipped" if c["has_deliverer"] else "(no deliverer)"
             print(f"  {mark} {c['name']:10s} {shipped}")
+        b = out["notifykit_bridge"]
+        print(f"  [{'on' if b['active'] else 'off'}]  notifykit-bridge "
+              f"(shared library — resend/twilio/gates; config {b['config']})")
     return 0
 
 
@@ -519,7 +633,7 @@ def cmd_state(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(out, indent=2))
     else:
-        print(f"── R228 notify dedup state ──")
+        print("── R228 notify dedup state ──")
         print(f"  path:   {state_path}")
         print(f"  exists: {state_path.exists()}")
         for pid, info in (state.get("probes") or {}).items():
@@ -614,7 +728,11 @@ def build_parser() -> argparse.ArgumentParser:
     pd.set_defaults(func=cmd_dispatch)
 
     pt = sub.add_parser("test", help="send a synthetic event through one channel")
-    pt.add_argument("--channel", required=True, choices=sorted(CHANNEL_DELIVERERS))
+    pt.add_argument(
+        "--channel",
+        required=True,
+        choices=sorted(CHANNEL_DELIVERERS) + ["notifykit"],
+    )
     pt.add_argument(
         "--severity",
         default="attention",
