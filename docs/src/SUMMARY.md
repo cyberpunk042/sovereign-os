@@ -52,6 +52,7 @@
 - [Pre-install](./lifecycle/pre-install.md)
 - [During-install](./lifecycle/during-install.md)
 - [Post-install (first boot + assistant)](./lifecycle/post-install.md)
+- [First-run pending tasks (operator checklist)](./lifecycle/first-run-pending.md)
 - [Ongoing management](./lifecycle/ongoing.md)
 
 # Operator handbook (Stage 2+, post-Gate-5)
