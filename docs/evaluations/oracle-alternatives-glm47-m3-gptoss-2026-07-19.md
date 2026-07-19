@@ -97,7 +97,18 @@ prompts against a live OpenAI-compatible endpoint, measures TTFT + decode
 tok/s, records to the R232 JSONL state the dashboard reads):
 
 ```sh
-# 1. serve the candidate (per its engine — vLLM or llama.cpp --n-cpu-moe)
+# 0. weights resident (candidate entries need the explicit bypass):
+scripts/models/pull.sh GLM-4.7 --allow-candidate
+
+# 1. serve the candidate:
+#    - hybrid envelope (GLM-4.7 / MiniMax-M3) — one command:
+HYBRID_MODEL=/mnt/vault/models/GLM-4.7 scripts/inference/start-oracle-hybrid.sh
+#      (llama.cpp --n-cpu-moe: experts in DDR5, dense on the Blackwell
+#       pair split 3,1; bench endpoint 127.0.0.1:8086 — NOT a router
+#       tier; HYBRID_N_CPU_MOE tunes experts down onto spare VRAM)
+#    - VRAM envelope (gpt-oss-120b / GLM-4.7-Flash) — vLLM per
+#      start-oracle-core.sh / start-logic-engine.sh conventions.
+
 # 2. bench it (endpoint defaults to the router at 127.0.0.1:8080/v1):
 sovereign-osctl models eval run gpt-oss-120b --benchmark throughput \
     --endpoint http://127.0.0.1:8083/v1 --min-tok-s 30

@@ -33,11 +33,21 @@ class LlamaCppBackend(Backend):
         lora_scale: float | None = None,
         mmproj_path: str | None = None,
         draft_model_path: str | None = None,
+        n_cpu_moe: int | None = None,
     ):
         super().__init__(config)
         self.n_gpu_layers = n_gpu_layers
         self.ctx_size = ctx_size
         self.tier = tier
+        # 2026-07-19 oracle-alternatives evaluation: RAM+VRAM hybrid for
+        # big-MoE candidates (GLM-4.7 358B-A32B, MiniMax-M3 427B-A23B).
+        # llama.cpp `--n-cpu-moe N` keeps the routed-expert weights of the
+        # first N layers on CPU (RAM) while `-ngl 999` keeps dense layers +
+        # KV on GPU — the no-disk-streaming envelope that fits <= ~350 GB
+        # GGUF into 256 GB DDR5 + the Blackwell pair. N=999 => all experts
+        # CPU-resident (safe start); operator tunes DOWN to pull hot
+        # expert layers onto spare VRAM.
+        self.n_cpu_moe = n_cpu_moe
         # Comma-separated per-GPU layer ratio for multi-GPU splits, e.g. "11,8"
         # for the dual-Turing workstation (RTX 2080 Ti 11 GB + RTX 2080 8 GB).
         # llama.cpp handles UNEVEN VRAM by ratio — the key reason it, not vLLM
@@ -78,6 +88,9 @@ class LlamaCppBackend(Backend):
 
         if self.tensor_split:
             argv += ["--tensor-split", self.tensor_split]
+
+        if self.n_cpu_moe is not None:
+            argv += ["--n-cpu-moe", str(self.n_cpu_moe)]
 
         if self.lora_path:
             if self.lora_scale is not None:
@@ -142,6 +155,44 @@ class LlamaCppBackend(Backend):
             lora_scale=lora_scale,
             mmproj_path=mmproj_path,
             draft_model_path=draft_model_path,
+        )
+
+    @classmethod
+    def for_sain01_hybrid(
+        cls,
+        model_path: str,
+        *,
+        port: int = 8086,
+        n_cpu_moe: int = 999,
+        ctx_size: int = 16384,
+        tensor_split: str | None = "3,1",
+    ) -> "LlamaCppBackend":
+        """SAIN-01 RAM+VRAM hybrid oracle (2026-07-19 oracle-alternatives
+        evaluation): serve a big-MoE GGUF candidate (GLM-4.7 358B-A32B Q4
+        ~180-200 GB, MiniMax-M3 427B-A23B IQ3 ~159 GB) that cannot fit any
+        card. Dense layers + KV live on the internal Blackwell pair (CUDA
+        0,1 = RTX PRO 6000 96 GB + RTX 5090 32 GB, tensor-split 3,1 by
+        VRAM ratio); routed experts stay in 256 GB DDR5 via --n-cpu-moe
+        (default 999 = all expert layers on CPU — operator tunes DOWN to
+        promote hot expert layers onto spare VRAM). The RTX 4090 OcuLink
+        eGPU (PCIe 4.0 x4) is deliberately excluded from the split — its
+        link starves tensor-split; it stays the DSpark draft card. Port
+        8086: NOT a router tier — a bench/trial endpoint the throughput
+        gate (eval.py) drives directly; promotion to a routed tier is an
+        operator decision after the bench."""
+        cfg = BackendConfig(
+            model_path=model_path,
+            host="127.0.0.1",
+            port=port,
+            cuda_visible_devices="0,1",
+        )
+        return cls(
+            cfg,
+            n_gpu_layers=999,
+            ctx_size=ctx_size,
+            tier="oracle_hybrid",
+            tensor_split=tensor_split,
+            n_cpu_moe=n_cpu_moe,
         )
 
     @classmethod

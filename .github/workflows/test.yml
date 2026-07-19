@@ -273,6 +273,9 @@ jobs:
       - name: "nspawn — inference start scripts (Round 34: argv shape + Layer B metrics + idempotency)"
         run: |
           tests/nspawn/test_inference_start_scripts.sh
+      - name: "nspawn — oracle hybrid start (2026-07-19 oracle-alternatives: --n-cpu-moe RAM+VRAM hybrid, bench endpoint :8086)"
+        run: |
+          tests/nspawn/test_oracle_hybrid_start.sh
       - name: "nspawn — new recurrent hooks (Round 35: security-update-check + backup-snapshot)"
         run: |
           tests/nspawn/test_recurrent_new_hooks.sh
