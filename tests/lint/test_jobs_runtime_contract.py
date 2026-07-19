@@ -191,6 +191,12 @@ def test_jobs_store_is_a_registered_signed_control():
     assert '"store"' in cli, "osctl jobs must expose the `store` verb"
     sudoers = (REPO / "config/sudoers.d/sovereign-os-cockpit").read_text(encoding="utf-8")
     assert "sovereign-osctl jobs store *" in sudoers, "the store verb must be sudo-allowlisted"
+    # …and it must actually RENDER: the Code Console mounts the shared
+    # control-surface with ITS OWN slug, so an applies_to:[code-console] control
+    # shows there (guards the copy-paste filterSlug bug that hid it before).
+    cc = (REPO / "webapp/code-console/index.html").read_text(encoding="utf-8")
+    assert "filterSlug:'code-console'" in cc, \
+        "code-console must mount the control-surface with its own slug so jobs-store renders"
 
 
 def test_jobs_api_uses_the_store_toggle_and_migrate_cli():
