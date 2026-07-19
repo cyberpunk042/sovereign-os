@@ -104,6 +104,31 @@ Emit shell completion generated from the same command-topic registry
 used by \f[B]commands\f[R] and contextual \f[B]help\f[R].
 The installed completion files are generated from this interface during
 \f[V]make install\f[R].
+.SS notifykit
+.TP
+\f[B]sovereign-osctl notifykit show [\[en]json]\f[R]
+Effective notification settings (base TOML + JSON overlay): channels,
+priority×urgency gates, static pins, global override, trigger
+frontmatter props.
+2026-07-19 operator directive; UI home is the shared header-settings
+overlay panel.
+.TP
+\f[B]sovereign-osctl notifykit set   \f[R]
+Set a channel key (enabled | min_priority | min_urgency |
+min_priority_static | min_urgency_static \[em] the *_static variants pin
+the value so a global override leaves it as is).
+Writes the JSON overlay; the base notifykit.toml is never rewritten.
+.TP
+\f[B]sovereign-osctl notifykit global-override  \f[R]
+Global default override across every channel gate (clear all to drop).
+Only static-pinned keys remain as is.
+.TP
+\f[B]sovereign-osctl notifykit trigger   \f[R]
+Markdown-frontmatter-style trigger properties & metadata (important true
+→ priority high; unknown props ride along as Event.props).
+.TP
+\f[B]sovereign-osctl notifykit test [\[en]priority P] [\[en]urgency U] [\[en]source S]\f[R]
+Dispatch a synthetic event through the configured channels.
 .SS maintenance
 .TP
 \f[B]sovereign-osctl maintenance list\f[R]

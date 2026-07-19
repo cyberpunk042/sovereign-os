@@ -40,6 +40,8 @@ EXPECTED_IDS = {
     "claude-code-backend", "vscode-backend",
     "avx-mode",
     "jobs-store",
+    # 2026-07-19 — notification settings (shared header-settings overlay)
+    "notify-channel", "notify-override", "notify-trigger",
 }
 VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}

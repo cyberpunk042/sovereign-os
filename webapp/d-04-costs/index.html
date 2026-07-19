@@ -551,6 +551,20 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
   #so-prov-modal .so-prov-lbl{flex:1; min-width:0;} #so-prov-modal .so-prov-lbl b{display:block;}
   #so-prov-modal .so-prov-lbl small{color:var(--muted,#8a8a8a); font-size:.72rem;}
   #so-prov-modal .so-prov-foot{color:var(--muted,#8a8a8a); font-size:.72rem; padding:.5rem .9rem 0;}
+  /* Notification-settings shared overlay (2026-07-19) — same chrome as the
+     provider modal; wider card (channel rows carry 3 selects + a pin). */
+  #so-notif-modal{position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+  #so-notif-modal[hidden]{display:none;}
+  #so-notif-modal .so-prov-card{width:660px; max-width:94vw; max-height:86vh; overflow:auto; background:var(--card,#151515);
+    color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:11px; box-shadow:0 18px 50px rgba(0,0,0,.55); padding:.2rem 0 .5rem;}
+  #so-notif-modal .so-prov-h{display:flex; align-items:center; justify-content:space-between; font-weight:600; padding:.6rem .9rem; border-bottom:1px solid var(--border,#262626);}
+  #so-notif-modal .so-prov-row{display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid color-mix(in srgb,var(--border,#262626) 55%,transparent);}
+  #so-notif-modal .so-prov-row:last-child{border-bottom:0;}
+  #so-notif-modal .so-prov-lbl{flex:1; min-width:0;} #so-notif-modal .so-prov-lbl b{display:block;}
+  #so-notif-modal .so-prov-lbl small{color:var(--muted,#8a8a8a); font-size:.72rem;}
+  #so-notif-modal .so-prov-foot{color:var(--muted,#8a8a8a); font-size:.72rem; padding:.5rem .9rem 0;}
+  #so-notif-modal .so-set-ctl{display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; max-width:300px; justify-content:flex-end;}
+  #so-notif-modal input.so-set-mini{width:130px;}
   .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
   .so-brand .mark{color:var(--accent,#9bd1ff);}
   .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
@@ -888,6 +902,9 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
           '<button class="so-set-mini so-apply" id="so-avx-apply" type="button" title="Apply the AVX mode">Apply</button></div>'+
           '<div class="so-set-sub" id="so-avx-backing" style="margin-top:.35rem;line-height:1.5;"></div>'+
           '<div class="so-exec-result" id="so-avx-result"></div></div>'+
+        '<div class="so-set-row"><div class="so-set-lbl"><b>Notifications</b>'+
+          '<span class="so-set-sub">The whole settings range — channels (ntfy · Resend email · Twilio SMS · file), priority×urgency gates, static pins, global default override, trigger frontmatter props (important:true …).</span></div>'+
+          '<div class="so-set-ctl"><button class="so-set-mini" id="so-notif-open" type="button" title="Configure notifications">Configure…</button></div></div>'+
         '<div class="so-set-row" id="so-course-set-row" hidden><div class="so-set-lbl"><b>Guided course</b>'+
           '<span class="so-set-sub">The bottom journey-rail that tours the box. Toggle it here (updates live); Reset starts the tour over.</span></div>'+
           '<div class="so-set-ctl"><button class="so-set-mini" id="so-course-reset" type="button">Reset</button>'+
@@ -912,17 +929,27 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
     function soExecMsg(el,cls,msg){ if(el){ el.className='so-exec-result so-exec-'+cls; el.textContent=msg; } }
     function soExec(controlId, args, resultEl){
       soExecMsg(resultEl,'muted','executing…');
+      // The exec API takes args as an OBJECT keyed by placeholder name
+      // ({verb} enums → verb/verb1…, <name> free → name). Legacy array
+      // callers map positionally onto the enum keys (all pre-2026-07-19
+      // rows are single-enum CLIs) — normalized here so both shapes work.
+      var argsObj = args;
+      if(Array.isArray(args)){
+        argsObj = {};
+        for(var ai=0; ai<args.length; ai++) argsObj[ai===0?'verb':('verb'+ai)] = args[ai];
+      }
+      var argsList = Array.isArray(args) ? args : Object.keys(args).map(function(k){return args[k];});
       function post(confirmed){
         return fetch('/api/control/execute',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
-          body:JSON.stringify({control_id:controlId,args:args,confirm:!!confirmed})})
+          body:JSON.stringify({control_id:controlId,args:argsObj,confirm:!!confirmed})})
           .then(function(r){ return r.json().then(function(j){return{status:r.status,body:j||{}};},function(){return{status:r.status,body:{}};}); },
                 function(){ return {status:0,body:{}}; });
       }
       function render(res,confirmed){
         var b=res.body||{};
         if(res.status===200){
-          if(b.dry_run) soExecMsg(resultEl,'dry','dry-run ✓ would run: '+((b.would_run||[]).join(' ')||(controlId+' '+args.join(' '))));
-          else soExecMsg(resultEl,'ok','applied ✓ '+controlId+' → '+args.join(' ')+(b.exit_code!=null?(' (exit '+b.exit_code+')'):''));
+          if(b.dry_run) soExecMsg(resultEl,'dry','dry-run ✓ would run: '+((b.would_run||[]).join(' ')||(controlId+' '+argsList.join(' '))));
+          else soExecMsg(resultEl,'ok','applied ✓ '+controlId+' → '+argsList.join(' ')+(b.exit_code!=null?(' (exit '+b.exit_code+')'):''));
         } else if(res.status===403 && !confirmed){
           soExecMsg(resultEl,'warn','privileged — Confirm to apply: ');
           var btn=document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply'; btn.textContent='Confirm';
@@ -989,6 +1016,94 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
         soExec(rt+'-backend',[origin], res); });
     });
     document.addEventListener('keydown',function(e){ if(provModal && !provModal.hidden && e.key==='Escape') provSet(false); });
+    // ── Notification-settings SHARED OVERLAY (2026-07-19 operator directive:
+    //    "a shared overlay panel for the configuration of the notifications,
+    //    from the settings pane on the top-right in the header. The whole
+    //    settings range, I can also chose for the trigger to be important:true
+    //    and such markdown properties & metadata as much has in the header.").
+    //    Reuses the provider-modal chrome; every Apply runs `sovereign-osctl
+    //    notifykit …` through the control-exec-api (dry-run until live;
+    //    privileged → Confirm). Writes land in the JSON overlay — the
+    //    operator's base notifykit.toml is never rewritten (SDD-030). ──
+    var SO_NOTIF_CHANNELS=[
+      {ch:'ntfy',   label:'ntfy push',   sub:'phone push · Priority 1-5 from the priority axis'},
+      {ch:'resend', label:'Resend email',sub:'no-SMS starting point: priority≥high AND urgency≥urgent'},
+      {ch:'twilio', label:'Twilio SMS',  sub:'default gate: priority≥high AND urgency≥high (configurable)'},
+      {ch:'file',   label:'file (JSONL)',sub:'local audit trail'}
+    ];
+    var LVL_P=['min','low','normal','high','max'], LVL_U=['min','low','normal','high','urgent'];
+    function lvlOpts(levels){ return levels.map(function(l){return '<option value="'+l+'">'+l+'</option>';}).join(''); }
+    var notifRows=SO_NOTIF_CHANNELS.map(function(c){
+      return '<div class="so-prov-row"><div class="so-prov-lbl"><b>'+c.label+'</b><small>'+c.sub+'</small>'+
+          '<div class="so-exec-result" data-notifresult="'+c.ch+'"></div></div>'+
+        '<div class="so-set-ctl">'+
+          '<select class="so-set-mini" data-nen="'+c.ch+'" aria-label="'+c.label+' enabled"><option value="">enabled…</option><option value="on">on</option><option value="off">off</option></select>'+
+          '<select class="so-set-mini" data-nprio="'+c.ch+'" aria-label="'+c.label+' min priority"><option value="">min_priority…</option>'+lvlOpts(LVL_P)+'</select>'+
+          '<select class="so-set-mini" data-nurg="'+c.ch+'" aria-label="'+c.label+' min urgency"><option value="">min_urgency…</option>'+lvlOpts(LVL_U)+'</select>'+
+          '<label class="so-set-sub" style="display:flex;align-items:center;gap:.25rem;"><input type="checkbox" data-nstatic="'+c.ch+'" aria-label="pin static"> static</label>'+
+          '<button class="so-set-mini so-apply so-notif-apply" data-notif="'+c.ch+'" type="button">Apply</button></div></div>';
+    }).join('');
+    document.body.appendChild(el(
+      '<div id="so-notif-modal" role="dialog" aria-modal="true" aria-label="Notification settings" hidden>'+
+        '<div class="so-prov-card">'+
+          '<div class="so-prov-h"><span>🔔 Notifications — the whole settings range</span>'+
+            '<button class="so-set-mini" id="so-notif-close" type="button">Close ✕</button></div>'+
+          notifRows+
+          '<div class="so-prov-row"><div class="so-prov-lbl"><b>Global default override</b>'+
+            '<small>sweeps every channel gate — only keys pinned static remain as is</small>'+
+            '<div class="so-exec-result" data-notifresult="override"></div></div>'+
+            '<div class="so-set-ctl">'+
+            '<select class="so-set-mini" id="so-notif-ov-key" aria-label="override key"><option value="min_priority">min_priority</option><option value="min_urgency">min_urgency</option><option value="clear">clear</option></select>'+
+            '<select class="so-set-mini" id="so-notif-ov-val" aria-label="override value">'+lvlOpts(['min','low','normal','high','max','urgent'])+'<option value="all">all (clear)</option></select>'+
+            '<button class="so-set-mini so-apply" id="so-notif-ov-apply" type="button">Apply</button></div></div>'+
+          '<div class="so-prov-row"><div class="so-prov-lbl"><b>Trigger properties</b>'+
+            '<small>markdown-frontmatter-style props &amp; metadata on a trigger — e.g. important:true (maps to priority high); unknown props ride along as metadata</small>'+
+            '<div class="so-exec-result" data-notifresult="trigger"></div></div>'+
+            '<div class="so-set-ctl">'+
+            '<input class="so-set-mini" id="so-notif-tr-name" aria-label="trigger name" placeholder="trigger (e.g. wikiops)" pattern="[A-Za-z0-9][A-Za-z0-9._:@=-]*">'+
+            '<input class="so-set-mini" id="so-notif-tr-prop" aria-label="property" placeholder="prop (e.g. important)" pattern="[A-Za-z0-9][A-Za-z0-9._:@=-]*">'+
+            '<input class="so-set-mini" id="so-notif-tr-val" aria-label="value" placeholder="value (e.g. true)" pattern="[A-Za-z0-9][A-Za-z0-9._:@=-]*">'+
+            '<button class="so-set-mini so-apply" id="so-notif-tr-apply" type="button">Apply</button></div></div>'+
+          '<div class="so-prov-foot">Apply runs <code>sovereign-osctl notifykit …</code> through the control-exec-api (dry-run until the box is live; privileged → Confirm). Writes go to the JSON overlay — the base <code>notifykit.toml</code> is never rewritten. Verbatim defaults: SMS needs high priority + high urgency; with no SMS at all, Resend starts at urgent + high priority.</div>'+
+        '</div></div>'));
+    var notifModal=document.getElementById('so-notif-modal'), notifOpen=document.getElementById('so-notif-open'), notifClose=document.getElementById('so-notif-close');
+    function notifSet(open){ notifModal.hidden=!open; }
+    if(notifOpen) notifOpen.addEventListener('click',function(){ setPaneOpen(false); notifSet(true); });
+    if(notifClose) notifClose.addEventListener('click',function(){ notifSet(false); });
+    notifModal.addEventListener('click',function(e){ if(e.target===notifModal) notifSet(false); });
+    document.addEventListener('keydown',function(e){ if(notifModal && !notifModal.hidden && e.key==='Escape') notifSet(false); });
+    Array.prototype.forEach.call(notifModal.querySelectorAll('.so-notif-apply'),function(btn){
+      btn.addEventListener('click',function(){ var ch=btn.getAttribute('data-notif');
+        var en=notifModal.querySelector('select[data-nen="'+ch+'"]').value;
+        var pr=notifModal.querySelector('select[data-nprio="'+ch+'"]').value;
+        var ur=notifModal.querySelector('select[data-nurg="'+ch+'"]').value;
+        var st=notifModal.querySelector('input[data-nstatic="'+ch+'"]').checked;
+        var res=notifModal.querySelector('[data-notifresult="'+ch+'"]');
+        var calls=[];
+        if(en) calls.push({verb:'enabled', value:en});
+        if(pr) calls.push({verb: st?'min_priority_static':'min_priority', value:pr});
+        if(ur) calls.push({verb: st?'min_urgency_static':'min_urgency', value:ur});
+        if(!calls.length){ soExecMsg(res,'warn','pick at least one field'); return; }
+        (function next(i){ if(i>=calls.length) return;
+          soExec('notify-channel',{channel:ch, verb:calls[i].verb, value:calls[i].value}, res);
+          setTimeout(function(){ next(i+1); }, 350);
+        })(0);
+      });
+    });
+    var ovApply=document.getElementById('so-notif-ov-apply');
+    if(ovApply) ovApply.addEventListener('click',function(){
+      var key=document.getElementById('so-notif-ov-key').value, val=document.getElementById('so-notif-ov-val').value;
+      soExec('notify-override',{verb:key, value:(key==='clear'?'all':val)}, notifModal.querySelector('[data-notifresult="override"]'));
+    });
+    var trApply=document.getElementById('so-notif-tr-apply');
+    if(trApply) trApply.addEventListener('click',function(){
+      var name=document.getElementById('so-notif-tr-name').value.trim(),
+          prop=document.getElementById('so-notif-tr-prop').value.trim(),
+          val=document.getElementById('so-notif-tr-val').value.trim(),
+          res=notifModal.querySelector('[data-notifresult="trigger"]');
+      if(!name||!prop||!val){ soExecMsg(res,'warn','trigger, prop and value are all required'); return; }
+      soExec('notify-trigger',{name:name, prop:prop, value:val}, res);
+    });
     function setPaneOpen(open){ setPane.hidden=!open; setBtn.setAttribute('aria-expanded',open?'true':'false'); if(open){ syncDemoSwitch(); syncCourseSwitch(); } }
     setBtn.addEventListener('click',function(e){ e.stopPropagation(); setPaneOpen(setPane.hidden); });
     demoSw.addEventListener('click',function(){ demoSet(!demoOn()); });

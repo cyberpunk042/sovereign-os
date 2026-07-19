@@ -22,6 +22,9 @@ class ChannelRegistry:
         }
 
     def dispatch(self, event: Event) -> list[Receipt]:
+        # Rule 4: a trigger's markdown-frontmatter props (important:true,
+        # …) apply by Event.source before gating.
+        event = self.config.apply_trigger(event)
         receipts: list[Receipt] = []
         for name, channel in self.channels.items():
             cfg = self.config.channels[name]

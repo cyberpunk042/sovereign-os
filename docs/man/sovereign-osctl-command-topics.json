@@ -163,7 +163,8 @@
       "ms022-doctor",
       "m060-doctor",
       "commands",
-      "completion"
+      "completion",
+      "notifykit"
     ],
     "governance": [
       "operator-rules",

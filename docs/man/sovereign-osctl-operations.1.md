@@ -84,6 +84,32 @@ operator use.
     by **commands** and contextual **help**. The installed completion files are
     generated from this interface during `make install`.
 
+## notifykit
+
+**sovereign-osctl notifykit show [--json]**
+:   Effective notification settings (base TOML + JSON overlay):
+    channels, priority×urgency gates, static pins, global override,
+    trigger frontmatter props. 2026-07-19 operator directive; UI home
+    is the shared header-settings overlay panel.
+
+**sovereign-osctl notifykit set <channel> <key> <value>**
+:   Set a channel key (enabled | min_priority | min_urgency |
+    min_priority_static | min_urgency_static — the *_static variants
+    pin the value so a global override leaves it as is). Writes the
+    JSON overlay; the base notifykit.toml is never rewritten.
+
+**sovereign-osctl notifykit global-override <key> <value>**
+:   Global default override across every channel gate (clear all to
+    drop). Only static-pinned keys remain as is.
+
+**sovereign-osctl notifykit trigger <name> <prop> <value>**
+:   Markdown-frontmatter-style trigger properties & metadata
+    (important true → priority high; unknown props ride along as
+    Event.props).
+
+**sovereign-osctl notifykit test [--priority P] [--urgency U] [--source S]**
+:   Dispatch a synthetic event through the configured channels.
+
 ## maintenance
 
 **sovereign-osctl maintenance list**
