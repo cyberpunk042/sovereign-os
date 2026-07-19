@@ -300,3 +300,149 @@ def test_exec_registry_resolves_the_overlay_calls():
         argv, err = m.resolve_argv(reg[cid], args)
         assert argv, f"{cid}: {err}"
         assert " ".join(argv) == expect
+
+
+# ── 2026-07-19 methodology-respect pass ("do we have the right setup for
+#    the AI supertool to respect the methodology ?" → "lets address those") ──
+
+
+def _write_engine(tmp_path: Path) -> None:
+    eng = tmp_path / "hub" / "wiki" / "config"
+    eng.mkdir(parents=True, exist_ok=True)
+    (eng / "methodology.yaml").write_text(
+        "stages:\n"
+        "  document:\n"
+        "    allowed_outputs: [wiki-page]\n"
+        "    forbidden_outputs: [code-file]\n"
+        "  scaffold:\n"
+        "    allowed_outputs: [type-definition, config-file]\n"
+        "    forbidden_outputs: [implementation, wiki-page]\n"
+    )
+
+
+def test_stage_allowed_proceeds_to_dry_run(tmp_path):
+    reg = _write_registry(tmp_path)
+    _write_engine(tmp_path)
+    r = _wikiops("run", "--op", "scaffold", "--stage", "document",
+                 "concept", "A Page", registry=reg)
+    assert r.returncode == 0, r.stderr
+    assert "DRY-RUN" in r.stdout
+    assert "allowed in stage document" in r.stdout
+
+
+def test_stage_forbidden_refuses_with_remediation(tmp_path):
+    reg = _write_registry(tmp_path)
+    _write_engine(tmp_path)
+    r = _wikiops("run", "--op", "scaffold", "--stage", "scaffold",
+                 "concept", "A Page", registry=reg)
+    assert r.returncode == 2
+    assert "FORBIDDEN" in r.stderr and "REMEDIATION" in r.stderr
+
+
+def test_no_stage_prints_unchecked_advisory(tmp_path):
+    reg = _write_registry(tmp_path)
+    r = _wikiops("run", "--op", "scaffold", "concept", "A Page", registry=reg)
+    assert r.returncode == 0
+    assert "stage UNCHECKED" in r.stdout
+
+
+def test_stage_neutral_op_passes_any_stage(tmp_path):
+    reg = _write_registry(tmp_path)
+    _write_engine(tmp_path)
+    r = _wikiops("run", "--op", "post", "--stage", "scaffold", registry=reg)
+    assert r.returncode == 0
+    assert "stage-neutral" in r.stdout
+
+
+def test_missing_engine_warns_but_proceeds(tmp_path):
+    reg = _write_registry(tmp_path)  # no engine written
+    r = _wikiops("run", "--op", "scaffold", "--stage", "document",
+                 "concept", "X", registry=reg)
+    assert r.returncode == 0
+    assert "engine not found" in r.stdout
+
+
+def _write_gated_registry(tmp_path: Path, policy: str) -> Path:
+    reg = tmp_path / "wikis.toml"
+    reg.write_text(
+        'default = "hub"\n'
+        '[wikis.hub]\nkind = "info-hub"\n'
+        f'root = "{tmp_path}/hub"\npython = ".venv/bin/python"\n'
+        f'gate_policy = "{policy}"\n'
+    )
+    return reg
+
+
+def test_pending_gate_blocks_apply_under_block_policy(tmp_path, monkeypatch):
+    reg = _write_gated_registry(tmp_path, "block")
+    approvals = tmp_path / "approvals.json"
+    approvals.write_text(json.dumps({"gates": {"SG2": "pending",
+                                               "SG1": "signed"}}))
+    env = dict(**__import__("os").environ,
+               SOVEREIGN_OS_APPROVALS=str(approvals))
+    r = subprocess.run(
+        [sys.executable, str(WIKIOPS), "--registry", str(reg),
+         "run", "--op", "archive", "X", "--apply"],
+        capture_output=True, text=True, env=env)
+    assert r.returncode == 2
+    assert "SG2 PENDING" in r.stderr and "E0634" in r.stderr
+
+
+def test_pending_gate_warns_under_default_policy(tmp_path):
+    reg = _write_registry(tmp_path)  # default gate_policy=warn; root absent
+    approvals = tmp_path / "approvals.json"
+    approvals.write_text(json.dumps({"gates": {"SG3": "pending"}}))
+    env = dict(**__import__("os").environ,
+               SOVEREIGN_OS_APPROVALS=str(approvals))
+    r = subprocess.run(
+        [sys.executable, str(WIKIOPS), "--registry", str(reg),
+         "run", "--op", "archive", "X", "--apply"],
+        capture_output=True, text=True, env=env)
+    # warns (stdout) then proceeds to the root check (absent → rc=2 there)
+    assert "SG3 PENDING" in r.stdout
+    assert "not present" in r.stderr
+
+
+def test_gate_decision_emits_stage_gate_trigger(tmp_path):
+    """approval-decide approve → notifykit event with source=stage-gate,
+    important:true trigger lifting priority to high — through the file
+    channel (credential-free)."""
+    sink = tmp_path / "sink.jsonl"
+    nkcfg = tmp_path / "notifykit.toml"
+    nkcfg.write_text(
+        "[channels.file]\nkind = \"file\"\nenabled = true\n"
+        f"path = \"{sink}\"\n"
+        "[triggers.stage-gate]\nimportant = true\n")
+    approvals = tmp_path / "approvals.json"
+    env = dict(**__import__("os").environ,
+               SOVEREIGN_OS_APPROVALS=str(approvals),
+               SOVEREIGN_OS_APPROVAL_LEDGER=str(tmp_path / "ledger.jsonl"),
+               SOVEREIGN_OS_SPAN_STORE=str(tmp_path / "spans.jsonl"),
+               SOVEREIGN_OS_NOTIFYKIT_CONFIG=str(nkcfg))
+    env.pop("SOVEREIGN_OS_DRY_RUN", None)
+    decide = REPO_ROOT / "scripts" / "lifecycle" / "approval-decide.py"
+    r1 = subprocess.run([sys.executable, str(decide), "request",
+                         "--title", "gate test"],
+                        capture_output=True, text=True, env=env)
+    assert r1.returncode == 0, r1.stderr
+    rid = json.loads(r1.stdout)["id"]
+    r2 = subprocess.run([sys.executable, str(decide), "approve", rid,
+                         "--confirm"],
+                        capture_output=True, text=True, env=env)
+    assert r2.returncode == 0, r2.stderr
+    rows = [json.loads(line) for line in sink.read_text().splitlines()]
+    assert rows, "no notifykit event reached the file channel"
+    assert rows[-1]["source"] == "stage-gate"
+    assert rows[-1]["priority"] == "high"   # important:true trigger applied
+
+
+def test_brain_files_route_the_methodology_surfaces():
+    for name in ("CLAUDE.md", "AGENTS.md"):
+        body = (REPO_ROOT / name).read_text(encoding="utf-8")
+        assert "standing-directives" in body, f"{name}: no directives route"
+    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    for marker in ("E0634", "permission-modes", "wikiops", "notifykit",
+                   "operator-env-files", "approvals gates"):
+        assert marker in agents, f"AGENTS.md missing {marker}"
+    claude = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    assert "AGENTS.md" in claude

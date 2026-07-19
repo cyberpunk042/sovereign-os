@@ -25,9 +25,14 @@ urgency) hears about applied mutations.
 
 Verbs:
   targets                       list registered wikis (default flagged)
-  run --op OP [--wiki W] [--apply] [--json] [args...]
+  run --op OP [--wiki W] [--apply] [--stage S] [--json] [args...]
                                 dispatch OP to the target wiki's own
-                                tools; DRY-RUN unless --apply
+                                tools; DRY-RUN unless --apply.
+                                --stage enforces the target wiki's
+                                methodology engine ALLOWED/FORBIDDEN
+                                (2026-07-19 methodology-respect pass);
+                                applied mutations also consult the M065
+                                SG1-SG5 gate runtime per gate_policy
   ops [--wiki W]                the op->tool map for a target's kind
 
 Ops per kind:
@@ -58,24 +63,125 @@ DEFAULT_REGISTRY = REPO_ROOT / "config" / "wikis.toml"
 
 # The info-hub op → its OWN tool invocation (module, verb...). Mutations
 # ONLY through these (operator-confirmed). {args} appends CLI args.
+# `output_class` (2026-07-19 methodology-respect pass) maps the op onto
+# the methodology engine's artifact taxonomy for the ALLOWED/FORBIDDEN
+# per-stage check; None = stage-neutral maintenance (post is MANDATORY
+# after wiki changes regardless of stage; archive/move/crossref maintain
+# existing pages rather than produce stage outputs).
 INFO_HUB_OPS: dict[str, dict[str, Any]] = {
     "scaffold":   {"module": "tools.pipeline", "verb": ["scaffold"], "mutates": True,
+                   "output_class": "wiki-page",
                    "what": "insert — scaffold a new page of a type"},
     "post":       {"module": "tools.pipeline", "verb": ["post"], "mutates": True,
+                   "output_class": None,
                    "what": "change — run the 6-step validation chain (MANDATORY after wiki changes)"},
     "crossref":   {"module": "tools.pipeline", "verb": ["crossref"], "mutates": True,
+                   "output_class": None,
                    "what": "change — discover + write cross-references"},
     "contribute": {"module": "tools.gateway", "verb": ["contribute"], "mutates": True,
+                   "output_class": "wiki-page",
                    "what": "insert — lesson/remark/correction through the contribute channel"},
     "archive":    {"module": "tools.gateway", "verb": ["archive"], "mutates": True,
+                   "output_class": None,
                    "what": "delete — archive a page (the wiki's own deletion verb)"},
     "move":       {"module": "tools.gateway", "verb": ["move"], "mutates": True,
+                   "output_class": None,
                    "what": "change — relocate a page"},
     "search":     {"module": "tools.view", "verb": ["search"], "mutates": False,
+                   "output_class": None,
                    "what": "read — search wiki content"},
     "status":     {"module": "tools.pipeline", "verb": ["status"], "mutates": False,
+                   "output_class": None,
                    "what": "read — wiki state report"},
 }
+
+METHODOLOGY_STAGES = ("document", "design", "scaffold", "implement", "test")
+
+
+def stage_check(wiki: dict[str, Any], op_spec: dict[str, Any],
+                stage: str | None) -> tuple[str, str]:
+    """Methodology-respect check (2026-07-19): consult the TARGET WIKI'S
+    methodology engine's ALLOWED/FORBIDDEN per stage. Returns
+    (verdict, message): verdict ∈ {ok, warn, refuse, unchecked}.
+
+    - no --stage        → 'unchecked' (advisory: the engine can't gate)
+    - engine missing    → 'warn' (stage named but nothing to check against)
+    - class forbidden   → 'refuse' (hard boundary — stage-gated profile)
+    - class allowed     → 'ok'
+    - class unlisted    → 'warn' (unknown to the engine; operator judges)
+    Stage-neutral ops (output_class None) are always 'ok' once a stage
+    is named — maintenance doesn't produce stage outputs."""
+    out_class = op_spec.get("output_class")
+    if stage is None:
+        if op_spec["mutates"] and out_class:
+            return ("unchecked",
+                    "methodology: stage UNCHECKED — pass --stage "
+                    f"{{{'|'.join(METHODOLOGY_STAGES)}}} to enforce the "
+                    "engine's ALLOWED/FORBIDDEN")
+        return ("ok", "")
+    if out_class is None:
+        return ("ok", f"methodology: {stage} — stage-neutral op")
+    root = Path(os.path.expanduser(str(wiki["root"])))
+    engine_rel = str(wiki.get("methodology", "wiki/config/methodology.yaml"))
+    engine_path = root / engine_rel
+    try:
+        import yaml
+    except ImportError:
+        return ("warn", "methodology: PyYAML unavailable — stage check skipped")
+    if not engine_path.is_file():
+        return ("warn",
+                f"methodology: engine not found at {engine_path} — "
+                "stage named but unenforceable")
+    try:
+        doc = yaml.safe_load(engine_path.read_text(encoding="utf-8")) or {}
+        stages = doc.get("stages") or {}
+        st = stages.get(stage) or {}
+        allowed = list(st.get("allowed_outputs") or [])
+        forbidden = list(st.get("forbidden_outputs") or [])
+    except Exception as e:
+        return ("warn", f"methodology: engine unreadable ({e}) — check skipped")
+    if out_class in forbidden:
+        return ("refuse",
+                f"methodology REFUSE: op emits {out_class!r}, FORBIDDEN in "
+                f"stage {stage!r} (engine {engine_rel}; hard boundary per the "
+                "stage-gated profile). REMEDIATION: advance/correct the task's "
+                f"stage, or pick an op allowed here (allowed: {allowed}).")
+    if out_class in allowed:
+        return ("ok", f"methodology: {out_class} allowed in stage {stage}")
+    return ("warn",
+            f"methodology: {out_class!r} is neither allowed nor forbidden in "
+            f"stage {stage!r} (allowed: {allowed}) — operator judgment applies")
+
+
+def gates_check(wiki: dict[str, Any]) -> tuple[str, str]:
+    """SG1-SG5 binding (2026-07-19): read the M065 stage-gate runtime
+    (approval-queue schema, /run/sovereign-os/approvals.json or
+    $SOVEREIGN_OS_APPROVALS). Per-wiki `gate_policy` = warn (default) |
+    block | off. Returns (verdict, message): ok | warn | refuse.
+    E0634 (verbatim, M065): "No PR opens past a gate without operator
+    sign-off." — pending gates surface on every applied mutation."""
+    policy = str(wiki.get("gate_policy", "warn"))
+    if policy == "off":
+        return ("ok", "")
+    approvals = Path(os.environ.get(
+        "SOVEREIGN_OS_APPROVALS", "/run/sovereign-os/approvals.json"))
+    if not approvals.is_file():
+        return ("ok", "")   # no gate runtime on this host — nothing to bind
+    try:
+        gates = (json.loads(approvals.read_text(encoding="utf-8"))
+                 .get("gates") or {})
+    except (OSError, ValueError):
+        return ("ok", "")
+    pending = sorted(g for g, s in gates.items() if s == "pending")
+    if not pending:
+        return ("ok", "stage-gates: all signed/bypassed")
+    msg = (f"stage-gates: {', '.join(pending)} PENDING — E0634: \"No PR "
+           "opens past a gate without operator sign-off.\" REMEDIATION: "
+           "sovereign-osctl approvals pending / approve <id> --confirm, or "
+           "set gate_policy in wikis.toml")
+    if policy == "block":
+        return ("refuse", msg)
+    return ("warn", msg)
 
 OPS_BY_KIND: dict[str, dict[str, dict[str, Any]]] = {
     "info-hub": INFO_HUB_OPS,
@@ -180,12 +286,39 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
     spec = ops[args.op]
     # argparse.REMAINDER swallows flags that follow positionals — honor
-    # --apply anywhere, and strip a leading "--" separator.
+    # --apply / --stage anywhere, and strip a leading "--" separator.
     passthrough = [a for a in args.args if a != "--"]
     apply_flag = bool(args.apply)
+    stage = args.stage
     if "--apply" in passthrough:
         apply_flag = True
         passthrough = [a for a in passthrough if a != "--apply"]
+    if "--stage" in passthrough:
+        i = passthrough.index("--stage")
+        if i + 1 >= len(passthrough):
+            print("ERROR --stage needs a value", file=sys.stderr)
+            return 2
+        stage = passthrough[i + 1]
+        passthrough = passthrough[:i] + passthrough[i + 2:]
+    if stage is not None and stage not in METHODOLOGY_STAGES:
+        print(f"ERROR --stage {stage!r} not in {METHODOLOGY_STAGES}",
+              file=sys.stderr)
+        return 2
+
+    # ── methodology-respect pass (2026-07-19): stage engine + SG gates ──
+    verdict, msg = stage_check(wiki, spec, stage)
+    if msg:
+        print(f"  {msg}", file=sys.stderr if verdict == "refuse" else sys.stdout)
+    if verdict == "refuse":
+        return 2
+    if spec["mutates"] and apply_flag:
+        g_verdict, g_msg = gates_check(wiki)
+        if g_msg:
+            print(f"  {g_msg}",
+                  file=sys.stderr if g_verdict == "refuse" else sys.stdout)
+        if g_verdict == "refuse":
+            return 2
+
     cmd, cwd = build_command(wiki, spec, passthrough)
 
     apply_now = apply_flag or not spec["mutates"]
@@ -230,6 +363,10 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--wiki")
     pr.add_argument("--apply", action="store_true",
                     help="execute a MUTATING op (read ops always run)")
+    pr.add_argument("--stage", choices=METHODOLOGY_STAGES,
+                    help="methodology stage of the task this op serves — "
+                    "enforces the target wiki's engine ALLOWED/FORBIDDEN "
+                    "(refuses forbidden output classes)")
     pr.add_argument("args", nargs=argparse.REMAINDER,
                     help="passed through to the wiki's own tool")
     pr.set_defaults(func=cmd_run)

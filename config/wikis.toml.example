@@ -22,3 +22,11 @@ root = "/opt/devops-solutions-information-hub"
 # Interpreter INSIDE the wiki (its venv carries venv-only deps —
 # info-hub Hard Rule 5); relative to root, or absolute.
 python = ".venv/bin/python"
+# Methodology-respect keys (2026-07-19 — optional per wiki):
+#   methodology = "wiki/config/methodology.yaml"   # engine path (relative to
+#                    root; this default suits the info-hub). `run --stage S`
+#                    refuses ops whose output class the stage FORBIDS.
+#   gate_policy = "warn"                           # warn (default) | block | off
+#                    — how applied mutations react to PENDING M065 SG1-SG5
+#                    gates (E0634: "No PR opens past a gate without operator
+#                    sign-off."). block = refuse while any gate is pending.
