@@ -100,6 +100,25 @@ def test_cancellation_lands_in_cancelled(tmp_path):
     assert api.STORE.get(job["id"])["state"] == "cancelled"
 
 
+def test_deliberation_submit_needs_no_token_but_command_submit_does(tmp_path):
+    # F-2026-063 steering: the brain webapp (via brain-api) submits a
+    # "deliberation" job. A deliberation is NOT a command kind, so the mutation
+    # guard allows it from loopback + same-origin with NO token — that's what lets
+    # the webapp path work without an RCE-grade credential. A command-executing
+    # submit stays strict (token required when one is configured).
+    api = _api_mod(tmp_path / "guard")
+    api._JOBS_TOKEN = "sekret"  # a configured command-submit token
+    allow = api.mutation_guard({"Content-Type": "application/json"}, "127.0.0.1",
+                               path="/jobs",
+                               body={"kind": "deliberation", "meta": {"problem": "x"}})
+    assert allow is None, f"deliberation submit must pass without a token, got {allow}"
+    reject = api.mutation_guard({"Content-Type": "application/json"}, "127.0.0.1",
+                                path="/jobs",
+                                body={"kind": "eval", "meta": {"command": ["true"]}})
+    assert reject is not None and reject[0] == 401, \
+        f"a command submit must still require the token, got {reject}"
+
+
 def test_deliberation_fails_gracefully_without_a_gateway(tmp_path):
     api = _api_mod(tmp_path / "j3")
     # point at a dead port so the runner must fail cleanly, not hang

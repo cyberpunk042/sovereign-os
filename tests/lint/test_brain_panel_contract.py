@@ -34,6 +34,23 @@ def test_brain_api_exposes_observe_and_operate():
     assert "MEMORY_TYPES" in src, "must decode the 8 CoALA memory types, not a count"
 
 
+def test_coat_deliberation_steers_to_the_background_jobs_runtime():
+    # F-2026-063: the CoAT observatory must submit a background "deliberation"
+    # job + poll, NOT block on the synchronous /brain/coat. brain-api exposes the
+    # submit/poll proxy (a deliberation is not a command kind, so no token), and
+    # the webapp uses it.
+    src = _read("scripts/operator/brain-api.py")
+    for ep in ("/brain/coat/submit", "/brain/coat/result"):
+        assert ep in src, f"brain-api missing endpoint {ep}"
+    assert "JOBS_ADDR" in src, "brain-api must know the jobs runtime address"
+    assert '"kind": "deliberation"' in src, "submit must enqueue a deliberation job"
+
+    body = _read("webapp/brain/index.html")
+    assert "/brain/coat/submit" in body and "/brain/coat/result" in body, \
+        "the CoAT button must submit a job + poll, not block on /brain/coat"
+    assert "coatPoll" in body, "the webapp must poll the deliberation job to completion"
+
+
 def test_brain_api_is_read_only_over_memory():
     src = _read("scripts/operator/brain-api.py")
     # the only mutating verb is POST /brain/chat (a non-mutating compute); there
