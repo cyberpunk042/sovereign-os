@@ -1,0 +1,80 @@
+# config/notifykit.toml.example — the shared notification library config.
+#
+# Operator directive 2026-07-19 (verbatim, sacrosanct — full text at
+# docs/standing-directives/2026-07-19-notification-wiki-operability-mode.md):
+#   "for sms it will require a high priority, high urgency by default
+#    and it will be conifugrable"
+#   "for if with no SMS at all then the starting point is resent
+#    require urgent and high priority"
+#   "the user will be able to use and play with those such as setting a
+#    global default override and only those set to static value
+#    modified remain as is"
+#
+# Copy to /etc/sovereign-os/notifykit.toml (or point
+# $SOVEREIGN_OS_NOTIFYKIT_CONFIG at it).
+#
+# EVENT AXES (both must clear a channel's gate — AND):
+#   priority: min < low < normal < high < max     (maps to ntfy 1-5)
+#   urgency:  min < low < normal < high < urgent
+#
+# GATE RESOLUTION per key: builtin default → channel value below →
+# [global_override] — EXCEPT keys pinned static.
+#   Plain value:              min_priority = "high"        (override-able)
+#   Static pin (survives      min_priority = { value = "high", static = true }
+#   any global override):
+#
+# BUILTIN GATE DEFAULTS:
+#   twilio  high/high        (the verbatim SMS default — configurable)
+#   resend  normal/normal    — BUT with NO enabled twilio channel at
+#           all, resend's starting point becomes priority>=high AND
+#           urgency>=urgent (the verbatim no-SMS rule)
+#   ntfy / file / webhook    min/min (everything flows)
+#
+# SECRETS: values of the form "env:VAR_NAME" resolve from the
+# environment at delivery time — keys NEVER live in this file (SDD-009).
+
+# Global default override — sweeps every channel gate key below EXCEPT
+# static-pinned ones. Commented out = no override.
+# [global_override]
+# min_priority = "high"
+# min_urgency  = "high"
+
+[channels.file]
+kind = "file"
+enabled = true
+path = "/var/log/sovereign-os/notifykit.jsonl"
+
+[channels.ntfy]
+kind = "ntfy"
+enabled = false
+base_url = "env:SOVEREIGN_OS_NOTIFY_NTFY_BASE_URL"   # default https://ntfy.sh
+topic    = "env:SOVEREIGN_OS_NOTIFY_NTFY_TOPIC"
+# token  = "env:SOVEREIGN_OS_NOTIFY_NTFY_TOKEN"
+# Optional openfleet-style priority->topic routing:
+# [channels.ntfy.topic_by_priority]
+# high = "sovereign-review"
+# max  = "sovereign-alert"
+
+[channels.resend]
+kind = "resend"
+enabled = false
+api_key    = "env:RESEND_API_KEY"
+from_email = "env:RESEND_FROM_EMAIL"
+to_email   = "env:SOVEREIGN_OS_OPERATOR_EMAIL"
+# Gate: builtin default applies (normal/normal with SMS present;
+# high/urgent with no SMS — the verbatim starting point). Override:
+# min_priority = "high"
+# min_urgency  = "urgent"
+
+[channels.twilio]
+kind = "twilio"
+enabled = false
+account_sid = "env:TWILIO_ACCOUNT_SID"
+auth_token  = "env:TWILIO_AUTH_TOKEN"
+from_number = "env:TWILIO_FROM_NUMBER"
+to_number   = "env:SOVEREIGN_OS_OPERATOR_SMS"
+# Verbatim default gate high/high; "it will be conifugrable":
+# min_priority = "high"
+# min_urgency  = "high"
+# Pin against any global override:
+# min_urgency = { value = "high", static = true }

@@ -1,0 +1,24 @@
+# config/wikis.toml.example — the wikiops target-wiki registry.
+#
+# Operator directive 2026-07-19 (verbatim): the mode operates "the wiki
+# aimed at or default one". This registry names the wikis; `default`
+# names the one used when no --wiki is passed.
+#
+# Operator-confirmed rule (2026-07-19 evaluation): mutations dispatch
+# ONLY through the target wiki's OWN validated tool chain (its python
+# tools, quality gates intact) — never direct file writes. That is how
+# this composes with the standing two-ultimate-solutions directive's
+# READ-ONLY posture toward the info-hub.
+#
+# Copy to config/wikis.toml (or pass --registry).
+
+default = "info-hub"
+
+[wikis.info-hub]
+kind = "info-hub"
+# The baked checkout on a flashed SAIN-01 (provision-bake stages sister
+# repos under /opt); adjust per host.
+root = "/opt/devops-solutions-information-hub"
+# Interpreter INSIDE the wiki (its venv carries venv-only deps —
+# info-hub Hard Rule 5); relative to root, or absolute.
+python = ".venv/bin/python"
