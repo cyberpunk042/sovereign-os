@@ -1,0 +1,123 @@
+# JSON Schema (Draft 2020-12) for the sovereign-os cross-system
+# compatibility registry (config/compatibility.yaml).
+#
+# Operator directive 2026-07-19 (verbatim): "I think we need a
+# compatibility module if not already present which talk about
+# cross-modules or cross-features compatibility and suggest or even
+# force something else off in order to enable one thing, or offer the
+# possibility to chose one of many things. like the u64 bit control
+# strategy for example."
+#
+# Design (operator-confirmed 2026-07-19): YAML is the authoring source
+# of truth; scripts/operator/compat.py compiles features to bit indexes
+# + u64 mask words (the M002 "policy becomes bits" strategy) for
+# validation. Per-rule severity per the strictness ladder. Scope v1:
+# the control-systems registry (config/control-systems.yaml).
+#
+# Every rule carries reason + remediation — the hook-doctrine
+# three-component pattern (insertion + reason + remediation): a block
+# without a why and a way-out is a black box.
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://github.com/cyberpunk042/sovereign-os/schemas/compatibility.schema.yaml"
+title: "sovereign-os cross-system compatibility registry"
+type: object
+required: [schema_version, compatibility]
+additionalProperties: false
+
+properties:
+  schema_version:
+    type: string
+    enum: ["1.0.0"]
+
+  compatibility:
+    type: object
+    required: [rules]
+    additionalProperties: false
+    properties:
+      description:
+        type: string
+        minLength: 30
+      rules:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/rule"
+
+$defs:
+  feature_ref:
+    # A feature is a control-system id, optionally narrowed to one of
+    # its options: {system: avx-mode, option: custom}. Without option
+    # the rule references the system being enabled/active at all.
+    type: object
+    required: [system]
+    additionalProperties: false
+    properties:
+      system:
+        type: string
+        pattern: "^[a-z0-9-]+$"
+      option:
+        # Options may be strings, booleans, or numbers in
+        # control-systems.yaml — mirror that here.
+        type: [string, boolean, number]
+
+  rule:
+    type: object
+    required: [id, verb, when, severity, reason, remediation]
+    additionalProperties: false
+    properties:
+      id:
+        description: "Stable rule id (referenced by `compat explain <id>`)."
+        type: string
+        pattern: "^C[0-9]{3}-[a-z0-9-]+$"
+
+      verb:
+        description: |
+          requires      — when active, target(s) must ALSO be active
+          conflicts_with — when active, target(s) must NOT be active
+          forces_off    — like conflicts_with, but the resolver reports
+                          the targets as the things to turn off (with
+                          the remediation naming how) — the operator's
+                          "force something else off in order to enable
+                          one thing"
+          one_of        — at most one of `targets` may be active at a
+                          time (cross-system exclusivity group; `when`
+                          names the group anchor)
+        type: string
+        enum: [requires, conflicts_with, forces_off, one_of]
+
+      when:
+        $ref: "#/$defs/feature_ref"
+
+      target:
+        $ref: "#/$defs/feature_ref"
+
+      targets:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/feature_ref"
+
+      severity:
+        description: |
+          Strictness ladder (per pcie_constraints precedent):
+          suggest — advisory; printed, never gates (rc stays 0)
+          warn    — printed prominently; rc=1 only under --strict
+          force   — violation fails `compat check` (rc=1); the
+                    pre-change gate refuses with reason + remediation
+        type: string
+        enum: [suggest, warn, force]
+
+      reason:
+        type: string
+        minLength: 20
+
+      remediation:
+        type: string
+        minLength: 10
+
+      refs:
+        description: "Grounding pointers (SDDs, docs, config paths)."
+        type: array
+        items:
+          type: string

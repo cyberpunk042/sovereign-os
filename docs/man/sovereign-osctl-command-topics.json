@@ -183,7 +183,8 @@
       "doc-coverage",
       "surface-map",
       "master-dashboard",
-      "global-history"
+      "global-history",
+      "compat"
     ],
     "install": [
       "profiles",

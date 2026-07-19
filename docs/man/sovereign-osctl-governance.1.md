@@ -102,6 +102,28 @@ operator use.
 **sovereign-osctl dashboards [arguments]**
 :   M060 R10038 + R10129-R10132: operator dashboard on/off toggles — "everything can be turned on and off". Lists every cockpit dashboard + its enabled bit, toggles them on/off (persisted to /etc/sovereign-os/ dashboards.toml, R10130), emitting an M049 trace + OCSF 5001 Configuration Change (R10132) into the D-05 span log on each change. enable/disable are the operator (MS003-signed) path (R10131); web surfaces never mutate. Verbs: list / status <slug> / enable <slug> / disable <slug> [--rationale].
 
+## compat
+
+**sovereign-osctl compat list [--json]**
+:   Cross-system compatibility rules table (2026-07-19 operator
+    directive): requires / conflicts_with / forces_off / one_of over
+    the control-systems registry.
+
+**sovereign-osctl compat compile [--json]**
+:   The M002 bit-word view — features compiled to bit indexes + u64
+    mask words; implicit pick-one groups per kind=mode/profile system.
+
+**sovereign-osctl compat check --set SYS=OPT ... [--on SYS] [--strict]**
+:   Validate a candidate configuration. rc=0 clean or suggest-only;
+    rc=1 on a force violation (or warn under --strict); rc=2 unknown
+    system/option.
+
+**sovereign-osctl compat explain <rule-id>**
+:   One rule in full (reason + remediation + refs).
+
+**sovereign-osctl compat why <system[=option]>**
+:   Every rule touching a feature.
+
 ## compliance
 
 **sovereign-osctl compliance status**

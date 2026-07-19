@@ -1,0 +1,142 @@
+# config/compatibility.yaml — the cross-system compatibility registry.
+#
+# Operator directive 2026-07-19 (verbatim, sacrosanct): "I think we need
+# a compatibility module if not already present which talk about
+# cross-modules or cross-features compatibility and suggest or even
+# force something else off in order to enable one thing, or offer the
+# possibility to chose one of many things. like the u64 bit control
+# strategy for example. lets evaluate this together."
+#
+# Operator-confirmed design (2026-07-19 evaluation):
+#   representation — YAML source of truth (this file), compiled by
+#     scripts/operator/compat.py into bit indexes + u64 mask words (the
+#     M002 bit-machine "policy becomes bits" strategy applied to
+#     configuration: a candidate config is a word-array; requires is an
+#     ANDN, conflicts an AND, one_of a popcount)
+#   enforcement — per-rule severity (suggest | warn | force), per the
+#     pcie_constraints severity precedent + strictness graduation
+#   scope v1 — the control-systems registry
+#     (config/control-systems.yaml systems + their options). Every
+#     kind=mode/profile system is ALREADY an implicit pick-one group
+#     (the compiler emits an exclusivity mask per such system); the
+#     rules below add the CROSS-system relations the registry lacks.
+#
+# Surfaces:
+#   sovereign-osctl compat {list, compile, check, explain, why}
+#   schema: schemas/compatibility.schema.yaml
+#   lint:   tests/lint/test_compatibility_rules.py (schema conformance
+#           + every referenced system/option exists in
+#           config/control-systems.yaml + mask-compile roundtrip)
+#
+# Rules are DELIBERATELY few and grounded this round — each cites its
+# grounding in refs. Growing the registry is per-rule operator review,
+# not bulk generation.
+
+schema_version: "1.0.0"
+
+compatibility:
+  description: >-
+    Cross-system compatibility relations over the control-systems
+    registry: requires / conflicts_with / forces_off / one_of, each
+    with severity + reason + remediation. Compiled to u64 mask words
+    by scripts/operator/compat.py (M002 bit-machine strategy).
+
+  rules:
+
+    # ── cloud-spend posture vs cloud backends ─────────────────────────
+    # The operator's "force something else off in order to enable one
+    # thing" case, grounded in the cost-policy control: halting cloud
+    # spend is incoherent while agent backends still point at hosted
+    # Anthropic endpoints.
+    - id: C001-halt-cloud-forces-local-backends
+      verb: forces_off
+      when: {system: cost-policy, option: halt-cloud}
+      targets:
+        - {system: openclaw-backend, option: anthropic}
+        - {system: open-computer-backend, option: anthropic}
+        - {system: claude-code-backend, option: anthropic}
+        - {system: vscode-backend, option: anthropic}
+      severity: force
+      reason: >-
+        cost-policy halt-cloud declares zero cloud spend; any agent
+        backend set to 'anthropic' keeps routing paid hosted-API
+        traffic, defeating the halt.
+      remediation: >-
+        Switch the listed backends to 'local' (sovereign-osctl
+        {openclaw|open-computer|claude-code|vscode} backend local) or
+        lift the halt with cost-policy resume-cloud.
+      refs:
+        - config/control-systems.yaml (cost-policy, *-backend)
+        - SDD-707 (backend swap local|anthropic)
+
+    # ── speculative decoding needs an oracle to draft FOR ─────────────
+    - id: C002-dspark-requires-oracle-tier
+      verb: requires
+      when: {system: dspark-speculative-decoding, option: "on"}
+      target: {system: inference-tier, option: oracle}
+      severity: warn
+      reason: >-
+        DSpark drafts tokens that the Oracle-tier model verifies
+        (SDD-026/M083); with the oracle tier off there is nothing to
+        verify the draft and the 4090 draft card idles.
+      remediation: >-
+        Start the oracle tier (sovereign-osctl trinity oracle / start
+        the sovereign-oracle-core service) before enabling DSpark, or
+        leave DSpark off.
+      refs:
+        - SDD-026 (DFlash/DSpark speculative decoding)
+        - scripts/inference/dspark-wrap.sh
+
+    # ── deep-context synthesis runs ON the oracle ─────────────────────
+    - id: C003-deep-context-requires-oracle-tier
+      verb: requires
+      when: {system: runtime-mode, option: deep-context-synthesis}
+      target: {system: inference-tier, option: oracle}
+      severity: warn
+      reason: >-
+        The deep-context-synthesis runtime profile (master spec §18.3)
+        binds its synthesizer to the Oracle tier; selecting the mode
+        with the oracle tier down yields a router with no synthesis
+        backend.
+      remediation: >-
+        Bring the oracle tier up before switching runtime-mode to
+        deep-context-synthesis.
+      refs:
+        - master spec §18.3 (deep-context-synthesis synthesizer_01)
+        - profiles/runtime/
+
+    # ── the open-computer kiosk face needs its backend configured ─────
+    - id: C004-oc-kiosk-requires-oc-backend
+      verb: requires
+      when: {system: frontend, option: open-computer-kiosk}
+      target: {system: open-computer-backend}
+      severity: warn
+      reason: >-
+        The open-computer-kiosk frontend (SDD-704) boots the box into
+        the QEMU AI-sandbox UI; without the open-computer backend
+        configured (SDD-706) the kiosk fronts a dead service.
+      remediation: >-
+        Configure and enable open-computer first (sovereign-osctl
+        open-computer on; backend {local|anthropic}), or pick the
+        gnome / dashboards-kiosk frontend.
+      refs:
+        - SDD-704 (swappable frontend)
+        - SDD-706 (open-computer sandbox)
+
+    # ── power-posture coherence (advisory only) ───────────────────────
+    - id: C005-ultra-low-cpu-vs-peak-gpu
+      verb: conflicts_with
+      when: {system: cpu-mode, option: ultra-low-power}
+      target: {system: gpu-mode, option: peak}
+      severity: suggest
+      reason: >-
+        An ultra-low-power CPU posture starves a peak-mode GPU of
+        prompt-processing and batch-feeding throughput — the pair
+        wastes the GPU budget the operator paid for.
+      remediation: >-
+        Pair gpu-mode peak with cpu-mode sustained-burst or
+        peak-inference; or drop gpu-mode to balanced alongside
+        ultra-low-power.
+      refs:
+        - config/control-systems.yaml (cpu-mode, gpu-mode)
+        - scripts/power/ (workload-mode coordinator R338/R345)
