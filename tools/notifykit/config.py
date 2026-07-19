@@ -20,6 +20,29 @@ Three rules from the 2026-07-19 verbatim directive are load-bearing here:
        keys the user pinned static. A key is pinned by writing it as an
        inline table: min_priority = { value = "high", static = true }.
 
+4. (2026-07-19 follow-on directive, verbatim: "I can also chose for the
+   trigger to be important:true and such markdown properties & metadata
+   as much has in the header")
+     → [triggers.<name>] tables carry ARBITRARY markdown-frontmatter-
+       style properties. Known keys map onto event defaults when an
+       event from that trigger (Event.source == name) still carries
+       factory defaults: important=true → priority high (the ntfy
+       "important"=4 level, openfleet PRIORITY_MAP grounding);
+       urgent=true → urgency urgent; explicit priority/urgency/tags
+       props apply directly. ALL props (known + unknown) attach to
+       Event.props as pass-through metadata.
+
+OVERLAY: the settings surface (CLI + cockpit settings-pane overlay
+panel) writes a JSON overrides file (default
+/etc/sovereign-os/notifykit-overrides.json, env
+SOVEREIGN_OS_NOTIFYKIT_OVERRIDES) that merges OVER the base TOML —
+the operator's hand-edited TOML (and its comments) is never rewritten
+(SDD-030 operator-overlay doctrine). Overlay shape:
+  {"channels": {name: {enabled?, min_priority?, min_urgency?,
+                        static?: [keys]}},
+   "global_override": {min_priority?, min_urgency?},
+   "triggers": {name: {prop: value}}}
+
 Resolution order per gate key (weakest wins first, later layers win):
     builtin default (incl. rule-2 conditional)
   → channel TOML value
@@ -85,19 +108,32 @@ class ChannelConfig:
         return raw
 
 
+DEFAULT_OVERRIDES_PATH = "/etc/sovereign-os/notifykit-overrides.json"
+
+
 @dataclass
 class NotifyConfig:
     channels: dict[str, ChannelConfig] = field(default_factory=dict)
     global_override: dict[str, str] = field(default_factory=dict)
+    triggers: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     # ---------- construction ----------
 
     @classmethod
-    def load(cls, path: str | Path) -> "NotifyConfig":
+    def load(cls, path: str | Path,
+             overrides_path: str | Path | None = None) -> "NotifyConfig":
         if tomllib is None:  # pragma: no cover
             raise RuntimeError("tomllib unavailable (python >= 3.11 required)")
         with open(path, "rb") as fh:
             doc = tomllib.load(fh)
+        ov_path = Path(
+            overrides_path
+            or os.environ.get("SOVEREIGN_OS_NOTIFYKIT_OVERRIDES",
+                              DEFAULT_OVERRIDES_PATH))
+        if ov_path.is_file():
+            import json
+            with open(ov_path, "r", encoding="utf-8") as fh:
+                doc = merge_overrides(doc, json.load(fh))
         return cls.from_dict(doc)
 
     @classmethod
@@ -126,6 +162,8 @@ class NotifyConfig:
                 if k not in ("kind", "enabled", *GATE_KEYS)
             }
             cfg.channels[name] = channel
+        for name, props in (doc.get("triggers") or {}).items():
+            cfg.triggers[name] = dict(props)
         return cfg
 
     # ---------- the semantics ----------
@@ -156,3 +194,54 @@ class NotifyConfig:
             if key not in channel.static_keys:
                 gate[key] = value
         return gate
+
+    def apply_trigger(self, event: Any) -> Any:
+        """Rule 4 — apply a trigger's markdown-frontmatter-style props
+        to an event whose source names the trigger. Known keys set
+        event defaults ONLY where the event still carries factory
+        defaults (explicit event values win); every prop attaches to
+        event.props as pass-through metadata."""
+        props = self.triggers.get(event.source or "", {})
+        if not props:
+            return event
+        if props.get("important") is True and event.priority == "normal":
+            event.priority = "high"       # ntfy 4 = "important"
+        if props.get("urgent") is True and event.urgency == "normal":
+            event.urgency = "urgent"
+        if "priority" in props and event.priority == "normal":
+            event.priority = _valid_level("min_priority", str(props["priority"]))
+        if "urgency" in props and event.urgency == "normal":
+            event.urgency = _valid_level("min_urgency", str(props["urgency"]))
+        if isinstance(props.get("tags"), list) and not event.tags:
+            event.tags = [str(t) for t in props["tags"]]
+        event.props = {**props, **event.props}
+        return event
+
+
+def merge_overrides(doc: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    """Merge the JSON overrides overlay OVER the base TOML dict.
+    Channel gate values arriving with a `static` list become inline
+    static pins; triggers and global_override merge per key. The base
+    dict is not mutated."""
+    import copy
+    out = copy.deepcopy(doc)
+    for key, value in (overlay.get("global_override") or {}).items():
+        out.setdefault("global_override", {})[key] = value
+    for name, ch in (overlay.get("channels") or {}).items():
+        base_ch = out.setdefault("channels", {}).setdefault(name, {"kind": name})
+        static = set(ch.get("static") or [])
+        for key, value in ch.items():
+            if key == "static":
+                continue
+            if key in GATE_KEYS and key in static:
+                base_ch[key] = {"value": value, "static": True}
+            else:
+                base_ch[key] = value
+        # static flag alone (pin the currently-effective value)
+        for key in static:
+            if key in GATE_KEYS and not isinstance(base_ch.get(key), dict):
+                if key in base_ch:
+                    base_ch[key] = {"value": base_ch[key], "static": True}
+    for name, props in (overlay.get("triggers") or {}).items():
+        out.setdefault("triggers", {}).setdefault(name, {}).update(props)
+    return out

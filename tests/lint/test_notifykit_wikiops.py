@@ -204,3 +204,99 @@ def test_wikiops_apply_refuses_missing_root(tmp_path):
     r = _wikiops("run", "--op", "archive", "X", "--apply", registry=reg)
     assert r.returncode == 2
     assert "not present" in r.stderr
+
+
+# ── 2026-07-19 follow-on: settings overlay + trigger frontmatter props ──
+# (docs/standing-directives/2026-07-19-notification-settings-overlay-panel.md)
+
+
+def test_trigger_important_true_maps_to_priority_high():
+    cfg = _cfg({
+        "channels": {"rec": {"kind": "mock", "enabled": True}},
+        "triggers": {"wikiops": {"important": True, "reviewer": "op"}},
+    })
+    reg = ChannelRegistry(cfg)
+    reg.dispatch(Event("t", "m", source="wikiops"))
+    sent = reg.channels["rec"].sent[-1]
+    assert sent.priority == "high"          # important:true → ntfy 4
+    assert sent.props["reviewer"] == "op"   # unknown props ride along
+    # explicit event values win over trigger defaults
+    reg.dispatch(Event("t", "m", source="wikiops", priority="low"))
+    assert reg.channels["rec"].sent[-1].priority == "low"
+
+
+def test_overlay_json_merges_over_base(tmp_path, monkeypatch):
+    base = tmp_path / "base.toml"
+    base.write_text(
+        '[channels.ntfy]\nkind = "ntfy"\nenabled = false\n'
+        'min_priority = "low"\n')
+    ov = tmp_path / "ov.json"
+    ov.write_text(json.dumps({
+        "channels": {"ntfy": {"enabled": True, "min_priority": "high",
+                              "static": ["min_priority"]}},
+        "global_override": {"min_priority": "max"},
+        "triggers": {"wikiops": {"important": True}},
+    }))
+    cfg = NotifyConfig.load(base, ov)
+    assert cfg.channels["ntfy"].enabled is True
+    # overlay set the value AND pinned it static → global override loses
+    assert cfg.effective_gate("ntfy")["min_priority"] == "high"
+    assert cfg.triggers["wikiops"]["important"] is True
+
+
+def test_cli_set_override_trigger_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_NOTIFYKIT_CONFIG",
+                       str(tmp_path / "absent.toml"))
+    monkeypatch.setenv("SOVEREIGN_OS_NOTIFYKIT_OVERRIDES",
+                       str(tmp_path / "ov.json"))
+    from tools.notifykit import cli
+    assert cli.main(["set", "twilio", "enabled", "on"]) == 0
+    assert cli.main(["set", "ntfy", "min_priority_static", "low"]) == 0
+    assert cli.main(["global-override", "min_priority", "max"]) == 0
+    assert cli.main(["trigger", "wikiops", "important", "true"]) == 0
+    assert cli.main(["set", "ntfy", "min_priority", "nope"]) == 2
+    assert cli.main(["set", "ntfy", "bogus_key", "x"]) == 2
+    ov = json.loads((tmp_path / "ov.json").read_text())
+    assert ov["channels"]["twilio"]["enabled"] is True
+    assert ov["channels"]["ntfy"]["static"] == ["min_priority"]
+    assert ov["triggers"]["wikiops"]["important"] is True
+    cfg = cli._load_config()
+    assert cfg.effective_gate("ntfy")["min_priority"] == "low"  # pin beats max
+
+
+def test_app_shell_carries_the_shared_notification_overlay():
+    shell = (REPO_ROOT / "webapp" / "_shared" /
+             "app-shell-snippet.html").read_text(encoding="utf-8")
+    # settings-pane row (top-right header pane) + the shared overlay
+    assert 'id="so-notif-open"' in shell
+    assert 'id="so-notif-modal"' in shell
+    # the whole settings range: channels + gates + static + override + trigger
+    for marker in ("data-nen=", "data-nprio=", "data-nurg=", "data-nstatic=",
+                   "so-notif-ov-apply", "so-notif-tr-apply"):
+        assert marker in shell, f"overlay missing {marker}"
+    # exec rail uses the three registered controls
+    for cid in ("notify-channel", "notify-override", "notify-trigger"):
+        assert cid in shell, f"overlay does not exec {cid}"
+
+
+def test_exec_registry_resolves_the_overlay_calls():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "_action_exec", REPO_ROOT / "scripts" / "operator" / "_action_exec.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    reg = m.load_registry()
+    cases = [
+        ("notify-channel",
+         {"channel": "twilio", "verb": "min_urgency_static", "value": "high"},
+         "sovereign-osctl notifykit set twilio min_urgency_static high"),
+        ("notify-override", {"verb": "clear", "value": "all"},
+         "sovereign-osctl notifykit global-override clear all"),
+        ("notify-trigger",
+         {"name": "wikiops", "prop": "important", "value": "true"},
+         "sovereign-osctl notifykit trigger wikiops important true"),
+    ]
+    for cid, args, expect in cases:
+        argv, err = m.resolve_argv(reg[cid], args)
+        assert argv, f"{cid}: {err}"
+        assert " ".join(argv) == expect

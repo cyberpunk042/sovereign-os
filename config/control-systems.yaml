@@ -972,3 +972,65 @@ systems:
     privileged: true
     applies_to: [code-console]
     refs: [scripts/operator/lib/jobs_store.py, scripts/operator/lib/jobs_cli.py]
+
+  # ── Notification settings (2026-07-19 operator directive — the shared
+  # overlay panel in the header settings pane). Three controls back the
+  # overlay's exec rail; all write the JSON overrides overlay via
+  # `sovereign-osctl notifykit` — the operator's base notifykit.toml is
+  # never rewritten (SDD-030). Verbatim gating defaults live in
+  # tools/notifykit/config.py (SMS high/high; no-SMS resend high/urgent).
+  - id: notify-channel
+    kind: toggle
+    scope: global
+    label: "Notifications — channel"
+    description: >-
+      Per-channel notification settings: enable/disable a channel (file /
+      ntfy / resend email / twilio SMS) and its priority×urgency gate
+      thresholds; the *_static key variants pin a value so a global default
+      override leaves it as is (operator verbatim 2026-07-19).
+    options: [file, ntfy, resend, twilio, "on", "off",
+              min, low, normal, high, max, urgent]
+    options_cli: "sovereign-osctl notifykit show"
+    state_cli: "sovereign-osctl notifykit show --json"
+    change_cli: "sovereign-osctl notifykit set <channel> {enabled|min_priority|min_urgency|min_priority_static|min_urgency_static} <value>"
+    state_path: "/etc/sovereign-os/notifykit-overrides.json"
+    privileged: true
+    applies_to: [code-console]
+    refs: [tools/notifykit, config/notifykit.toml.example]
+
+  - id: notify-override
+    kind: toggle
+    scope: global
+    label: "Notifications — global default override"
+    description: >-
+      The global default override across every notification channel gate:
+      sweeps all non-static gate keys; channel keys pinned static remain as
+      is (operator verbatim 2026-07-19: "only those set to static value
+      modified remain as is"). `clear all` drops the override.
+    options: [min, low, normal, high, max, urgent, all]
+    options_cli: "sovereign-osctl notifykit show"
+    state_cli: "sovereign-osctl notifykit show --json"
+    change_cli: "sovereign-osctl notifykit global-override {min_priority|min_urgency|clear} <value>"
+    state_path: "/etc/sovereign-os/notifykit-overrides.json"
+    privileged: true
+    applies_to: [code-console]
+    refs: [tools/notifykit, config/notifykit.toml.example]
+
+  - id: notify-trigger
+    kind: toggle
+    scope: global
+    label: "Notifications — trigger properties"
+    description: >-
+      Markdown-frontmatter-style properties & metadata on a notification
+      trigger (operator verbatim 2026-07-19: "important:true and such
+      markdown properties & metadata as much has in the header") — e.g.
+      important true maps events from that trigger to priority high;
+      unknown props pass through as Event.props metadata.
+    options: ["true", "false", important, urgent, priority, urgency, unset]
+    options_cli: "sovereign-osctl notifykit show"
+    state_cli: "sovereign-osctl notifykit show --json"
+    change_cli: "sovereign-osctl notifykit trigger <name> <prop> <value>"
+    state_path: "/etc/sovereign-os/notifykit-overrides.json"
+    privileged: true
+    applies_to: [code-console]
+    refs: [tools/notifykit, config/notifykit.toml.example]

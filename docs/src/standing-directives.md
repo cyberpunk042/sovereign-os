@@ -11,6 +11,7 @@ Operator standing-directives (verbatim mandate records), newest by date last.
 - [Standing directive — Plan Mode + User Approval (2026-07-11)](../standing-directives/2026-07-11-plan-mode-user-approval.md)
 - [Standing directive — QCFA + interactive clarification (2026-07-11)](../standing-directives/2026-07-11-qcfa-interactive-clarification.md)
 - [Standing directive — Deliberate reasoning: CoT → ToT → MCTS → C-MCTS → CoAT (2026-07-12)](../standing-directives/2026-07-12-deliberate-reasoning.md)
+- [Standing directive — shared notification-settings overlay panel + trigger markdown properties](../standing-directives/2026-07-19-notification-settings-overlay-panel.md)
 - [Standing directive — wiki-operability AI mode + ntfy/Resend/Twilio notification layer](../standing-directives/2026-07-19-notification-wiki-operability-mode.md)
 - [Re-arming `/goal` autopilot — root cause + the fix](../standing-directives/goal-rearming.md)
 - [Mandate review — 2026-Q2 (R285 / E9.M3)](../standing-directives/mandate-review-2026-Q2.md)

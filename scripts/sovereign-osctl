@@ -208,6 +208,10 @@ COMMANDS:
   compat list | compile [--json] | check --set SYS=OPT … [--strict] | explain <rule-id> | why <system[=option]>
                                Cross-system compatibility resolver (2026-07-19): requires/conflicts/forces_off/one_of
                                rules over the control-systems registry, compiled YAML → u64 masks (M002 strategy)
+  notifykit show [--json] | set <channel> <key> <value> | global-override <key> <value> | trigger <name> <prop> <value> | test
+                               Notification settings (2026-07-19): the whole settings range — channels, priority×urgency
+                               gates, static pins, global default override, trigger frontmatter props (important:true …).
+                               Writes the JSON overlay; the operator's base notifykit.toml is never rewritten.
 
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
@@ -6418,6 +6422,8 @@ case "${cmd}" in
     exec "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/control-word.py" "$@" ;;
   compat)  # 2026-07-19: cross-system compatibility resolver (YAML → u64 masks).
     exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/compat.py" "$@" ;;
+  notifykit)  # 2026-07-19: notification settings — channels/gates/static pins/global override/trigger frontmatter props (JSON overlay; base TOML never rewritten).
+    PYTHONPATH="${__REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" exec "${PYTHON3}" -m tools.notifykit.cli "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;

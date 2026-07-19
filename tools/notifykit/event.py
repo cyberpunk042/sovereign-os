@@ -36,6 +36,11 @@ class Event:
     click_url: str = ""
     source: str = ""          # emitting subsystem (e.g. "wikiops", "r228")
     dedupe_key: str = ""      # consumer-managed; the library does not dedupe
+    # Markdown-frontmatter-style properties & metadata (operator verbatim
+    # 2026-07-19: "important:true and such markdown properties & metadata
+    # as much has in the header") — attached by triggers; passed through
+    # to channels/receipt consumers untouched.
+    props: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.priority not in PRIORITY_LEVELS:
