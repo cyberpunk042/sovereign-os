@@ -371,3 +371,73 @@ def test_compat_reject_emits_notifykit_event(tmp_path):
     env2["SOVEREIGN_OS_NOTIFYKIT_CONFIG"] = str(tmp_path / "absent.toml")
     d2 = _exec_cli("--control", "cost-policy", "--arg", "verb=halt-cloud", env=env2)
     assert d2["code"] == 409
+
+
+# ── the RESOLUTION engine ("force something else off in order to enable
+#    one thing", executable + simulated) ────────────────────────────────────
+
+
+def test_resolve_plans_only_the_active_offenders(monkeypatch):
+    """C001 carries four backend-switch steps; with only ONE backend
+    actively offending, the plan contains exactly that one — and the
+    simulation verifies applying it clears the finding."""
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT", "openclaw-backend=anthropic")
+    compat = _load("compat_res_t1", COMPAT_TOOL)
+    r = compat.resolve({"cost-policy": "halt-cloud"})
+    assert r["available"]
+    assert [s["system"] for s in r["plan"]] == ["openclaw-backend"]
+    assert r["plan"][0]["args"] == {"verb": "local"}
+    assert r["clean_after"] and r["resolved_all"]
+
+
+def test_resolve_requires_plans_only_missing_tiers(monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT", "inference-tier=oracle")
+    compat = _load("compat_res_t2", COMPAT_TOOL)
+    r = compat.resolve({"runtime-mode": "high-concurrency-burst"})
+    tiers = sorted(s["args"]["tier"] for s in r["plan"])
+    assert tiers == ["logic", "pulse"]     # oracle already up — not planned
+    assert all(next(iter(s["effect"])) == "add" for s in r["plan"])
+    assert r["clean_after"] and r["resolved_all"]
+
+
+def test_resolve_current_state_plan(monkeypatch):
+    """resolve(None) = fix what the box trips RIGHT NOW (the pane's
+    Fix buttons + state_report.resolution)."""
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT",
+                       "cost-policy=halt-cloud,openclaw-backend=anthropic")
+    compat = _load("compat_res_t3", COMPAT_TOOL)
+    r = compat.resolve(None)
+    assert any(f["rule_id"].startswith("C001") for f in r["findings"])
+    assert [s["system"] for s in r["plan"]] == ["openclaw-backend"]
+    assert r["clean_after"]
+    rep = compat.state_report()
+    assert rep["resolution"] and rep["resolution"]["plan"]
+
+
+def test_exec_rail_409_carries_the_resolution_plan():
+    env = _hermetic_env("openclaw-backend=anthropic")
+    d = _exec_cli("--control", "cost-policy", "--arg", "verb=halt-cloud", env=env)
+    assert d["code"] == 409
+    plan = (d.get("resolution") or {}).get("plan") or []
+    assert plan and plan[0]["system"] == "openclaw-backend"
+    assert d["resolution"]["clean_after"] is True
+
+
+def test_cli_check_resolve_prints_verified_plan():
+    env = _hermetic_env("inference-tier=oracle")
+    r = subprocess.run(
+        [sys.executable, str(COMPAT_TOOL), "check",
+         "--set", "runtime-mode=high-concurrency-burst", "--resolve"],
+        capture_output=True, text=True, env=env)
+    assert "resolution plan" in r.stdout and "VERIFIED" in r.stdout
+    assert "tier=pulse" in r.stdout and "tier=logic" in r.stdout
+
+
+def test_pane_renders_fix_buttons():
+    shell = APP_SHELL.read_text(encoding="utf-8")
+    assert "so-compat-fix" in shell
+    assert "Force: " in shell            # the button prefix
+    assert "soExec(stp.system, stp.args" in shell   # fixes go through the rail

@@ -359,9 +359,23 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
                          if f["severity"] == "force")
             _emit_metric(control_id, "compat-reject")
             _notify_compat_reject(control_id, first)
+            # The RESOLUTION plan — "force something else off in order to
+            # enable one thing": the verified steps (each an exec-rail call)
+            # that would clear what this change introduces. Best-effort.
+            resolution = None
+            try:
+                import compat as _compat_mod
+                r = _compat_mod.resolve(compat_res.get("proposed") or {})
+                if r.get("available") and r.get("plan"):
+                    resolution = {"plan": r["plan"],
+                                  "clean_after": r["clean_after"],
+                                  "resolved_all": r["resolved_all"]}
+            except Exception:  # noqa: BLE001 — the plan is advisory
+                pass
             return {
                 "ok": False, "code": 409, "control_id": control_id,
                 "compat": compat_res,
+                "resolution": resolution,
                 "error": (f"compat gate: {first['rule_id']} ({first['verb']}) — "
                           f"{first['reason']}"),
                 "remediation": first["remediation"],

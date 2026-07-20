@@ -1281,7 +1281,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
             '<button class="so-set-mini" id="so-compat-close" type="button">Close ✕</button></div>'+
           '<div class="so-prov-row"><div class="so-prov-lbl"><b>Live state verdict</b>'+
             '<small>the rules the box’s current state trips RIGHT NOW (best-effort state read + $SOVEREIGN_OS_COMPAT_CURRENT)</small>'+
-            '<div class="so-exec-result" id="so-compat-state"></div></div></div>'+
+            '<div class="so-exec-result" id="so-compat-state"></div>'+
+            '<div id="so-compat-fix"></div></div></div>'+
           '<div class="so-prov-row"><div class="so-prov-lbl"><b>Preview a control</b>'+
             '<small>per-option verdict against current state — exactly what the exec-rail pre-change gate + rail greying enforce</small>'+
             '<div class="so-exec-result" id="so-compat-preview"></div></div>'+
@@ -1334,6 +1335,33 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
           } else {
             var worst=p.findings.some(function(f){return f.severity==='force';})?'err':'warn';
             soExecMsg(st,worst, soCompatFindingLines(p.findings).join('  ·  '));
+          }
+          // ── the RESOLUTION plan — "force something else off in order to
+          //    enable one thing", executable: one button per verified step,
+          //    through the SAME sanctioned exec rail (dry-run until live;
+          //    privileged → Confirm). Server-simulated: the plan is only
+          //    offered when applying it actually clears the findings. ──
+          var fix=document.getElementById('so-compat-fix');
+          if(fix){ fix.innerHTML='';
+            var plan=(p.resolution&&p.resolution.plan)||[];
+            if(plan.length){
+              var head=el('<div class="so-set-sub" style="margin:.4rem 0 .15rem;"></div>');
+              head.textContent=(p.resolution.resolved_all
+                ? 'Verified fix plan — applying these clears ALL findings:'
+                : (p.resolution.clean_after
+                  ? 'Verified fix plan — clears every gating finding (advisories may remain):'
+                  : 'Fix plan (partial — force findings would remain):'));
+              fix.appendChild(head);
+              plan.forEach(function(stp){
+                var row=el('<div style="display:flex;gap:.4rem;align-items:center;margin:.15rem 0;flex-wrap:wrap;"></div>');
+                var btn=document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply';
+                btn.textContent='Force: '+stp.label;
+                btn.title=stp.rule_id+' — executes control '+stp.system+' via the exec rail';
+                var bres=el('<span class="so-exec-result"></span>');
+                btn.addEventListener('click',function(){ soExec(stp.system, stp.args, bres); });
+                row.appendChild(btn); row.appendChild(bres); fix.appendChild(row);
+              });
+            }
           }
           if(sel && sel.options.length<=1){
             (p.checkable||[]).forEach(function(c){
