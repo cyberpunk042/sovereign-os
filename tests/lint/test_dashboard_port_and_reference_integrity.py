@@ -72,7 +72,13 @@ def test_dashboard_routes_internally_unique():
             ports.setdefault(r["port"], []).append(slug)
         if r.get("subpath"):
             subs.setdefault(r["subpath"], []).append(slug)
-    port_coll = {p: s for p, s in ports.items() if len(s) > 1}
+    # F-2026-070: the unified networking-api intentionally serves three
+    # concern-distinct panels from one port (backward-compatible root paths).
+    _NETWORKING_TRIPLET = {"network-edge", "edge-firewall", "d-12-networking"}
+    port_coll = {
+        p: s for p, s in ports.items()
+        if len(s) > 1 and not set(s).issubset(_NETWORKING_TRIPLET)
+    }
     sub_coll = {s: sl for s, sl in subs.items() if len(sl) > 1}
     assert not port_coll, f"DASHBOARD_ROUTES upstream-port collisions: {port_coll}"
     assert not sub_coll, f"DASHBOARD_ROUTES subpath collisions: {sub_coll}"

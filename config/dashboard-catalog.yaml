@@ -127,12 +127,12 @@ dashboards:
   - {slug: selfdef-management, category: security, label: "selfdef (IPS) Management", path: /selfdef-management/, status: live,
      cli: "sovereign-osctl selfdef {status,on,off,start,stop,logs,sync,doctor,install-units}",
      description: "The intrusion-prevention system — live on/off state + unit/mirror health, unifying the 6 mirror dashboards (D-13..D-18) + perimeter. Served at /selfdef-management.json (selfdef status); controls (on/off/sync/doctor + perimeter) via the Controls surface.", refs: [SDD-001]}
-  - {slug: edge-firewall, category: security, label: "Edge Firewall", path: /edge-firewall/, api: sovereign-edge-firewall-api, status: live,
-     description: "Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations.", refs: []}
-  - {slug: network-edge, category: security, label: "Network Edge", path: /network-edge/, api: sovereign-network-edge-api, status: live,
-     description: "The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network.", refs: [R449]}
-  - {slug: d-12-networking, category: security, label: "D-12 Networking", path: /d-12-networking/, api: sovereign-rules-mirror-api, status: live,
-     description: "The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions.", refs: [master-spec §8]}
+  - {slug: edge-firewall, category: security, label: "Edge Firewall", path: /edge-firewall/, api: sovereign-networking-api, status: live,
+     description: "Host firewall posture — nftables / fail2ban / crowdsec / suricata state + install recommendations. Unified networking API (port 8139).", refs: [R449]}
+  - {slug: network-edge, category: security, label: "Network Edge", path: /network-edge/, api: sovereign-networking-api, status: live,
+     description: "The edge topology — OPNsense bridge, ISP NAT layers, VPN, per-interface state. Where the box sits in the network. Unified networking API (port 8139).", refs: [R449]}
+  - {slug: d-12-networking, category: security, label: "D-12 Networking", path: /d-12-networking/, api: sovereign-networking-api, status: live,
+     description: "The cockpit networking view — the selfdef MS039 Ring-0-4 nftables rules mirror (read-only via selfdef-rules-mirror), per-ring rule counts + traffic + dispositions. Unified networking API (port 8139).", refs: [master-spec §8]}
   - {slug: d-06-pending-approvals, category: security, label: "D-06 Pending Approvals", path: /d-06-pending-approvals/, api: sovereign-approvals-api, status: live,
      description: "The operator approval queue + stage gates — actions waiting for a human yes/no.", refs: []}
   - {slug: d-07-memory-changes, category: security, label: "D-07 Memory Changes", path: /d-07-memory-changes/, api: sovereign-memory-changes-api, status: live,

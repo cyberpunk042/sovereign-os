@@ -6,7 +6,7 @@
 # after adding/renaming a panel API or an infra upstream:
 #   python3 scripts/operator/gen-dashboard-routes.py
 #
-# 58 proxied routes (6 infra + 52 api-backed panels); 8 static-only panels (served by the :8100 hub, not proxied).
+# 58 proxied routes (6 infra + 52 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
 
 schema_version: "1.0.0"
 
@@ -28,7 +28,7 @@ routes:
   - {slug: d-09-hardware-pressure, port: 8131, healthz_path: "/healthz", subpath: "/d-09-hardware-pressure/", source_repo: sovereign-os, label: "D-09 Hardware Pressure"}
   - {slug: d-10-eval-history, port: 8108, healthz_path: "/healthz", subpath: "/d-10-eval-history/", source_repo: sovereign-os, label: "D-10 Eval History"}
   - {slug: d-11-adapter-status, port: 8107, healthz_path: "/healthz", subpath: "/d-11-adapter-status/", source_repo: sovereign-os, label: "D-11 Adapter Status"}
-  - {slug: d-12-networking, port: 8133, healthz_path: "/healthz", subpath: "/d-12-networking/", source_repo: selfdef-mirror, label: "D-12 Networking"}
+  - {slug: d-12-networking, port: 8139, healthz_path: "/healthz", subpath: "/d-12-networking/", source_repo: sovereign-os, label: "D-12 Networking"}
   - {slug: d-13-filesystem-grants, port: 8113, healthz_path: "/healthz", subpath: "/d-13-filesystem-grants/", source_repo: selfdef-mirror, label: "D-13 Filesystem Grants"}
   - {slug: d-14-capability-tokens, port: 8118, healthz_path: "/healthz", subpath: "/d-14-capability-tokens/", source_repo: selfdef-mirror, label: "D-14 Capability Tokens"}
   - {slug: d-15-sandboxes, port: 8116, healthz_path: "/healthz", subpath: "/d-15-sandboxes/", source_repo: selfdef-mirror, label: "D-15 Sandboxes"}
@@ -47,7 +47,7 @@ routes:
   - {slug: d-28-perimeter, port: 8145, healthz_path: "/healthz", subpath: "/d-28-perimeter/", source_repo: sovereign-os, label: "D-28 Perimeter Fence"}
   - {slug: d-29-scheduler, port: 8146, healthz_path: "/healthz", subpath: "/d-29-scheduler/", source_repo: sovereign-os, label: "D-29 Goldilocks Scheduler"}
   - {slug: doc-coverage, port: 8099, healthz_path: "/healthz", subpath: "/doc-coverage/", source_repo: sovereign-os, label: "Doc Coverage"}
-  - {slug: edge-firewall, port: 8092, healthz_path: "/healthz", subpath: "/edge-firewall/", source_repo: sovereign-os, label: "Edge Firewall"}
+  - {slug: edge-firewall, port: 8139, healthz_path: "/healthz", subpath: "/edge-firewall/", source_repo: sovereign-os, label: "Edge Firewall"}
   - {slug: emulate, port: 8127, healthz_path: "/healthz", subpath: "/emulate/", source_repo: sovereign-os, label: "Emulate (QEMU)"}
   - {slug: feature-test-lab, port: 8135, healthz_path: "/healthz", subpath: "/feature-test-lab/", source_repo: sovereign-os, label: "Feature Test Lab"}
   - {slug: flash, port: 8126, healthz_path: "/healthz", subpath: "/flash/", source_repo: sovereign-os, label: "Flash to USB"}
@@ -56,7 +56,7 @@ routes:
   - {slug: trinity-logic-engine, port: 8082, healthz_path: "/v1/models", subpath: "/logic/", source_repo: sovereign-os, label: "Trinity Logic Engine (vLLM)"}
   - {slug: master-dashboard, port: 8090, healthz_path: "/healthz", subpath: "/master-dashboard/", source_repo: sovereign-os, label: "Master Dashboard"}
   - {slug: metrics-textfile-collector, port: 9100, healthz_path: "/metrics", subpath: "/metrics/", source_repo: sovereign-os, label: "node_exporter (textfile collector)"}
-  - {slug: network-edge, port: 8093, healthz_path: "/healthz", subpath: "/network-edge/", source_repo: sovereign-os, label: "Network Edge"}
+  - {slug: network-edge, port: 8139, healthz_path: "/healthz", subpath: "/network-edge/", source_repo: sovereign-os, label: "Network Edge"}
   - {slug: trinity-oracle-core, port: 8083, healthz_path: "/v1/models", subpath: "/oracle/", source_repo: sovereign-os, label: "Trinity Oracle Core (vLLM Blackwell)"}
   - {slug: trinity-pulse, port: 8081, healthz_path: "/v1/models", subpath: "/pulse/", source_repo: sovereign-os, label: "Trinity Pulse (bitnet.cpp HTTP)"}
   - {slug: router-engine, port: 8080, healthz_path: "/healthz", subpath: "/router-engine/", source_repo: sovereign-os, label: "SDD-011 Deterministic Router daemon"}
@@ -80,4 +80,5 @@ static_only:
   - {slug: orchestration, label: "Thinking Router / Orchestration"}
   - {slug: profile-generation, label: "Runtime-Profile Generation"}
   - {slug: selfdef-management, label: "selfdef (IPS) Management"}
+  - {slug: rustdoc-panel, label: "Rustdoc Panel"}
   - {slug: personalization, label: "Personalization"}

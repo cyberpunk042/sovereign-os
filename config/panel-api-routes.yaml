@@ -16,7 +16,7 @@ routes:
   - {prefix: "/api/cpu-features", port: 8124, api: sovereign-cpu-features-api}
   - {prefix: "/api/d-07", port: 8112, api: sovereign-memory-changes-api}
   - {prefix: "/api/d-08", port: 8111, api: sovereign-rollback-api}
-  - {prefix: "/api/d-12", port: 8133, api: sovereign-rules-mirror-api}
+  - {prefix: "/api/d-12", port: 8139, api: sovereign-networking-api}
   - {prefix: "/api/d-13", port: 8113, api: sovereign-grants-mirror-api}
   - {prefix: "/api/d-14", port: 8118, api: sovereign-capability-mirror-api}
   - {prefix: "/api/d-15", port: 8116, api: sovereign-sandbox-mirror-api}
