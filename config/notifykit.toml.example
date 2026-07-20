@@ -90,9 +90,15 @@ to_number   = "env:SOVEREIGN_OS_OPERATOR_SMS"
 # urgent); unknown props ride along as Event.props metadata.
 #
 # `stage-gate` fires on every M065 SG1-SG5 approval decision
-# (approval-decide.py); `wikiops` fires on applied wiki mutations.
+# (approval-decide.py); `wikiops` fires on applied wiki mutations;
+# `compat-gate` fires when the exec-rail pre-change gate REFUSES a
+# control change on a force-severity compatibility finding
+# (scripts/operator/_action_exec.py — reason + remediation in the body).
 [triggers.stage-gate]
 important = true
+
+# [triggers.compat-gate]
+# important = true
 
 # [triggers.wikiops]
 # important = true

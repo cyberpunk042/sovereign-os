@@ -302,3 +302,72 @@ def test_preexisting_violations_do_not_gate_unrelated_changes(monkeypatch):
     intro = compat2.pre_change({"cost-policy": "halt-cloud"})
     assert intro["gating"] and any(
         f["rule_id"].startswith("C001") for f in intro["findings"])
+
+
+# ── the AVX / runtime-mode rule families (C008–C011) ────────────────────────
+# Operator 2026-07-20: "you need to identify what is Not-compatible with
+# other things. like the u64 custom bits control" — avx-mode previously had
+# NO cross-system rules; C008/C011 give it its grounded relations.
+
+
+def test_avx_mode_has_cross_system_relations(monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT", "avx-mode=off")
+    compat = _load("compat_avx_t1", COMPAT_TOOL)
+    touching = [r["id"] for r in compat.load_rules()
+                if r["when"].get("system") == "avx-mode"
+                or any(t.get("system") == "avx-mode"
+                       for t in (r.get("targets") or [r.get("target")] if r.get("target") else []))]
+    assert touching, "avx-mode must have cross-system rules (operator directive)"
+    # pulse on a scalar-AVX box warns (C008)
+    res = compat.pre_change({"inference-tier": "pulse"})
+    assert any(f["rule_id"].startswith("C008") and f["severity"] == "warn"
+               for f in res["findings"])
+
+
+def test_high_concurrency_requires_all_three_tiers(monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT",
+                       "inference-tier=oracle")
+    compat = _load("compat_avx_t2", COMPAT_TOOL)
+    res = compat.pre_change({"runtime-mode": "high-concurrency-burst"})
+    hits = [f for f in res["findings"] if f["rule_id"].startswith("C009")]
+    assert hits and hits[0]["severity"] == "warn"
+    # the missing tiers are named in the hits
+    joined = " ".join(hits[0]["hits"])
+    assert "pulse" in joined and "logic" in joined and "oracle" not in joined
+
+
+def test_ultra_sovereign_efficiency_advisories(monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT",
+                       "gpu-mode=peak,avx-mode=off")
+    compat = _load("compat_avx_t3", COMPAT_TOOL)
+    res = compat.pre_change({"runtime-mode": "ultra-sovereign-efficiency"})
+    ids = {f["rule_id"][:4] for f in res["findings"]}
+    assert "C010" in ids and "C011" in ids
+    assert not res["gating"]        # suggest never gates
+
+
+# ── compat-gate refusals emit through notifykit (the compat-gate trigger) ──
+
+
+def test_compat_reject_emits_notifykit_event(tmp_path):
+    sink = tmp_path / "sink.jsonl"
+    cfg = tmp_path / "notifykit.toml"
+    cfg.write_text(
+        f'[channels.file]\nkind = "file"\nenabled = true\npath = "{sink}"\n',
+        encoding="utf-8")
+    env = _hermetic_env("openclaw-backend=anthropic")
+    env["SOVEREIGN_OS_NOTIFYKIT_CONFIG"] = str(cfg)
+    env["SOVEREIGN_OS_NOTIFYKIT_OVERRIDES"] = str(tmp_path / "ov.json")
+    d = _exec_cli("--control", "cost-policy", "--arg", "verb=halt-cloud", env=env)
+    assert d["code"] == 409
+    rows = [json.loads(x) for x in sink.read_text().splitlines()]
+    assert rows and rows[-1]["source"] == "compat-gate"
+    assert "C001" in rows[-1]["title"] and "INSTEAD" in rows[-1]["message"]
+    # no config → no emission, gate result unchanged
+    env2 = _hermetic_env("openclaw-backend=anthropic")
+    env2["SOVEREIGN_OS_NOTIFYKIT_CONFIG"] = str(tmp_path / "absent.toml")
+    d2 = _exec_cli("--control", "cost-policy", "--arg", "verb=halt-cloud", env=env2)
+    assert d2["code"] == 409

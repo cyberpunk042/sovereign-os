@@ -209,3 +209,93 @@ compatibility:
         - config/inference/m083-dflash-speculative-decoding.yaml
         - scripts/inference/dspark-wrap.sh
         - scripts/inference/dflash-wrap.sh
+
+    # ── the AVX-mode (u64 bit-machine) relations ──────────────────────
+    # Per operator 2026-07-20: "you need to identify what is
+    # Not-compatible with other things. like the u64 custom bits
+    # control". Before this round NO rule touched avx-mode — its
+    # drill-in showed only the implicit pick-one. These encode the
+    # grounded cross-system relations of the AVX-512 engine.
+
+    # Pulse is the CPU/AVX-512 bitnet.cpp tier — scalar AVX-off starves it.
+    - id: C008-pulse-tier-conflicts-avx-off
+      verb: conflicts_with
+      when: {system: inference-tier, option: pulse}
+      target: {system: avx-mode, option: "off"}
+      severity: warn
+      reason: >-
+        Pulse is the CPU/AVX-512 bitnet.cpp tier (SDD-011); avx-mode
+        'off' declares the scalar baseline ("the bit-machine is not
+        run" — SDD-600), starving the engine the Pulse tier is built
+        on. Running Pulse with AVX off is the slowest possible shape
+        of the CPU tier.
+      remediation: >-
+        Keep avx-mode at builtin (stock AVX-512 math), custom (the
+        M002/M007/M008 bit-machine) or hybrid while the Pulse tier
+        serves — or stop Pulse before dropping to 'off'
+        (sovereign-osctl inference stop pulse).
+      refs:
+        - SDD-011 (Trinity tiers — Pulse = CPU/AVX-512 bitnet.cpp)
+        - SDD-600 (AVX execution-mode hotswap)
+        - docs/src/avx-mode-bit-machine.md
+
+    # high-concurrency-burst is "multi-agent, all tiers" by definition.
+    - id: C009-high-concurrency-requires-all-tiers
+      verb: requires
+      when: {system: runtime-mode, option: high-concurrency-burst}
+      targets:
+        - {system: inference-tier, option: pulse}
+        - {system: inference-tier, option: logic}
+        - {system: inference-tier, option: oracle}
+      severity: warn
+      reason: >-
+        The high-concurrency-burst runtime profile (master spec §18) is
+        the "multi-agent, all tiers" allocation — selecting it with any
+        Trinity tier down leaves the router promising concurrency the
+        missing tier cannot serve.
+      remediation: >-
+        Bring every tier up first (sovereign-osctl inference start
+        {pulse|logic|oracle}) or pick a runtime-mode matching the tiers
+        actually serving.
+      refs:
+        - master spec §18 (runtime profiles)
+        - config/control-systems.yaml (runtime-mode, inference-tier)
+
+    # ultra-sovereign-efficiency is CPU-only — a peak GPU posture is waste.
+    - id: C010-ultra-sovereign-efficiency-vs-peak-gpu
+      verb: conflicts_with
+      when: {system: runtime-mode, option: ultra-sovereign-efficiency}
+      target: {system: gpu-mode, option: peak}
+      severity: suggest
+      reason: >-
+        ultra-sovereign-efficiency is the CPU-only background profile
+        (master spec §18) — holding the GPUs at peak posture burns the
+        power budget the profile exists to conserve, with the GPU tiers
+        idle by design.
+      remediation: >-
+        Drop gpu-mode to conservative or balanced alongside
+        ultra-sovereign-efficiency, or pick a runtime-mode that
+        actually uses the GPUs.
+      refs:
+        - master spec §18 (runtime profiles)
+        - config/control-systems.yaml (gpu-mode)
+
+    # ...and CPU-only with the AVX engine off is the worst of both.
+    - id: C011-ultra-sovereign-efficiency-vs-avx-off
+      verb: conflicts_with
+      when: {system: runtime-mode, option: ultra-sovereign-efficiency}
+      target: {system: avx-mode, option: "off"}
+      severity: suggest
+      reason: >-
+        The CPU-only profile leans entirely on the CPU's AVX-512 engine
+        (Pulse bitnet.cpp + the custom bit-machine); avx-mode 'off'
+        drops that engine to the scalar baseline, making the CPU-only
+        posture the slowest possible configuration of the box.
+      remediation: >-
+        Keep avx-mode at builtin/custom/hybrid under
+        ultra-sovereign-efficiency; 'off' is a debugging baseline, not
+        an operating posture.
+      refs:
+        - SDD-600 (AVX execution-mode hotswap)
+        - master spec §18 (runtime profiles)
+        - docs/src/avx-mode-bit-machine.md
