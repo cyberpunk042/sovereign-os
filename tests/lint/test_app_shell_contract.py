@@ -105,9 +105,13 @@ SANCTIONED_COMPAT_FETCH = "/api/control/compat?control_id="
 # payload (same truth as `sovereign-osctl notifykit show --json`) that
 # prefills the header 🔔 overlay. Fixed loopback path, zero egress.
 SANCTIONED_NOTIFYKIT_FETCH = "/api/control/notifykit"
+# 2026-07-20 ⚖ Compatibility pane: the BARE read-only compat payload (rules +
+# current-state findings + checkable inventory) feeding the shared overlay and
+# the header badge ("if something is off you will have a badge in the header").
+SANCTIONED_COMPAT_PANE_FETCH = "/api/control/compat"
 SANCTIONED_FETCHES = {
     SANCTIONED_CHAT_FETCH, SANCTIONED_EXEC_FETCH, SANCTIONED_COMPAT_FETCH,
-    SANCTIONED_NOTIFYKIT_FETCH,
+    SANCTIONED_NOTIFYKIT_FETCH, SANCTIONED_COMPAT_PANE_FETCH,
 }
 
 

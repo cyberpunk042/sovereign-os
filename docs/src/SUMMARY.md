@@ -70,6 +70,7 @@
 - [Use the box as your AI backend](./ai-backend.md)
 - [Operator env files & secrets](./operator-env-files.md)
 - [The AVX-mode bit-machine](./avx-mode-bit-machine.md)
+- [The compatibility module (rules · u64 gate · ⚖ pane)](./compatibility.md)
 - [Reasoning & operability](./reasoning-operability.md)
 - [Runtime binaries](./binaries.md)
 - [Exotic tool domains](./exotic-tools.md)

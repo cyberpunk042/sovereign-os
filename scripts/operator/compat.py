@@ -173,6 +173,29 @@ def validate_references(
                         f"{rule['id']}: system {sys_id!r} has no option "
                         f"{ref['option']!r} (declared: {declared})"
                     )
+        # resolution steps execute real controls and declare feature effects —
+        # both must resolve against the registry (typo-proof the fix plans).
+        for st in rule.get("resolution") or []:
+            if st.get("system") not in controls:
+                errors.append(
+                    f"{rule['id']}: resolution step targets unknown control "
+                    f"{st.get('system')!r}")
+            eff = st.get("effect") or {}
+            for _kind, ref in eff.items():
+                es = ref.get("system")
+                if es in virtual:
+                    continue
+                if es not in controls:
+                    errors.append(
+                        f"{rule['id']}: resolution effect on unknown system {es!r}")
+                    continue
+                if "option" in ref:
+                    declared = [_norm_opt(o)
+                                for o in (controls[es].get("options") or [])]
+                    if declared and _norm_opt(ref["option"]) not in declared:
+                        errors.append(
+                            f"{rule['id']}: resolution effect {es!r} has no "
+                            f"option {ref['option']!r}")
     return errors
 
 
@@ -457,22 +480,237 @@ def pre_change(proposed: dict[str, str | None]) -> dict[str, Any]:
         # option. An option NO rule references has no bit — represent it as
         # the system's active bit only (identical evaluation semantics), and
         # skip systems the universe doesn't know at all (best-effort input).
-        safe: dict[str, str | None] = {}
-        for k, v in merged.items():
-            if (k, None) not in universe.index:
-                continue
-            safe[k] = v if (v is None or (k, v) in universe.index) else None
-        word = config_word(universe, safe)
-        findings = evaluate(universe, compiled, word)
+        def _word(assignment: dict[str, str | None]) -> int:
+            safe: dict[str, str | None] = {}
+            for k, v in assignment.items():
+                if (k, None) not in universe.index:
+                    continue
+                safe[k] = v if (v is None or (k, v) in universe.index) else None
+            return config_word(universe, safe)
+
+        all_findings = evaluate(universe, compiled, _word(merged))
+        # A finding the CURRENT state trips on its own is PRE-EXISTING —
+        # it must not gate an UNRELATED change (else one bad state bricks
+        # every rail action, including fixes). Only findings the proposed
+        # change INTRODUCES gate; pre-existing ones ride along labeled.
+        baseline_ids = {f["rule_id"] for f in
+                        evaluate(universe, compiled, _word(dict(current)))}
+        findings = [f for f in all_findings if f["rule_id"] not in baseline_ids]
+        preexisting = [f for f in all_findings if f["rule_id"] in baseline_ids]
         return {
             "available": True,
             "findings": findings,
+            "preexisting": preexisting,
             "gating": any(f["severity"] == "force" for f in findings),
             "current": current,
             "proposed": {k: v for k, v in proposed.items()},
         }
     except (OSError, KeyError, ValueError, yaml.YAMLError) as e:
         return {"available": False, "error": f"compat gate unavailable: {e}"}
+
+
+def _parse_hit(hit: str) -> tuple[str, str | None]:
+    if "=" in hit:
+        s, o = hit.split("=", 1)
+        return s, o
+    return hit, None
+
+
+def _steps_for_finding(rule: dict[str, Any],
+                       finding: dict[str, Any]) -> list[dict[str, Any]]:
+    """Filter a rule's resolution steps to the ones addressing THIS
+    finding's actual hits — C001 has four backend-switch steps but only
+    the backends that are actively offending get planned."""
+    steps = rule.get("resolution") or []
+    hits = [_parse_hit(h) for h in (finding.get("hits") or [])]
+    verb = rule["verb"]
+    out: list[dict[str, Any]] = []
+    for st in steps:
+        eff = st.get("effect") or {}
+        if not eff:
+            continue
+        kind, ref = next(iter(eff.items()))
+        es = ref.get("system")
+        eo = _norm_opt(ref["option"]) if "option" in ref else None
+        relevant = False
+        for hs, ho in hits:
+            if hs != es:
+                continue
+            if verb == "requires":
+                # hit = MISSING feature; the step must provide it
+                if kind in ("set", "add") and (ho is None or eo == ho):
+                    relevant = True
+            else:  # conflicts_with / forces_off / one_of — hit = offending ACTIVE
+                if kind == "unset" and eo == ho:
+                    relevant = True
+                elif kind == "set" and eo != ho:
+                    relevant = True  # pick-one replace clears the offender
+        if relevant:
+            out.append(st)
+    return out
+
+
+def _apply_step_word(universe: Universe, word: int, step: dict[str, Any]) -> int:
+    """Simulate one resolution step on the state word (set = pick-one
+    replace · add = activate without clearing siblings · unset = clear)."""
+    kind, ref = next(iter(step["effect"].items()))
+    s = ref.get("system")
+    o = _norm_opt(ref["option"]) if "option" in ref else None
+    if kind in ("set", "add"):
+        if kind == "set" and s in universe.one_of_groups:
+            word &= ~universe.one_of_groups[s]
+        if o is not None and (s, o) in universe.index:
+            word |= 1 << universe.index[(s, o)]
+        if (s, None) in universe.index:
+            word |= 1 << universe.index[(s, None)]
+    else:  # unset
+        if o is not None and (s, o) in universe.index:
+            word &= ~(1 << universe.index[(s, o)])
+    return word
+
+
+def resolve(proposed: dict[str, str | None] | None = None) -> dict[str, Any]:
+    """The RESOLUTION engine — the operator's "force something else off
+    in order to enable one thing" made executable.
+
+    proposed=None  → plan to clear what the CURRENT state trips.
+    proposed={...} → plan to clear what the proposed change INTRODUCES
+                     (the exec rail attaches this to a 409).
+
+    The plan is the per-finding-filtered union of the firing rules'
+    resolution steps (each step maps 1:1 onto an exec-rail control
+    call), then SIMULATED on the u64 state word — `clean_after` is True
+    only when applying the whole plan actually clears every gating
+    finding, so the cockpit never offers a fix that would not fix.
+    Never raises."""
+    try:
+        controls = load_controls()
+        rules = load_rules()
+        provisioning = load_provisioning()
+        errors = validate_references(rules, controls, provisioning)
+        if errors:
+            return {"available": False,
+                    "error": f"compat registry references unresolved: {errors}"}
+        universe = Universe(controls, rules, provisioning)
+        compiled = compile_rules(universe, rules)
+        current = read_current_state(controls)
+
+        def _word_of(assignment: dict[str, str | None]) -> int:
+            safe: dict[str, str | None] = {}
+            for k, v in assignment.items():
+                if (k, None) not in universe.index:
+                    continue
+                safe[k] = v if (v is None or (k, v) in universe.index) else None
+            return config_word(universe, safe)
+
+        cur_word = _word_of(dict(current))
+        if proposed is None:
+            base_ids: set[str] = set()
+            work_word = cur_word
+        else:
+            merged: dict[str, str | None] = dict(current)
+            merged.update(proposed)
+            work_word = _word_of(merged)
+            base_ids = {f["rule_id"]
+                        for f in evaluate(universe, compiled, cur_word)}
+        findings = [f for f in evaluate(universe, compiled, work_word)
+                    if f["rule_id"] not in base_ids]
+        rules_by_id = {r["id"]: r for r in rules}
+        plan: list[dict[str, Any]] = []
+        seen: set[tuple] = set()
+        for f in findings:
+            rule = rules_by_id.get(f["rule_id"])
+            if rule is None:
+                continue  # implicit findings carry no authored resolution
+            for st in _steps_for_finding(rule, f):
+                key = (st["system"],
+                       tuple(sorted((st.get("args") or {}).items())))
+                if key in seen:
+                    continue
+                seen.add(key)
+                plan.append({"system": st["system"],
+                             "args": st.get("args") or {},
+                             "label": st["label"],
+                             "effect": st["effect"],
+                             "rule_id": f["rule_id"]})
+        sim = work_word
+        for st in plan:
+            sim = _apply_step_word(universe, sim, st)
+        findings_after = [f for f in evaluate(universe, compiled, sim)
+                          if f["rule_id"] not in base_ids]
+        return {
+            "available": True,
+            "findings": findings,
+            "plan": plan,
+            "findings_after": findings_after,
+            "clean_after": not any(f["severity"] == "force"
+                                   for f in findings_after),
+            "resolved_all": not findings_after,
+            "current": current,
+            "proposed": dict(proposed) if proposed else {},
+        }
+    except (OSError, KeyError, ValueError, yaml.YAMLError) as e:
+        return {"available": False, "error": f"compat resolve unavailable: {e}"}
+
+
+def state_report() -> dict[str, Any]:
+    """The compatibility-pane payload (header ⚙ → ⚖ Compatibility overlay):
+    every rule (id/verb/severity/reason/remediation/when/targets), the
+    best-effort CURRENT state, the findings that state trips RIGHT NOW
+    (`check --current` equivalent), and the checkable control inventory
+    (id + options) for the per-control preview drill-in. Never raises —
+    degrades to {"available": False, "error": ...}."""
+    try:
+        controls = load_controls()
+        rules = load_rules()
+        provisioning = load_provisioning()
+        errors = validate_references(rules, controls, provisioning)
+        if errors:
+            return {"available": False,
+                    "error": f"compat registry references unresolved: {errors}"}
+        universe = Universe(controls, rules, provisioning)
+        compiled = compile_rules(universe, rules)
+        current = read_current_state(controls)
+        findings: list[dict[str, Any]] = []
+        if current:
+            safe = {
+                k: (v if (k, v) in universe.index else None)
+                for k, v in current.items() if (k, None) in universe.index
+            }
+            findings = evaluate(universe, compiled, config_word(universe, safe))
+        resolution = None
+        if findings:
+            r = resolve(None)
+            if r.get("available"):
+                resolution = {"plan": r["plan"],
+                              "clean_after": r["clean_after"],
+                              "resolved_all": r["resolved_all"]}
+        return {
+            "available": True,
+            "current": current,
+            "findings": findings,
+            "resolution": resolution,
+            "rules": [
+                {
+                    "id": r["id"], "verb": r["verb"], "severity": r["severity"],
+                    "when": r["when"],
+                    "targets": r.get("targets") or ([r["target"]] if r.get("target") else []),
+                    "reason": r["reason"].strip(),
+                    "remediation": r["remediation"].strip(),
+                }
+                for r in rules
+            ],
+            "implicit": {
+                "pick_one_groups": sorted(universe.one_of_groups),
+                "profile_requires": [ir["name"] for ir in universe.implicit_requires],
+            },
+            "checkable": [
+                {"id": cid, "options": [_norm_opt(o) for o in (c.get("options") or [])]}
+                for cid, c in sorted(controls.items())
+            ],
+        }
+    except (OSError, KeyError, ValueError, yaml.YAMLError) as e:
+        return {"available": False, "error": f"compat state unavailable: {e}"}
 
 
 def option_preview(control_id: str) -> dict[str, Any] | None:
@@ -617,8 +855,33 @@ def cmd_check(args: argparse.Namespace) -> int:
     print("── compat check ──")
     print(f"  config: {', '.join(sorted(k + ('=' + v if v else '') for k, v in assignment.items()))}")
     print(f"  word:   {' '.join(universe.words(word))}")
+
+    def _print_resolution() -> None:
+        res = resolve({k: v for k, v in assignment.items()})
+        if not res.get("available"):
+            return
+        if res["plan"]:
+            print("  ── resolution plan (\"force something else off in order "
+                  "to enable one thing\") — vs the LIVE state ──")
+            for st in res["plan"]:
+                argv = " ".join(f"{k}={v}" for k, v in st["args"].items())
+                print(f"    → {st['label']}")
+                print(f"        exec-rail: control={st['system']} args {{{argv}}}"
+                      f"   [{st['rule_id']}]")
+            verdict = ("VERIFIED — applying the plan clears every gating finding"
+                       if res["clean_after"] else
+                       "PARTIAL — force findings would remain after the plan")
+            if res["resolved_all"]:
+                verdict = "VERIFIED — applying the plan clears ALL findings"
+            print(f"    {verdict}")
+        elif res["findings"]:
+            print("  (no executable resolution steps for what this change "
+                  "introduces on the live state)")
+
     if not findings:
         print("  CLEAN — no compatibility findings")
+        if getattr(args, "resolve", False):
+            _print_resolution()
         return 0
     for f in findings:
         mark = {"force": "FORCE", "warn": "WARN ", "suggest": "HINT "}[f["severity"]]
@@ -627,7 +890,42 @@ def cmd_check(args: argparse.Namespace) -> int:
         print(f"      remediation: {f['remediation']}")
         if f["hits"]:
             print(f"      involves:    {', '.join(f['hits'])}")
+    if getattr(args, "resolve", False):
+        _print_resolution()
     return 1 if gating else 0
+
+
+def cmd_precheck(args: argparse.Namespace) -> int:
+    """The CLI-side pre-change gate — called by sovereign-osctl before a
+    mutating verb applies, so terminal mutations honor the same rules as
+    the exec rail. Exit 0 = proceed (clean / advisories / gate off /
+    override / compat unavailable — degrade OPEN), exit 1 = force
+    finding introduced and no override ($SOVEREIGN_OS_COMPAT_OVERRIDE=1
+    proceeds, printed as overridden)."""
+    if os.environ.get("SOVEREIGN_OS_COMPAT_GATE", "on").lower() in ("off", "0"):
+        return 0
+    res = pre_change({args.system: args.option})
+    if not res.get("available") or not res.get("findings"):
+        return 0
+    force = [f for f in res["findings"] if f["severity"] == "force"]
+    for f in res["findings"]:
+        mark = {"force": "BLOCK", "warn": "WARN ", "suggest": "HINT "}[f["severity"]]
+        print(f"compat [{mark}] {f['rule_id']} — {f['reason']}")
+        print(f"       INSTEAD: {f['remediation']}")
+    if not force:
+        return 0
+    if os.environ.get("SOVEREIGN_OS_COMPAT_OVERRIDE", "").lower() in ("1", "true", "yes"):
+        print("compat: force finding OVERRIDDEN (SOVEREIGN_OS_COMPAT_OVERRIDE) — proceeding")
+        return 0
+    r = resolve({args.system: args.option})
+    if r.get("available") and r.get("plan"):
+        print("compat: resolution plan (force something else off in order to enable this):")
+        for st in r["plan"]:
+            argv = " ".join(f"{k}={v}" for k, v in st["args"].items())
+            print(f"       → {st['label']}   [control={st['system']} {argv}]")
+    print("compat: REFUSED — re-run with SOVEREIGN_OS_COMPAT_OVERRIDE=1 to force "
+          "(or SOVEREIGN_OS_COMPAT_GATE=off to disable the gate)")
+    return 1
 
 
 def cmd_explain(args: argparse.Namespace) -> int:
@@ -688,8 +986,20 @@ def build_parser() -> argparse.ArgumentParser:
                          "assignment")
     ck.add_argument("--strict", action="store_true",
                     help="warn-severity findings also gate (rc=1)")
+    ck.add_argument("--resolve", action="store_true",
+                    help="print the verified resolution plan (the steps that "
+                         "force the offending things off / bring the missing "
+                         "ones up)")
     ck.add_argument("--json", action="store_true")
     ck.set_defaults(func=cmd_check)
+
+    pp = sub.add_parser(
+        "precheck",
+        help="CLI-side pre-change gate (called by sovereign-osctl before "
+             "mutating verbs; rc=1 only on an un-overridden force finding)")
+    pp.add_argument("--system", required=True)
+    pp.add_argument("--option", default=None)
+    pp.set_defaults(func=cmd_precheck)
 
     pe = sub.add_parser("explain", help="one rule in full")
     pe.add_argument("rule_id")

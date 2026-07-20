@@ -565,6 +565,12 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     border-radius:6px; cursor:pointer; font:inherit; font-size:.82rem;}
   .so-h-btn:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
   #so-settings-toggle{font-size:1rem; line-height:1;} #so-settings-toggle[aria-expanded="true"]{background:color-mix(in srgb,var(--accent,#9bd1ff) 18%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 46%,transparent);}
+  /* ⚖ compat badge — visible ONLY when the live state trips a rule ("if
+     something is off you will have a badge in the header that allow you to
+     redisplay the pane if you dismissed it"). warn=amber, force=red. */
+  #so-compat-badge{font-size:.95rem; line-height:1;}
+  #so-compat-badge.so-compat-warn{background:color-mix(in srgb,#e2b93b 22%,transparent); border-color:color-mix(in srgb,#e2b93b 55%,transparent);}
+  #so-compat-badge.so-compat-force{background:color-mix(in srgb,#e05252 24%,transparent); border-color:color-mix(in srgb,#e05252 60%,transparent);}
   /* Settings popover — non-invasive: anchored under the header on the right, does not block the page. */
   #so-settings-pane{position:fixed; top:calc(var(--so-header-h) + 6px); right:8px; z-index:9500; width:300px; max-width:94vw;
     background:var(--card,#151515); color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:9px;
@@ -631,6 +637,49 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   #so-notif-modal input.so-set-mini{width:160px;}
   #so-notif-modal label{color:#c9c9c9;}
   #so-notif-modal .so-exec-result{color:#c9e3ff;}
+  /* ⚖ compat pane — THEME-FOLLOWING chrome (operator 2026-07-20: "it is
+     still dark on a light theme"). Panel CSS vars are NOT reliable at
+     body level (some panels scope --card below the root → dark-fallback
+     card under a light-theme --fg = unreadable). The RELIABLE signal is
+     html[data-theme] — the shell always resolves auto → light|dark onto
+     the root. Dark chrome is the base; an explicit light override group
+     keys off [data-theme="light"]. State colors are mid-tone (readable
+     on both): green clean · amber warn · red force. */
+  #so-compat-modal{position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+  #so-compat-modal[hidden]{display:none;}
+  #so-compat-modal .so-prov-card{width:720px; max-width:94vw; max-height:86vh; overflow:auto; background:#151515;
+    color:#e6e6e6; border:1px solid #2e2e2e; border-radius:11px; box-shadow:0 18px 50px rgba(0,0,0,.55); padding:.2rem 0 .5rem;}
+  #so-compat-modal .so-prov-h{display:flex; align-items:center; justify-content:space-between; font-weight:600; padding:.6rem .9rem; border-bottom:1px solid #2e2e2e; color:#f2f2f2;}
+  #so-compat-modal .so-prov-row{display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid #232323;}
+  #so-compat-modal .so-prov-row:last-child{border-bottom:0;}
+  #so-compat-modal .so-prov-lbl{flex:1; min-width:0;} #so-compat-modal .so-prov-lbl b{display:block; color:#f2f2f2;}
+  #so-compat-modal .so-prov-lbl small{color:#9a9a9a; font-size:.72rem;}
+  #so-compat-modal .so-prov-foot{color:#9a9a9a; font-size:.72rem; padding:.5rem .9rem 0;}
+  #so-compat-modal .so-prov-foot code{color:#c9e3ff;}
+  #so-compat-modal .so-set-ctl{display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; max-width:360px; justify-content:flex-end;}
+  #so-compat-modal .so-set-mini{background:#1e1e1e; color:#e6e6e6; border:1px solid #333; border-radius:6px;}
+  #so-compat-modal select.so-set-mini{min-width:128px;}
+  #so-compat-modal .so-exec-result{white-space:normal; word-break:break-word; line-height:1.5;}
+  #so-compat-modal .so-exec-muted{color:#9a9a9a;} #so-compat-modal .so-exec-ok{color:#5fae66;}
+  #so-compat-modal .so-exec-warn{color:#c79b3f;} #so-compat-modal .so-exec-err{color:#d06868;}
+  #so-compat-modal .so-exec-dry{color:#9bd1ff;}
+  #so-compat-modal #so-compat-rules .so-prov-lbl small{display:block; margin-top:.15rem;}
+  html[data-theme="light"] #so-notif-modal, html[data-theme="light"] #so-compat-modal{background:rgba(20,20,20,.35);}
+  html[data-theme="light"] #so-notif-modal .so-prov-card, html[data-theme="light"] #so-compat-modal .so-prov-card{background:#ffffff; color:#1c1c1c; border-color:#d5d5d5; box-shadow:0 18px 50px rgba(0,0,0,.25);}
+  html[data-theme="light"] #so-notif-modal .so-prov-h, html[data-theme="light"] #so-compat-modal .so-prov-h{border-bottom-color:#e2e2e2; color:#161616;}
+  html[data-theme="light"] #so-notif-modal .so-prov-row, html[data-theme="light"] #so-compat-modal .so-prov-row{border-bottom-color:#ececec;}
+  html[data-theme="light"] #so-notif-modal .so-prov-lbl b, html[data-theme="light"] #so-compat-modal .so-prov-lbl b{color:#161616;}
+  html[data-theme="light"] #so-notif-modal .so-prov-lbl small, html[data-theme="light"] #so-compat-modal .so-prov-lbl small{color:#5f5f5f;}
+  html[data-theme="light"] #so-notif-modal .so-prov-foot, html[data-theme="light"] #so-compat-modal .so-prov-foot{color:#5f5f5f;}
+  html[data-theme="light"] #so-notif-modal .so-prov-foot code, html[data-theme="light"] #so-compat-modal .so-prov-foot code{color:#1d4ed8;}
+  html[data-theme="light"] #so-notif-modal .so-set-mini, html[data-theme="light"] #so-compat-modal .so-set-mini{background:#f4f4f4; color:#1c1c1c; border-color:#c9c9c9;}
+  html[data-theme="light"] #so-notif-modal .so-exec-muted, html[data-theme="light"] #so-compat-modal .so-exec-muted{color:#6a6a6a;}
+  html[data-theme="light"] #so-notif-modal .so-exec-ok, html[data-theme="light"] #so-compat-modal .so-exec-ok{color:#25702c;}
+  html[data-theme="light"] #so-notif-modal .so-exec-warn, html[data-theme="light"] #so-compat-modal .so-exec-warn{color:#8a6413;}
+  html[data-theme="light"] #so-notif-modal .so-exec-err, html[data-theme="light"] #so-compat-modal .so-exec-err{color:#ab3535;}
+  html[data-theme="light"] #so-notif-modal .so-exec-dry, html[data-theme="light"] #so-compat-modal .so-exec-dry{color:#1d4ed8;}
+  html[data-theme="light"] #so-notif-modal label{color:#3a3a3a;}
+  html[data-theme="light"] #so-notif-modal .so-exec-result{color:#1d4ed8;}
   .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
   .so-brand .mark{color:var(--accent,#9bd1ff);}
   .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
@@ -874,6 +923,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         '<button class="so-h-btn" id="so-palette" title="Command palette (⌘K)">⌘K</button>'+
         '<button class="so-h-btn" id="so-theme" title="Theme (auto / dark / light)">◑ auto</button>'+
         '<button class="so-h-btn" id="so-assist-toggle" title="Assistant (contextual help)">✦ Assist</button>'+
+        '<button class="so-h-btn" id="so-compat-badge" hidden title="Compatibility findings — click to open the ⚖ pane" aria-label="Compatibility findings">⚖</button>'+
         '<button class="so-h-btn" id="so-settings-toggle" title="Settings" aria-label="Settings" aria-haspopup="true" aria-expanded="false">⚙</button>'+
       '</div></header>'));
   }
@@ -971,6 +1021,9 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         '<div class="so-set-row"><div class="so-set-lbl"><b>Notifications</b>'+
           '<span class="so-set-sub">The whole settings range — channels (ntfy · Resend email · Twilio SMS · file), priority×urgency gates, static pins, global default override, trigger frontmatter props (important:true …).</span></div>'+
           '<div class="so-set-ctl"><button class="so-set-mini" id="so-notif-open" type="button" title="Configure notifications">Configure…</button></div></div>'+
+        '<div class="so-set-row"><div class="so-set-lbl"><b>Compatibility</b>'+
+          '<span class="so-set-sub">Cross-system rules (requires · conflicts · forces-off · one-of, the M002 u64 bit-machine) — what the box’s CURRENT state trips, every rule with reason + remediation, and a per-control preview of which options the pre-change gate would refuse.</span></div>'+
+          '<div class="so-set-ctl"><button class="so-set-mini" id="so-compat-open" type="button" title="Inspect compatibility">Inspect…</button></div></div>'+
         '<div class="so-set-row" id="so-course-set-row" hidden><div class="so-set-lbl"><b>Guided course</b>'+
           '<span class="so-set-sub">The bottom journey-rail that tours the box. Toggle it here (updates live); Reset starts the tour over.</span></div>'+
           '<div class="so-set-ctl"><button class="so-set-mini" id="so-course-reset" type="button">Reset</button>'+
@@ -1243,6 +1296,189 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       if(!name||!prop||!val){ soExecMsg(res,'warn','trigger, prop and value are all required'); return; }
       soExec('notify-trigger',{name:name, prop:prop, value:val}, res);
     });
+    // ── Compatibility SHARED OVERLAY (⚖ pane, 2026-07-20) — the compat
+    //    module's operator surface in the shared component: what the box's
+    //    CURRENT state trips right now, every rule (reason + remediation —
+    //    the operator's "suggest or even force something else off in order
+    //    to enable one thing"), and a per-control preview of which options
+    //    the exec-rail pre-change gate would refuse (⛔) or flag (⚠).
+    //    Read-only throughout — one bare GET /api/control/compat for the
+    //    pane payload + the existing ?control_id= per-option preview.
+    //    Degrades to a muted unreachable line with no daemon (DEMO/static). ──
+    document.body.appendChild(el(
+      '<div id="so-compat-modal" role="dialog" aria-modal="true" aria-label="Compatibility" hidden>'+
+        '<div class="so-prov-card">'+
+          '<div class="so-prov-h"><span>⚖ Compatibility — cross-system rules &amp; live check</span>'+
+            '<button class="so-set-mini" id="so-compat-close" type="button">Close ✕</button></div>'+
+          '<div class="so-prov-row"><div class="so-prov-lbl"><b>Live state verdict</b>'+
+            '<small>the rules the box’s current state trips RIGHT NOW (best-effort state read + $SOVEREIGN_OS_COMPAT_CURRENT)</small>'+
+            '<div class="so-exec-result" id="so-compat-state"></div>'+
+            '<div id="so-compat-fix"></div></div></div>'+
+          '<div class="so-prov-row"><div class="so-prov-lbl"><b>Preview a control</b>'+
+            '<small>per-option verdict against current state — exactly what the exec-rail pre-change gate + rail greying enforce</small>'+
+            '<div class="so-exec-result" id="so-compat-preview"></div></div>'+
+            '<div class="so-set-ctl"><select class="so-set-mini" id="so-compat-ctl" aria-label="Control to preview"><option value="">control…</option></select></div></div>'+
+          '<div id="so-compat-rules"></div>'+
+          '<div class="so-prov-foot">Read-only — the same registry truth as <code>sovereign-osctl compat {list|check|explain|why}</code> and the execute() pre-change gate. Severities: FORCE gates the rail (409 + remediation, audited override) · WARN/HINT ride along.</div>'+
+        '</div></div>'));
+    var compatModal=document.getElementById('so-compat-modal'), compatOpen=document.getElementById('so-compat-open'), compatClose=document.getElementById('so-compat-close');
+    var compatBadge=document.getElementById('so-compat-badge');
+    var soCompatData=null;   // last pane payload — feeds the not-compatible-with drill-in
+    function compatSet(open){ compatModal.hidden=!open; }
+    function soCompatSev(sev){ return sev==='force'?'[FORCE]':(sev==='warn'?'[WARN]':'[HINT]'); }
+    // ── Header badge (operator 2026-07-20 verbatim: "if something is off you
+    //    will have a badge in the header that allow you to redisplay the pane
+    //    if you dismissed it") — visible ONLY when live state trips rules;
+    //    click re-opens the ⚖ pane. Hidden when clean or API unreachable. ──
+    function soCompatBadge(findings){
+      if(!compatBadge) return;
+      if(!findings || !findings.length){ compatBadge.hidden=true; compatBadge.className='so-h-btn'; compatBadge.textContent='⚖'; return; }
+      var force=findings.some(function(f){return f.severity==='force';});
+      compatBadge.hidden=false;
+      compatBadge.className='so-h-btn '+(force?'so-compat-force':'so-compat-warn');
+      compatBadge.textContent='⚖ '+findings.length;
+      compatBadge.title=findings.length+' compatibility finding'+(findings.length===1?'':'s')+
+        (force?' (FORCE — the exec rail refuses)':'')+' — click to open the ⚖ pane';
+    }
+    function soCompatFindingLines(findings){
+      return findings.map(function(f){
+        return soCompatSev(f.severity)+' '+f.rule_id+' ('+f.verb+') — '+f.reason+
+          ' INSTEAD: '+f.remediation+(f.hits&&f.hits.length?(' [involves: '+f.hits.join(', ')+']'):'');
+      });
+    }
+    function soCompatPane(){
+      var st=document.getElementById('so-compat-state'), rules=document.getElementById('so-compat-rules'),
+          sel=document.getElementById('so-compat-ctl');
+      soExecMsg(st,'muted','reading…');
+      fetch('/api/control/compat',{headers:{Accept:'application/json'}})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(p){
+          if(!p || !p.available){
+            soExecMsg(st,'warn', (p&&p.error) ? p.error :
+              'control-exec-api unreachable (:8130) — start sovereign-control-exec-api; CLI fallback: sovereign-osctl compat list');
+            return;
+          }
+          soCompatData=p;
+          soCompatBadge(p.findings||[]);
+          var nsys=Object.keys(p.current||{}).length;
+          if(!p.findings || !p.findings.length){
+            soExecMsg(st,'ok','CLEAN — current state ('+nsys+' system'+(nsys===1?'':'s')+' readable) trips no rules');
+          } else {
+            var worst=p.findings.some(function(f){return f.severity==='force';})?'err':'warn';
+            soExecMsg(st,worst, soCompatFindingLines(p.findings).join('  ·  '));
+          }
+          // ── the RESOLUTION plan — "force something else off in order to
+          //    enable one thing", executable: one button per verified step,
+          //    through the SAME sanctioned exec rail (dry-run until live;
+          //    privileged → Confirm). Server-simulated: the plan is only
+          //    offered when applying it actually clears the findings. ──
+          var fix=document.getElementById('so-compat-fix');
+          if(fix){ fix.innerHTML='';
+            var plan=(p.resolution&&p.resolution.plan)||[];
+            if(plan.length){
+              var head=el('<div class="so-set-sub" style="margin:.4rem 0 .15rem;"></div>');
+              head.textContent=(p.resolution.resolved_all
+                ? 'Verified fix plan — applying these clears ALL findings:'
+                : (p.resolution.clean_after
+                  ? 'Verified fix plan — clears every gating finding (advisories may remain):'
+                  : 'Fix plan (partial — force findings would remain):'));
+              fix.appendChild(head);
+              plan.forEach(function(stp){
+                var row=el('<div style="display:flex;gap:.4rem;align-items:center;margin:.15rem 0;flex-wrap:wrap;"></div>');
+                var btn=document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply';
+                btn.textContent='Force: '+stp.label;
+                btn.title=stp.rule_id+' — executes control '+stp.system+' via the exec rail';
+                var bres=el('<span class="so-exec-result"></span>');
+                btn.addEventListener('click',function(){ soExec(stp.system, stp.args, bres); });
+                row.appendChild(btn); row.appendChild(bres); fix.appendChild(row);
+              });
+            }
+          }
+          if(sel && sel.options.length<=1){
+            (p.checkable||[]).forEach(function(c){
+              if(!c.options||!c.options.length) return;
+              var o=document.createElement('option'); o.value=c.id; o.textContent=c.id;
+              sel.appendChild(o);
+            });
+          }
+          if(rules){
+            rules.innerHTML='';
+            (p.rules||[]).forEach(function(r){
+              var row=el('<div class="so-prov-row"><div class="so-prov-lbl"></div></div>');
+              var lbl=row.querySelector('.so-prov-lbl');
+              var b=document.createElement('b'); b.textContent=soCompatSev(r.severity)+' '+r.id+' — '+r.verb; lbl.appendChild(b);
+              var s1=document.createElement('small');
+              s1.textContent='when '+(r.when.system+(r.when.option!==undefined?('='+r.when.option):''))+
+                ' → '+(r.targets||[]).map(function(t){return t.system+(t.option!==undefined?('='+t.option):'');}).join(', ');
+              lbl.appendChild(s1);
+              var s2=document.createElement('small'); s2.textContent=r.reason+' INSTEAD: '+r.remediation; lbl.appendChild(s2);
+              rules.appendChild(row);
+            });
+            var imp=p.implicit||{};
+            var foot=el('<div class="so-prov-row"><div class="so-prov-lbl"><small></small></div></div>');
+            foot.querySelector('small').textContent='implicit: '+
+              ((imp.pick_one_groups||[]).length)+' pick-one groups (mode/profile systems + provisioning-profile) · '+
+              ((imp.profile_requires||[]).length)+' profile→mixin requires derived from profiles/*.yaml';
+            rules.appendChild(foot);
+          }
+        },function(){ soExecMsg(st,'err','control-exec-api unreachable (:8130) — start sovereign-control-exec-api'); })
+        .catch(function(){});
+    }
+    // ── The NOT-compatible-with drill-in (operator 2026-07-20 verbatim: "it
+    //    will take long time you need to identify what is Not-compatible with
+    //    other things. like the u64 custom bits control") — selecting a
+    //    control answers it in one shot: every rule TOUCHING it (the `why`
+    //    verb, client-side over the pane payload), its pick-one exclusivity
+    //    (the u64 mask that makes e.g. avx-mode custom/builtin/hybrid/off
+    //    mutually exclusive), and the per-option gate verdict. ──
+    function soCompatRelations(id){
+      if(!soCompatData) return [];
+      var out=[];
+      var touching=(soCompatData.rules||[]).filter(function(r){
+        if(r.when && r.when.system===id) return true;
+        return (r.targets||[]).some(function(t){ return t.system===id; });
+      });
+      touching.forEach(function(r){
+        var others=[];
+        if(r.when && r.when.system!==id) others.push(r.when.system+(r.when.option!==undefined?('='+r.when.option):''));
+        (r.targets||[]).forEach(function(t){ if(t.system!==id) others.push(t.system+(t.option!==undefined?('='+t.option):'')); });
+        out.push(soCompatSev(r.severity)+' '+r.verb+' ↔ '+(others.join(', ')||'(own options)')+' — '+r.id);
+      });
+      if((((soCompatData.implicit||{}).pick_one_groups)||[]).indexOf(id)>=0)
+        out.push('[FORCE] pick-one — this control’s options are mutually exclusive (u64 exclusivity mask)');
+      if(!out.length) out.push('no rules touch '+id+' — compatible with everything the registry knows');
+      return out;
+    }
+    var compatSel=document.getElementById('so-compat-ctl');
+    if(compatSel) compatSel.addEventListener('change',function(){
+      var id=compatSel.value, res=document.getElementById('so-compat-preview');
+      if(!id){ soExecMsg(res,'muted',''); return; }
+      soExecMsg(res,'muted','previewing '+id+'…');
+      fetch('/api/control/compat?control_id='+encodeURIComponent(id),{headers:{Accept:'application/json'}})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(p){
+          if(!p || !p.available){ soExecMsg(res,'warn','preview unavailable'); return; }
+          var lines=soCompatRelations(id);
+          lines=lines.concat((p.options||[]).map(function(row){
+            var f=(row.findings&&row.findings[0])||null;
+            var mark=row.gating?'⛔':(f?'⚠':'✓');
+            return mark+' '+id+'='+row.option+(f?(' — '+f.rule_id+': '+f.reason):'');
+          }));
+          soExecMsg(res, (p.options||[]).some(function(r){return r.gating;})?'warn':'ok', lines.join('  ·  '));
+        },function(){ soExecMsg(res,'err','control-exec-api unreachable'); })
+        .catch(function(){});
+    });
+    if(compatOpen) compatOpen.addEventListener('click',function(){ setPaneOpen(false); compatSet(true); soCompatPane(); });
+    if(compatClose) compatClose.addEventListener('click',function(){ compatSet(false); });
+    if(compatBadge) compatBadge.addEventListener('click',function(){ compatSet(true); soCompatPane(); });
+    compatModal.addEventListener('click',function(e){ if(e.target===compatModal) compatSet(false); });
+    document.addEventListener('keydown',function(e){ if(compatModal && !compatModal.hidden && e.key==='Escape') compatSet(false); });
+    // Silent init check — populate the badge on every page load so an
+    // incompatible state is visible WITHOUT opening the pane first.
+    fetch('/api/control/compat',{headers:{Accept:'application/json'}})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(p){ if(p && p.available){ soCompatData=p; soCompatBadge(p.findings||[]); } },function(){})
+      .catch(function(){});
     function setPaneOpen(open){ setPane.hidden=!open; setBtn.setAttribute('aria-expanded',open?'true':'false'); if(open){ syncDemoSwitch(); syncCourseSwitch(); } }
     setBtn.addEventListener('click',function(e){ e.stopPropagation(); setPaneOpen(setPane.hidden); });
     demoSw.addEventListener('click',function(){ demoSet(!demoOn()); });

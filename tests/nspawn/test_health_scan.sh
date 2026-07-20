@@ -39,35 +39,35 @@ set -e
   && ok "scan rc in {0,1} (${rc})" || ko "scan unexpected rc=${rc}"
 grep -q "R226 sovereign-os health scan" "${WORK}/scan.txt" \
   && ok "R226 banner present" || ko "no R226 banner"
-# All 6 probes must be enumerated
-for probe in gpu network cpu_mode fs_usage raid flex; do
+# All 7 probes must be enumerated
+for probe in gpu network cpu_mode fs_usage raid flex compat; do
   grep -qE " ${probe} +\[" "${WORK}/scan.txt" \
     && ok "probe enumerated: ${probe}" \
     || ko "missing probe: ${probe}"
 done
 # Summary line
-grep -qE "probes: 6" "${WORK}/scan.txt" \
-  && ok "summary cites 6 probes" || ko "summary count wrong"
+grep -qE "probes: 7" "${WORK}/scan.txt" \
+  && ok "summary cites 7 probes" || ko "summary count wrong"
 
 # ---- --json shape ----
 set +e
 python3 "${SCRIPT}" --json > "${WORK}/scan.json" 2>&1
 set -e
 python3 - "${WORK}/scan.json" <<'PY' 2>/dev/null \
-  && ok "JSON shape: probes[6] + summary + needs_attention + round" \
+  && ok "JSON shape: probes[7] + summary + needs_attention + round" \
   || ko "JSON shape wrong"
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d["round"] == "R226"
 assert d["vector"].startswith("SDD-026 Z-6")
 assert isinstance(d["probes"], list)
-assert len(d["probes"]) == 6
+assert len(d["probes"]) == 7
 ids = {p["probe"] for p in d["probes"]}
-assert ids == {"gpu", "network", "cpu_mode", "fs_usage", "raid", "flex"}, ids
+assert ids == {"gpu", "network", "cpu_mode", "fs_usage", "raid", "flex", "compat"}, ids
 for p in d["probes"]:
     assert p["severity"] in {"ok", "attention", "informational"}, p
     assert "vector" in p and "round" in p and "detail" in p
-assert "total" in d["summary"] and d["summary"]["total"] == 6
+assert "total" in d["summary"] and d["summary"]["total"] == 7
 assert isinstance(d["needs_attention"], bool)
 PY
 

@@ -67,16 +67,35 @@ def _panel_path(slug: str) -> Path:
     return WEBAPP / slug / "index.html"
 
 
+def _block_inside_script(html: str) -> bool:
+    """True iff the helpers block sits inside an OPEN <script> — a bare
+    block in <head> is rendered as visible page text by browsers (the
+    2026-07-20 d-03/d-04/d-09/d-11 leak)."""
+    i = html.find(BEGIN)
+    if i < 0:
+        return True
+    return html.count("<script", 0, i) > html.count("</script>", 0, i)
+
+
 def render(html: str, block: str) -> tuple[str, str]:
-    """Return (new_html, action). action ∈ replace|insert|unchanged|no-head."""
+    """Return (new_html, action). action ∈ replace|wrap|insert|unchanged|no-head.
+
+    The block is JS — it MUST live inside a <script> element. Insert wraps
+    it; replace keeps the existing wrapper; a bare (unwrapped) existing
+    block gets wrapped in place (`wrap` — the leak migration)."""
     if _BLOCK_RE.search(html):
         new = _BLOCK_RE.sub(lambda _m: block, html, count=1)
+        if not _block_inside_script(new):
+            new = _BLOCK_RE.sub(
+                lambda m: "<script>\n" + m.group(0) + "\n</script>",
+                new, count=1)
+            return new, "wrap"
         return new, ("unchanged" if new == html else "replace")
     m = _ENDHEAD_RE.search(html)
     if not m:
         return html, "no-head"
     at = m.start()
-    new = html[:at] + block + "\n" + html[at:]
+    new = html[:at] + "<script>\n" + block + "\n</script>\n" + html[at:]
     return new, "insert"
 
 

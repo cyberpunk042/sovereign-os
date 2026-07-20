@@ -139,3 +139,18 @@ def test_adopted_panels_place_block_in_head():
         assert hm.start() < blk.start() < em.start(), (
             f"{slug}: helpers block must be inside <head>"
         )
+
+
+def test_adopted_panels_wrap_block_in_script():
+    """Regression (2026-07-20, found via the ⚖ pane walkthrough): the block
+    is JS — injected BARE into <head> it renders as visible page text
+    (d-03/d-04/d-09/d-11 leaked the whole helpers comment + code above the
+    panel). Every adopted panel's block must sit inside an OPEN <script>."""
+    for slug in ADOPTED_HELPERS_PANELS:
+        html = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
+        i = html.find("/* HELPERS:BEGIN")
+        assert i >= 0, f"{slug}: helpers block missing"
+        assert html.count("<script", 0, i) > html.count("</script>", 0, i), (
+            f"{slug}: helpers block is OUTSIDE a <script> element — it will "
+            f"render as page text (run: python3 scripts/webapp/sync-helpers.py --apply)"
+        )

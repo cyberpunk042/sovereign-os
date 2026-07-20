@@ -45,7 +45,7 @@
 # grounding in refs. Growing the registry is per-rule operator review,
 # not bulk generation.
 
-schema_version: "1.0.0"
+schema_version: "1.1.0"
 
 compatibility:
   description: >-
@@ -81,6 +81,11 @@ compatibility:
       refs:
         - config/control-systems.yaml (cost-policy, *-backend)
         - SDD-707 (backend swap local|anthropic)
+      resolution:
+        - {system: openclaw-backend, args: {verb: local}, label: "Switch OpenClaw to the on-box gateway (backend local)", effect: {set: {system: openclaw-backend, option: local}}}
+        - {system: open-computer-backend, args: {verb: local}, label: "Switch Open Computer to the on-box gateway (backend local)", effect: {set: {system: open-computer-backend, option: local}}}
+        - {system: claude-code-backend, args: {verb: local}, label: "Switch Claude Code to the on-box gateway (backend local)", effect: {set: {system: claude-code-backend, option: local}}}
+        - {system: vscode-backend, args: {verb: local}, label: "Switch VSCode to the on-box gateway (backend local)", effect: {set: {system: vscode-backend, option: local}}}
 
     # ── speculative decoding needs an oracle to draft FOR ─────────────
     - id: C002-dspark-requires-oracle-tier
@@ -99,6 +104,8 @@ compatibility:
       refs:
         - SDD-026 (DFlash/DSpark speculative decoding)
         - scripts/inference/dspark-wrap.sh
+      resolution:
+        - {system: inference-tier, args: {verb: start, tier: oracle}, label: "Start the Oracle tier (sovereign-oracle-core)", effect: {add: {system: inference-tier, option: oracle}}}
 
     # ── deep-context synthesis runs ON the oracle ─────────────────────
     - id: C003-deep-context-requires-oracle-tier
@@ -117,6 +124,8 @@ compatibility:
       refs:
         - master spec §18.3 (deep-context-synthesis synthesizer_01)
         - profiles/runtime/
+      resolution:
+        - {system: inference-tier, args: {verb: start, tier: oracle}, label: "Start the Oracle tier (sovereign-oracle-core)", effect: {add: {system: inference-tier, option: oracle}}}
 
     # ── the open-computer kiosk face needs its backend configured ─────
     - id: C004-oc-kiosk-requires-oc-backend
@@ -153,6 +162,8 @@ compatibility:
       refs:
         - config/control-systems.yaml (cpu-mode, gpu-mode)
         - scripts/power/ (workload-mode coordinator R338/R345)
+      resolution:
+        - {system: gpu-mode, args: {verb: balanced}, label: "Drop the GPU posture to balanced", effect: {set: {system: gpu-mode, option: balanced}}}
 
     # ── oracle-hybrid bench serve vs the pure-VRAM tiers ──────────────
     # The 2026-07-19 hybrid trial endpoint claims BOTH internal GPUs
@@ -181,6 +192,9 @@ compatibility:
       refs:
         - scripts/inference/start-oracle-hybrid.sh
         - docs/evaluations/oracle-alternatives-glm47-m3-gptoss-2026-07-19.md
+      resolution:
+        - {system: inference-tier, args: {verb: stop, tier: oracle}, label: "Stop the pure-VRAM Oracle tier for the bench window", effect: {unset: {system: inference-tier, option: oracle}}}
+        - {system: inference-tier, args: {verb: stop, tier: logic}, label: "Stop the pure-VRAM Logic tier for the bench window", effect: {unset: {system: inference-tier, option: logic}}}
 
     # ── one draft strategy per invocation: DSpark xor DFlash ──────────
     # DSpark is the M083 successor built ON the DFlash backbone; both
@@ -209,3 +223,105 @@ compatibility:
         - config/inference/m083-dflash-speculative-decoding.yaml
         - scripts/inference/dspark-wrap.sh
         - scripts/inference/dflash-wrap.sh
+      resolution:
+        - {system: dspark-speculative-decoding, args: {verb: disable}, label: "Disable DSpark for this invocation (one draft strategy)", effect: {unset: {system: dspark-speculative-decoding, option: "on"}}}
+
+    # ── the AVX-mode (u64 bit-machine) relations ──────────────────────
+    # Per operator 2026-07-20: "you need to identify what is
+    # Not-compatible with other things. like the u64 custom bits
+    # control". Before this round NO rule touched avx-mode — its
+    # drill-in showed only the implicit pick-one. These encode the
+    # grounded cross-system relations of the AVX-512 engine.
+
+    # Pulse is the CPU/AVX-512 bitnet.cpp tier — scalar AVX-off starves it.
+    - id: C008-pulse-tier-conflicts-avx-off
+      verb: conflicts_with
+      when: {system: inference-tier, option: pulse}
+      target: {system: avx-mode, option: "off"}
+      severity: warn
+      reason: >-
+        Pulse is the CPU/AVX-512 bitnet.cpp tier (SDD-011); avx-mode
+        'off' declares the scalar baseline ("the bit-machine is not
+        run" — SDD-600), starving the engine the Pulse tier is built
+        on. Running Pulse with AVX off is the slowest possible shape
+        of the CPU tier.
+      remediation: >-
+        Keep avx-mode at builtin (stock AVX-512 math), custom (the
+        M002/M007/M008 bit-machine) or hybrid while the Pulse tier
+        serves — or stop Pulse before dropping to 'off'
+        (sovereign-osctl inference stop pulse).
+      refs:
+        - SDD-011 (Trinity tiers — Pulse = CPU/AVX-512 bitnet.cpp)
+        - SDD-600 (AVX execution-mode hotswap)
+        - docs/src/avx-mode-bit-machine.md
+      resolution:
+        - {system: avx-mode, args: {verb: builtin}, label: "Bring the AVX-512 engine back (avx-mode builtin)", effect: {set: {system: avx-mode, option: builtin}}}
+
+    # high-concurrency-burst is "multi-agent, all tiers" by definition.
+    - id: C009-high-concurrency-requires-all-tiers
+      verb: requires
+      when: {system: runtime-mode, option: high-concurrency-burst}
+      targets:
+        - {system: inference-tier, option: pulse}
+        - {system: inference-tier, option: logic}
+        - {system: inference-tier, option: oracle}
+      severity: warn
+      reason: >-
+        The high-concurrency-burst runtime profile (master spec §18) is
+        the "multi-agent, all tiers" allocation — selecting it with any
+        Trinity tier down leaves the router promising concurrency the
+        missing tier cannot serve.
+      remediation: >-
+        Bring every tier up first (sovereign-osctl inference start
+        {pulse|logic|oracle}) or pick a runtime-mode matching the tiers
+        actually serving.
+      refs:
+        - master spec §18 (runtime profiles)
+        - config/control-systems.yaml (runtime-mode, inference-tier)
+      resolution:
+        - {system: inference-tier, args: {verb: start, tier: pulse}, label: "Start the Pulse tier (CPU/AVX-512 bitnet)", effect: {add: {system: inference-tier, option: pulse}}}
+        - {system: inference-tier, args: {verb: start, tier: logic}, label: "Start the Logic tier (vLLM 5090)", effect: {add: {system: inference-tier, option: logic}}}
+        - {system: inference-tier, args: {verb: start, tier: oracle}, label: "Start the Oracle tier (vLLM Blackwell)", effect: {add: {system: inference-tier, option: oracle}}}
+
+    # ultra-sovereign-efficiency is CPU-only — a peak GPU posture is waste.
+    - id: C010-ultra-sovereign-efficiency-vs-peak-gpu
+      verb: conflicts_with
+      when: {system: runtime-mode, option: ultra-sovereign-efficiency}
+      target: {system: gpu-mode, option: peak}
+      severity: suggest
+      reason: >-
+        ultra-sovereign-efficiency is the CPU-only background profile
+        (master spec §18) — holding the GPUs at peak posture burns the
+        power budget the profile exists to conserve, with the GPU tiers
+        idle by design.
+      remediation: >-
+        Drop gpu-mode to conservative or balanced alongside
+        ultra-sovereign-efficiency, or pick a runtime-mode that
+        actually uses the GPUs.
+      refs:
+        - master spec §18 (runtime profiles)
+        - config/control-systems.yaml (gpu-mode)
+      resolution:
+        - {system: gpu-mode, args: {verb: conservative}, label: "Drop the GPU posture to conservative (CPU-only profile)", effect: {set: {system: gpu-mode, option: conservative}}}
+
+    # ...and CPU-only with the AVX engine off is the worst of both.
+    - id: C011-ultra-sovereign-efficiency-vs-avx-off
+      verb: conflicts_with
+      when: {system: runtime-mode, option: ultra-sovereign-efficiency}
+      target: {system: avx-mode, option: "off"}
+      severity: suggest
+      reason: >-
+        The CPU-only profile leans entirely on the CPU's AVX-512 engine
+        (Pulse bitnet.cpp + the custom bit-machine); avx-mode 'off'
+        drops that engine to the scalar baseline, making the CPU-only
+        posture the slowest possible configuration of the box.
+      remediation: >-
+        Keep avx-mode at builtin/custom/hybrid under
+        ultra-sovereign-efficiency; 'off' is a debugging baseline, not
+        an operating posture.
+      refs:
+        - SDD-600 (AVX execution-mode hotswap)
+        - master spec §18 (runtime profiles)
+        - docs/src/avx-mode-bit-machine.md
+      resolution:
+        - {system: avx-mode, args: {verb: builtin}, label: "Bring the AVX-512 engine back (avx-mode builtin)", effect: {set: {system: avx-mode, option: builtin}}}

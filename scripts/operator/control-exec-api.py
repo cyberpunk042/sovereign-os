@@ -32,8 +32,12 @@ Endpoints:
   GET  /api/control/compat       ?control_id=X — per-option compat preview
                                  against best-effort current state (the rail
                                  GREYS force-incompatible options; warn/suggest
-                                 annotate). Read-only; same registry truth as
-                                 the execute() pre-change gate.
+                                 annotate). BARE (no control_id): the
+                                 ⚖ Compatibility pane payload — every rule +
+                                 current state + the findings it trips now +
+                                 the checkable control inventory. Read-only;
+                                 same registry truth as the execute()
+                                 pre-change gate.
   GET  /api/control/notifykit    the effective notifykit settings (base TOML +
                                  JSON overlay) — the SAME payload as
                                  `sovereign-osctl notifykit show --json`, so
@@ -158,12 +162,14 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
         if path == "/api/control/compat":
             qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             control_id = (qs.get("control_id") or [""])[0]
-            if not control_id:
-                self._send_json(400, {"error": "pass ?control_id=<id>"})
-                return
             if _compat is None:
                 self._send_json(503, {"error": "compat module unavailable",
                                       "control_id": control_id})
+                return
+            if not control_id:
+                # Bare path — the ⚖ Compatibility pane payload: rules +
+                # current state + live findings + checkable inventory.
+                self._send_json(200, _compat.state_report())
                 return
             preview = _compat.option_preview(control_id)
             if preview is None:

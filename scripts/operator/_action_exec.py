@@ -84,6 +84,33 @@ _OPERATOR_KEY_STATUS = Path("/run/sovereign-os/operator-key-status.json")
 # degrades OPEN (the rail must not die with the gate).
 
 
+def _notify_compat_reject(control_id: str, finding: dict[str, Any]) -> None:
+    """A compat-gate REFUSAL emits through the notifykit channel stack when
+    a config exists — the `compat-gate` trigger, so the operator can set
+    frontmatter props on it (e.g. `sovereign-osctl notifykit trigger
+    compat-gate important true`). Mirrors approval-decide's stage-gate
+    trigger; notification must NEVER break the gate path."""
+    cfg_path = os.environ.get(
+        "SOVEREIGN_OS_NOTIFYKIT_CONFIG", "/etc/sovereign-os/notifykit.toml")
+    if not os.path.isfile(cfg_path):
+        return
+    try:
+        repo_root = Path(__file__).resolve().parents[2]
+        import sys as _sys
+        if str(repo_root) not in _sys.path:
+            _sys.path.insert(0, str(repo_root))
+        from tools.notifykit import ChannelRegistry, Event, NotifyConfig
+        registry = ChannelRegistry(NotifyConfig.load(cfg_path))
+        registry.dispatch(Event(
+            title=f"compat-gate refused {control_id}: {finding['rule_id']}",
+            message=(f"{finding['reason']} INSTEAD: {finding['remediation']}"),
+            priority="high", urgency="normal",
+            source="compat-gate",
+        ))
+    except Exception:  # noqa: BLE001 — never mask the gate result
+        pass
+
+
 def _compat_pre_change(control: dict, control_id: str,
                        args: dict[str, str]) -> dict[str, Any] | None:
     """Compat findings for this action, or None when the gate is off /
@@ -331,9 +358,24 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
             first = next(f for f in compat_res["findings"]
                          if f["severity"] == "force")
             _emit_metric(control_id, "compat-reject")
+            _notify_compat_reject(control_id, first)
+            # The RESOLUTION plan — "force something else off in order to
+            # enable one thing": the verified steps (each an exec-rail call)
+            # that would clear what this change introduces. Best-effort.
+            resolution = None
+            try:
+                import compat as _compat_mod
+                r = _compat_mod.resolve(compat_res.get("proposed") or {})
+                if r.get("available") and r.get("plan"):
+                    resolution = {"plan": r["plan"],
+                                  "clean_after": r["clean_after"],
+                                  "resolved_all": r["resolved_all"]}
+            except Exception:  # noqa: BLE001 — the plan is advisory
+                pass
             return {
                 "ok": False, "code": 409, "control_id": control_id,
                 "compat": compat_res,
+                "resolution": resolution,
                 "error": (f"compat gate: {first['rule_id']} ({first['verb']}) — "
                           f"{first['reason']}"),
                 "remediation": first["remediation"],

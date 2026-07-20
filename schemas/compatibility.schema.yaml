@@ -28,7 +28,10 @@ additionalProperties: false
 properties:
   schema_version:
     type: string
-    enum: ["1.0.0"]
+    # 1.1.0 — rules may carry an executable `resolution` plan (the
+    # operator's "force something else off in order to enable one thing"
+    # made actionable: steps map onto exec-rail control calls).
+    enum: ["1.0.0", "1.1.0"]
 
   compatibility:
     type: object
@@ -121,3 +124,57 @@ $defs:
         type: array
         items:
           type: string
+
+      resolution:
+        description: |
+          The executable fix plan — the operator's "force something else
+          off in order to enable one thing" made actionable. Each step
+          maps 1:1 onto an exec-rail control call (system = control id,
+          args = the placeholder args _action_exec.execute() takes) and
+          declares its state EFFECT so the resolver can SIMULATE the
+          plan and verify it actually clears the finding before offering
+          it. Steps are filtered per-violation to the ones addressing
+          the actual hits.
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/resolution_step"
+
+  resolution_step:
+    type: object
+    required: [system, args, label, effect]
+    additionalProperties: false
+    properties:
+      system:
+        description: "Control id (config/control-systems.yaml) the step executes."
+        type: string
+        pattern: "^[a-z0-9-]+$"
+      args:
+        description: "Exec-rail placeholder args for the control's change_cli."
+        type: object
+        minProperties: 1
+        additionalProperties:
+          type: [string, number, boolean]
+      label:
+        description: "Operator-facing action label (imperative, specific)."
+        type: string
+        minLength: 10
+      effect:
+        description: |
+          The state change the step produces, for plan simulation:
+          set   — the system ends at this option (pick-one semantics:
+                  replaces the system's current option)
+          add   — this option becomes active WITHOUT clearing siblings
+                  (multi-active toggles, e.g. starting one more tier)
+          unset — this option of the system stops being active
+        type: object
+        minProperties: 1
+        maxProperties: 1
+        additionalProperties: false
+        properties:
+          set:
+            $ref: "#/$defs/feature_ref"
+          add:
+            $ref: "#/$defs/feature_ref"
+          unset:
+            $ref: "#/$defs/feature_ref"

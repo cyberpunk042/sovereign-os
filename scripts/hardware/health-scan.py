@@ -227,6 +227,59 @@ def probe_flex() -> dict[str, Any]:
     }
 
 
+def probe_compat() -> dict[str, Any]:
+    """Cross-system compatibility verdict (2026-07-20) — the compat
+    registry's live-state check joins the health scan, so an
+    incompatible box becomes a MONITORED condition: the R228 dispatcher
+    picks up the ok→attention transition and notifies (incl. the
+    notifykit bridge) instead of waiting for someone to open the ⚖ pane.
+    Severity: force finding → attention · warn → attention ·
+    suggest-only → informational · clean → ok · registry unavailable →
+    informational (the scan never dies with the gate)."""
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "compat", Path(__file__).resolve().parents[1] / "operator" / "compat.py")
+        compat = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(compat)
+        rep = compat.state_report()
+    except Exception as e:  # noqa: BLE001 — degrade to informational
+        rep = {"available": False, "error": str(e)}
+    if not rep.get("available"):
+        return {
+            "probe": "compat", "round": "R226+", "vector": "Z-6",
+            "rc": 0, "severity": "informational",
+            "detail": f"compat registry unavailable — {rep.get('error', '?')}",
+            "flagged_items": [],
+        }
+    findings = rep.get("findings") or []
+    worst = ("force" if any(f["severity"] == "force" for f in findings)
+             else "warn" if any(f["severity"] == "warn" for f in findings)
+             else "suggest" if findings else None)
+    sev = ("attention" if worst in ("force", "warn")
+           else "informational" if worst == "suggest" else "ok")
+    nsys = len(rep.get("current") or {})
+    if not findings:
+        detail = f"clean — no rules tripped ({nsys} readable system(s))"
+    else:
+        detail = (f"{len(findings)} finding(s), worst={worst}: "
+                  + ", ".join(f"{f['rule_id']} ({f['severity']})"
+                              for f in findings))
+        plan = (rep.get("resolution") or {}).get("plan") or []
+        if plan:
+            detail += f" — {len(plan)}-step verified fix plan available (⚖ pane / compat check --current --resolve)"
+    return {
+        "probe": "compat", "round": "R226+", "vector": "Z-6",
+        "rc": 0 if sev != "attention" else 1,
+        "severity": sev,
+        "detail": detail,
+        "flagged_items": [
+            {"id": f["rule_id"], "severity": f["severity"]} for f in findings
+        ],
+    }
+
+
 PROBES: dict[str, Any] = {
     "gpu": probe_gpu,
     "network": probe_network,
@@ -234,6 +287,7 @@ PROBES: dict[str, Any] = {
     "fs_usage": lambda: probe_fs_usage(80),
     "raid": probe_raid,
     "flex": probe_flex,
+    "compat": probe_compat,
 }
 
 
@@ -294,7 +348,7 @@ def main() -> int:
     p.add_argument(
         "--probe",
         choices=list(PROBES.keys()),
-        help="run only this probe instead of all six",
+        help="run only this probe instead of all seven",
     )
     args = p.parse_args()
     if args.probe:
