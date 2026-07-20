@@ -18,7 +18,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 ## Current state (2026-07-16 — counts machine-verified)
 
-> **Last updated: 2026-07-16.** This section supersedes the historical-arc log below it. The counts here are enforced by `tests/lint/test_context_md_counts.py` — if the tree changes and these drift, CI fails, so this "read me first" surface can never silently rot again (the recurring `F-2026-030` drift closed by SDD-952).
+> **Last updated: 2026-07-20.** This section supersedes the historical-arc log below it. The counts here are enforced by `tests/lint/test_context_md_counts.py` — if the tree changes and these drift, CI fails, so this "read me first" surface can never silently rot again (the recurring `F-2026-030` drift closed by SDD-952).
 
 <!-- COUNTS-CONTRACT: each row is verified against the filesystem by tests/lint/test_context_md_counts.py.
      Update the numbers here when the tree changes — the lint fails on drift. Do NOT rename the labels
@@ -29,7 +29,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 | workspace crates | 721 | `crates/*/` |
 | dashboards (d-nn) | 29 | `webapp/d-*/` |
 | cockpit panels (total) | 61 | `webapp/*/index.html` |
-| sdd files | 208 | `docs/sdd/<NNN>-*.md` |
+| sdd files | 209 | `docs/sdd/<NNN>-*.md` |
 | milestone files | 85 | `backlog/milestones/*.md` |
 
 <!-- END COUNTS-CONTRACT -->
@@ -261,19 +261,22 @@ Per operator: *"little piece by little piece and progress in this massive endles
 > historical record; treat its ✓-less items as needing a presence-check
 > before any (re)work.
 
-### Current forward queue (Phase-1 audit — in flight, 2026-07-16)
+### Current forward queue (Phase-1 audit tail + new arcs, 2026-07-20)
 
 Determined from `docs/review/phase-1/99-findings-ledger.md` open items; worked sequentially:
 
-1. **F-2026-070** — Finish panel-fork consolidation (the networking triplet still needs API-level merging)
-2. **F-2026-073** — Continue helper adoption and add sync/drift tooling for the 5 unmanaged snippet families
-3. **F-2026-086** — Finish real chat templates + pre-tokenizer support (sampling and non-streaming JSON are shipped)
-4. **F-2026-025** — Continue splitting `sovereign-osctl` into installed, contract-tested verb modules
-5. **F-2026-052** — Build qemu/chroot test tiers (integration-test matrix: host → qemu-x86_64 → chroot)
-6. **F-2026-071** — Fix dead node-exporter fetch (metrics scraping timeout / fallback)
-7. **F-2026-072** — Reconcile aggregator route table (`sovereign-aggregator` route consistency)
-8. **F-2026-074** — Back-port skip-link a11y (WCAG 2.4.1 bypass blocks to all D-NN dashboards)
-9. **F-2026-066** — Add cross-daemon integration test (gatewayd ↔ inference ↔ memory ↔ mirror lifecycle)
+1. **F-2026-070** — Merge the `network-edge` / `edge-firewall` / `d-12-networking` triplet at the API level (the other three clusters were reframed as non-forks; this triplet remains)
+2. **F-2026-073** — Build sync/drift tooling for the 5 unmanaged snippet families (`control-surface.js/css`, `a11y`, `demo-mode`, `nav`, `responsive`) following the `sync-helpers.py` / `test_helpers_contract.py` pattern
+3. **F-2026-093** — Build local rustdoc as a panel (rustdoc-as-panel opportunity; docs.rs links are already repointed to GitHub source per SDD-960)
+4. **M085 / M086** — Populate the two empty milestones (0 R-rows each) with full 170-R-row content: Zen 5 AVX-512 three-tier instruction exploitation + scalar-reference → SIMD lift plan
+
+**Operator-blocked (needs SAIN-01 or explicit operator call):**
+- **A** · Notifications go-live (notifykit.toml + secrets + channel test)
+- **B** · Exec-rail live flip (sudoers review → `SOVEREIGN_OS_ACTION_EXEC_LIVE=1`)
+- **C** · Big-MoE oracle-alternative benches (GLM-4.7 / MiniMax-M3 on hardware)
+- **D** · Compat-gate calibration (per-rule severity review)
+- **E** · AGENTS.md / CLAUDE.md promotion (operator review of DRAFT v2)
+- **F** · Wikiops target registry (`config/wikis.toml` from example)
 
 ### Historical queue (retained per "layered ON TOP — never discarded")
 
@@ -635,7 +638,7 @@ Earlier history: see `git log --oneline backlog/milestones/` and `CHANGELOG.md`.
 
 ---
 
-**Last updated**: 2026-07-16 (commits `3c1cebc2` through this session + this file `context.md`)
+**Last updated**: 2026-07-20 (commits `68e110a7` through `b3618a9d` + this file `context.md`)
 **Next AI session**: read this file → read two-ultimate-solutions.md → pick next item from "What's ahead" → execute → update this file.
 
 ## Latest cycle (post-resume 2026-05-19)
