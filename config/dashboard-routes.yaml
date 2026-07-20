@@ -6,7 +6,7 @@
 # after adding/renaming a panel API or an infra upstream:
 #   python3 scripts/operator/gen-dashboard-routes.py
 #
-# 58 proxied routes (6 infra + 52 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
+# 59 proxied routes (6 infra + 53 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
 
 schema_version: "1.0.0"
 
@@ -15,6 +15,7 @@ routes:
   - {slug: auditor, port: 8103, healthz_path: "/healthz", subpath: "/auditor/", source_repo: sovereign-os, label: "Auditor (gatekeeper)"}
   - {slug: auth-tier, port: 8091, healthz_path: "/healthz", subpath: "/auth-tier/", source_repo: sovereign-os, label: "Auth Tier"}
   - {slug: brain, port: 8141, healthz_path: "/healthz", subpath: "/brain/", source_repo: sovereign-os, label: "Sovereign Brain"}
+  - {slug: chromofold, port: 8147, healthz_path: "/healthz", subpath: "/chromofold/", source_repo: sovereign-os, label: "ChromoFold"}
   - {slug: code-console, port: 8140, healthz_path: "/healthz", subpath: "/code-console/", source_repo: sovereign-os, label: "Code Console"}
   - {slug: compliance, port: 8097, healthz_path: "/healthz", subpath: "/compliance/", source_repo: sovereign-os, label: "Compliance"}
   - {slug: d-01-active-sessions, port: 8109, healthz_path: "/healthz", subpath: "/d-01-active-sessions/", source_repo: sovereign-os, label: "D-01 Active Sessions"}

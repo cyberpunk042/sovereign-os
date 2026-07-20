@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os D-23 model catalog</title>
-<meta name="x-sovereign-module" content="d-23-models-catalog-webapp">
-<meta name="x-sovereign-shipped-in" content="D-23-models-catalog">
-<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<meta name="x-sovereign-catalog-source" content="reuses scripts/inference/model-health.py load_catalog (models/catalog.yaml); M075 SRP tiers">
+<title>ChromoFold · sovereign-os</title>
+<meta name="x-sovereign-module" content="chromofold-webapp">
+<meta name="x-sovereign-shipped-in" content="F-2026-119">
+<meta name="x-sovereign-standing-rule" content="opt-in, off by default; honest-degrade, never fabricate.">
 <script>
   (function(){
     var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
@@ -28,93 +27,12 @@
   })();
 </script>
 <style>
-  :root {
-    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
-    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
-    --bad:#ff7676; --font-scale:1;
-  }
   html[data-theme="light"] {
-    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
+    --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555;
+    --panel:#ffffff; --border:#d8d8d8;
   }
-  * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--bg); color:var(--fg);
-    font-family: var(--mono); font-size: calc(14px * var(--font-scale)); line-height:1.5;
-  }
-  header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
-  h1 { margin:0; font-size:1.1rem; }
-  h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
-  main { padding:1rem 1.25rem; max-width:1200px; }
-  h2 { font-size:.9rem; margin:1.2rem 0 .4rem; color:var(--accent); }
-  .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
-  .muted { color:var(--muted); }
-  code { color:var(--accent); }
-  table { width:100%; border-collapse:collapse; font-size:.8rem; margin-bottom:.5rem; }
-  th, td { text-align:left; padding:.3rem .5rem; border-bottom:1px solid var(--border); vertical-align:top; }
-  th { color:var(--muted); font-weight:600; }
-  td.num { text-align:right; }
-  .pill { display:inline-block; padding:0 .4rem; border-radius:3px; border:1px solid var(--border); font-size:.7rem; color:var(--muted); }
-  .st-verified-real { color:var(--good); }
-  .st-aspirational { color:var(--warn); }
-  .st-operator-must-confirm { color:var(--bad); }
-  footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
 </style>
-<!-- SDD-116/120 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
-<style>
-/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
- * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
- * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
- * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
- * panels alongside demo-mode.js. */
-#so-demo-badge {
-  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
-  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
-  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
-  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
-}
-/* Lift clear of the guided-course rail when it is showing (SDD-203) — the rail
-   occupies the bottom band, so raise the badge above it + a small margin rather
-   than letting it sit directly on the rail. Inert on panels with no course rail. */
-body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 12px); }
-#so-demo-badge .sub { font-weight: 400; opacity: .82; }
-</style>
-<script>
-/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
- *
- * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
- * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
- * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
- * default; never self-enables), ALWAYS badged, and makes ZERO network calls
- * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
- * demo-capable panels alongside demo-mode.css. */
-(function () {
-  "use strict";
-  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
-  function on() {
-    try {
-      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
-      return !!(p && p.schema === DSCHEMA && p.on);
-    } catch (e) { return false; }
-  }
-  function set(v) {
-    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
-  }
-  function badge() {
-    var b = document.getElementById('so-demo-badge');
-    if (on()) {
-      if (!b) {
-        b = document.createElement('div'); b.id = 'so-demo-badge';
-        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
-        b.setAttribute('role', 'status');
-        (document.body || document.documentElement).appendChild(b);
-      }
-    } else if (b) { b.remove(); }
-  }
-  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
-  else badge();
-})();
-</script>
+
 <!-- A11Y:BEGIN M060 -->
 <!-- ─────────────────────────────────────────────────────────────────
 M060 F05100 + R10100 WCAG 2.1 AA accessibility snippet — canonical
@@ -223,20 +141,8 @@ adoption pattern.
   })();
 </script>
 <!-- A11Y:END M060 -->
-<!-- ─────────────────────────────────────────────────────────────────
-M060 F05099 + R10142 responsive-layout snippet — canonical small
-CSS block embedded in every cockpit dashboard's <head> right after
-the a11y snippet.
 
-Covers the operator-§1g responsive-layout requirement: the cockpit
-must work on phone (≤600px) / tablet (601-1024px) / desktop (≥1025px)
-/ 4K (≥2400px). Pure CSS, no JS, no media-detection hacks.
-
-Breakpoint strategy:
-  phone   ≤600px   — body padding shrinks, tables get smaller text,
-                     flex rows wrap freely, h1/h2 scale down 10%
-  tablet  ≤1024px  — body padding stays standard, tables stay readable
-  desktop ≥1025px  — default rules from each dashboard's <style>
+<style>
   4K      ≥2400px  — body max-width raises to 1600px (otherwise the
                      content looks lost on a huge display)
 
@@ -280,6 +186,7 @@ a11y; contract test catches drift.
     html { font-size: calc(15px * var(--font-scale, 1)) !important; }
   }
 </style>
+
 
 <!-- NAV:BEGIN M060 -->
 <!-- ─────────────────────────────────────────────────────────────────
@@ -517,8 +424,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   })();
 </script>
 <!-- NAV:END M060 -->
-</head>
-<body>
+
+
 <!-- APP-SHELL:BEGIN M067 -->
 <style id="so-app-shell-style">
   :root{
@@ -1143,35 +1050,10 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       off:{m:'—',c:'sovereign-cpu-dispatch',r:'—',n:'scalar baseline, any x86-64 (the bit-machine is not run)'}
     };
     var avxBacking=document.getElementById('so-avx-backing');
-    var avxLiveActive=null;   // the mode ACTUALLY active on the box (GET /api/control/avx-mode)
     function avxBackingRefresh(){ if(!avxBacking||!avxSel)return; var b=AVX_BACKING[avxSel.value]||AVX_BACKING.builtin;
-      var live='';
-      if(avxLiveActive){
-        var same=(avxSel.value===avxLiveActive);
-        live='<br><b>Active on the box:</b> <span class="mono">'+avxLiveActive+'</span>'+
-          (avxLiveActive==='custom'||avxLiveActive==='hybrid'?' — bit-machine engaged':' — bit-machine idle')+
-          (same?' (selected)':' — Apply to switch to '+avxSel.value);
-      }
       avxBacking.innerHTML='<b>Backed by:</b> '+b.n+'<br><b>Milestones:</b> <span class="mono">'+b.m+'</span>'+
-        '<br><b>Crates:</b> <span class="mono">'+b.c+'</span><br><b>Routes:</b> <span class="mono">'+b.r+'</span>'+live; }
-    // ── Live active-mode prefill (2026-07-21): the AVX select defaulted to the
-    //    first option ('custom') on every panel regardless of the box's real
-    //    mode — the notifykit-class blank-select gap. GET /api/control/avx-mode
-    //    is the read-only inventory (same truth as `avx-mode inventory`); set
-    //    the select to `active` so it shows live state, and surface whether the
-    //    bit-machine is engaged. Silent no-op when the exec API is absent
-    //    (static serving) — the select stays fully usable at its default. ──
-    function soAvxLive(){
-      fetch('/api/control/avx-mode',{headers:{Accept:'application/json'}})
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(p){
-          if(!p || !p.available || !p.active) return;
-          avxLiveActive=p.active;
-          if(avxSel && AVX_BACKING[p.active]) avxSel.value=p.active;
-          avxBackingRefresh();
-        },function(){}).catch(function(){});
-    }
-    if(avxSel){ avxSel.addEventListener('change',avxBackingRefresh); avxBackingRefresh(); soAvxLive(); }
+        '<br><b>Crates:</b> <span class="mono">'+b.c+'</span><br><b>Routes:</b> <span class="mono">'+b.r+'</span>'; }
+    if(avxSel){ avxSel.addEventListener('change',avxBackingRefresh); avxBackingRefresh(); }
     // ── Provider / origin drill-in modal (SDD-600 Part 2) — edit ONE consumer.
     //    Each consumer speaks its own protocol; the copy is the exact swap CLI. ──
     var SO_PROVIDERS=[
@@ -1883,816 +1765,103 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 </script>
 <!-- APP-SHELL:END M067 -->
 
-<header>
-  <h1>D-23 · Model Catalog
-    <span class="sub">the canonical model registry (models/catalog.yaml) by SRP tier — browse the portfolio</span></h1>
-</header>
-<main>
-  <div class="banner" id="data-source-banner">connecting to <code>/api/models-catalog/catalog</code>…</div>
-  <div class="banner" id="summary"></div>
-  <!-- Quantization variants — the models offered in more than one quant (grouped
-       by base model, from GET /api/models-catalog/by-base). Read-only reference,
-       like the rest of D-23: loading a chosen variant is a signed action on
-       D-03 / D-21. Answers this panel's own "compare quantizations of the same
-       base" purpose at a glance. -->
-  <section id="quant-variants" class="qv" hidden>
-    <h2>quantization variants <span class="muted">— same model, different precision</span></h2>
-    <p class="qv-sub muted">Models offered in more than one quantization — a lighter quant trades quality for VRAM.
-       Load a chosen variant from <b>D-03</b> or <b>D-21</b> (signed action; the web never mutates, R10212).</p>
-    <div id="qv-body"></div>
-  </section>
-  <style>
-    /* palette vars match this panel + control-surface (--bg/--muted/--accent/--border). */
-    #quant-variants.qv { margin: .4rem 0 1rem; }
-    #quant-variants.qv > h2 { margin: .2rem 0 .15rem; }
-    #quant-variants .qv-sub { margin: 0 0 .6rem; font-size: .85rem; max-width: 72ch; }
-    #quant-variants .qv-group { padding: .5rem 0; border-top: 1px solid var(--border, #262626); }
-    #quant-variants .qv-group:first-child { border-top: 0; }
-    #quant-variants .qv-base { font-weight: 600; font-size: .9rem; margin-bottom: .3rem; }
-    #quant-variants .qv-variants { display: flex; flex-wrap: wrap; gap: .4rem; }
-    #quant-variants .qv-chip { font-size: .76rem; padding: 2px 8px; border: 1px solid var(--border, #262626);
-                               border-radius: 4px; background: var(--bg, #0e0e0e); }
-    #quant-variants .qv-chip b { color: var(--accent, #9bd1ff); }
-  </style>
-  <div id="tiers"></div>
-  <p class="banner" id="last-fetch"></p>
-</main>
-<footer>
-  sovereign-os cockpit · D-23 · read-only mirror of the model catalog. Model
-  lifecycle is signed <code>sovereign-osctl models …</code> verbs (R10212 — web never mutates).
-  Operator §1g standing rule (sacrosanct): <strong>We do not minimize anything.</strong>
-</footer>
-<script>
-  const $ = id => document.getElementById(id);
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
-    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const stCls = s => 'st-' + String(s || '').replace(/[^a-z-]/g,'');
-
-  // ── SDD-120 DEMO mode: opt-in, always-badged sample data (never real; SB-077).
-  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
-  const DEMO_CATALOG = { total: 6, catalog_path: 'models/catalog.yaml (DEMO)', tiers: [
-    { label: 'Conductor · CPU ternary', models: [
-      { id: 'demo/bitnet-2b', class: 'ternary-lm', engine: 'bitnet.cpp', precision: 'ternary', params_b: 2, context_window_tokens: 8192, license: 'MIT', status: 'verified-real', purpose: 'fast CPU draft/route' } ] },
-    { label: 'Logic · GPU1 (RTX 5090)', models: [
-      { id: 'demo/qwen3-coder-14b', class: 'llm', engine: 'vllm', precision: 'NVFP4', params_b: 14, context_window_tokens: 32768, license: 'Apache-2.0', status: 'verified-real', purpose: 'coding' },
-      { id: 'demo/glm-4-9b', class: 'llm', engine: 'vllm', precision: 'Q4', params_b: 9, context_window_tokens: 16384, license: 'MIT', status: 'aspirational', purpose: 'general' } ] },
-    { label: 'Oracle · GPU1 (Blackwell)', models: [
-      { id: 'demo/deepseek-r1-32b', class: 'rlm', engine: 'vllm', precision: 'NVFP4', params_b: 32, context_window_tokens: 65536, license: 'MIT', status: 'verified-real', purpose: 'deep reasoning' } ] },
-  ] };
-  function renderTiers(data) {
-    data = data || {};
-    // The catalog scaffold stays visible even with the daemon offline (SDD-113 —
-    // the SDD-111 "seeing all sections" lesson): an honest offline/empty card,
-    // never a blank #tiers (SB-077).
-    if (data.offline) {
-      $('summary').innerHTML = '<span class="muted">models-catalog daemon unreachable</span>';
-      $('tiers').innerHTML = '<div class="muted">the models-catalog daemon is unreachable — the registry (models/catalog.yaml, by SRP tier) populates when it\'s reachable. Nothing is fabricated (SB-077).</div>';
-      return;
-    }
-    $('summary').innerHTML = `<strong>${data.total ?? 0}</strong> models · source <code>${esc(data.catalog_path || 'models/catalog.yaml')}</code>`;
-    $('tiers').innerHTML = (data.tiers || []).map(t => `
-      <h2>${esc(t.label)} <span class="muted">(${(t.models||[]).length})</span></h2>
-      <table>
-        <thead><tr><th>Model</th><th>Class</th><th>Engine</th><th>Precision</th><th class="num">Params (B)</th><th class="num">Context</th><th>License</th><th>Status</th></tr></thead>
-        <tbody>${(t.models||[]).map(m => `
-          <tr>
-            <td><code>${esc(m.id)}</code>${m.purpose ? '<div class="muted" style="font-size:.72rem">'+esc(m.purpose)+'</div>' : ''}</td>
-            <td class="muted">${esc(m.class || '—')}</td>
-            <td class="muted">${esc(m.engine || '—')}</td>
-            <td>${m.precision ? '<span class="pill">'+esc(m.precision)+'</span>' : '—'}</td>
-            <td class="num">${m.params_b ?? '—'}</td>
-            <td class="num">${m.context_window_tokens ? m.context_window_tokens.toLocaleString() : '—'}</td>
-            <td class="muted" style="font-size:.72rem">${esc(m.license || '—')}</td>
-            <td class="${stCls(m.status)}">${esc(m.status || '—')}</td>
-          </tr>`).join('')}</tbody>
-      </table>`).join('') || '<div class="muted">catalog empty or unreadable</div>';
-  }
-
-  // SDD-120 DEMO: one multi-quant base so the section is visible without network.
-  const DEMO_BASES = [{ base: 'DeepSeek-R1-Distill-Llama-70B', variant_count: 2, variants: [
-    { id: 'DeepSeek-R1-Distill-Llama-70B-FP16', quantization: 'fp16', vram_gib_min: 140, status: 'verified-real' },
-    { id: 'DeepSeek-R1-Distill-Llama-70B-Q4_K_M', quantization: 'gguf-q4_k_m', vram_gib_min: 42, status: 'verified-real' } ]}];
-  function renderQuantVariants(bases) {
-    const sec = $('quant-variants'), body = $('qv-body');
-    const multi = (bases || []).filter(b => b.variant_count > 1);
-    if (!multi.length) { sec.hidden = true; return; }
-    sec.hidden = false;
-    body.innerHTML = multi.map(b => `
-      <div class="qv-group">
-        <div class="qv-base">${esc(b.base)} <span class="muted">· ${b.variant_count} quants</span></div>
-        <div class="qv-variants">${b.variants.map(v => `
-          <span class="qv-chip"><b>${esc(v.quantization)}</b> · ${v.vram_gib_min != null ? esc(v.vram_gib_min) + ' GiB' : '—'}${v.status ? ' · ' + esc(v.status) : ''}</span>`).join('')}</div>
-      </div>`).join('');
-  }
-  async function loadQuantVariants() {
-    if (demoActive()) return renderQuantVariants(DEMO_BASES);  // DEMO: no fetch
-    try {
-      const res = await fetch('/api/models-catalog/by-base', { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      renderQuantVariants((await res.json()).bases);
-    } catch (e) { $('quant-variants').hidden = true; }
-  }
-
-  async function refresh() {
-    // SDD-120 DEMO short-circuit: badged sample catalog, ZERO network calls.
-    if (demoActive()) {
-      $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
-      renderTiers(DEMO_CATALOG);
-      renderQuantVariants(DEMO_BASES);
-      if (window.soDemo) window.soDemo.badge();
-      $('last-fetch').textContent = 'DEMO · sample data';
-      return;
-    }
-    try {
-      const res = await fetch('/api/models-catalog/catalog', {credentials:'same-origin'});
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      $('data-source-banner').innerHTML = 'consuming <code>/api/models-catalog/catalog</code> from the models-catalog API daemon';
-      renderTiers(data);
-      loadQuantVariants();
-    } catch (e) {
-      $('data-source-banner').innerHTML = 'cannot reach <code>/api/models-catalog/catalog</code> — is the models-catalog API daemon running? <span class="muted">('+esc(e.message)+')</span>';
-      renderTiers({offline: true});   // SDD-113 — keep the catalog scaffold visible, never blank
-    }
-    $('last-fetch').textContent = 'last fetch: ' + new Date().toLocaleTimeString();
-  }
-
-  // SDD-113 — initial paint of the section scaffold so the catalog is ALWAYS
-  // visible; refresh() then fills live data (or the catch keeps it visible).
-  renderTiers({offline: true});
-
-  if (!demoActive()) {
-    try {
-      const es = new EventSource('/api/models-catalog/stream');
-      es.addEventListener('catalog-change', refresh);
-      es.addEventListener('error', () => setInterval(refresh, 30000));
-    } catch (e) { setInterval(refresh, 30000); }
-  }
-
-  refresh();
-</script>
-
-<!-- SDD-045 shared control-surface (inlined verbatim from webapp/_shared/control-surface.{css,js}; lockstep-linted). -->
-<section style="max-width:1200px;padding:0 1.25rem 1rem"><h2>Controls · features &amp; profiles</h2>
-<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
 <style>
-/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
- * Renders the control-systems registry (profiles / modes / feature toggles)
- * as a grid of control cards. Monochrome, framework-free; inherits the
- * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
- *
- * R10274 (functional cockpit): a control can now be EXECUTED from the card
- * (the sanctioned same-origin control-exec-api POST) — the copyable command
- * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
- * (selfdef / perimeter) render NO execute affordance, and every per-panel
- * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
-.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
-.cs-card {
-  display: flex; flex-direction: column; gap: .35rem;
-  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
-  border-radius: .4rem; background: rgba(255, 255, 255, .02);
-  transition: border-color .12s ease;
-}
-.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
-.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.cs-label { font-weight: 600; flex: 1; }
-.cs-kind {
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted, #888); border: 1px solid var(--border, #262626);
-  border-radius: 3px; padding: 0 .35rem;
-}
-.cs-global {
-  font-size: .7rem; color: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
-}
-.cs-proxy {
-  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
-  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
-}
-.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
-.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
-.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
-
-/* ── argument rail: one control per change_cli placeholder ──────────────── */
-.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
-.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
-.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
-.cs-verb {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 0; border-right: 1px solid var(--border, #262626);
-  padding: .2rem .5rem; cursor: pointer;
-}
-.cs-verb:last-child { border-right: 0; }
-.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
-.cs-arg {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
-}
-.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
-
-/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
-.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
-.cs-exec {
-  font-size: .76rem; font-weight: 600; cursor: pointer;
-  color: #0a0a0a; background: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
-  padding: .28rem .6rem; white-space: nowrap;
-}
-.cs-exec:hover { filter: brightness(1.08); }
-.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-.cs-cmd {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
-}
-.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
-.cs-copy { flex: 1; }
-/* result line — dry-run / executed / rejected feedback, always visible */
-.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
-.cs-result.ok { color: #6fcf6f; }
-.cs-result.dry { color: var(--accent, #9bd1ff); }
-.cs-result.warn { color: #e0b050; }
-.cs-result.err { color: #e06a6a; }
-.cs-result.muted { color: var(--muted, #888); }
-/* inline type-to-confirm gate for privileged controls */
-.cs-confirm {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
-  padding: .35rem .4rem; margin-top: .1rem;
-  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
-}
-.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
-.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
-.cs-confirm-in { max-width: 14ch; }
-.cs-confirm-cancel { flex: 0 0 auto; }
-.cs-empty { color: var(--muted, #888); }
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 1.2rem; background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: calc(14px * var(--font-scale, 1)); line-height: 1.5; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 .2rem; font-weight: 600; }
+  .sub { color: var(--muted); margin: 0 0 1.4rem; font-size: .85rem; }
+  .search { width: 100%; padding: .5rem .7rem; background: var(--panel); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; font-family: inherit; font-size: .9rem; margin-bottom: 1rem; }
+  .search:focus { outline: none; border-color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .6rem; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: .7rem .9rem; }
+  .card .name { font-weight: 600; color: var(--accent); font-size: .9rem; margin-bottom: .25rem; }
+  .card .name a { color: inherit; text-decoration: none; }
+  .card .name a:hover { text-decoration: underline; }
+  .card .desc { color: var(--muted); font-size: .82rem; line-height: 1.4; }
+  .card .meta { color: var(--muted); font-size: .72rem; margin-top: .35rem; }
+  .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+  footer { margin-top: 2rem; color: var(--muted); font-size: .75rem; border-top: 1px solid var(--border); padding-top: .8rem; }
+  .banner { border-radius: 6px; padding: .7rem .9rem; margin: 0 0 1.2rem; font-size: .85rem; line-height: 1.5; }
+  .banner.offline { border: 1px solid #6a5a2a; background: rgba(224,192,122,.08); color: #e0c07a; }
+  .banner.resident { border: 1px solid #2a5a3a; background: rgba(127,209,143,.08); color: #7fd18f; }
+  .tiles { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1.2rem; }
+  .tile { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: .6rem .8rem; min-width: 160px; }
+  .tile .k { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+  .tile .v { font-size: .95rem; margin-top: .2rem; color: var(--fg); }
+  table.caps { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.caps th, table.caps td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--border); }
+  table.caps th { color: var(--muted); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; }
+  table.caps td code { color: var(--accent); }
+  .badge { display: inline-block; font-size: .66rem; padding: .05rem .4rem; border-radius: 999px; border: 1px solid rgba(155,209,255,.5); color: var(--accent); margin-left: .4rem; }
 </style>
-<script>
-/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
- *
- * Renders the control-systems registry (config/control-systems.yaml, served
- * as GET /control-systems) — the operator's "everything can be turned on and
- * off + tons of modes and profiles" — as a grid of control cards. Reused by
- * every dashboard so each becomes a CONTROL surface.
- *
- * R10274 — functional cockpit: a control is now EXECUTED from the card. Each
- * change_cli placeholder becomes an input (enum → segmented buttons keyed
- * `verb`/`verbN`; free `<name>` → a datalist input seeded from `options`,
- * matching the server's _action_exec.resolve_argv keying). Execute POSTs
- * {control_id, args, confirm} to the sanctioned same-origin control-exec-api
- * (POST /api/control/execute); the copyable command is demoted to a labelled
- * fallback, and any 405 / unreachable exec front degrades gracefully to Copy.
- *
- * R10212 is preserved: the web still never *arbitrarily* mutates. Proxy-only
- * controls (selfdef / perimeter — mirrors _action_exec.SELFDEF_OWNED, drift-
- * guarded by tests/lint/test_control_surface_execute_boundary.py) render NO
- * execute affordance (signed-proxy badge + copy only). Every per-panel daemon
- * stays read-only (405 on writes); the ONE write path is the dedicated exec
- * daemon, where every action is allowlisted + options-validated + confirm/
- * key-gated + OCSF-5001 audited + DRY_RUN by default.
- *
- * Usage:
- *   const n = SovereignControlSurface.render(el, systems, {
- *     filterSlug: 'runtime-modes',      // only global + systems governing slug
- *     executeUrl: '/api/control/execute', // same-origin sanctioned write daemon
- *     onCopy: (cmd) => showToast(cmd)     // optional copy callback
- *   });
- */
-(function (global) {
-  "use strict";
+</head>
+<body>
 
-  // R10212 boundary — mirrors _action_exec.SELFDEF_OWNED. selfdef/perimeter are
-  // signed-proxy ONLY: never executed locally. (drift-guarded by lint.)
-  var PROXY_ONLY = ["selfdef", "perimeter"];
-  var EXECUTE_URL = "/api/control/execute";
+<h1>ChromoFold</h1>
+<p class="sub">GPU-resident, searchable compressed-domain engine (SDD-500) — <b>opt-in, off by default</b>. Read-only status; this panel never runs a query or mutates state (R10212 / SB-077).</p>
 
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
+<div id="banner" class="banner offline">Loading engine status…</div>
 
-  function isProxyOnly(sys) {
-    if (typeof sys.execute_local === "boolean") return !sys.execute_local;
-    return PROXY_ONLY.indexOf(sys.id) >= 0;
-  }
+<div class="tiles" id="tiles"></div>
 
-  // Parse a change_cli template, mirroring _action_exec.resolve_argv:
-  //   {a|b}  → enum, arg-key 'verb' (first) / 'verb1' / 'verb2' ...
-  //   <name> → free, arg-key name
-  //   else   → literal token
-  function parseTemplate(changeCli) {
-    var toks = String(changeCli || "").trim().split(/\s+/).filter(Boolean);
-    var out = [], enumSeen = 0;
-    toks.forEach(function (t) {
-      var em = /^\{([a-z0-9|_-]+)\}$/.exec(t);
-      if (em) {
-        out.push({ kind: "enum", key: enumSeen === 0 ? "verb" : "verb" + enumSeen,
-                   alts: em[1].split("|") });
-        enumSeen += 1; return;
-      }
-      var fm = /^<([a-z0-9_-]+)>$/.exec(t);
-      if (fm) { out.push({ kind: "free", key: fm[1] }); return; }
-      out.push({ kind: "lit", text: t });
-    });
-    return out;
-  }
+<h2 style="font-size:1rem;margin:.4rem 0 .6rem;">Capabilities</h2>
+<table class="caps"><thead><tr><th>Primitive</th><th>C ABI</th><th>Header</th></tr></thead><tbody id="caps"><tr><td class="empty" colspan="3">Loading…</td></tr></tbody></table>
 
-  // Reassemble the concrete command from the template + collected args (for the
-  // Copy fallback + result echo); unfilled placeholders stay as <name>/{a|b}.
-  function assembleCmd(changeCli, args) {
-    return parseTemplate(changeCli).map(function (t) {
-      if (t.kind === "lit") return t.text;
-      if (t.kind === "enum") return args[t.key] || ("{" + t.alts.join("|") + "}");
-      return args[t.key] || ("<" + t.key + ">");
-    }).join(" ");
-  }
+<footer>
+  Descriptor read from the native <code>packaging/chromofold_capability.json</code> via <code>sovereign-osctl chromofold info</code> (CHROMOFOLD_ROOT → WARP_SHADERS_ROOT). Engine: <code>../chromoFold</code> (C++/CUDA); oracle: <code>warp-solar-system-shaders/warp_compress</code>. The real device search is the hardware-gated SDD-500 step 7.
+</footer>
 
-  function collectArgs(card) {
-    var args = {};
-    Array.prototype.forEach.call(card.querySelectorAll(".cs-verbs"), function (grp) {
-      var pressed = grp.querySelector('.cs-verb[aria-pressed="true"]');
-      if (pressed) args[grp.getAttribute("data-argkey")] = pressed.getAttribute("data-val");
-    });
-    Array.prototype.forEach.call(card.querySelectorAll("input.cs-arg"), function (inp) {
-      var v = (inp.value || "").trim();
-      if (v) args[inp.getAttribute("data-argkey")] = v;
-    });
-    return args;
-  }
-
-  function copy(text, opts) {
-    if (navigator.clipboard) { try { navigator.clipboard.writeText(text); } catch (e) { /* noop */ } }
-    if (opts && typeof opts.onCopy === "function") opts.onCopy(text);
-  }
-
-  function setResult(el, cls, msg) {
-    if (!el) return;
-    el.className = "cs-result " + cls;
-    el.textContent = msg;
-  }
-
-  function toolWarning(stdout) {
-    // Best-effort: the sanctioned exec-api echoes the tool's stdout; if it is
-    // JSON carrying a truthy `warning`, return it for the result line (e.g.
-    // model-warm's dtype/state drift, SDD-049 Stage 4). Never throws — a
-    // non-JSON / warning-less tool just yields no banner.
-    if (!stdout) return null;
-    try { var j = JSON.parse(stdout); return (j && j.warning) ? String(j.warning) : null; }
-    catch (e) { return null; }
-  }
-
-  function execute(url, controlId, args, confirmed) {
-    return fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ control_id: controlId, args: args, confirm: !!confirmed })
-    }).then(function (r) {
-      return r.json().then(
-        function (j) { return { status: r.status, body: j || {} }; },
-        function () { return { status: r.status, body: {} }; });
-    });
-  }
-
-  // Inline type-to-confirm gate for privileged controls (replaces window.prompt
-  // — accessible, on-palette, non-blocking). Type the control id, Confirm →
-  // re-execute with confirm:true; Cancel/mismatch → no execution.
-  function askConfirm(card, sys, opts) {
-    var result = card.querySelector(".cs-result");
-    var host = card.querySelector(".cs-confirm");
-    if (!host) {
-      host = document.createElement("div");
-      host.className = "cs-confirm";
-      card.insertBefore(host, result);
-    }
-    host.innerHTML =
-      '<span class="cs-confirm-msg">privileged — type <code>' + esc(sys.id) + "</code> to confirm</span>"
-      + '<input class="cs-arg cs-confirm-in" placeholder="' + esc(sys.id) + '" aria-label="type ' + esc(sys.id) + ' to confirm">'
-      + '<button type="button" class="cs-exec cs-confirm-ok">Confirm</button>'
-      + '<button type="button" class="cs-cmd cs-confirm-cancel">Cancel</button>';
-    var inp = host.querySelector(".cs-confirm-in");
-    if (inp.focus) inp.focus();
-    function done(ok) {
-      var typed = (inp.value || "").trim();
-      if (host.parentNode) host.parentNode.removeChild(host);
-      if (ok && typed === sys.id) execAction(card, sys, opts, true);
-      else setResult(result, "warn", "confirmation " + (ok ? "mismatch" : "cancelled") + " — not executed");
-    }
-    host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
-    host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
-    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
-  }
-
-  function execAction(card, sys, opts, confirmed) {
-    var result = card.querySelector(".cs-result");
-    var args = collectArgs(card);
-    var url = (opts && opts.executeUrl) || EXECUTE_URL;
-    setResult(result, "muted", "executing…");
-    execute(url, sys.id, args, confirmed).then(function (res) {
-      var b = res.body || {};
-      if (res.status === 200) {
-        if (b.dry_run) setResult(result, "dry", "dry-run ✓ would run: " + ((b.would_run || []).join(" ") || assembleCmd(sys.change_cli, args)));
-        else {
-          // A live exec echoes the tool's JSON on stdout; surface a tool-level
-          // `warning` (model-warm's dtype/state drift, SDD-049 Stage 4) so it
-          // reaches the operator instead of hiding behind a bare "exit 0".
-          var warn = toolWarning(b.stdout);
-          setResult(result, warn ? "warn" : "ok",
-            "executed ✓ exit " + (b.exit_code != null ? b.exit_code : 0) + (warn ? " — ⚠ " + warn : ""));
-        }
-      } else if (res.status === 403) {
-        if (confirmed) {
-          // already type-confirmed → 403 is a server-side gate (e.g. the
-          // operator key is not loaded). Surface the reason; do NOT re-prompt.
-          setResult(result, "warn", b.error || "not permitted (operator key required)");
-        } else {
-          // privileged control — inline type-to-confirm gate, ONCE
-          askConfirm(card, sys, opts);
-        }
-      } else if (res.status === 409) {
-        if (b.compat) {
-          // compat pre-change gate refusal (the ⚖ registry, NOT the R10212
-          // boundary): surface the RULE + remediation at the point of
-          // rejection, and offer the server-verified fix plan inline —
-          // "force something else off in order to enable one thing".
-          setResult(result, "err",
-            "⚖ " + (b.error || "compat gate refused")
-            + " INSTEAD: " + (b.remediation || "open the ⚖ Compatibility pane"));
-          fixPlan(result, b.resolution, url);
-        } else if (b.boundary) {
-          setResult(result, "warn", "signed-proxy only (R10212) — command copied");
-          copy(assembleCmd(sys.change_cli, args), opts);
-        } else {
-          // the remaining 409: single-flight lock (another action running)
-          setResult(result, "warn", b.error || "another cockpit action is already running");
-        }
-      } else if (res.status === 400) {
-        setResult(result, "warn", b.error || "invalid arguments — pick a value");
-      } else if (res.status === 404) {
-        setResult(result, "err", b.error || "unknown control");
-      } else if (res.status === 405) {
-        setResult(result, "muted", "execution not available on this origin — command copied");
-        copy(assembleCmd(sys.change_cli, args), opts);
-      } else {
-        setResult(result, "err", b.error || ("error " + res.status));
-      }
-    }).catch(function () {
-      // exec daemon unreachable (per-port-direct read-only front) → copy fallback
-      setResult(result, "muted", "exec endpoint unreachable — command copied");
-      copy(assembleCmd(sys.change_cli, collectArgs(card)), opts);
-    });
-  }
-
-  // The server-verified compat RESOLUTION plan riding a 409 refusal — one
-  // "Force: <label>" button per step; each executes through the SAME
-  // sanctioned rail (dry-run until live). Mirrors the app-shell ⚖ pane's
-  // shared renderer so both surfaces offer the identical way out.
-  function fixPlan(result, resolution, url) {
-    if (!result || !resolution || !(resolution.plan || []).length) return;
-    var head = document.createElement("div");
-    head.className = "cs-fix-head";
-    head.textContent = resolution.resolved_all
-      ? "Verified fix plan — applying these clears ALL findings:"
-      : (resolution.clean_after
-        ? "Verified fix plan — clears every gating finding (advisories may remain):"
-        : "Fix plan (partial — force findings would remain):");
-    result.appendChild(head);
-    resolution.plan.forEach(function (stp) {
-      var row = document.createElement("div");
-      row.className = "cs-fix-row";
-      var btn = document.createElement("button");
-      btn.type = "button"; btn.className = "cs-exec cs-fix";
-      btn.textContent = "Force: " + stp.label;
-      btn.title = stp.rule_id + " — executes control " + stp.system + " via the exec rail";
-      var out = document.createElement("span");
-      out.className = "cs-result muted";
-      btn.addEventListener("click", function () {
-        out.textContent = "executing…";
-        execute(url, stp.system, stp.args || {}, false).then(function (r) {
-          var rb = r.body || {};
-          if (r.status === 200) {
-            out.textContent = rb.dry_run
-              ? "dry-run ✓ would run: " + ((rb.would_run || []).join(" ") || stp.system)
-              : "executed ✓ exit " + (rb.exit_code != null ? rb.exit_code : 0);
-          } else out.textContent = rb.error || ("error " + r.status);
-        }).catch(function () { out.textContent = "exec endpoint unreachable"; });
-      });
-      row.appendChild(btn); row.appendChild(out); result.appendChild(row);
-    });
-  }
-
-  function argsRailHtml(sys) {
-    var opts = (sys.options || []).map(String);
-    var html = parseTemplate(sys.change_cli).map(function (t) {
-      if (t.kind === "lit") return "";                 // literals live in the Copy line
-      if (t.kind === "enum") {
-        return '<span class="cs-verbs" data-argkey="' + esc(t.key) + '">'
-          + t.alts.map(function (a, i) {
-              return '<button type="button" class="cs-verb" data-val="' + esc(a)
-                + '" aria-pressed="' + (i === 0 ? "true" : "false") + '">' + esc(a) + "</button>";
-            }).join("") + "</span>";
-      }
-      var listId = "csl-" + esc(sys.id) + "-" + esc(t.key);
-      var dl = opts.length
-        ? '<datalist id="' + listId + '">'
-            + opts.map(function (o) { return '<option value="' + esc(o) + '"></option>'; }).join("")
-            + "</datalist>"
-        : "";
-      return '<input class="cs-arg" data-argkey="' + esc(t.key) + '" placeholder="' + esc(t.key) + '"'
-        + (opts.length ? ' list="' + listId + '"' : "") + ">" + dl;
-    }).join("");
-    return html ? '<div class="cs-args">' + html + "</div>" : "";
-  }
-
-  function cardHtml(sys) {
-    var proxy = isProxyOnly(sys);
-    // Options already rendered as one-click buttons must NOT ALSO appear as inert
-    // grey pills — a duplicated value reads as clickable-but-dead. Keep pills only
-    // for options with no button (free-input controls where the pill is the sole
-    // hint, or a semantic label like a toggle's on/off vs its enable/disable verb).
-    var buttonVals = {};
-    parseTemplate(sys.change_cli).forEach(function (t) {
-      if (t.kind === "enum") { t.alts.forEach(function (a) { buttonVals[a] = true; }); }
-    });
-    var pills = (sys.options || [])
-      .filter(function (o) { return !buttonVals[String(o)]; })
-      .map(function (o) { return '<span class="cs-opt">' + esc(o) + "</span>"; }).join("");
-    var change = sys.change_cli || "";
-    var actions = change
-      ? '<div class="cs-actions">'
-          + (proxy ? "" : '<button type="button" class="cs-exec">Execute</button>')
-          + '<button type="button" class="cs-cmd cs-copy" data-cmd="' + esc(change)
-            + '" title="copy the operator command (fallback)">$ ' + esc(change) + "</button>"
-          + "</div>"
-      : "";
-    return '<div class="cs-card cs-' + esc(sys.kind) + '" data-cid="' + esc(sys.id) + '">'
-      + '<div class="cs-head">'
-      + '<span class="cs-label">' + esc(sys.label) + "</span>"
-      + '<span class="cs-kind">' + esc(sys.kind) + "</span>"
-      + (sys.scope === "global" ? '<span class="cs-global">global</span>' : "")
-      + (proxy ? '<span class="cs-proxy" title="R10212: signed-proxy only — never executed locally">signed proxy</span>' : "")
-      + "</div>"
-      + '<div class="cs-desc">' + esc(sys.description) + "</div>"
-      + (pills ? '<div class="cs-opts">' + pills + "</div>" : "")
-      + argsRailHtml(sys)
-      + actions
-      + '<div class="cs-result muted"></div>'
-      + "</div>";
-  }
-
-  // Per-option compat greying (mirrors the app-shell's soCompatMark): the
-  // READ-ONLY per-option preview (GET /api/control/compat?control_id=, same
-  // loopback daemon) greys force-incompatible enum verbs (⛔ disabled +
-  // rule/reason/remediation tooltip) and annotates warn/suggest (⚠) — the
-  // SAME registry truth as the execute() pre-change gate, so a greyed option
-  // is exactly one the gate would refuse. Toggle verbs map onto their state
-  // options via the gate's own verb map ({enable→on, disable→off}). Inert
-  // option pills get the same mark. Silent no-op when the exec API is absent
-  // (static / per-port read-only serving) — the rail stays fully usable.
-  var COMPAT_VERB_MAP = { on: "enable", off: "disable" }; // option → toggle verb
-  function markCompat(card, sys) {
-    fetch("/api/control/compat?control_id=" + encodeURIComponent(sys.id),
-          { headers: { Accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (p) {
-        if (!p || !p.available || !p.options) return;
-        p.options.forEach(function (row) {
-          var f = (row.findings && row.findings[0]) || null;
-          if (!row.gating && !f) return;
-          var tip = f ? (f.rule_id + ": " + f.reason + " — " + f.remediation) : "";
-          var verbAlias = COMPAT_VERB_MAP[row.option] || null;
-          Array.prototype.forEach.call(card.querySelectorAll(".cs-verb"), function (btn) {
-            var val = btn.getAttribute("data-val");
-            if (val !== row.option && val !== verbAlias) return;
-            if (row.gating) {
-              btn.disabled = true;
-              if (btn.textContent.indexOf("⛔") !== 0) btn.textContent = "⛔ " + btn.textContent;
-            } else if (btn.textContent.indexOf("⚠") !== 0) {
-              btn.textContent = "⚠ " + btn.textContent;
-            }
-            if (tip) btn.title = tip;
-          });
-          Array.prototype.forEach.call(card.querySelectorAll(".cs-opt"), function (pill) {
-            if (pill.textContent.replace(/^[⛔⚠] /, "") !== row.option) return;
-            var mark = row.gating ? "⛔" : "⚠";
-            if (pill.textContent.indexOf(mark) !== 0) pill.textContent = mark + " " + pill.textContent;
-            if (tip) pill.title = tip;
-          });
-        });
-      }, function () { /* exec API absent — stay silent */ })
-      .catch(function () {});
-  }
-
-  function render(containerEl, systems, opts) {
-    opts = opts || {};
-    var slug = opts.filterSlug || null;
-    var list = (systems || []).filter(function (s) {
-      if (!slug) return true;                       // no filter → all systems
-      // SRP: a panel shows ONLY the controls that GOVERN it (its applies_to) —
-      // no "global" controls bleeding onto every dashboard.
-      return (s.applies_to || []).indexOf(slug) >= 0;
-    });
-    var byId = {};
-    list.forEach(function (s) { byId[s.id] = s; });
-    containerEl.innerHTML = list.map(cardHtml).join("")
-      || '<div class="cs-empty">(no controls for this surface)</div>';
-
-    // segmented enum toggles
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-verbs"), function (grp) {
-      grp.addEventListener("click", function (e) {
-        var btn = e.target && e.target.classList && e.target.classList.contains("cs-verb") ? e.target : null;
-        if (!btn) return;
-        Array.prototype.forEach.call(grp.querySelectorAll(".cs-verb"), function (b) {
-          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
-        });
-      });
-    });
-    // copy fallback — copies the concrete command assembled from current args
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-copy"), function (b) {
-      b.addEventListener("click", function () {
-        var card = b.parentNode.parentNode;
-        var cmd = assembleCmd(b.getAttribute("data-cmd"), collectArgs(card));
-        copy(cmd, opts);
-        setResult(card.querySelector(".cs-result"), "muted", "copied: " + cmd);
-      });
-    });
-    // execute — the sanctioned R10274 write path
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-exec"), function (b) {
-      b.addEventListener("click", function () {
-        var card = b.parentNode.parentNode;
-        var sys = byId[card.getAttribute("data-cid")];
-        if (sys) execAction(card, sys, opts, false);
-      });
-    });
-    // compat greying — annotate every executable card's options against the
-    // box's current state (read-only preview; silent when the API is absent)
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-card"), function (card) {
-      var sys = byId[card.getAttribute("data-cid")];
-      if (sys && !isProxyOnly(sys) && sys.change_cli) markCompat(card, sys);
-    });
-    return list.length;
-  }
-
-  // Convenience: load the control registry (same-origin) and render.
-  // Full display data comes from the panel's own read-only /control-systems;
-  // the authoritative execute-local/live overlay comes from /api/control/registry
-  // when the origin is fronted by the exec daemon (else copy-first per PROXY_ONLY).
-  function load(containerEl, opts) {
-    opts = opts || {};
-    var base = fetch("/control-systems", { headers: { Accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .catch(function () { return null; });
-    var reg = fetch("/api/control/registry", { headers: { Accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .catch(function () { return null; });
-    return Promise.all([base, reg]).then(function (res) {
-      var b = res[0], g = res[1];
-      if (!b || b.error) {
-        containerEl.innerHTML = '<div class="cs-empty">controls unavailable'
-          + (b && b.error ? ": " + esc(b.error) : "") + "</div>";
-        return 0;
-      }
-      var systems = (b.systems || []).slice();
-      if (g && g.controls) {
-        var execMap = {};
-        g.controls.forEach(function (c) { execMap[c.id] = c.execute_local; });
-        systems.forEach(function (s) { if (s.id in execMap) s.execute_local = execMap[s.id]; });
-        opts.live = !!g.live;
-      }
-      var n = render(containerEl, systems, opts);
-      // SRP: no control governs this panel -> hide the section (heading too)
-      var h = containerEl.previousElementSibling;
-      containerEl.style.display = n ? "" : "none";
-      if (h && /^H[1-6]$/.test(h.tagName)) h.style.display = n ? "" : "none";
-      return n;
-    });
-  }
-
-  global.SovereignControlSurface = { render: render, load: load };
-})(window);
-</script>
 <script>
 (function(){
-  var el = document.getElementById("control-surface");
-  if (el && window.SovereignControlSurface) {
-    SovereignControlSurface.load(el, {filterSlug:'d-23-models-catalog'});
+  var banner = document.getElementById('banner');
+  var tiles = document.getElementById('tiles');
+  var caps = document.getElementById('caps');
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+
+  function tile(k, v){ return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div></div>'; }
+
+  function renderOffline(note){
+    banner.className = 'banner offline';
+    banner.textContent = note || 'Offline — no engine checkout resident (CHROMOFOLD_ROOT / WARP_SHADERS_ROOT). Honest-degrade: the ABI is bound but nothing runs until an engine + GPU are present (step 7).';
+    tiles.innerHTML = tile('Availability', 'offline') + tile('ABI version', '0') + tile('Lane', 'A — FM-index-search-first');
+    caps.innerHTML = '<tr><td class="empty" colspan="3">No engine resident — capability map appears when a checkout is present.</td></tr>';
   }
+
+  function renderResident(d){
+    var r = d.resolved || {};
+    banner.className = 'banner resident';
+    banner.textContent = 'Engine checkout resident at ' + (r.engine_root || '?') + ' — library ' + (r.library_present ? 'built' : 'not built') + '. Read-only; device search remains the hardware-gated step 7.';
+    tiles.innerHTML =
+      tile('Availability', r.availability || 'resident') +
+      tile('ABI version', d.abi_version != null ? d.abi_version : '?') +
+      tile('Library', (d.library || 'libchromofold.so') + (r.library_present ? ' (built)' : ' (not built)')) +
+      tile('Lane', 'A — FM-index-search-first');
+    var rows = (d.capabilities || []).map(function(c){
+      var first = c.sovereign_os_first ? '<span class="badge">Lane A first</span>' : '';
+      return '<tr><td>' + esc(c.id) + first + '</td><td><code>' + esc(c.fn) + '</code></td><td>' + esc(c.header) + '</td></tr>';
+    }).join('');
+    caps.innerHTML = rows || '<tr><td class="empty" colspan="3">No capabilities reported.</td></tr>';
+  }
+
+  fetch('/chromofold.json', { headers: { Accept: 'application/json' } })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d || d.availability === 'offline' || d.abi_version == null) renderOffline();
+      else renderResident(d);
+    })
+    .catch(function(){
+      // no daemon (e.g. DEMO / static hub) — honest offline, never fabricate.
+      renderOffline('Offline — the chromofold-api daemon is not reachable from this page (DEMO or static hub). Nothing is fabricated.');
+    });
 })();
 </script>
 
-
-
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = {
- "context": {
-  "icon": "▤",
-  "title": "D-23 · Model Catalog",
-  "content": "The whole portfolio of models the box could run, browsed by SRP tier — the reference shelf, not the live floor. Where D-03 shows the handful of models currently loaded and serving, this shows everything in the canonical registry (models/catalog.yaml), each with its real attributes: class (ternary-lm / RLM / SLM / LLM / mixture), engine, precision, parameters, context window, license, purpose, and status. It’s where you shop before you load — to find a model that fits a tier’s VRAM, compare two candidates’ contexts or licenses, or answer ‘do we even have a model for this?’\n\nDeliberately read-only reference: nothing here loads a model. When you’ve picked one, you load it from D-03 or D-21 as a signed action. The catalog is the source of truth those panels draw from."
- },
- "nodes": [
-  {
-   "icon": "◆",
-   "title": "Live source",
-   "content": "Whether the catalog is read live from the registry or a snapshot — a stale catalog can offer a model that’s since been removed, or hide one just added.",
-   "children": [
-    {
-     "selector": "#data-source-banner",
-     "title": "Live vs snapshot",
-     "content": "Whether /api/models-catalog/catalog is answering live from models/catalog.yaml. The catalog changes less often than health metrics, but it still matters: a snapshot could list a model that was pulled, or omit one just registered — and picking a model to load off a stale list wastes the load attempt.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A catalog is only as useful as it is current</div>Unlike pressure or latency, the catalog is near-static — so a stale read is easy to trust by mistake. But the registry does change: models get added, deprecated, or have their status flipped. This banner is the check that what you’re browsing is the current shelf, not last week’s.</div><div class=\"so-xref\"><span class=\"x\">→</span> #last-fetch — when the registry was last read</div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "connecting"
-       },
-       "content": "Reaching the catalog endpoint — the model list isn’t confirmed current yet.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Connecting</div>Waiting on /api/models-catalog/catalog. The portfolio below is unconfirmed until this goes live.</div>"
-      },
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — the catalog reflects the current registry.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Live</div>The registry is answering; the model portfolio is current.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "No answer — the catalog is a snapshot that may not match the current registry.",
-       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Offline</div>The catalog feed is down. A model listed here might be gone, or a new one missing — verify before loading.</div>"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "icon": "▦",
-   "title": "Summary",
-   "content": "The portfolio census — how many models the registry holds and how they spread across classes and tiers. It’s the shape of the box’s capability: heavy on cheap ternary means most work can stay on the Conductor; a rich LLM shelf means deep reasoning is well-supplied. Read it as an inventory, not a live status.",
-   "children": [
-    {
-     "selector": "#summary",
-     "title": "Catalog summary",
-     "content": "The roll-up of the whole registry — model counts by class and SRP tier. This is the box’s capability inventory: what kinds of cognition it can field and how deep the bench is in each. A tier with few catalog entries is a tier with little to choose from when you need to load something there, which is a portfolio gap worth knowing before you hit it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Inventory, not status</div><div class=\"so-grid\"><span class=\"k\">ternary-lm</span><span>the cheapest class — CPU/Pulse Conductor work</span><span class=\"k\">RLM / SLM</span><span>small/retrieval language models — mid-scale, often the Logic tier</span><span class=\"k\">LLM</span><span>the large models — Oracle-tier deep reasoning</span><span class=\"k\">mixture</span><span>mixture-of-experts — routed capacity</span></div>The census tells you how many of each the box owns. It says nothing about what’s loaded — that’s D-03 — only about what you have to choose from.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 — which of these the box is actually running now</div>"
-    }
-   ]
-  },
-  {
-   "icon": "▤",
-   "title": "Models by tier",
-   "content": "The catalog itself, grouped by SRP tier — every model with its real registry attributes. Browsing by tier matches how you’d actually pick one: you need a model FOR a tier (something that fits the Conductor’s CPU path, or the Oracle’s VRAM), so the tier grouping is the shopping aisle. Hover a model to read its full spec.",
-   "children": [
-    {
-     "selector": "#tiers",
-     "title": "Tier groups",
-     "content": "The models grouped by SRP tier, each entry carrying its class, engine, precision, parameters, context window, license, purpose, and status. Read a tier’s list as the menu of what you could load there — filtered implicitly by what fits that tier’s hardware. The attributes are the decision criteria: params and precision for whether it fits, context for how much it can hold, license for whether you may use it as intended.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Every attribute is a decision criterion</div><div class=\"so-grid\"><span class=\"k\">class / engine</span><span>what kind of model and what runs it</span><span class=\"k\">precision / params</span><span>does it fit the tier’s VRAM (NVFP4 4-bit stretches this far)</span><span class=\"k\">context</span><span>how long a prompt it can hold</span><span class=\"k\">license</span><span>whether your use is permitted</span><span class=\"k\">status</span><span>ready, experimental, deprecated — whether to rely on it</span></div>These aren’t decoration — they’re how you choose. A model with the right purpose but a too-short context, or a too-large param count for the tier, is the wrong pick, and the catalog is where you catch that before loading.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 — which device/tier a chosen model would be assigned to<br><span class=\"x\">→</span> D-03 — how it performs once loaded and serving</div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#tiers .model, #tiers tr, #tiers li",
-      "nameSelector": "strong,code,.id,.name,td",
-      "title": "Model · {{name}}",
-      "content": "The {{name}} model from the registry — its class, precision, parameters, context, license, and status. Read the attributes as fit criteria: whether it suits the tier’s hardware, how long a context it holds, and whether its license and status let you rely on it. This is a spec sheet, not a live reading.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Model · {{name}}</div>One catalog entry, straight from models/catalog.yaml. Its params + precision say whether it fits a tier’s VRAM; its context says how much it can hold; its status says whether it’s production-ready or experimental. Loading it is a signed action on D-03/D-21.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 — {{name}}’s live health if it’s loaded</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⚲",
-   "title": "Freshness",
-   "content": "When the registry was last read — the staleness caveat on the portfolio above.",
-   "children": [
-    {
-     "selector": "#last-fetch",
-     "title": "Catalog freshness",
-     "content": "When the catalog was last read from the registry. Because the registry is near-static this is rarely the thing you check — but after adding or deprecating a model, it’s the confirmation that the shelf you’re browsing reflects that change rather than the state before it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Registry freshness</div>When the catalog was last read from the registry. The registry changes when models are added or deprecated, so an old timestamp means a newly-registered model may not appear yet.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Controls",
-   "content": "The shared control rail. On a read-only reference panel it’s the least of the view — the catalog is for browsing, not acting — but it’s where loading a model you’ve chosen turns into a signed verb. You pick here; you commit on D-03/D-21 through the CLI.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "The profile/mode/feature control rail. The catalog itself loads nothing — it’s reference — so this rail’s role here is the handoff: having found a model, the signed verb to load it is copied from here (or from D-03/D-21), and the box only loads it when you run that command. Browsing is free; loading is a deliberate, signed act.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Browse here, load elsewhere, sign always</div>The catalog is deliberately inert — you can explore the whole portfolio with zero risk of changing what’s loaded. Acting on a choice is a separate, signed step on the tier panels. That separation keeps the reference safe to browse while keeping model loads — which claim real VRAM — behind the operator signature.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-03 / D-21 — where a catalog choice becomes a loaded model</div>"
-    }
-   ]
-  }
- ]
-};
-</script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">
   :root{ --so-course-rail-h:46px; }
@@ -3197,10 +2366,6 @@ window.SO_ASSIST = {
 })();
 </script>
 <!-- COURSE:END M090 -->
-<script type="module">
-  // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
-  enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
-</script>
+
 </body>
 </html>

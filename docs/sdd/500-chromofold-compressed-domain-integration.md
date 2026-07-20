@@ -202,9 +202,23 @@ resident fixtures. Full §1g chain landed: dispatch + help text + `feature-cover
 cockpit panel is step 4, deferred) + `models` man-topic (`## chromofold` source + `.SS chromofold` roff) +
 `test_chromofold_cli_contract.py` (8 cases). No exec-rail/`control-systems.yaml`/sudoers — the verb is read-only.
 
-**Remaining:** step 7 (real link + host→device marshalling + bit-for-bit golden-vector round-trip vs the Warp
-oracle — hardware-gated) → read-only cockpit surface (step 4). Provenance option B (native-Rust port) and the
-config-card (Q-500-F) remain open operator calls.
+**Cockpit panel landed (step 4, 2026-07-20)** — the read-only ChromoFold status panel: `webapp/chromofold/index.html`
+(app-shell-adopted; availability tile + the 8-capability map with the Lane-A `fm_count` badge + an honest offline
+banner; fetches `/chromofold.json`, never fabricates), a read-only API daemon `scripts/operator/chromofold-api.py`
+(:8147, shells the `chromofold.py` helper, `POST`→405) + `sovereign-chromofold-api.service` (R171-hardened,
+loopback), a `dashboard-catalog.yaml` `science`-category entry, the generated `dashboard-routes.yaml` route
+(port auto-parsed from the daemon), the app-shell **GROUPS** entry (re-synced into all 63 adopted panels), and
+the `feature-coverage.yaml` move from a cli_only waiver to `coverage: chromofold → [chromofold]` (the verb now has
+a dashboard home). Read-only end to end (R10212/SB-077); the panel shows "offline" until step 7 gives it live data.
+
+> Note: `sovereign-osctl master-dashboard render` is currently blocked by a **pre-existing** port collision from
+> the just-merged F-2026-070 (the networking triplet `d-12-networking`/`edge-firewall`/`network-edge` all share
+> :8139 in `dashboard-routes.yaml` at HEAD). ChromoFold's route (:8147) is unique and not involved; the collision
+> reproduces on HEAD without any ChromoFold change. Left for the networking workstream — out of SDD-500 scope.
+
+**Remaining:** only step 7 (real link + host→device marshalling + bit-for-bit golden-vector round-trip vs the
+Warp oracle — hardware-gated). Provenance option B (native-Rust port) and the config-card (Q-500-F) remain open
+operator calls.
 
 ## Cross-references
 

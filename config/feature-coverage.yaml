@@ -115,6 +115,8 @@ coverage:
     [science]
   warp:
     [warp]
+  chromofold:
+    [chromofold]
   avx-modes:
     [avx-mode, control-word]
 
@@ -138,4 +140,3 @@ cli_only:
   - {verb: open-computer, rationale: "SDD-706 open-computer QEMU AI-sandbox lifecycle (status/on/off/install/url/logs/doctor) — an installed-off VM-host manager over systemd units (selfdef shape); open-computer serves its own agent UI on :9800 (kiosk/browser target), so a sovereign panel would duplicate it. CLI is the sovereign management surface, no dashboard home."}
   - {verb: claude-code, rationale: "SDD-600 Part 2 provider/origin hotswap (backend {local|anthropic|show}) — rewrites the managed claude-code.env (ANTHROPIC_BASE_URL); a config-swap CLI action. Surfaced as copy-CLI in the settings-pane provider modal + the orchestration control, not its own panel."}
   - {verb: vscode, rationale: "SDD-600 Part 2 provider/origin hotswap (backend {local|anthropic|show}) — renders the Cline/Claude-Dev settings fragment; a config-swap CLI action (a live editor profile can't be written for you). Surfaced as copy-CLI in the settings-pane provider modal + the orchestration control, not its own panel."}
-  - {verb: chromofold, rationale: "SDD-500 ChromoFold compressed-domain search — read-only info/selftest over the native capability descriptor (packaging/chromofold_capability.json) resolved from CHROMOFOLD_ROOT/WARP_SHADERS_ROOT, honestly reporting the offline state when no checkout is resident; CLI-first this round — the read-only cockpit panel is SDD-500 step 4 (deferred), and no exec-rail/mutation surface exists yet (device search is the hardware-gated step 7)."}
