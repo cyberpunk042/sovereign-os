@@ -16,9 +16,12 @@ evidence, mirroring the memory-store.py ↔ memory-decide.py split:
 SB-077 (never fabricate): each gate's evidence-gatherer returns {ok, ...} or
 {ok:False, reason}; on `ok:False` the gate STAYS `pending` and the verb honest-defers
 with a CLI remediation — a gate is NEVER set to `"passed"` without proof. Grounded
-reality: the eval harness is DRY-RUN-until-hardware and the oracle vLLM backend
-(:8083) needs hardware, so eval-run + oracle honest-defer today; snapshot +
-eval-record + human make a real promote reachable now.
+reality: the eval PRODUCER now exists (`adapter-eval.py`, SDD-724) — it runs a
+benchmark suite and writes the passing record `_eval_evidence` reads, so the eval
+gate is reachable from real evidence (only the served-model call inside the runner
+is hardware-gated). The oracle vLLM backend (:8083) still needs hardware, so the
+oracle gate honest-defers until it is reachable; snapshot + eval + human make a
+real promote reachable now.
 
 Safety: DRY-RUN unless --confirm AND SOVEREIGN_OS_DRY_RUN unset. Only the human gate
 is a cockpit control (`adapter-gate-human`, exec-rail gated); eval/snapshot/oracle are
