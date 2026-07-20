@@ -16,7 +16,7 @@
 | Milestones | 84 |
 | Milestones with production delivery recorded | 7 (8%) |
 | Milestones catalogued-only (no delivery record yet) | 77 |
-| Catalogued R-rows (distinct, all milestones) | 14079 |
+| Catalogued R-rows (distinct, all milestones) | 14249 |
 | Shipped surfaces recorded (total) | 319 |
 
 ## Per milestone
@@ -105,5 +105,5 @@
 | M082 | 255 | — |  |
 | M083 | 170 | — |  |
 | M084 | 171 | ✓ | 3 |
-| M085 | 0 | — |  |
+| M085 | 170 | — |  |
 | M086 | 0 | — |  |
