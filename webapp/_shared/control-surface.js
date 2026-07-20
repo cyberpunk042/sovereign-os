@@ -180,8 +180,22 @@
           askConfirm(card, sys, opts);
         }
       } else if (res.status === 409) {
-        setResult(result, "warn", "signed-proxy only (R10212) — command copied");
-        copy(assembleCmd(sys.change_cli, args), opts);
+        if (b.compat) {
+          // compat pre-change gate refusal (the ⚖ registry, NOT the R10212
+          // boundary): surface the RULE + remediation at the point of
+          // rejection, and offer the server-verified fix plan inline —
+          // "force something else off in order to enable one thing".
+          setResult(result, "err",
+            "⚖ " + (b.error || "compat gate refused")
+            + " INSTEAD: " + (b.remediation || "open the ⚖ Compatibility pane"));
+          fixPlan(result, b.resolution, url);
+        } else if (b.boundary) {
+          setResult(result, "warn", "signed-proxy only (R10212) — command copied");
+          copy(assembleCmd(sys.change_cli, args), opts);
+        } else {
+          // the remaining 409: single-flight lock (another action running)
+          setResult(result, "warn", b.error || "another cockpit action is already running");
+        }
       } else if (res.status === 400) {
         setResult(result, "warn", b.error || "invalid arguments — pick a value");
       } else if (res.status === 404) {
@@ -196,6 +210,44 @@
       // exec daemon unreachable (per-port-direct read-only front) → copy fallback
       setResult(result, "muted", "exec endpoint unreachable — command copied");
       copy(assembleCmd(sys.change_cli, collectArgs(card)), opts);
+    });
+  }
+
+  // The server-verified compat RESOLUTION plan riding a 409 refusal — one
+  // "Force: <label>" button per step; each executes through the SAME
+  // sanctioned rail (dry-run until live). Mirrors the app-shell ⚖ pane's
+  // shared renderer so both surfaces offer the identical way out.
+  function fixPlan(result, resolution, url) {
+    if (!result || !resolution || !(resolution.plan || []).length) return;
+    var head = document.createElement("div");
+    head.className = "cs-fix-head";
+    head.textContent = resolution.resolved_all
+      ? "Verified fix plan — applying these clears ALL findings:"
+      : (resolution.clean_after
+        ? "Verified fix plan — clears every gating finding (advisories may remain):"
+        : "Fix plan (partial — force findings would remain):");
+    result.appendChild(head);
+    resolution.plan.forEach(function (stp) {
+      var row = document.createElement("div");
+      row.className = "cs-fix-row";
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.className = "cs-exec cs-fix";
+      btn.textContent = "Force: " + stp.label;
+      btn.title = stp.rule_id + " — executes control " + stp.system + " via the exec rail";
+      var out = document.createElement("span");
+      out.className = "cs-result muted";
+      btn.addEventListener("click", function () {
+        out.textContent = "executing…";
+        execute(url, stp.system, stp.args || {}, false).then(function (r) {
+          var rb = r.body || {};
+          if (r.status === 200) {
+            out.textContent = rb.dry_run
+              ? "dry-run ✓ would run: " + ((rb.would_run || []).join(" ") || stp.system)
+              : "executed ✓ exit " + (rb.exit_code != null ? rb.exit_code : 0);
+          } else out.textContent = rb.error || ("error " + r.status);
+        }).catch(function () { out.textContent = "exec endpoint unreachable"; });
+      });
+      row.appendChild(btn); row.appendChild(out); result.appendChild(row);
     });
   }
 
@@ -258,6 +310,49 @@
       + "</div>";
   }
 
+  // Per-option compat greying (mirrors the app-shell's soCompatMark): the
+  // READ-ONLY per-option preview (GET /api/control/compat?control_id=, same
+  // loopback daemon) greys force-incompatible enum verbs (⛔ disabled +
+  // rule/reason/remediation tooltip) and annotates warn/suggest (⚠) — the
+  // SAME registry truth as the execute() pre-change gate, so a greyed option
+  // is exactly one the gate would refuse. Toggle verbs map onto their state
+  // options via the gate's own verb map ({enable→on, disable→off}). Inert
+  // option pills get the same mark. Silent no-op when the exec API is absent
+  // (static / per-port read-only serving) — the rail stays fully usable.
+  var COMPAT_VERB_MAP = { on: "enable", off: "disable" }; // option → toggle verb
+  function markCompat(card, sys) {
+    fetch("/api/control/compat?control_id=" + encodeURIComponent(sys.id),
+          { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (p) {
+        if (!p || !p.available || !p.options) return;
+        p.options.forEach(function (row) {
+          var f = (row.findings && row.findings[0]) || null;
+          if (!row.gating && !f) return;
+          var tip = f ? (f.rule_id + ": " + f.reason + " — " + f.remediation) : "";
+          var verbAlias = COMPAT_VERB_MAP[row.option] || null;
+          Array.prototype.forEach.call(card.querySelectorAll(".cs-verb"), function (btn) {
+            var val = btn.getAttribute("data-val");
+            if (val !== row.option && val !== verbAlias) return;
+            if (row.gating) {
+              btn.disabled = true;
+              if (btn.textContent.indexOf("⛔") !== 0) btn.textContent = "⛔ " + btn.textContent;
+            } else if (btn.textContent.indexOf("⚠") !== 0) {
+              btn.textContent = "⚠ " + btn.textContent;
+            }
+            if (tip) btn.title = tip;
+          });
+          Array.prototype.forEach.call(card.querySelectorAll(".cs-opt"), function (pill) {
+            if (pill.textContent.replace(/^[⛔⚠] /, "") !== row.option) return;
+            var mark = row.gating ? "⛔" : "⚠";
+            if (pill.textContent.indexOf(mark) !== 0) pill.textContent = mark + " " + pill.textContent;
+            if (tip) pill.title = tip;
+          });
+        });
+      }, function () { /* exec API absent — stay silent */ })
+      .catch(function () {});
+  }
+
   function render(containerEl, systems, opts) {
     opts = opts || {};
     var slug = opts.filterSlug || null;
@@ -298,6 +393,12 @@
         var sys = byId[card.getAttribute("data-cid")];
         if (sys) execAction(card, sys, opts, false);
       });
+    });
+    // compat greying — annotate every executable card's options against the
+    // box's current state (read-only preview; silent when the API is absent)
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-card"), function (card) {
+      var sys = byId[card.getAttribute("data-cid")];
+      if (sys && !isProxyOnly(sys) && sys.change_cli) markCompat(card, sys);
     });
     return list.length;
   }

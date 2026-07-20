@@ -1048,10 +1048,43 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
         else if(res.status===0){ soExecMsg(resultEl,'err','control-exec-api unreachable (:8130) — start sovereign-control-exec-api'); }
         else if(res.status===404){ soExecMsg(resultEl,'err',b.error||'unknown control'); }
         else if(res.status===400){ soExecMsg(resultEl,'warn',b.error||'invalid argument'); }
-        else if(res.status===405||res.status===409){ soExecMsg(resultEl,'warn','execution not available on this origin (R10212)'); }
+        else if(res.status===409 && b.compat){
+          // ── compat pre-change gate refusal (the ⚖ registry, NOT an origin
+          //    problem): surface the RULE + remediation at the point of
+          //    rejection, and offer the server-verified fix plan inline —
+          //    "force something else off in order to enable one thing". ──
+          soExecMsg(resultEl,'err','⚖ '+(b.error||'compat gate refused')+' INSTEAD: '+(b.remediation||'open the ⚖ Compatibility pane'));
+          soCompatFixPlan(resultEl, b.resolution);
+        }
+        else if(res.status===409){ soExecMsg(resultEl,'warn',b.error||'execution not available on this origin (R10212)'); }
+        else if(res.status===405){ soExecMsg(resultEl,'warn','execution not available on this origin (R10212)'); }
         else soExecMsg(resultEl,'err','error '+res.status);
       }
       post(false).then(function(r){ render(r,false); });
+    }
+    // ── Shared fix-plan renderer — the server-verified RESOLUTION steps.
+    //    One "Force: <label>" button per step, each executing through the
+    //    SAME sanctioned exec rail (dry-run until live; privileged →
+    //    Confirm). Used by the ⚖ pane AND inline under a 409 compat
+    //    refusal, so the fix is offered exactly where the refusal lands. ──
+    function soCompatFixPlan(host, resolution){
+      if(!host || !resolution || !(resolution.plan||[]).length) return;
+      var head=el('<div class="so-set-sub" style="margin:.4rem 0 .15rem;"></div>');
+      head.textContent=(resolution.resolved_all
+        ? 'Verified fix plan — applying these clears ALL findings:'
+        : (resolution.clean_after
+          ? 'Verified fix plan — clears every gating finding (advisories may remain):'
+          : 'Fix plan (partial — force findings would remain):'));
+      host.appendChild(head);
+      resolution.plan.forEach(function(stp){
+        var row=el('<div style="display:flex;gap:.4rem;align-items:center;margin:.15rem 0;flex-wrap:wrap;"></div>');
+        var btn=document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply';
+        btn.textContent='Force: '+stp.label;
+        btn.title=stp.rule_id+' — executes control '+stp.system+' via the exec rail';
+        var bres=el('<span class="so-exec-result"></span>');
+        btn.addEventListener('click',function(){ soExec(stp.system, stp.args, bres); });
+        row.appendChild(btn); row.appendChild(bres); host.appendChild(row);
+      });
     }
     // ── Compat greying (2026-07-19 compat integration): GET
     //    /api/control/compat previews each option of a control against the
@@ -1338,32 +1371,12 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
             soExecMsg(st,worst, soCompatFindingLines(p.findings).join('  ·  '));
           }
           // ── the RESOLUTION plan — "force something else off in order to
-          //    enable one thing", executable: one button per verified step,
-          //    through the SAME sanctioned exec rail (dry-run until live;
-          //    privileged → Confirm). Server-simulated: the plan is only
+          //    enable one thing", executable via the SHARED soCompatFixPlan
+          //    renderer (defined beside soExec; also used inline under a
+          //    409 compat refusal). Server-simulated: the plan is only
           //    offered when applying it actually clears the findings. ──
           var fix=document.getElementById('so-compat-fix');
-          if(fix){ fix.innerHTML='';
-            var plan=(p.resolution&&p.resolution.plan)||[];
-            if(plan.length){
-              var head=el('<div class="so-set-sub" style="margin:.4rem 0 .15rem;"></div>');
-              head.textContent=(p.resolution.resolved_all
-                ? 'Verified fix plan — applying these clears ALL findings:'
-                : (p.resolution.clean_after
-                  ? 'Verified fix plan — clears every gating finding (advisories may remain):'
-                  : 'Fix plan (partial — force findings would remain):'));
-              fix.appendChild(head);
-              plan.forEach(function(stp){
-                var row=el('<div style="display:flex;gap:.4rem;align-items:center;margin:.15rem 0;flex-wrap:wrap;"></div>');
-                var btn=document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply';
-                btn.textContent='Force: '+stp.label;
-                btn.title=stp.rule_id+' — executes control '+stp.system+' via the exec rail';
-                var bres=el('<span class="so-exec-result"></span>');
-                btn.addEventListener('click',function(){ soExec(stp.system, stp.args, bres); });
-                row.appendChild(btn); row.appendChild(bres); fix.appendChild(row);
-              });
-            }
-          }
+          if(fix){ fix.innerHTML=''; soCompatFixPlan(fix, p.resolution); }
           if(sel && sel.options.length<=1){
             (p.checkable||[]).forEach(function(c){
               if(!c.options||!c.options.length) return;
@@ -2395,8 +2408,22 @@ refresh();
           askConfirm(card, sys, opts);
         }
       } else if (res.status === 409) {
-        setResult(result, "warn", "signed-proxy only (R10212) — command copied");
-        copy(assembleCmd(sys.change_cli, args), opts);
+        if (b.compat) {
+          // compat pre-change gate refusal (the ⚖ registry, NOT the R10212
+          // boundary): surface the RULE + remediation at the point of
+          // rejection, and offer the server-verified fix plan inline —
+          // "force something else off in order to enable one thing".
+          setResult(result, "err",
+            "⚖ " + (b.error || "compat gate refused")
+            + " INSTEAD: " + (b.remediation || "open the ⚖ Compatibility pane"));
+          fixPlan(result, b.resolution, url);
+        } else if (b.boundary) {
+          setResult(result, "warn", "signed-proxy only (R10212) — command copied");
+          copy(assembleCmd(sys.change_cli, args), opts);
+        } else {
+          // the remaining 409: single-flight lock (another action running)
+          setResult(result, "warn", b.error || "another cockpit action is already running");
+        }
       } else if (res.status === 400) {
         setResult(result, "warn", b.error || "invalid arguments — pick a value");
       } else if (res.status === 404) {
@@ -2411,6 +2438,44 @@ refresh();
       // exec daemon unreachable (per-port-direct read-only front) → copy fallback
       setResult(result, "muted", "exec endpoint unreachable — command copied");
       copy(assembleCmd(sys.change_cli, collectArgs(card)), opts);
+    });
+  }
+
+  // The server-verified compat RESOLUTION plan riding a 409 refusal — one
+  // "Force: <label>" button per step; each executes through the SAME
+  // sanctioned rail (dry-run until live). Mirrors the app-shell ⚖ pane's
+  // shared renderer so both surfaces offer the identical way out.
+  function fixPlan(result, resolution, url) {
+    if (!result || !resolution || !(resolution.plan || []).length) return;
+    var head = document.createElement("div");
+    head.className = "cs-fix-head";
+    head.textContent = resolution.resolved_all
+      ? "Verified fix plan — applying these clears ALL findings:"
+      : (resolution.clean_after
+        ? "Verified fix plan — clears every gating finding (advisories may remain):"
+        : "Fix plan (partial — force findings would remain):");
+    result.appendChild(head);
+    resolution.plan.forEach(function (stp) {
+      var row = document.createElement("div");
+      row.className = "cs-fix-row";
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.className = "cs-exec cs-fix";
+      btn.textContent = "Force: " + stp.label;
+      btn.title = stp.rule_id + " — executes control " + stp.system + " via the exec rail";
+      var out = document.createElement("span");
+      out.className = "cs-result muted";
+      btn.addEventListener("click", function () {
+        out.textContent = "executing…";
+        execute(url, stp.system, stp.args || {}, false).then(function (r) {
+          var rb = r.body || {};
+          if (r.status === 200) {
+            out.textContent = rb.dry_run
+              ? "dry-run ✓ would run: " + ((rb.would_run || []).join(" ") || stp.system)
+              : "executed ✓ exit " + (rb.exit_code != null ? rb.exit_code : 0);
+          } else out.textContent = rb.error || ("error " + r.status);
+        }).catch(function () { out.textContent = "exec endpoint unreachable"; });
+      });
+      row.appendChild(btn); row.appendChild(out); result.appendChild(row);
     });
   }
 
@@ -2473,6 +2538,49 @@ refresh();
       + "</div>";
   }
 
+  // Per-option compat greying (mirrors the app-shell's soCompatMark): the
+  // READ-ONLY per-option preview (GET /api/control/compat?control_id=, same
+  // loopback daemon) greys force-incompatible enum verbs (⛔ disabled +
+  // rule/reason/remediation tooltip) and annotates warn/suggest (⚠) — the
+  // SAME registry truth as the execute() pre-change gate, so a greyed option
+  // is exactly one the gate would refuse. Toggle verbs map onto their state
+  // options via the gate's own verb map ({enable→on, disable→off}). Inert
+  // option pills get the same mark. Silent no-op when the exec API is absent
+  // (static / per-port read-only serving) — the rail stays fully usable.
+  var COMPAT_VERB_MAP = { on: "enable", off: "disable" }; // option → toggle verb
+  function markCompat(card, sys) {
+    fetch("/api/control/compat?control_id=" + encodeURIComponent(sys.id),
+          { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (p) {
+        if (!p || !p.available || !p.options) return;
+        p.options.forEach(function (row) {
+          var f = (row.findings && row.findings[0]) || null;
+          if (!row.gating && !f) return;
+          var tip = f ? (f.rule_id + ": " + f.reason + " — " + f.remediation) : "";
+          var verbAlias = COMPAT_VERB_MAP[row.option] || null;
+          Array.prototype.forEach.call(card.querySelectorAll(".cs-verb"), function (btn) {
+            var val = btn.getAttribute("data-val");
+            if (val !== row.option && val !== verbAlias) return;
+            if (row.gating) {
+              btn.disabled = true;
+              if (btn.textContent.indexOf("⛔") !== 0) btn.textContent = "⛔ " + btn.textContent;
+            } else if (btn.textContent.indexOf("⚠") !== 0) {
+              btn.textContent = "⚠ " + btn.textContent;
+            }
+            if (tip) btn.title = tip;
+          });
+          Array.prototype.forEach.call(card.querySelectorAll(".cs-opt"), function (pill) {
+            if (pill.textContent.replace(/^[⛔⚠] /, "") !== row.option) return;
+            var mark = row.gating ? "⛔" : "⚠";
+            if (pill.textContent.indexOf(mark) !== 0) pill.textContent = mark + " " + pill.textContent;
+            if (tip) pill.title = tip;
+          });
+        });
+      }, function () { /* exec API absent — stay silent */ })
+      .catch(function () {});
+  }
+
   function render(containerEl, systems, opts) {
     opts = opts || {};
     var slug = opts.filterSlug || null;
@@ -2513,6 +2621,12 @@ refresh();
         var sys = byId[card.getAttribute("data-cid")];
         if (sys) execAction(card, sys, opts, false);
       });
+    });
+    // compat greying — annotate every executable card's options against the
+    // box's current state (read-only preview; silent when the API is absent)
+    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-card"), function (card) {
+      var sys = byId[card.getAttribute("data-cid")];
+      if (sys && !isProxyOnly(sys) && sys.change_cli) markCompat(card, sys);
     });
     return list.length;
   }
