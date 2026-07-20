@@ -3,67 +3,16 @@
 version = 4
 
 [[package]]
-name = "arrayref"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
-
-[[package]]
-name = "arrayvec"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
-
-[[package]]
 name = "bitflags"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 
 [[package]]
-name = "blake3"
-version = "1.8.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0aa83c34e62843d924f905e0f5c866eb1dd6545fc4d719e803d9ba6030371fce"
-dependencies = [
- "arrayref",
- "arrayvec",
- "cc",
- "cfg-if",
- "constant_time_eq",
- "cpufeatures",
-]
-
-[[package]]
-name = "cc"
-version = "1.2.67"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e17dd265a7d0f31ef544e1b20e03add05d3b45b491b633b10d67145d2acc1a38"
-dependencies = [
- "find-msvc-tools",
- "shlex",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
-
-[[package]]
-name = "constant_time_eq"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
-
-[[package]]
-name = "cpufeatures"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b2a41393f66f16b0823bb79094d54ac5fbd34ab292ddafb9a0456ac9f87d201"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "crunchy"
@@ -86,12 +35,6 @@ name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
-
-[[package]]
-name = "find-msvc-tools"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "getrandom"
@@ -265,12 +208,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shlex"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
-
-[[package]]
 name = "sovereign-agent-loop"
 version = "0.1.0"
 dependencies = [
@@ -400,14 +337,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sovereign-bit-cheats"
-version = "0.1.0"
-dependencies = [
- "serde",
- "sovereign-control-word",
-]
-
-[[package]]
 name = "sovereign-bitlinear-core"
 version = "0.1.0"
 dependencies = [
@@ -467,16 +396,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sovereign-branch-scheduler"
-version = "0.1.0"
-dependencies = [
- "serde",
- "sovereign-bit-cheats",
- "sovereign-control-word",
- "sovereign-simd",
-]
-
-[[package]]
 name = "sovereign-branch-tree"
 version = "0.1.0"
 dependencies = [
@@ -515,13 +434,9 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "sovereign-agent-loop",
- "sovereign-agent-runtime",
- "sovereign-chat-template",
  "sovereign-decoder-stack",
  "sovereign-ffn",
  "sovereign-llm",
- "sovereign-retrieval",
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-stop-sequence",
@@ -574,16 +489,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "sovereign-coat"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sovereign-branch-tree",
- "thiserror",
 ]
 
 [[package]]
@@ -4398,7 +4303,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "sovereign-embed",
 ]
 
 [[package]]
@@ -4480,17 +4384,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sovereign-control-word-service"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "serde",
- "serde_json",
- "sovereign-control-word",
- "sovereign-simd",
-]
-
-[[package]]
 name = "sovereign-conversation-fork-event"
 version = "0.1.0"
 dependencies = [
@@ -4540,7 +4433,6 @@ dependencies = [
  "sovereign-symbolic-plan",
  "sovereign-trinity",
  "sovereign-value-plane",
- "sovereign-world-model",
  "thiserror",
 ]
 
@@ -4558,13 +4450,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "sovereign-cpu-pinning"
-version = "0.1.0"
-dependencies = [
- "sovereign-cpu-topology",
 ]
 
 [[package]]
@@ -4702,17 +4587,11 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "sovereign-dry-sampler",
  "sovereign-ffn",
- "sovereign-gumbel",
  "sovereign-logit-mask",
- "sovereign-logit-pipeline",
- "sovereign-repetition-penalty",
  "sovereign-rmsnorm",
  "sovereign-sampler",
  "sovereign-transformer-block",
- "sovereign-typical-sampling",
- "sovereign-xtc-sampler",
  "thiserror",
 ]
 
@@ -4852,16 +4731,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sovereign-feature-selftest"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sovereign-safetensors-loader",
- "sovereign-simd",
-]
-
-[[package]]
 name = "sovereign-fenwick"
 version = "0.1.0"
 dependencies = [
@@ -4903,49 +4772,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "sovereign-gatewayd"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sovereign-agent-loop",
- "sovereign-bit-cheats",
- "sovereign-branch-scheduler",
- "sovereign-calc",
- "sovereign-chat-template",
- "sovereign-chunker",
- "sovereign-coat",
- "sovereign-completion-cache",
- "sovereign-control-word",
- "sovereign-control-word-service",
- "sovereign-cortex",
- "sovereign-gateway",
- "sovereign-hf-tokenizer",
- "sovereign-injection-detect",
- "sovereign-logit-mask",
- "sovereign-memory-os",
- "sovereign-network-zerotrust",
- "sovereign-observability-events",
- "sovereign-pii-redact",
- "sovereign-quant-model",
- "sovereign-rate-limit",
- "sovereign-rerank",
- "sovereign-retrieval",
- "sovereign-router-7axis",
- "sovereign-safetensors-loader",
- "sovereign-secret-scan",
- "sovereign-simd",
- "sovereign-srp-scheduler",
- "sovereign-stop-sequence",
- "sovereign-stream-decode",
- "sovereign-tool-bridge",
- "sovereign-tool-dispatch",
- "sovereign-toxicity",
- "sovereign-trace-context",
- "sovereign-value-plane",
 ]
 
 [[package]]
@@ -5023,15 +4849,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sovereign-hf-tokenizer"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "sovereign-hibernation"
 version = "0.1.0"
 dependencies = [
@@ -5103,161 +4920,29 @@ dependencies = [
 name = "sovereign-inference-demo"
 version = "0.1.0"
 dependencies = [
- "serde_json",
  "sovereign-agent-loop",
  "sovereign-agent-runtime",
- "sovereign-aimd-limiter",
- "sovereign-arg-schema",
- "sovereign-attention",
- "sovereign-balanced-constrain",
- "sovereign-bandit",
  "sovereign-beam-search",
- "sovereign-bin-packing",
- "sovereign-bitlinear-core",
- "sovereign-bitops",
- "sovereign-bloom",
- "sovereign-bounded-block",
- "sovereign-bpe-train",
- "sovereign-calc",
  "sovereign-checkpoint",
- "sovereign-choice-envelope",
- "sovereign-circuit-breaker",
- "sovereign-codegen-pipeline",
- "sovereign-community-detect",
- "sovereign-config-resolver",
- "sovereign-consistent-hash",
- "sovereign-context-pack",
- "sovereign-continuous-batch",
- "sovereign-conversation-fork-event",
- "sovereign-conversation-search-index",
- "sovereign-conversation-thread",
- "sovereign-crdt",
- "sovereign-cuckoo-filter",
- "sovereign-cusum",
- "sovereign-dag-schedule",
- "sovereign-ddsketch",
- "sovereign-decode-loop",
  "sovereign-decoder-layer",
  "sovereign-decoder-stack",
- "sovereign-degeneration",
- "sovereign-doctrinal-preservation",
- "sovereign-doctrine-citation",
  "sovereign-embed",
- "sovereign-eval-result-summary",
- "sovereign-eval-suite-catalog",
- "sovereign-execution-mode-registry",
- "sovereign-fenwick",
  "sovereign-ffn",
- "sovereign-format-mask",
- "sovereign-graph-path",
- "sovereign-heavy-hitters",
- "sovereign-hf-tokenizer",
- "sovereign-histogram",
- "sovereign-holt-winters",
- "sovereign-huffman",
- "sovereign-hyperloglog",
- "sovereign-injection-detect",
- "sovereign-interval-schedule",
- "sovereign-interval-tree",
- "sovereign-isotonic",
- "sovereign-json-schema-grammar",
- "sovereign-jsonl",
- "sovereign-kalman",
- "sovereign-knapsack",
- "sovereign-kv-budget",
- "sovereign-kv-cache",
- "sovereign-language-detect",
- "sovereign-learning-signals",
- "sovereign-levenshtein-automaton",
- "sovereign-line-diff",
  "sovereign-linear",
  "sovereign-llm",
- "sovereign-load-balance",
- "sovereign-local-align",
  "sovereign-logit-mask",
- "sovereign-logit-pipeline",
- "sovereign-markdown-strip",
- "sovereign-merkle-tree",
  "sovereign-mha-block",
- "sovereign-mirostat",
- "sovereign-mode-default-policy",
- "sovereign-moe-gate",
- "sovereign-ngram-speculative",
- "sovereign-no-repeat-ngram",
- "sovereign-nvfp4-runtime",
- "sovereign-online-regression",
- "sovereign-p2-quantile",
- "sovereign-p2c-balance",
- "sovereign-pagerank",
  "sovereign-perplexity",
- "sovereign-policy-input",
- "sovereign-precision-profile",
- "sovereign-prefix-cache",
- "sovereign-profile-bundles",
- "sovereign-prompt-history-ring",
- "sovereign-prompt-rationale",
- "sovereign-prompt-template-registry",
- "sovereign-provider-catalog",
  "sovereign-quant-block",
- "sovereign-quant-calibration",
  "sovereign-quant-llm",
  "sovereign-quant-model",
- "sovereign-readability",
- "sovereign-rendezvous-hash",
- "sovereign-repetition-penalty",
- "sovereign-reservoir",
  "sovereign-retrieval",
- "sovereign-retrieval-metrics",
- "sovereign-retry",
  "sovereign-rmsnorm",
- "sovereign-roaring-bitmap",
- "sovereign-rolling-hash",
- "sovereign-rope",
- "sovereign-rope-scaling",
- "sovereign-routing-decision-log",
- "sovereign-routing-preference",
- "sovereign-running-stats",
- "sovereign-runtime-reactions",
- "sovereign-safetensors-loader",
  "sovereign-sampler",
- "sovereign-segment-tree",
- "sovereign-semantic-checkpoint",
- "sovereign-semantic-chunk",
- "sovereign-semver",
- "sovereign-significance",
- "sovereign-six-pillars",
- "sovereign-skill-library",
- "sovereign-space-saving",
  "sovereign-speculative",
- "sovereign-sprt",
- "sovereign-sse-parse",
- "sovereign-suffix-automaton",
- "sovereign-task-lifecycle",
- "sovereign-task-map",
- "sovereign-tdigest",
- "sovereign-telemetry-backend",
- "sovereign-text-edit",
  "sovereign-tokenizer",
- "sovereign-tool-call-parse",
- "sovereign-tool-catalog",
  "sovereign-tool-dispatch",
- "sovereign-tool-invocation-record",
- "sovereign-toxicity",
  "sovereign-transformer-block",
- "sovereign-trust-boundaries",
- "sovereign-typed-state",
- "sovereign-ulid",
- "sovereign-unigram-tokenizer",
- "sovereign-varint",
- "sovereign-vector-clock",
- "sovereign-viterbi",
- "sovereign-watermark",
- "sovereign-weighted-reservoir",
- "sovereign-wer",
- "sovereign-wordpiece",
- "sovereign-workflow-graph",
- "sovereign-workspace-folder-registry",
- "tempfile",
 ]
 
 [[package]]
@@ -5267,13 +4952,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "sovereign-inheritance-check"
-version = "0.1.0"
-dependencies = [
- "sovereign-inheritance-artifacts",
 ]
 
 [[package]]
@@ -5292,7 +4970,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-aho-corasick",
- "sovereign-classification-metrics",
 ]
 
 [[package]]
@@ -5492,7 +5169,6 @@ dependencies = [
  "serde_json",
  "sovereign-bitlinear-core",
  "sovereign-nvfp4-runtime",
- "sovereign-vnni",
  "thiserror",
 ]
 
@@ -5502,36 +5178,13 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "sovereign-answer-extract",
- "sovereign-best-of-n",
- "sovereign-confidence-calibration",
- "sovereign-context-budget",
  "sovereign-decoder-stack",
- "sovereign-degeneration",
- "sovereign-diversity",
- "sovereign-dry-sampler",
  "sovereign-ffn",
- "sovereign-json-extract",
- "sovereign-json-schema-grammar",
  "sovereign-logit-mask",
- "sovereign-logprobs",
- "sovereign-perplexity",
- "sovereign-pii-redact",
- "sovereign-prompt-compress",
- "sovereign-regex-constrain",
- "sovereign-repetition-penalty",
  "sovereign-rmsnorm",
  "sovereign-sampler",
- "sovereign-secret-scan",
- "sovereign-self-consistency",
- "sovereign-semantic-cache",
- "sovereign-token-grammar-mask",
- "sovereign-token-healing",
  "sovereign-tokenizer",
- "sovereign-toxicity",
  "sovereign-transformer-block",
- "sovereign-typical-sampling",
- "sovereign-xtc-sampler",
  "thiserror",
 ]
 
@@ -5637,8 +5290,6 @@ dependencies = [
  "sovereign-ffn",
  "sovereign-linear",
  "sovereign-mha",
- "sovereign-moe-gate",
- "sovereign-nvfp4-runtime",
  "sovereign-quant-block",
  "sovereign-rmsnorm",
  "sovereign-rope",
@@ -5798,14 +5449,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sovereign-online-regression"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "sovereign-p2-quantile"
 version = "0.1.0"
 dependencies = [
@@ -5836,14 +5479,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "sovereign-pcie-advisor"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "sovereign-pcie-topology",
 ]
 
 [[package]]
@@ -5893,15 +5528,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "sovereign-precision-profile"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sovereign-linear",
 ]
 
 [[package]]
@@ -6197,24 +5823,11 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-agent-loop",
- "sovereign-binary-quant",
- "sovereign-bktree",
  "sovereign-bm25",
  "sovereign-chunker",
  "sovereign-embed",
- "sovereign-hnsw",
- "sovereign-injection-detect",
- "sovereign-ivf",
- "sovereign-ivf-pq",
- "sovereign-keywords",
  "sovereign-lsh",
- "sovereign-matryoshka",
  "sovereign-minhash",
- "sovereign-mmr",
- "sovereign-rank-fusion",
- "sovereign-rerank",
- "sovereign-simhash",
- "sovereign-vptree",
 ]
 
 [[package]]
@@ -6235,7 +5848,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "sovereign-simd",
  "thiserror",
 ]
 
@@ -6317,25 +5929,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "sovereign-safetensors-loader"
-version = "0.1.0"
-dependencies = [
- "half",
- "serde",
- "serde_json",
- "sovereign-decoder-layer",
- "sovereign-linear",
- "sovereign-mha-block",
- "sovereign-quant-llm",
- "sovereign-quant-model",
- "sovereign-rmsnorm",
- "sovereign-sampler",
- "sovereign-tokenizer",
- "sovereign-vnni",
- "thiserror",
 ]
 
 [[package]]
@@ -6434,41 +6027,13 @@ version = "0.1.0"
 dependencies = [
  "sovereign-completion-cache",
  "sovereign-complexity",
- "sovereign-context-budget",
- "sovereign-decoder-stack",
- "sovereign-ffn",
- "sovereign-hf-tokenizer",
- "sovereign-llm",
- "sovereign-logit-mask",
- "sovereign-pii-redact",
- "sovereign-quant-llm",
- "sovereign-retrieval",
- "sovereign-rmsnorm",
- "sovereign-safetensors-loader",
- "sovereign-sampler",
- "sovereign-secret-scan",
  "sovereign-token-meter",
- "sovereign-tokenizer",
- "sovereign-toxicity",
- "sovereign-transformer-block",
  "thiserror",
 ]
 
 [[package]]
 name = "sovereign-significance"
 version = "0.1.0"
-
-[[package]]
-name = "sovereign-simd"
-version = "0.1.0"
-dependencies = [
- "rand",
- "rand_chacha",
- "serde",
- "sovereign-bitops",
- "sovereign-control-word",
- "sovereign-vnni",
-]
 
 [[package]]
 name = "sovereign-simhash"
@@ -6519,20 +6084,10 @@ version = "0.1.0"
 dependencies = [
  "sovereign-decoder-stack",
  "sovereign-ffn",
- "sovereign-ngram-lm",
  "sovereign-rmsnorm",
  "sovereign-sampler",
- "sovereign-spec-decode",
  "sovereign-transformer-block",
  "thiserror",
-]
-
-[[package]]
-name = "sovereign-sprt"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -6625,7 +6180,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "sovereign-hardware-dispatch-eligibility",
  "sovereign-hardware-load-sample",
  "sovereign-hardware-registry",
  "sovereign-hardware-thermal-policy",
@@ -6696,16 +6250,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sovereign-tool-bridge"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sovereign-tool-call-parse",
- "sovereign-tool-dispatch",
-]
-
-[[package]]
 name = "sovereign-tool-call-parse"
 version = "0.1.0"
 dependencies = [
@@ -6732,7 +6276,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-edit-distance",
- "sovereign-jaro-winkler",
  "sovereign-trie",
  "thiserror",
 ]
