@@ -304,23 +304,31 @@ adoption pattern.
      SELF-CONSISTENT dark chrome (fixed colors, like the header/sidebar) —
      panels define the shell CSS vars only partially, and inheriting a mixed
      set produced dark-on-dark headings (2026-07-19 Playwright pass). */
-  #so-notif-modal{position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
-  #so-notif-modal[hidden]{display:none;}
-  #so-notif-modal .so-prov-card{width:720px; max-width:94vw; max-height:86vh; overflow:auto; background:#151515;
+  #so-notif-modal,#so-compat-modal{position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+  #so-notif-modal[hidden],#so-compat-modal[hidden]{display:none;}
+  #so-notif-modal .so-prov-card,#so-compat-modal .so-prov-card{width:720px; max-width:94vw; max-height:86vh; overflow:auto; background:#151515;
     color:#e6e6e6; border:1px solid #2e2e2e; border-radius:11px; box-shadow:0 18px 50px rgba(0,0,0,.55); padding:.2rem 0 .5rem;}
-  #so-notif-modal .so-prov-h{display:flex; align-items:center; justify-content:space-between; font-weight:600; padding:.6rem .9rem; border-bottom:1px solid #2e2e2e; color:#f2f2f2;}
-  #so-notif-modal .so-prov-row{display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid #232323;}
-  #so-notif-modal .so-prov-row:last-child{border-bottom:0;}
-  #so-notif-modal .so-prov-lbl{flex:1; min-width:0;} #so-notif-modal .so-prov-lbl b{display:block; color:#f2f2f2;}
-  #so-notif-modal .so-prov-lbl small{color:#9a9a9a; font-size:.72rem;}
-  #so-notif-modal .so-prov-foot{color:#9a9a9a; font-size:.72rem; padding:.5rem .9rem 0;}
-  #so-notif-modal .so-prov-foot code{color:#c9e3ff;}
-  #so-notif-modal .so-set-ctl{display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; max-width:360px; justify-content:flex-end;}
-  #so-notif-modal .so-set-mini{background:#1e1e1e; color:#e6e6e6; border:1px solid #333; border-radius:6px;}
-  #so-notif-modal select.so-set-mini{min-width:128px;}
+  #so-notif-modal .so-prov-h,#so-compat-modal .so-prov-h{display:flex; align-items:center; justify-content:space-between; font-weight:600; padding:.6rem .9rem; border-bottom:1px solid #2e2e2e; color:#f2f2f2;}
+  #so-notif-modal .so-prov-row,#so-compat-modal .so-prov-row{display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid #232323;}
+  #so-notif-modal .so-prov-row:last-child,#so-compat-modal .so-prov-row:last-child{border-bottom:0;}
+  #so-notif-modal .so-prov-lbl,#so-compat-modal .so-prov-lbl{flex:1; min-width:0;} #so-notif-modal .so-prov-lbl b,#so-compat-modal .so-prov-lbl b{display:block; color:#f2f2f2;}
+  #so-notif-modal .so-prov-lbl small,#so-compat-modal .so-prov-lbl small{color:#9a9a9a; font-size:.72rem;}
+  #so-notif-modal .so-prov-foot,#so-compat-modal .so-prov-foot{color:#9a9a9a; font-size:.72rem; padding:.5rem .9rem 0;}
+  #so-notif-modal .so-prov-foot code,#so-compat-modal .so-prov-foot code{color:#c9e3ff;}
+  #so-notif-modal .so-set-ctl,#so-compat-modal .so-set-ctl{display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; max-width:360px; justify-content:flex-end;}
+  #so-notif-modal .so-set-mini,#so-compat-modal .so-set-mini{background:#1e1e1e; color:#e6e6e6; border:1px solid #333; border-radius:6px;}
+  #so-notif-modal select.so-set-mini,#so-compat-modal select.so-set-mini{min-width:128px;}
   #so-notif-modal input.so-set-mini{width:160px;}
   #so-notif-modal label{color:#c9c9c9;}
   #so-notif-modal .so-exec-result{color:#c9e3ff;}
+  /* ⚖ compat pane — per-STATE result colors survive the fixed dark chrome
+     (ok=green clean verdict · warn=amber · err=red force · muted=gray),
+     unlike the notif pane's single info tint. Rows wrap long rule text. */
+  #so-compat-modal .so-exec-result{white-space:normal; word-break:break-word; line-height:1.5;}
+  #so-compat-modal .so-exec-muted{color:#9a9a9a;} #so-compat-modal .so-exec-ok{color:#7fbf85;}
+  #so-compat-modal .so-exec-warn{color:#d6a95f;} #so-compat-modal .so-exec-err{color:#d67f7f;}
+  #so-compat-modal .so-exec-dry{color:#c9e3ff;}
+  #so-compat-modal #so-compat-rules .so-prov-lbl small{display:block; margin-top:.15rem;}
   .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
   .so-brand .mark{color:var(--accent,#9bd1ff);}
   .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
