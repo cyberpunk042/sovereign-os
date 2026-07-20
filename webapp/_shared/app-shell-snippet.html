@@ -582,10 +582,43 @@ canvas at the existing ≤1024px breakpoint). Chrome is ghost/.btn — NEVER
         else if(res.status===0){ soExecMsg(resultEl,'err','control-exec-api unreachable (:8130) — start sovereign-control-exec-api'); }
         else if(res.status===404){ soExecMsg(resultEl,'err',b.error||'unknown control'); }
         else if(res.status===400){ soExecMsg(resultEl,'warn',b.error||'invalid argument'); }
-        else if(res.status===405||res.status===409){ soExecMsg(resultEl,'warn','execution not available on this origin (R10212)'); }
+        else if(res.status===409 && b.compat){
+          // ── compat pre-change gate refusal (the ⚖ registry, NOT an origin
+          //    problem): surface the RULE + remediation at the point of
+          //    rejection, and offer the server-verified fix plan inline —
+          //    "force something else off in order to enable one thing". ──
+          soExecMsg(resultEl,'err','⚖ '+(b.error||'compat gate refused')+' INSTEAD: '+(b.remediation||'open the ⚖ Compatibility pane'));
+          soCompatFixPlan(resultEl, b.resolution);
+        }
+        else if(res.status===409){ soExecMsg(resultEl,'warn',b.error||'execution not available on this origin (R10212)'); }
+        else if(res.status===405){ soExecMsg(resultEl,'warn','execution not available on this origin (R10212)'); }
         else soExecMsg(resultEl,'err','error '+res.status);
       }
       post(false).then(function(r){ render(r,false); });
+    }
+    // ── Shared fix-plan renderer — the server-verified RESOLUTION steps.
+    //    One "Force: <label>" button per step, each executing through the
+    //    SAME sanctioned exec rail (dry-run until live; privileged →
+    //    Confirm). Used by the ⚖ pane AND inline under a 409 compat
+    //    refusal, so the fix is offered exactly where the refusal lands. ──
+    function soCompatFixPlan(host, resolution){
+      if(!host || !resolution || !(resolution.plan||[]).length) return;
+      var head=el('<div class="so-set-sub" style="margin:.4rem 0 .15rem;"></div>');
+      head.textContent=(resolution.resolved_all
+        ? 'Verified fix plan — applying these clears ALL findings:'
+        : (resolution.clean_after
+          ? 'Verified fix plan — clears every gating finding (advisories may remain):'
+          : 'Fix plan (partial — force findings would remain):'));
+      host.appendChild(head);
+      resolution.plan.forEach(function(stp){
+        var row=el('<div style="display:flex;gap:.4rem;align-items:center;margin:.15rem 0;flex-wrap:wrap;"></div>');
+        var btn=document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply';
+        btn.textContent='Force: '+stp.label;
+        btn.title=stp.rule_id+' — executes control '+stp.system+' via the exec rail';
+        var bres=el('<span class="so-exec-result"></span>');
+        btn.addEventListener('click',function(){ soExec(stp.system, stp.args, bres); });
+        row.appendChild(btn); row.appendChild(bres); host.appendChild(row);
+      });
     }
     // ── Compat greying (2026-07-19 compat integration): GET
     //    /api/control/compat previews each option of a control against the
@@ -872,32 +905,12 @@ canvas at the existing ≤1024px breakpoint). Chrome is ghost/.btn — NEVER
             soExecMsg(st,worst, soCompatFindingLines(p.findings).join('  ·  '));
           }
           // ── the RESOLUTION plan — "force something else off in order to
-          //    enable one thing", executable: one button per verified step,
-          //    through the SAME sanctioned exec rail (dry-run until live;
-          //    privileged → Confirm). Server-simulated: the plan is only
+          //    enable one thing", executable via the SHARED soCompatFixPlan
+          //    renderer (defined beside soExec; also used inline under a
+          //    409 compat refusal). Server-simulated: the plan is only
           //    offered when applying it actually clears the findings. ──
           var fix=document.getElementById('so-compat-fix');
-          if(fix){ fix.innerHTML='';
-            var plan=(p.resolution&&p.resolution.plan)||[];
-            if(plan.length){
-              var head=el('<div class="so-set-sub" style="margin:.4rem 0 .15rem;"></div>');
-              head.textContent=(p.resolution.resolved_all
-                ? 'Verified fix plan — applying these clears ALL findings:'
-                : (p.resolution.clean_after
-                  ? 'Verified fix plan — clears every gating finding (advisories may remain):'
-                  : 'Fix plan (partial — force findings would remain):'));
-              fix.appendChild(head);
-              plan.forEach(function(stp){
-                var row=el('<div style="display:flex;gap:.4rem;align-items:center;margin:.15rem 0;flex-wrap:wrap;"></div>');
-                var btn=document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply';
-                btn.textContent='Force: '+stp.label;
-                btn.title=stp.rule_id+' — executes control '+stp.system+' via the exec rail';
-                var bres=el('<span class="so-exec-result"></span>');
-                btn.addEventListener('click',function(){ soExec(stp.system, stp.args, bres); });
-                row.appendChild(btn); row.appendChild(bres); fix.appendChild(row);
-              });
-            }
-          }
+          if(fix){ fix.innerHTML=''; soCompatFixPlan(fix, p.resolution); }
           if(sel && sel.options.length<=1){
             (p.checkable||[]).forEach(function(c){
               if(!c.options||!c.options.length) return;

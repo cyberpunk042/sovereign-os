@@ -557,3 +557,69 @@ def test_incompatible_state_flows_to_notifykit(tmp_path):
     assert compat_rows, rows
     assert compat_rows[0]["source"] == "r228-health"
     assert compat_rows[0]["priority"] == "high"
+
+
+# ── 409 refusal RENDERING + panel-side greying (2026-07-20, round 2) ────────
+# Before this: (a) the app-shell's soExec rendered EVERY 409 as "execution
+# not available on this origin (R10212)" — a compat gate refusal through the
+# header hotswaps showed a misleading origin message instead of the rule +
+# remediation + fix plan; (b) the panel-side control-surface component folded
+# compat 409s into "signed-proxy only — command copied" and never greyed
+# incompatible options (only the header selects did).
+
+CONTROL_SURFACE = REPO_ROOT / "webapp" / "_shared" / "control-surface.js"
+
+
+def test_app_shell_renders_compat_409_with_rule_and_plan():
+    shell = APP_SHELL.read_text(encoding="utf-8")
+    # the compat 409 is distinguished from boundary/busy 409s...
+    assert "res.status===409 && b.compat" in shell
+    # ...and the old catch-all that masked it is gone
+    assert "res.status===405||res.status===409" not in shell
+    # rule + remediation surface at the refusal point; plan renders inline
+    assert "b.remediation" in shell
+    assert "soCompatFixPlan(resultEl, b.resolution)" in shell
+    # non-compat 409s keep their honest messages (boundary error rides b.error)
+    assert "soExecMsg(resultEl,'warn',b.error||'execution not available" in shell
+
+
+def test_app_shell_fix_plan_renderer_is_shared():
+    """ONE renderer serves both the ⚖ pane and the inline 409 refusal — no
+    diverging copies of the plan UI."""
+    shell = APP_SHELL.read_text(encoding="utf-8")
+    assert shell.count("function soCompatFixPlan(") == 1
+    assert "soCompatFixPlan(fix, p.resolution)" in shell          # the pane
+    assert "soExec(stp.system, stp.args" in shell                 # rail-executed
+
+
+def test_control_surface_renders_compat_409_with_rule_and_plan():
+    js = CONTROL_SURFACE.read_text(encoding="utf-8")
+    # compat vs boundary vs busy are three different messages now
+    assert "b.compat" in js and "b.boundary" in js
+    assert "compat gate refused" in js
+    assert "fixPlan(result, b.resolution, url)" in js
+    # the R10212 copy-fallback stays for the GENUINE boundary case only
+    assert "signed-proxy only (R10212)" in js
+
+
+def test_control_surface_greys_incompatible_options():
+    js = CONTROL_SURFACE.read_text(encoding="utf-8")
+    # the read-only per-option preview (same literal the header selects use)
+    assert 'fetch("/api/control/compat?control_id="' in js
+    assert "function markCompat(" in js
+    # gating options are DISABLED with the ⛔ mark; advisories annotate ⚠
+    assert "btn.disabled = true" in js and "⛔" in js and "⚠" in js
+    # toggle verbs map onto state options exactly like the server gate
+    assert '{ on: "enable", off: "disable" }' in js
+    # proxy-only cards are never previewed (R10212: no execute affordance)
+    assert "!isProxyOnly(sys)" in js
+
+
+def test_control_surface_embeds_carry_the_greying():
+    """The component is inlined byte-identical in every panel — spot-check
+    that the propagation actually happened (the canonical body with greying
+    is what panels carry)."""
+    js = CONTROL_SURFACE.read_text(encoding="utf-8").strip()
+    for slug in ("auditor", "runtime-modes", "d-23-models-catalog"):
+        html = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
+        assert js in html, f"{slug}: control-surface embed drifted from canonical"
