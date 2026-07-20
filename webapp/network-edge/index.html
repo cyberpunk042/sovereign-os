@@ -233,6 +233,31 @@
 </script>
 <!-- M060 F05100 + WCAG 2.1 AA accessibility snippet — see webapp/_shared/a11y-snippet.html for full doc -->
 <style>
+  <!-- A11Y:BEGIN M060 -->
+<!-- ─────────────────────────────────────────────────────────────────
+M060 F05100 + R10100 WCAG 2.1 AA accessibility snippet — canonical
+small CSS block embedded in every cockpit dashboard's <head> right
+after the nav-snippet.
+
+Covers the focus-visible piece of WCAG 2.1 AA: every interactive
+element (button, link, input, select, textarea, [role=button]) gets
+a clearly-visible focus ring when reached via keyboard. The :focus-
+visible pseudo-class fires for keyboard focus but NOT mouse-click,
+so sighted mouse users don't see an unnecessary ring while keyboard
++ screen-reader users get the indicator the standard requires.
+
+Also ships:
+  - Skip-to-content link (operator-§1g a11y: jump past nav to
+    main content; visually hidden until focused, then becomes a
+    high-contrast badge)
+  - prefers-reduced-motion guard (operator-§1g a11y: respect
+    operator's OS-level motion preference)
+
+Per "Respect the projects": pure CSS + 1 anchor tag, no JS, no
+mutation. Drops in next to the nav-snippet via the same canonical
+adoption pattern.
+-->
+<style>
   /* WCAG 2.1 AA — focus-visible ring on every interactive element. */
   a:focus-visible,
   button:focus-visible,
@@ -315,6 +340,7 @@
     else init();
   })();
 </script>
+<!-- A11Y:END M060 -->
 <!-- M060 F05099 + R10142 responsive-layout snippet — see webapp/_shared/responsive-snippet.html for full doc -->
 <style>
   4K      ≥2400px  — body max-width raises to 1600px (otherwise the
