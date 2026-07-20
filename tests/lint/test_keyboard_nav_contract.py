@@ -32,8 +32,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 NAV_SHARED = REPO_ROOT / "webapp" / "_shared" / "nav-snippet.html"
 
 # Every D-NN + the 2 D-12 split webapps + personalization + master.
+# Kept in lockstep with test_personalization_contract.py ADOPTED_DASHBOARDS
+# (personalization page itself is nav-adopted but not pers-adopted).
 ADOPTED_NAV_DASHBOARDS = [
     "master-dashboard",
+    # D-01..D-11 (sovereign-os-native D-NN dashboards):
     "d-01-active-sessions",
     "d-02-profile-choices",
     "d-03-model-health",
@@ -45,18 +48,31 @@ ADOPTED_NAV_DASHBOARDS = [
     "d-09-hardware-pressure",
     "d-10-eval-history",
     "d-11-adapter-status",
+    # D-12 split-pattern (network-edge + edge-firewall together
+    # serve the D-12 networking cockpit per M060 R10112-R10113):
+    "network-edge",
+    "edge-firewall",
+    "d-12-networking",
+    # M060 cross-repo mirror dashboards (6):
     "d-13-filesystem-grants",
     "d-14-capability-tokens",
     "d-15-sandboxes",
     "d-16-audit",
     "d-17-quarantine",
     "d-18-trust-scores",
+    # D-19..D-29 (remaining D-NN dashboards):
     "d-19-super-model-manifest",
     "d-20-peace-machine-health",
-    "network-edge",
-    "edge-firewall",
-    "personalization",
-    # Orthogonal cockpit webapps (completes 100% rollout):
+    "d-21-lm-orchestration",
+    "d-22-lm-status-operability",
+    "d-23-models-catalog",
+    "d-24-cpu-features",
+    "d-25-selfdef-management",
+    "d-26-friction-audit",
+    "d-27-guardian",
+    "d-28-perimeter",
+    "d-29-scheduler",
+    # Orthogonal cockpit webapps (operator-facing):
     "auditor",
     "ux-design-audit",
     "anti-minimization-audit",
@@ -68,7 +84,10 @@ ADOPTED_NAV_DASHBOARDS = [
     "weaver",
     "trinity",
     "auth-tier",
-    "d-12-networking",
+    "build-configurator",
+    "code-console",
+    # The personalization control surface itself (has nav, not pers):
+    "personalization",
 ]
 
 # Catalog-mandated Cmd-N → D-NN mapping.
@@ -95,12 +114,14 @@ def test_shared_nav_snippet_documentation_exists():
 
 def test_shared_nav_snippet_lists_full_dashboard_catalog():
     """The shared snippet's DASHBOARDS array MUST include every D-NN
-    + the 2 D-12 split webapps + personalization (23 entries total)."""
+    + the 2 D-12 split webapps + personalization (28 entries total)."""
     src = NAV_SHARED.read_text(encoding="utf-8")
     expected_ids = ["D-00", "D-01", "D-02", "D-03", "D-04", "D-05",
                     "D-06", "D-07", "D-08", "D-09", "D-10", "D-11",
                     "D-12a", "D-12b", "D-13", "D-14", "D-15", "D-16",
-                    "D-17", "D-18", "D-19", "D-20"]
+                    "D-17", "D-18", "D-19", "D-20", "D-21", "D-22",
+                    "D-23", "D-24", "D-25", "D-26", "D-27", "D-28",
+                    "D-29"]
     for did in expected_ids:
         assert "'" + did + "'" in src, f"DASHBOARDS array missing: {did}"
 
