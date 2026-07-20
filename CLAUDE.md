@@ -1,6 +1,6 @@
 # CLAUDE.md — sovereign-os (Claude Code delta)
 
-> **DRAFT v1 — agent-authored 2026-07-19**, operator revises/promotes.
+> **DRAFT v2 — agent-authored 2026-07-20**, operator revises/promotes.
 > Universal cross-tool contract + hard rules + read-order:
 > **[AGENTS.md](AGENTS.md)** (read it first — this file only adds the
 > Claude-Code-specific delta). Both files are ROUTERS over existing canon
@@ -29,6 +29,15 @@
   `EXPECTED_IDS` in its lint, and a sudoers-preview allowlist line.
 - **Layer-1 lint is the law** — ~6900 tests; run the suites your change
   touches before pushing (the full run needs CI's dedicated job).
+
+## Pending operator decisions (blocking go-live)
+
+See [AGENTS.md](AGENTS.md) for the full list. The Claude-Code-specific items:
+
+| # | Item | Claude-Code relevance |
+|---|---|---|
+| E | AGENTS.md / CLAUDE.md promotion (operator review of v2) | This file — the operator revises/promotes or strikes |
+| G | ~~notifykit extraction to its own repo~~ **CANCELLED** — stays in-project | N/A |
 
 ## Operator-intent routing (delta rows; AGENTS.md has the surfaces table)
 

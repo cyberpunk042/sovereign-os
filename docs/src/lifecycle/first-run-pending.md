@@ -158,12 +158,11 @@ cp config/wikis.toml.example config/wikis.toml
 tools/wikiops.py targets
 ```
 
-## G · Pending operator decision — notifykit extraction
+## G · ~~Pending operator decision — notifykit extraction~~ **CANCELLED**
 
-The shared notification library (`tools/notifykit/`) is a candidate for
-extraction into its own repo so sister projects (selfdef, the info-hub,
-continuity-orchestrator) can consume it without vendoring sovereign-os.
-**Blocked on the operator**: create the target repository (e.g.
-`cyberpunk042/notifykit`), grant the working session access to it, and
-direct the extraction — sovereign-os keeps a consumption shim either
-way.
+The shared notification library (`tools/notifykit/`) stays in-project.
+Sister projects (selfdef, the info-hub, continuity-orchestrator) that
+need notification capabilities should vendor sovereign-os or consume the
+library via the existing `tools/notifykit/` path. No extraction work
+required; the `scripts/extract/notifykit-extraction-plan.sh` helper is
+retained as documentation-only (not executable without operator direction).

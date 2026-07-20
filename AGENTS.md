@@ -1,6 +1,6 @@
 # AGENTS.md — sovereign-os (universal cross-tool agent contract)
 
-> **DRAFT v1 — agent-authored 2026-07-19** per the operator's
+> **DRAFT v2 — agent-authored 2026-07-20** per the operator's
 > methodology-respect directive ("do we have the right setup for the AI
 > supertool to respect the methodology ?" → "lets address those"). Operator
 > revises/promotes. This file is a ROUTER over existing canon — it adds no
@@ -36,6 +36,20 @@ in the info-hub.
 3. [backlog/INDEX.md](backlog/INDEX.md) — milestones/epics/features state
 4. [docs/src/sdd-catalog.md](docs/src/sdd-catalog.md) — the SDD doctrine index
 5. `sovereign-osctl approvals gates` — where the SG1–SG5 ritual stands
+
+## Pending operator decisions (blocking go-live)
+
+These items need the physical SAIN-01 box or an explicit operator call; an agent session cannot close them.
+
+| # | Item | Where tracked |
+|---|---|---|
+| A | Notifications go-live (notifykit.toml + secrets + channel test) | [`docs/src/lifecycle/first-run-pending.md`](docs/src/lifecycle/first-run-pending.md) §A |
+| B | Exec-rail live flip (sudoers review → `SOVEREIGN_OS_ACTION_EXEC_LIVE=1`) | [`docs/src/lifecycle/first-run-pending.md`](docs/src/lifecycle/first-run-pending.md) §B |
+| C | Big-MoE oracle-alternative benches (GLM-4.7 / MiniMax-M3 on hardware) | [`docs/src/lifecycle/first-run-pending.md`](docs/src/lifecycle/first-run-pending.md) §C |
+| D | Compat-gate calibration (per-rule severity review) | [`docs/src/lifecycle/first-run-pending.md`](docs/src/lifecycle/first-run-pending.md) §D |
+| E | AGENTS.md / CLAUDE.md promotion (operator review of v2) | This file + [CLAUDE.md](CLAUDE.md) |
+| F | Wikiops target registry (`config/wikis.toml` from example) | [`docs/src/lifecycle/first-run-pending.md`](docs/src/lifecycle/first-run-pending.md) §F |
+| G | ~~notifykit extraction to its own repo~~ **CANCELLED** — stays in-project | [`docs/src/lifecycle/first-run-pending.md`](docs/src/lifecycle/first-run-pending.md) §G |
 
 ## The AI supertool surfaces (methodology-respecting entry points)
 
