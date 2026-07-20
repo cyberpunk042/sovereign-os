@@ -511,3 +511,49 @@ def test_osctl_route_covers_the_gated_verbs():
                  "openclaw|open-computer|claude-code|vscode", "inference",
                  "trinity"):
         assert verb in route, f"gated verb family {verb!r} missing from the route"
+
+
+# ── compat as a MONITORED condition: the R226 health probe ─────────────────
+
+
+def test_health_scan_compat_probe_severity_mapping():
+    scan = REPO_ROOT / "scripts" / "hardware" / "health-scan.py"
+    def run(current):
+        env = _hermetic_env(current)
+        r = subprocess.run([sys.executable, str(scan), "--probe", "compat",
+                            "--json"], capture_output=True, text=True, env=env)
+        return r.returncode, json.loads(r.stdout)
+    rc, clean = run("")
+    assert rc == 0 and clean["severity"] == "ok"
+    rc, force = run("cost-policy=halt-cloud,openclaw-backend=anthropic")
+    assert rc == 1 and force["severity"] == "attention"
+    assert any(i["id"].startswith("C001") for i in force["flagged_items"])
+    assert "fix plan available" in force["detail"]
+    rc, warn = run("dspark-speculative-decoding=on")
+    assert rc == 1 and warn["severity"] == "attention"
+    rc, sugg = run("cpu-mode=ultra-low-power,gpu-mode=peak")
+    assert rc == 0 and sugg["severity"] == "informational"   # suggest-only
+
+
+def test_incompatible_state_flows_to_notifykit(tmp_path):
+    """The full monitored loop: health-scan (compat attention) → R228
+    dispatch → notifykit channels — an incompatible box NOTIFIES."""
+    sink = tmp_path / "sink.jsonl"
+    cfg = tmp_path / "notifykit.toml"
+    cfg.write_text(
+        f'[channels.file]\nkind = "file"\nenabled = true\npath = "{sink}"\n',
+        encoding="utf-8")
+    env = _hermetic_env("cost-policy=halt-cloud,openclaw-backend=anthropic")
+    env["SOVEREIGN_OS_NOTIFYKIT_CONFIG"] = str(cfg)
+    env["SOVEREIGN_OS_NOTIFYKIT_OVERRIDES"] = str(tmp_path / "ov.json")
+    env["SOVEREIGN_OS_NOTIFY_STATE"] = str(tmp_path / "state.json")
+    env["SOVEREIGN_OS_NOTIFY_CONFIG"] = str(tmp_path / "absent-notify.toml")
+    dispatch = REPO_ROOT / "scripts" / "notify" / "dispatch.py"
+    r = subprocess.run([sys.executable, str(dispatch), "dispatch", "--json"],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    rows = [json.loads(x) for x in sink.read_text().splitlines()]
+    compat_rows = [x for x in rows if "compat" in x.get("title", "")]
+    assert compat_rows, rows
+    assert compat_rows[0]["source"] == "r228-health"
+    assert compat_rows[0]["priority"] == "high"
