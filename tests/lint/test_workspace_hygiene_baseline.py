@@ -13,14 +13,15 @@ baseline can neither rot nor be quietly weakened:
   4. crate `.rs` sources are marker-free (`todo!()` / `unimplemented!()` /
      `FIXME` / `TODO`) — real work is tracked in SDDs/backlog, not code tombstones;
   5. crate `.rs` sources hardcode no `/home` `/Users` `/root` absolute paths;
-  6. `unsafe` is confined to the single sanctioned carve-out (`sovereign-simd`,
-     the one crate the operator permits `unsafe` in for AVX-512 intrinsics).
+  6. `unsafe` is confined to the sanctioned carve-outs (`sovereign-simd` for
+     AVX-512 intrinsics, and `sovereign-chromofold-sys` for the ChromoFold C-ABI
+     FFI per SDD-500 — the only crates the operator permits `unsafe` in).
 
   7. every member crate inherits the workspace lints at compile time
-     (`[lints] workspace = true`), except the one sanctioned carve-out
-     (`sovereign-simd`, which declares its own `[lints.rust] unsafe_code =
-     "allow"`) — so the `unsafe_code = "forbid"` ban is enforced by the
-     COMPILER on every other crate, not merely observed by a grep.
+     (`[lints] workspace = true`), except the sanctioned carve-outs
+     (which declare their own `[lints.rust] unsafe_code = "allow"`) — so the
+     `unsafe_code = "forbid"` ban is enforced by the COMPILER on every other
+     crate, not merely observed by a grep.
 
 Invariant (7) closes F-2026-096 (SDD-710): the audit found 202 cockpit crates
 declaring no `[lints]` table, so the compile-time `unsafe_code = "forbid"` ban
@@ -42,8 +43,10 @@ CRATES = REPO_ROOT / "crates"
 
 # Crates allowed to have no tests (marker / selftest crates, by design).
 NO_TEST_ALLOWLIST = {"sovereign-feature-selftest"}
-# The single sanctioned `unsafe` carve-out (operator decision — AVX-512).
-UNSAFE_ALLOWLIST = {"sovereign-simd"}
+# The sanctioned `unsafe` carve-outs (operator decisions): `sovereign-simd` for
+# AVX-512 intrinsics, `sovereign-chromofold-sys` for the ChromoFold C-ABI FFI
+# (SDD-500 — the `extern "C"` block + `unsafe {}` call sites, quarantined here).
+UNSAFE_ALLOWLIST = {"sovereign-simd", "sovereign-chromofold-sys"}
 
 _MARKER_RE = re.compile(r"\btodo!\s*\(|\bunimplemented!\s*\(|\bFIXME\b|\bTODO\b")
 _ABS_PATH_RE = re.compile(r'"/(?:home|Users|root)/')

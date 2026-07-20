@@ -1,0 +1,26 @@
+[package]
+name = "sovereign-chromofold"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The safe Rust surface for the ChromoFold GPU-resident, searchable compressed-domain engine (SDD-500). Forbids `unsafe` (all FFI is quarantined in `sovereign-chromofold-sys`); reports honest-degrade availability when the engine is not linked, exposes the capability descriptor (the source-of-truth for the honest-degrade UI, SDD-300 pattern), and holds the FM-index `count`/`locate`/`predict` surface as ABI-pending stubs until the native session freezes their stable C ABI (Lane A)."
+
+[lints]
+workspace = true
+
+[features]
+# OFF by default (opt-in, per the operator mandate). Forwards to the FFI crate's
+# `linked` feature so a box with a resident `libchromofold` can link the engine;
+# the default, engine-absent build honest-degrades.
+default = []
+linked = ["sovereign-chromofold-sys/linked"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sovereign-chromofold-sys = { path = "../sovereign-chromofold-sys" }
+thiserror = { workspace = true }

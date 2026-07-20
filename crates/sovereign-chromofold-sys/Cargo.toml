@@ -1,0 +1,27 @@
+[package]
+name = "sovereign-chromofold-sys"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The sanctioned-unsafe FFI carve-out over the ChromoFold native engine's stable C ABI (`chromofold.h`, ABI v0 / M1: packed-wavelet access + rank + fused embedding-gather). Mirrors the committed C header 1:1; the actual link to `libchromofold` is behind the OFF-by-default `linked` feature, so a box with no engine present compiles a pure stub and behaves exactly as today. `unsafe` is confined HERE (SDD-500) — the safe wrapper is `sovereign-chromofold`."
+
+# DELIBERATE EXCEPTION (SDD-500): this crate does NOT inherit `[lints] workspace
+# = true`. The workspace forbids `unsafe` across all other crates; this is the
+# SECOND sanctioned carve-out (after `sovereign-simd`), hosting the `extern "C"`
+# FFI to the ChromoFold engine and the `unsafe {}` call sites. It sets its own
+# lints so `unsafe` is allowed HERE and nowhere else.
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "warn"
+
+[features]
+# OFF by default: default builds do NOT link `libchromofold` (which is
+# pre-implementation — see SDD-500 Q-500-G). Enabling `linked` compiles the
+# `extern "C"` block + call wrappers and requires the shared library at link
+# time. This is the opt-in, off-by-default switch the operator mandated.
+default = []
+linked = []

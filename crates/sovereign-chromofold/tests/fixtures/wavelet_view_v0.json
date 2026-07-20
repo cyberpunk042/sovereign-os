@@ -1,0 +1,12 @@
+{
+  "_comment": "Synthetic ChromoFold ABI-v0 `cf_wavelet_view` metadata, derived from the invariants documented in ../chromoFold/include/chromofold/chromofold.h. This is the committed honest-degrade source-of-truth (SDD-500 / SDD-300 pattern) and the fixture the conformance seam checks. It is NOT a real `.cfwv` binary blob — that on-wire layout is the native session's to freeze (PROJECT_SYNC), and binding it before it is frozen is the divergence SDD-500 forbids. Sample corpus: token_count=8 over vocab=4.",
+  "abi_version": 0,
+  "wavelet_sb": 8,
+  "token_count": 8,
+  "vocab": 4,
+  "levels": 2,
+  "nwords": 1,
+  "nblocks": 1,
+  "superblocks_per_level": 2,
+  "zero_counts_len": 2
+}

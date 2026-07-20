@@ -289,6 +289,11 @@ COMMANDS:
   warp render <scene> [--json] Render a scene (GPU cuda:0 or CPU) — exec-rail-gated;
                                needs a shaders checkout (WARP_SHADERS_ROOT) or no-ops
   warp bench <scene> [--json]  Benchmark a scene (ms/frame) — exec-rail-gated
+  chromofold info|selftest [--json]
+                               SDD-500: ChromoFold compressed-domain search — read-only
+                               capability descriptor + a no-GPU header-seam selftest,
+                               read from the resident engine checkout (CHROMOFOLD_ROOT,
+                               else WARP_SHADERS_ROOT); reports offline honestly when absent
 
   gateway [--addr host:port] [--json]
                                Live probe of sovereign-gatewayd (:8787) — the M048
@@ -6515,6 +6520,16 @@ case "${cmd}" in
     # (WARP_SHADERS_ROOT), else print an honest no-op. render/bench are the
     # exec-rail-gated verbs (config/control-systems.yaml warp-render/warp-bench).
     "${PYTHON3}" "${__REPO_ROOT}/scripts/warp/warp_manage.py" "$@"
+    ;;
+  chromofold)
+    # SDD-500: ChromoFold compressed-domain search — the warp-solar-system-shaders /
+    # ../chromoFold GPU-resident, searchable entropy+index engine surfaced READ-ONLY.
+    # info/selftest are stdlib-only: they read the native capability descriptor
+    # (packaging/chromofold_capability.json) from the resident engine checkout
+    # (CHROMOFOLD_ROOT, else WARP_SHADERS_ROOT) and honestly report the offline
+    # state (exit 0) when none is resident. No GPU, no mutation (R10212/SB-077); the
+    # real device search + the cockpit panel + any exec-rail verb are SDD-500 later steps.
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/chromofold.py" "$@"
     ;;
   gateway)
     # Live read-only probe of sovereign-gatewayd (:8787): the M048 provider-

@@ -1,0 +1,10 @@
+{
+  "_comment": "Sovereign-side mirror of ../chromoFold/packaging/chromofold_capability.json `reference_fixtures` + its `header_seam` contract (a 4-byte ASCII magic + a u32 little-endian version prefixing every reference blob). Committed source-of-truth (SDD-300 pattern; the engine repo is not host-resident). The conformance seam validates the REAL fixtures against this manifest when CHROMOFOLD_ROOT / WARP_SHADERS_ROOT is resident (mirroring packaging/seam_check.c on the sovereign side, no GPU), and honest-degrades to manifest-only validation otherwise.",
+  "header_seam": "4-byte ASCII magic + u32 little-endian version",
+  "fixtures_subdir": "packaging/fixtures",
+  "formats": [
+    { "ext": ".cfwv", "magic": "CFWV", "version": 3, "file": "tiny.cfwv" },
+    { "ext": ".cfrr", "magic": "CFRR", "version": 1, "file": "tiny.cfrr" },
+    { "ext": ".cfrw", "magic": "CFRW", "version": 1, "file": "tiny.cfrw" }
+  ]
+}

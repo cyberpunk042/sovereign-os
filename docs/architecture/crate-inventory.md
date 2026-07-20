@@ -7,11 +7,13 @@ The workspace is large — most of it does not run yet. This is the complete map
 
 | bucket | count | connection state |
 |---|---:|---|
-| Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
+| Binaries (`main.rs`/`bin/`) | 42 | the executables; a few run in prod, the rest are dev/demo/config-gen |
 | Production libraries | 91 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
 | Demo-hub-only libraries | 31 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
 | Other libraries | 142 | reached only through other non-production trees |
+| Demo-hub-only libraries | 29 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
+| Other libraries | 143 | reached only through other non-production trees |
 | **Total** | **723** | **96 crates (13%) are production-reachable today** |
 
 **✅ integrated** marks the **96** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
@@ -32,7 +34,7 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 - **`sovereign-resource-control`** — E0429 / M00756 — systemd resource-control profiles (CPUWeight / MemoryMax / IOWeight / TasksMax / slices+scopes) for the 5 operator-named service boundaries (oracle / scout / sandbox / eval / gateway). Emits deployable systemd drop-in directives: how 'profiles become real OS behavior'. — ✅ **integrated**: runs as a production binary
 - **`sovereign-telemetry`** — Live hardware-telemetry probe — reads real kernel/vendor telemetry (Linux PSI, /proc/stat, nvidia-smi) and emits a validated PressureSnapshot + LoadSnapshot as JSON. The first runnable binary in the sovereign-os observability lane; exercises the pressure-sensors + hardware-load-sample ingestion end-to-end. — ✅ **integrated**: runs as a production binary
 
-### Dev / demo / config-generators (36)
+### Dev / demo / config-generators (37)
 
 
 #### `zfs-·` (3)
@@ -41,12 +43,13 @@ Full runtime role + how each is invoked lives in [`docs/src/binaries.md`](../src
 - **`sovereign-zfs-provisioning-plan`** — M068 M01141/M01142 — emit the ordered zpool create + zfs create/set command plan for the canonical tank layout, setting only the properties that differ from the inherited ZFS/pool defaults (recordsize!=128k, compression!=lz4, sync!=standard) so the provisioning script stays minimal and readable.
 - **`sovereign-zfs-snapshot-policy`** — M068 E0667 — ZFS snapshot retention policy: classify snapshots (pre-commit / daily / weekly / monthly), the catalogued retention windows (365 / 30 / 90 / 365 days, F05731-F05737), and a pure prune planner that keeps anything younger than its window and never prunes an unclassifiable snapshot.
 
-#### assorted (33)
+#### assorted (34)
 
 - **`sovereign-agent-runtime`** — Bridges the real LLM runtime into the agent loop: an LlmResponder that drives sovereign-agent-loop with sovereign-llm, so a tool-using ReAct agent runs on the actual quantized inference engine instead of a scripted responder. The wiring that turns the inference stack and the agentic layer into one running agent. Composes sovereign-agent-loop and sovereign-llm.
 - **`sovereign-base-os`** — E0459 / M00800 — Base OS module: the 10 responsibilities (kernel / firmware / NVIDIA drivers / AppArmor / cgroup-v2 / systemd / ZFS / LUKS / networking / VFIO-IOMMU) and the 5 config modes (stable / ai-driver-latest / secure / developer / offline).
 - **`sovereign-cgroup-systemd`** — M045 cgroup v2 + systemd lifecycle surface per E0428 + M00747-M00750 dump 13564-13594. 8 OS primitives + cgroup v2 resource control + systemd service-boundaries-slices-scopes lifecycle. The 'peace-machine substrate' per dump 13594 verbatim.
 - **`sovereign-chat`** — Multi-turn conversation management over the LLM runtime: tracks a role-tagged message history, renders it into a prompt, generates a reply, and appends it — with bounded history (keep the system message + the most recent turns) for endless dialogue. The chat layer above raw completion. Composes sovereign-llm.
+- **`sovereign-chromofold`** — The safe Rust surface for the ChromoFold GPU-resident, searchable compressed-domain engine (SDD-500). Forbids `unsafe` (all FFI is quarantined in `sovereign-chromofold-sys`); reports honest-degrade availability when the engine is not linked, exposes the capability descriptor (the source-of-truth for the honest-degrade UI, SDD-300 pattern), and holds the FM-index `count`/`locate`/`predict` surface as ABI-pending stubs until the native session freezes their stable C ABI (Lane A).
 - **`sovereign-continuity-levels`** — E0456 — the 8-level continuity ladder (Level 0 stateless API call … Level 7 user-sovereign life continuity). Cloud typically provides 0-2; the sovereign station owns 3-7 — 'For real work, continuity is intelligence.'
 - **`sovereign-continuity-manager`** — M048 Module 8 Continuity Manager — sleeper module per E0464 + M00810 dump 14706-14720. 6 primitives (ZFS snapshots / Podman-CRIU checkpoints / workflow hibernation / context compaction / model server warm pools / session resume) + 8 continuity states (active/paused/hibernated/checkpointed/archived/quarantined/promoted/rolled-back).
 - **`sovereign-cpu-dispatch`** — E0490 — CPU Feature Dispatch: the 4 build dispatch paths (scalar baseline / AVX2 / AVX-512 generic / Zen5 AVX-512) and runtime-CPUID selection of the best path the host supports. 'Do not compile one binary and hope.'
@@ -748,7 +751,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 
 ---
 
-## 5. Other libraries (142) — reached only through non-production trees
+## 5. Other libraries (143) — reached only through non-production trees
 
 
 #### `conversation-·` (3)
@@ -775,7 +778,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-prompt-rationale`** — Runtime prompt-dispatch rationale envelope — every model dispatch carries (provider, template_name, bundle, mode, doctrine_tag) explaining which router decision produced it. The cockpit surfaces it next to every model output for transparency.
 - **`sovereign-prompt-template-registry`** — Runtime prompt-template registry — operator-curated reusable prompts with named variable slots ({{name}}) and rendering. Each template carries (name, body, declared variables, allowed profile bundles, allowed modes). Composes with sovereign-execution-mode-registry + sovereign-profile-bundles for context-gated availability.
 
-#### assorted (130)
+#### assorted (131)
 
 - **`sovereign-aimd-limiter`** — Adaptive concurrency limiter using AIMD (additive-increase / multiplicative-decrease), the TCP congestion-control law applied to in-flight requests: the limit grows by a fixed step while the system is healthy and saturated, and is cut by a multiplicative factor on overload (a timeout, a drop, or a latency breach), converging on the real capacity without a hand-tuned constant. For backpressure in front of a model server — distinct from a fixed-rate token bucket and from a circuit breaker.
 - **`sovereign-alias-sampler`** — Walker-Vose alias method for O(1) categorical sampling: preprocess a weighted distribution in O(n) into a probability/alias table, then draw each sample in constant time with one coin flip — far faster than a linear CDF scan when you sample the same distribution many times. Seeded for deterministic, reproducible draws.
@@ -789,6 +792,7 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-bpe-train`** — Byte-pair-encoding training: learns merge rules from a corpus by iteratively fusing the most frequent adjacent symbol pair, producing a ready-to-use byte-level tokenizer. The training counterpart to sovereign-tokenizer (which only applies merges). Composes sovereign-tokenizer.
 - **`sovereign-checkpoint`** — Model checkpoint persistence: serializes a full LlmConfig (tokenizer + model weights) into a versioned, FNV-checksummed container and loads it back with magic/version/integrity validation, so a sovereign runtime can save and restore a model and detect corruption. Composes sovereign-llm.
 - **`sovereign-choice-envelope`** — M042 9-axis choice envelope per R07096-R07104 + M00709 dump 12384-12395. Each axis is a sovereignty boundary the operator can override. Doctrine: 'That is sovereignty' (R07105 dump 12395).
+- **`sovereign-chromofold-sys`** — The sanctioned-unsafe FFI carve-out over the ChromoFold native engine's stable C ABI (`chromofold.h`, ABI v0 / M1: packed-wavelet access + rank + fused embedding-gather). Mirrors the committed C header 1:1; the actual link to `libchromofold` is behind the OFF-by-default `linked` feature, so a box with no engine present compiles a pure stub and behaves exactly as today. `unsafe` is confined HERE (SDD-500) — the safe wrapper is `sovereign-chromofold`.
 - **`sovereign-circuit-breaker`** — A circuit breaker for failing downstreams: after N consecutive failures it opens (rejecting calls fast instead of hammering a dead service), after a cooldown it goes half-open to let one trial through, and a success closes it again. Time is injected for deterministic testing. Complements retry — retry rides out a blip, the breaker gives up on a persistent outage.
 - **`sovereign-codegen-pipeline`** — E0216 — Generated Code Path: the 7-step pipeline (propose → validate-caps → run-in-tier → capture-io → validate-schema → attach-trace → commit-or-reject) and the 5-rung promotion ladder (ad-hoc → sandboxed-script → tested-tool → WASM-plugin → trusted-primitive), with ordered advance + no-skip promotion.
 - **`sovereign-cognitive-compiler`** — M025 Cognitive Compiler — intent to DAG. 7-input / 5-output typed compile contract + 7-field DAG node schema + 8-axis ready-node scheduler per E0230-E0237 + M00410-M00416 + dump 7000-7378. Doctrine: 'AI intent → compiler → executable cognitive DAG → scheduler → experts/tools → observations → adaptive recompile' (E0230 dump 7026-7030).

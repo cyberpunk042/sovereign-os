@@ -187,6 +187,14 @@ The default resident-model directory is `/mnt/vault/models`; override it with `S
 **sovereign-osctl warp bench <scene> [--json]**
 :   Benchmark a scene (ms/frame) — exec-rail-gated
 
+## chromofold
+
+**sovereign-osctl chromofold info [--json]**
+:   SDD-500: ChromoFold compressed-domain search — print the read-only capability descriptor (ABI version, library, headers, and the per-primitive map incl. the Lane-A fm_count) read from the native packaging/chromofold_capability.json in the resident engine checkout (CHROMOFOLD_ROOT, else WARP_SHADERS_ROOT). Reports the offline state honestly (exit 0) when none is resident.
+
+**sovereign-osctl chromofold selftest [--json]**
+:   The no-GPU header-seam self-test: validate the committed reference fixtures' 4-byte magic + u32-LE version against the engine's own capability descriptor (mirroring packaging/seam_check.c). Never touches a GPU or mutates state.
+
 ## gateway
 
 **sovereign-osctl gateway [--addr host:port] [--json]**
