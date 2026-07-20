@@ -457,22 +457,85 @@ def pre_change(proposed: dict[str, str | None]) -> dict[str, Any]:
         # option. An option NO rule references has no bit — represent it as
         # the system's active bit only (identical evaluation semantics), and
         # skip systems the universe doesn't know at all (best-effort input).
-        safe: dict[str, str | None] = {}
-        for k, v in merged.items():
-            if (k, None) not in universe.index:
-                continue
-            safe[k] = v if (v is None or (k, v) in universe.index) else None
-        word = config_word(universe, safe)
-        findings = evaluate(universe, compiled, word)
+        def _word(assignment: dict[str, str | None]) -> int:
+            safe: dict[str, str | None] = {}
+            for k, v in assignment.items():
+                if (k, None) not in universe.index:
+                    continue
+                safe[k] = v if (v is None or (k, v) in universe.index) else None
+            return config_word(universe, safe)
+
+        all_findings = evaluate(universe, compiled, _word(merged))
+        # A finding the CURRENT state trips on its own is PRE-EXISTING —
+        # it must not gate an UNRELATED change (else one bad state bricks
+        # every rail action, including fixes). Only findings the proposed
+        # change INTRODUCES gate; pre-existing ones ride along labeled.
+        baseline_ids = {f["rule_id"] for f in
+                        evaluate(universe, compiled, _word(dict(current)))}
+        findings = [f for f in all_findings if f["rule_id"] not in baseline_ids]
+        preexisting = [f for f in all_findings if f["rule_id"] in baseline_ids]
         return {
             "available": True,
             "findings": findings,
+            "preexisting": preexisting,
             "gating": any(f["severity"] == "force" for f in findings),
             "current": current,
             "proposed": {k: v for k, v in proposed.items()},
         }
     except (OSError, KeyError, ValueError, yaml.YAMLError) as e:
         return {"available": False, "error": f"compat gate unavailable: {e}"}
+
+
+def state_report() -> dict[str, Any]:
+    """The compatibility-pane payload (header ⚙ → ⚖ Compatibility overlay):
+    every rule (id/verb/severity/reason/remediation/when/targets), the
+    best-effort CURRENT state, the findings that state trips RIGHT NOW
+    (`check --current` equivalent), and the checkable control inventory
+    (id + options) for the per-control preview drill-in. Never raises —
+    degrades to {"available": False, "error": ...}."""
+    try:
+        controls = load_controls()
+        rules = load_rules()
+        provisioning = load_provisioning()
+        errors = validate_references(rules, controls, provisioning)
+        if errors:
+            return {"available": False,
+                    "error": f"compat registry references unresolved: {errors}"}
+        universe = Universe(controls, rules, provisioning)
+        compiled = compile_rules(universe, rules)
+        current = read_current_state(controls)
+        findings: list[dict[str, Any]] = []
+        if current:
+            safe = {
+                k: (v if (k, v) in universe.index else None)
+                for k, v in current.items() if (k, None) in universe.index
+            }
+            findings = evaluate(universe, compiled, config_word(universe, safe))
+        return {
+            "available": True,
+            "current": current,
+            "findings": findings,
+            "rules": [
+                {
+                    "id": r["id"], "verb": r["verb"], "severity": r["severity"],
+                    "when": r["when"],
+                    "targets": r.get("targets") or ([r["target"]] if r.get("target") else []),
+                    "reason": r["reason"].strip(),
+                    "remediation": r["remediation"].strip(),
+                }
+                for r in rules
+            ],
+            "implicit": {
+                "pick_one_groups": sorted(universe.one_of_groups),
+                "profile_requires": [ir["name"] for ir in universe.implicit_requires],
+            },
+            "checkable": [
+                {"id": cid, "options": [_norm_opt(o) for o in (c.get("options") or [])]}
+                for cid, c in sorted(controls.items())
+            ],
+        }
+    except (OSError, KeyError, ValueError, yaml.YAMLError) as e:
+        return {"available": False, "error": f"compat state unavailable: {e}"}
 
 
 def option_preview(control_id: str) -> dict[str, Any] | None:

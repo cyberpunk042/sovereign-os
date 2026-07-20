@@ -215,3 +215,90 @@ def test_c007_one_draft_strategy(monkeypatch):
     hits = [f for f in res["findings"] if f["rule_id"].startswith("C007")]
     assert hits and hits[0]["severity"] == "warn"
     assert "dspark" in hits[0]["reason"].lower() or "DSpark" in hits[0]["reason"]
+
+
+# ── the ⚖ Compatibility PANE (shared component, 2026-07-20) ─────────────────
+# Operator verbatim: "if something is off you will have a badge in the
+# header that allow you to redisplay the pane if you dismissed it. and it
+# will take long time you need to identify what is Not-compatible with
+# other things. like the u64 custom bits control"
+
+
+def test_state_report_is_the_pane_payload(monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT",
+                       "dspark-speculative-decoding=on")
+    compat = _load("compat_pane_t1", COMPAT_TOOL)
+    p = compat.state_report()
+    assert p["available"]
+    assert {"current", "findings", "rules", "implicit", "checkable"} <= set(p)
+    # the live-state verdict trips C002 for the simulated current state
+    assert any(f["rule_id"].startswith("C002") for f in p["findings"])
+    # every rule row carries the pane's display fields
+    for r in p["rules"]:
+        assert {"id", "verb", "severity", "when", "targets",
+                "reason", "remediation"} <= set(r)
+    # the u64 custom-bits control is identifiable: avx-mode is a pick-one
+    # group (mutually-exclusive options — the exclusivity mask)
+    assert "avx-mode" in p["implicit"]["pick_one_groups"]
+    assert any(c["id"] == "avx-mode" and "custom" in c["options"]
+               for c in p["checkable"])
+
+
+def test_state_report_clean_when_no_current_state(monkeypatch):
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT", "")
+    compat = _load("compat_pane_t2", COMPAT_TOOL)
+    p = compat.state_report()
+    assert p["available"] and p["current"] == {} and p["findings"] == []
+
+
+def test_exec_api_serves_the_bare_pane_payload():
+    api = EXEC_API.read_text(encoding="utf-8")
+    assert "state_report" in api
+    # bare /api/control/compat (no control_id) serves the pane payload —
+    # the 400 usage error is gone
+    assert "pass ?control_id" not in api
+
+
+def test_shared_component_carries_the_compat_pane_and_badge():
+    shell = APP_SHELL.read_text(encoding="utf-8")
+    # the pane (settings-pane row + overlay modal + fetch logic)
+    for marker in ("so-compat-open", "so-compat-modal", "so-compat-close",
+                   "soCompatPane", "so-compat-state", "so-compat-rules",
+                   "so-compat-ctl", "so-compat-preview"):
+        assert marker in shell, f"compat pane missing {marker}"
+    # the header badge — visible only when something is off; click re-opens
+    assert "so-compat-badge" in shell and "soCompatBadge" in shell
+    assert "compatBadge.addEventListener('click'" in shell
+    # the not-compatible-with drill-in (the `why` view, client-side)
+    assert "soCompatRelations" in shell
+    # pane opens from the settings row AND refreshes on open
+    assert "compatSet(true); soCompatPane();" in shell
+    # bare sanctioned fetch present
+    assert "fetch('/api/control/compat'," in shell
+
+
+def test_preexisting_violations_do_not_gate_unrelated_changes(monkeypatch):
+    """Regression (found via the pane walkthrough): a force violation ALREADY
+    in the current state must not 409 every unrelated rail action — only
+    findings the proposed change INTRODUCES gate; pre-existing ones ride
+    along labeled, and remediation actions stay executable."""
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT",
+                       "cost-policy=halt-cloud,openclaw-backend=anthropic")
+    compat = _load("compat_gate_t9", COMPAT_TOOL)
+    # unrelated change: not gated; C001 surfaces as pre-existing
+    res = compat.pre_change({"cpu-mode": "balanced"})
+    assert res["available"] and not res["gating"] and not res["findings"]
+    assert any(f["rule_id"].startswith("C001") for f in res["preexisting"])
+    # the remediation itself (backend -> local) clears the violation
+    fix = compat.pre_change({"openclaw-backend": "local"})
+    assert not fix["gating"] and not fix["findings"] and not fix["preexisting"]
+    # and a change that INTRODUCES the violation still gates
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT",
+                       "openclaw-backend=anthropic")
+    compat2 = _load("compat_gate_t10", COMPAT_TOOL)
+    intro = compat2.pre_change({"cost-policy": "halt-cloud"})
+    assert intro["gating"] and any(
+        f["rule_id"].startswith("C001") for f in intro["findings"])
