@@ -43,7 +43,11 @@ END = "<!-- A11Y:END M060 -->"
 # panels are touched. Each adopted panel MUST remove any local a11y definitions
 # so the canonical block is the single source.
 ADOPTED_PANELS: list[str] = [
+    "anti-minimization-audit",
+    "auditor",
+    "auth-tier",
     "brain",
+    "compliance",
 ]
 
 _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)

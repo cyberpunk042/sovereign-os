@@ -26,7 +26,11 @@ _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
 
 # Opt-in adoption list — grow one/few at a time (lockstep with the generator).
 ADOPTED_A11Y_PANELS: list[str] = [
+    "anti-minimization-audit",
+    "auditor",
+    "auth-tier",
     "brain",
+    "compliance",
 ]
 
 
