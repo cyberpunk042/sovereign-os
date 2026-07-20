@@ -87,6 +87,7 @@ ADOPTED_A11Y_PANELS: list[str] = [
     "ux-design-audit",
     "warp",
     "weaver",
+    "rustdoc-panel",
 ]
 
 

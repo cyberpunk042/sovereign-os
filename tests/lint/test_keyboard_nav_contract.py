@@ -88,6 +88,7 @@ ADOPTED_NAV_DASHBOARDS = [
     "code-console",
     # The personalization control surface itself (has nav, not pers):
     "personalization",
+    "rustdoc-panel",
 ]
 
 # Catalog-mandated Cmd-N → D-NN mapping.

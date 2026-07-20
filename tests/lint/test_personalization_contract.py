@@ -264,6 +264,7 @@ ADOPTED_DASHBOARDS = [
     "auth-tier",
     "build-configurator",
     "code-console",
+    "rustdoc-panel",
 ]
 
 
