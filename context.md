@@ -266,7 +266,7 @@ Per operator: *"little piece by little piece and progress in this massive endles
 Determined from `docs/review/phase-1/99-findings-ledger.md` open items; worked sequentially:
 
 1. **F-2026-070** — Merge the `network-edge` / `edge-firewall` / `d-12-networking` triplet at the API level (the other three clusters were reframed as non-forks; this triplet remains)
-2. **F-2026-073** — Build sync/drift tooling for the 5 unmanaged snippet families (`control-surface.js/css`, `a11y`, `demo-mode`, `nav`, `responsive`) following the `sync-helpers.py` / `test_helpers_contract.py` pattern
+2. ~~**F-2026-073** — Build sync/drift tooling for the 5 unmanaged snippet families~~ **DONE (PR #214, 2026-07-17)** — generic `sync-snippet.py` + `test_shared_snippets_contract.py` landed; a11y marker-managed, demo-mode verbatim ratchet, control-surface asserted already-gated, nav/responsive divergence surfaced; helpers deduplicated into `sync-helpers.py` + `test_helpers_contract.py` with 4 real adopters (d-03/d-04/d-09/d-11); wired into `preflight.sh`
 3. ~~**F-2026-093** — Build local rustdoc as a panel~~ **DONE (2026-07-20)** — `webapp/rustdoc-panel/index.html` + `catalog.json` + `scripts/webapp/gen-rustdoc-panel-catalog.py` + `tests/lint/test_rustdoc_panel_contract.py`; registered in dashboard-catalog.yaml; app-shell/a11y/course/nav/responsive adopted
 4. ~~**M085 / M086** — Populate the two empty milestones~~ **DONE (2026-07-20)** — 170 R-rows each, full feature/requirement tables, backlog docs regenerated
 
