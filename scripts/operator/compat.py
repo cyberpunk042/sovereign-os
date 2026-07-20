@@ -895,6 +895,39 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1 if gating else 0
 
 
+def cmd_precheck(args: argparse.Namespace) -> int:
+    """The CLI-side pre-change gate — called by sovereign-osctl before a
+    mutating verb applies, so terminal mutations honor the same rules as
+    the exec rail. Exit 0 = proceed (clean / advisories / gate off /
+    override / compat unavailable — degrade OPEN), exit 1 = force
+    finding introduced and no override ($SOVEREIGN_OS_COMPAT_OVERRIDE=1
+    proceeds, printed as overridden)."""
+    if os.environ.get("SOVEREIGN_OS_COMPAT_GATE", "on").lower() in ("off", "0"):
+        return 0
+    res = pre_change({args.system: args.option})
+    if not res.get("available") or not res.get("findings"):
+        return 0
+    force = [f for f in res["findings"] if f["severity"] == "force"]
+    for f in res["findings"]:
+        mark = {"force": "BLOCK", "warn": "WARN ", "suggest": "HINT "}[f["severity"]]
+        print(f"compat [{mark}] {f['rule_id']} — {f['reason']}")
+        print(f"       INSTEAD: {f['remediation']}")
+    if not force:
+        return 0
+    if os.environ.get("SOVEREIGN_OS_COMPAT_OVERRIDE", "").lower() in ("1", "true", "yes"):
+        print("compat: force finding OVERRIDDEN (SOVEREIGN_OS_COMPAT_OVERRIDE) — proceeding")
+        return 0
+    r = resolve({args.system: args.option})
+    if r.get("available") and r.get("plan"):
+        print("compat: resolution plan (force something else off in order to enable this):")
+        for st in r["plan"]:
+            argv = " ".join(f"{k}={v}" for k, v in st["args"].items())
+            print(f"       → {st['label']}   [control={st['system']} {argv}]")
+    print("compat: REFUSED — re-run with SOVEREIGN_OS_COMPAT_OVERRIDE=1 to force "
+          "(or SOVEREIGN_OS_COMPAT_GATE=off to disable the gate)")
+    return 1
+
+
 def cmd_explain(args: argparse.Namespace) -> int:
     _, rules, _ = _load_all()
     for r in rules:
@@ -959,6 +992,14 @@ def build_parser() -> argparse.ArgumentParser:
                          "ones up)")
     ck.add_argument("--json", action="store_true")
     ck.set_defaults(func=cmd_check)
+
+    pp = sub.add_parser(
+        "precheck",
+        help="CLI-side pre-change gate (called by sovereign-osctl before "
+             "mutating verbs; rc=1 only on an un-overridden force finding)")
+    pp.add_argument("--system", required=True)
+    pp.add_argument("--option", default=None)
+    pp.set_defaults(func=cmd_precheck)
 
     pe = sub.add_parser("explain", help="one rule in full")
     pe.add_argument("rule_id")

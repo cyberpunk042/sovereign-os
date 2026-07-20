@@ -205,9 +205,11 @@ COMMANDS:
                                SDD-600 AVX execution-mode swap: Custom bit-machine ↔ BuiltIn math ↔ Hybrid ↔ Off
   control-word layout | encode --mode N … | decode <u64> | lut --rule-word W --condition C
                                M00013 control-word engine — pack/unpack the 64-bit word + the M00017 LUT (real, scalar)
-  compat list | compile [--json] | check --set SYS=OPT … [--strict] | explain <rule-id> | why <system[=option]>
+  compat list | compile [--json] | check --set SYS=OPT … [--current] [--strict] [--resolve] | explain <rule-id> | why <system[=option]> | precheck --system S [--option O]
                                Cross-system compatibility resolver (2026-07-19): requires/conflicts/forces_off/one_of
-                               rules over the control-systems registry, compiled YAML → u64 masks (M002 strategy)
+                               rules over the control-systems registry, compiled YAML → u64 masks (M002 strategy).
+                               Mutating osctl verbs run `precheck` automatically (CLI-side gate, 2026-07-20) —
+                               force findings REFUSE with the resolution plan; SOVEREIGN_OS_COMPAT_OVERRIDE=1 forces.
   notifykit show [--json] | set <channel> <key> <value> | global-override <key> <value> | trigger <name> <prop> <value> | test
                                Notification settings (2026-07-19): the whole settings range — channels, priority×urgency
                                gates, static pins, global default override, trigger frontmatter props (important:true …).
@@ -6393,8 +6395,54 @@ PY
 
 # ------------------------------ dispatch -------------------------------------
 
+# ── CLI-side compat pre-change gate (2026-07-20) ──────────────────────────────
+# The exec rail gates mutations through config/compatibility.yaml; a verb typed
+# in a terminal must honor the SAME rules. _compat_precheck_route maps the
+# gated mutating verbs onto (control-system, option); _compat_guard runs
+# `compat.py precheck` — rc=1 ONLY on an un-overridden force finding (warns/
+# hints print and proceed; a compat crash degrades OPEN so the CLI never dies
+# with the gate). Escape hatches: SOVEREIGN_OS_COMPAT_OVERRIDE=1 (per-run,
+# printed) · SOVEREIGN_OS_COMPAT_GATE=off (disables the gate).
+# Gated: the ENABLING direction only (set/start/enable/switch) — the rules'
+# "in order to enable one thing"; stop/disable never introduce a violation the
+# assignment model can express.
+_compat_precheck_route() {
+  case "${1:-}" in
+    cpu-mode|gpu-mode|avx-mode|frontend)
+      [ "${2:-}" = "set" ] && [ -n "${3:-}" ] && echo "${1} ${3}" ;;
+    dspark)
+      [ "${2:-}" = "enable" ] && echo "dspark-speculative-decoding on" ;;
+    cost-policy)
+      case "${2:-}" in halt-cloud|resume-cloud) echo "cost-policy ${2}" ;; esac ;;
+    openclaw|open-computer|claude-code|vscode)
+      [ "${2:-}" = "backend" ] && [ -n "${3:-}" ] && echo "${1}-backend ${3}" ;;
+    inference)
+      case "${2:-}" in start|restart) [ -n "${3:-}" ] && echo "inference-tier ${3}" ;; esac ;;
+    trinity)
+      [ "${2:-}" = "profile" ] && [ "${3:-}" = "switch" ] && [ -n "${4:-}" ] \
+        && echo "runtime-mode ${4}" ;;
+  esac
+  return 0
+}
+
+_compat_guard() { # <system> [option] — rc=1 only on un-overridden force
+  local _sys="$1" _opt="${2:-}" _rc=0
+  [ "${SOVEREIGN_OS_COMPAT_GATE:-on}" = "off" ] && return 0
+  [ -f "${__REPO_ROOT}/scripts/operator/compat.py" ] || return 0
+  # shellcheck disable=SC2086
+  python3 "${__REPO_ROOT}/scripts/operator/compat.py" precheck \
+    --system "${_sys}" ${_opt:+--option "${_opt}"} || _rc=$?
+  if [ "${_rc}" -eq 1 ]; then return 1; fi
+  return 0   # any other failure (missing python dep, crash) degrades OPEN
+}
+
 cmd="${1:-help}"
+_compat_route="$(_compat_precheck_route "$@")"
 shift || true
+if [ -n "${_compat_route}" ]; then
+  # shellcheck disable=SC2086
+  _compat_guard ${_compat_route} || exit 1
+fi
 
 case "${cmd}" in
   status)        _source_osctl_module status && cmd_status "$@" ;;

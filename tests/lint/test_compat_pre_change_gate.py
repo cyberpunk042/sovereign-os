@@ -441,3 +441,73 @@ def test_pane_renders_fix_buttons():
     assert "so-compat-fix" in shell
     assert "Force: " in shell            # the button prefix
     assert "soExec(stp.system, stp.args" in shell   # fixes go through the rail
+
+
+# ── the CLI-side gate: sovereign-osctl mutating verbs honor the rules ──────
+# (2026-07-20 — before this, `sovereign-osctl cost-policy halt-cloud` typed
+# in a terminal bypassed compat entirely; only the exec rail was gated.)
+
+OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
+
+
+def _precheck(system: str, option: str | None, env: dict[str, str]):
+    argv = [sys.executable, str(COMPAT_TOOL), "precheck", "--system", system]
+    if option is not None:
+        argv += ["--option", option]
+    return subprocess.run(argv, capture_output=True, text=True, env=env)
+
+
+def test_precheck_rc_semantics():
+    env = _hermetic_env("")
+    assert _precheck("cpu-mode", "balanced", env).returncode == 0   # clean
+    warn = _precheck("dspark-speculative-decoding", "on", env)
+    assert warn.returncode == 0 and "WARN" in warn.stdout           # advisory proceeds
+    env_force = _hermetic_env("openclaw-backend=anthropic")
+    force = _precheck("cost-policy", "halt-cloud", env_force)
+    assert force.returncode == 1
+    assert "REFUSED" in force.stdout and "resolution plan" in force.stdout
+    env_ovr = dict(env_force); env_ovr["SOVEREIGN_OS_COMPAT_OVERRIDE"] = "1"
+    ovr = _precheck("cost-policy", "halt-cloud", env_ovr)
+    assert ovr.returncode == 0 and "OVERRIDDEN" in ovr.stdout
+    env_off = dict(env_force); env_off["SOVEREIGN_OS_COMPAT_GATE"] = "off"
+    off = _precheck("cost-policy", "halt-cloud", env_off)
+    assert off.returncode == 0 and off.stdout.strip() == ""
+
+
+def test_osctl_mutating_verb_is_gated():
+    """`sovereign-osctl cost-policy halt-cloud` with an anthropic backend
+    active refuses BEFORE the verb executes — rc=1, REFUSED + the plan."""
+    env = _hermetic_env("openclaw-backend=anthropic")
+    r = subprocess.run(["bash", str(OSCTL), "cost-policy", "halt-cloud"],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "compat [BLOCK] C001" in r.stdout
+    assert "compat: REFUSED" in r.stdout
+    assert "resolution plan" in r.stdout
+
+
+def test_osctl_warn_advises_and_proceeds():
+    """A warn finding prints and the verb still runs (no REFUSED)."""
+    env = _hermetic_env("avx-mode=off")
+    r = subprocess.run(["bash", str(OSCTL), "inference", "start", "pulse"],
+                       capture_output=True, text=True, env=env)
+    assert "compat [WARN ] C008" in r.stdout
+    assert "compat: REFUSED" not in r.stdout
+
+
+def test_osctl_gate_off_is_silent():
+    env = _hermetic_env("avx-mode=off")
+    env["SOVEREIGN_OS_COMPAT_GATE"] = "off"
+    r = subprocess.run(["bash", str(OSCTL), "inference", "start", "pulse"],
+                       capture_output=True, text=True, env=env)
+    assert "compat [" not in r.stdout
+
+
+def test_osctl_route_covers_the_gated_verbs():
+    src = OSCTL.read_text(encoding="utf-8")
+    assert "_compat_precheck_route" in src and "_compat_guard" in src
+    route = src.split("_compat_precheck_route() {", 1)[1].split("\n}", 1)[0]
+    for verb in ("cpu-mode|gpu-mode|avx-mode|frontend", "dspark", "cost-policy",
+                 "openclaw|open-computer|claude-code|vscode", "inference",
+                 "trinity"):
+        assert verb in route, f"gated verb family {verb!r} missing from the route"
