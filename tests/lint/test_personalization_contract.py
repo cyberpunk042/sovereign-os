@@ -214,16 +214,9 @@ def test_personalization_page_metadata_cites_catalog():
 # canonical key + schema (so prefs are coherent across surfaces).
 ADOPTED_DASHBOARDS = [
     "master-dashboard",
-    "d-02-profile-choices",
-    # M060 cross-repo mirror dashboards (6):
-    "d-13-filesystem-grants",
-    "d-14-capability-tokens",
-    "d-15-sandboxes",
-    "d-16-audit",
-    "d-17-quarantine",
-    "d-18-trust-scores",
-    # Remaining sovereign-os-native D-NN dashboards (12 — full rollout):
+    # D-01..D-11 (sovereign-os-native D-NN dashboards):
     "d-01-active-sessions",
+    "d-02-profile-choices",
     "d-03-model-health",
     "d-04-costs",
     "d-05-traces",
@@ -233,14 +226,31 @@ ADOPTED_DASHBOARDS = [
     "d-09-hardware-pressure",
     "d-10-eval-history",
     "d-11-adapter-status",
-    "d-19-super-model-manifest",
-    "d-20-peace-machine-health",
     # D-12 split-pattern (network-edge + edge-firewall together
     # serve the D-12 networking cockpit per M060 R10112-R10113):
     "network-edge",
     "edge-firewall",
-    # Orthogonal cockpit webapps (not part of D-NN catalog but
-    # operator-facing — completes the 100% rollout):
+    "d-12-networking",
+    # M060 cross-repo mirror dashboards (6):
+    "d-13-filesystem-grants",
+    "d-14-capability-tokens",
+    "d-15-sandboxes",
+    "d-16-audit",
+    "d-17-quarantine",
+    "d-18-trust-scores",
+    # D-19..D-29 (remaining D-NN dashboards):
+    "d-19-super-model-manifest",
+    "d-20-peace-machine-health",
+    "d-21-lm-orchestration",
+    "d-22-lm-status-operability",
+    "d-23-models-catalog",
+    "d-24-cpu-features",
+    "d-25-selfdef-management",
+    "d-26-friction-audit",
+    "d-27-guardian",
+    "d-28-perimeter",
+    "d-29-scheduler",
+    # Orthogonal cockpit webapps (operator-facing):
     "auditor",
     "ux-design-audit",
     "anti-minimization-audit",
@@ -252,7 +262,8 @@ ADOPTED_DASHBOARDS = [
     "weaver",
     "trinity",
     "auth-tier",
-    "d-12-networking",
+    "build-configurator",
+    "code-console",
 ]
 
 

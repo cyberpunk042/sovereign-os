@@ -1,3 +1,4 @@
+<!-- NAV:BEGIN M060 -->
 <!-- ─────────────────────────────────────────────────────────────────
 M060 R10055 + R10058-R10105 keyboard-nav snippet — canonical
 ~110-line block that ships in EVERY cockpit dashboard's <head>.
@@ -116,6 +117,10 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       { id: 'D-23', dir: 'd-23-models-catalog',        label: 'model catalog',            shortcut: null },
       { id: 'D-24', dir: 'd-24-cpu-features',          label: 'CPU features',             shortcut: null },
       { id: 'D-25', dir: 'd-25-selfdef-management',    label: 'selfdef management',       shortcut: null },
+      { id: 'D-26', dir: 'd-26-friction-audit',        label: 'friction audit',           shortcut: null },
+      { id: 'D-27', dir: 'd-27-guardian',              label: 'guardian daemon',          shortcut: null },
+      { id: 'D-28', dir: 'd-28-perimeter',             label: 'perimeter fence',          shortcut: null },
+      { id: 'D-29', dir: 'd-29-scheduler',             label: 'goldilocks scheduler',     shortcut: null },
       { id: 'cfg',  dir: 'personalization',            label: 'personalization',          shortcut: null },
     ];
     function jump(d) { window.location.href = ROOT + d.dir + '/'; }
@@ -228,3 +233,4 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     else init();
   })();
 </script>
+<!-- NAV:END M060 -->
