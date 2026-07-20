@@ -72,8 +72,8 @@ def test_all_adopted_dashboards_embed_responsive_snippet():
     """Every dashboard listed in the a11y rollout MUST also embed
     the responsive snippet (locked rollout step)."""
     # Reuse the a11y adoption list so the two rollouts stay locked.
-    from tests.lint.test_a11y_contract import ADOPTED_A11Y_DASHBOARDS
-    for slug in ADOPTED_A11Y_DASHBOARDS:
+    from tests.lint.test_a11y_contract import ADOPTED_A11Y_PANELS
+    for slug in ADOPTED_A11Y_PANELS:
         path = REPO_ROOT / "webapp" / slug / "index.html"
         html = path.read_text(encoding="utf-8")
         # Unique responsive-snippet marker — the 4K breakpoint

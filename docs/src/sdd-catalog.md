@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (208 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (209 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)

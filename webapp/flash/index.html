@@ -218,6 +218,64 @@ adoption pattern.
   })();
 </script>
 <!-- A11Y:END M060 -->
+<!-- ─────────────────────────────────────────────────────────────────
+M060 F05099 + R10142 responsive-layout snippet — canonical small
+CSS block embedded in every cockpit dashboard's <head> right after
+the a11y snippet.
+
+Covers the operator-§1g responsive-layout requirement: the cockpit
+must work on phone (≤600px) / tablet (601-1024px) / desktop (≥1025px)
+/ 4K (≥2400px). Pure CSS, no JS, no media-detection hacks.
+
+Breakpoint strategy:
+  phone   ≤600px   — body padding shrinks, tables get smaller text,
+                     flex rows wrap freely, h1/h2 scale down 10%
+  tablet  ≤1024px  — body padding stays standard, tables stay readable
+  desktop ≥1025px  — default rules from each dashboard's <style>
+  4K      ≥2400px  — body max-width raises to 1600px (otherwise the
+                     content looks lost on a huge display)
+
+Per "Respect the projects": pure CSS, no fetch/XHR/server-mutation.
+Drops in via the canonical-snippet adoption pattern next to nav +
+a11y; contract test catches drift.
+-->
+<style>
+  /* phone: ≤600px — single-column friendly */
+  @media (max-width: 600px) {
+    body { padding: 0.6rem !important; }
+    h1 { font-size: 1.2rem !important; }
+    h2 { font-size: 0.95rem !important; }
+    /* tables shrink rather than scroll horizontally; .num column
+       loses its tabular-nums alignment to save space */
+    table { font-size: 0.78rem !important; }
+    th, td { padding: 0.25rem 0.35rem !important; }
+    /* flex rows always wrap on phone — no horizontal scroll bait */
+    .row { flex-wrap: wrap !important; gap: 0.4rem !important; }
+    /* stats stack 1-up on phone */
+    .stat { flex-basis: 100% !important; }
+    /* panel padding shrinks */
+    .panel { padding: 0.7rem 0.8rem !important; }
+    /* the M060 palette overlay needs to fit narrow viewports */
+    .so-palette-box { width: 96vw !important; }
+    /* mirror banners stack their bits vertically */
+    .mirror-banner { flex-wrap: wrap !important; }
+    .mirror-banner .spacer { flex-basis: 100% !important; height: 0; }
+  }
+
+  /* tablet: 601-1024px — 2-up stat tiles, body stays roomy */
+  @media (min-width: 601px) and (max-width: 1024px) {
+    .stat { flex-basis: calc(50% - 0.3rem) !important; }
+    body { padding: 0.9rem !important; }
+  }
+
+  /* 4K / ultra-wide: ≥2400px — raise body width so content uses the
+     real estate (otherwise it looks marooned in the center) */
+  @media (min-width: 2400px) {
+    body { max-width: 1600px !important; }
+    html { font-size: calc(15px * var(--font-scale, 1)) !important; }
+  }
+</style>
+
 </head>
 <body>
 <!-- APP-SHELL:BEGIN M067 -->
