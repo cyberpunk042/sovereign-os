@@ -1324,7 +1324,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       '<span style="flex:1"></span><span><kbd>⌘K</kbd> palette · <kbd>⌘B</kbd> menu · <kbd>⌘J</kbd> assistant</span></div></div></div>');
     document.body.appendChild(cmdkBack);
     var cmdkIn=cmdkBack.querySelector('#so-cmdk-input'), cmdkRes=cmdkBack.querySelector('#so-cmdk-results'), cmdkFilt=CMDK.slice(), cmdkAct=0;
-    function cmdkRender(){ var h=''; cmdkFilt.forEach(function(d,i){ h+='<div class="so-cmdk-row'+(i===cmdkAct?' active':'')+'" data-i="'+i+'"><span class="ico">'+esc(d.ico||'•')+'</span><span class="id">'+esc(d.id!=='—'?d.id:'')+'</span><span class="lbl">'+esc(d.label)+'</span><span class="grp">'+esc(d.grp)+'</span></div>'; });
+    function cmdkRender(){ var h=''; cmdkFilt.forEach(function(d,i){ h+='<div class="so-cmdk-row'+(i===cmdkAct?' active':'')+'" data-i="'+i+'"><span class="ico">'+esc(d.ico||'•')+'</span><span class="id">'+esc(d.id!=='—'?d.id:'')+'</span><span class="lbl">'+esc(d.label)+'</span><span class="grp">'+esc(d.grp)+'</span>'+(d.desc?'<span class="desc">'+esc(d.desc)+'</span>':'')+'</div>'; });
       cmdkRes.innerHTML=h||'<div class="so-cmdk-row"><span class="lbl" style="color:var(--muted,#8a8a8a)">no match</span></div>';
       Array.prototype.forEach.call(cmdkRes.querySelectorAll('.so-cmdk-row[data-i]'),function(r){ r.addEventListener('click',function(){ cmdkGo(cmdkFilt[+r.dataset.i]); }); });
       var a=cmdkRes.querySelector('.so-cmdk-row.active'); if(a&&a.scrollIntoView) a.scrollIntoView({block:'nearest'}); }
