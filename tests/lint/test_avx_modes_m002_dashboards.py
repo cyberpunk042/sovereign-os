@@ -70,3 +70,36 @@ def test_m007_m008_surfaces_present():
     html = PANEL.read_text(encoding="utf-8")
     missing = [f"{fid} ({marker!r})" for fid, marker in M78_SURFACES if marker not in html]
     assert not missing, "avx-modes panel is missing M007/M008 surface(s): " + ", ".join(missing)
+
+
+# ── Live active-mode prefill (2026-07-21) ──────────────────────────────────
+# The settings-pane AVX select (shared app-shell snippet, on every adopted
+# panel) defaulted to the first option ('custom') regardless of the box's real
+# mode — the notifykit-class blank-select gap. It now prefills from the
+# read-only GET /api/control/avx-mode inventory (same truth as
+# `sovereign-osctl avx-mode inventory`) and surfaces which mode is engaged.
+
+SHARED_SHELL = REPO / "webapp" / "_shared" / "app-shell-snippet.html"
+EXEC_API = REPO / "scripts" / "operator" / "control-exec-api.py"
+
+
+def test_avx_select_prefills_from_live_state():
+    shell = SHARED_SHELL.read_text(encoding="utf-8")
+    # the read-only inventory fetch + the prefill assignment + the live indicator
+    assert "fetch('/api/control/avx-mode'" in shell
+    assert "function soAvxLive(" in shell
+    assert "avxSel.value=p.active" in shell
+    assert "avxLiveActive" in shell
+    assert "Active on the box:" in shell
+    # prefill actually runs on init (not just defined)
+    assert "avxBackingRefresh(); soAvxLive();" in shell
+
+
+def test_exec_api_serves_the_avx_mode_inventory():
+    api = EXEC_API.read_text(encoding="utf-8")
+    assert '/api/control/avx-mode' in api, "control-exec-api must serve the avx-mode route"
+    assert "_avx_mode.inventory()" in api
+    # the bit-machine engagement is the custom/hybrid gate (matches the crate)
+    assert 'in ("custom", "hybrid")' in api
+    # degrades honestly when the module is absent (never kills the rail)
+    assert "avx-mode module unavailable" in api

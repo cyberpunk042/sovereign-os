@@ -43,6 +43,13 @@ Endpoints:
                                  `sovereign-osctl notifykit show --json`, so
                                  the header 🔔 overlay prefills from live
                                  state instead of blank selects. Read-only.
+  GET  /api/control/avx-mode     the M002 AVX-mode inventory — which mode is
+                                 ACTIVE on the box + whether the bit-machine
+                                 (custom/hybrid) is engaged + the mode ledger.
+                                 SAME truth as `sovereign-osctl avx-mode
+                                 inventory`, so the panel AVX select prefills
+                                 to the live mode instead of the first option.
+                                 Read-only.
   POST /api/control/execute      body {control_id, args?, confirm?} ->
                                  _action_exec.execute() ; HTTP status mirrors
                                  the primitive's result code (200/400/403/404/409/…)
@@ -80,6 +87,23 @@ try:
     from tools.notifykit import cli as _notifykit_cli  # noqa: E402
 except Exception:  # noqa: BLE001 — optional; the overlay degrades to blanks
     _notifykit_cli = None
+
+# scripts/hardware/avx-mode.py — the M002 AVX-mode inventory (active mode +
+# built-state + submodes), the SAME truth as `sovereign-osctl avx-mode
+# inventory --json`, so the panel's AVX hotswap select prefills to the mode
+# ACTUALLY active on the box instead of always defaulting to the first option.
+# Hyphenated filename → load by file path. Optional; the select degrades to
+# its static default when this is absent (static / per-port read-only serving).
+import importlib.util as _ilu  # noqa: E402
+
+try:
+    _avx_spec = _ilu.spec_from_file_location(
+        "_avx_mode",
+        Path(__file__).resolve().parents[2] / "scripts" / "hardware" / "avx-mode.py")
+    _avx_mode = _ilu.module_from_spec(_avx_spec)
+    _avx_spec.loader.exec_module(_avx_mode)
+except Exception:  # noqa: BLE001 — a broken avx-mode module never kills the rail
+    _avx_mode = None
 
 # The Plan Mode / User Approval Auto-mode safety classifier (lib/). Import
 # directly so this daemon can gate destructive controls before they execute.
@@ -186,10 +210,29 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001 — read path must not crash the daemon
                 self._send_json(500, {"error": f"notifykit state unreadable: {e}"})
             return
+        if path == "/api/control/avx-mode":
+            # The M002 AVX-mode inventory: which mode is ACTIVE on the box +
+            # whether the bit-machine (custom/hybrid) is engaged + the mode
+            # ledger. Read-only; the SAME truth as `avx-mode inventory`. The
+            # panel select prefills from `active` so it shows live state.
+            if _avx_mode is None:
+                self._send_json(503, {"error": "avx-mode module unavailable"})
+                return
+            try:
+                inv = _avx_mode.inventory()
+                inv["available"] = True
+                # The M002 bit-machine is the active path only under custom/hybrid
+                # (opt-in) — the same gate as runs_bit_machine() in the crate/service.
+                inv["runs_bit_machine"] = inv.get("active") in ("custom", "hybrid")
+                self._send_json(200, inv)
+            except Exception as e:  # noqa: BLE001 — read path must not crash the daemon
+                self._send_json(500, {"error": f"avx-mode state unreadable: {e}"})
+            return
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/api/control/registry", "/api/control/compat",
-                          "/api/control/notifykit", "/api/control/execute (POST)",
+                          "/api/control/notifykit", "/api/control/avx-mode",
+                          "/api/control/execute (POST)",
                           "/version", "/healthz"],
         })
 
