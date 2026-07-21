@@ -399,6 +399,177 @@ impl Grammar {
         let ns = self.allowed_next(prefix);
         !ns.is_dead()
     }
+
+    /// Begin an **incremental** parse: seed and close state 0, returning a
+    /// persistent [`EarleyChart`] you extend one character at a time with
+    /// [`EarleyChart::feed`].
+    ///
+    /// The Earley chart for a prefix is a *pure function* of that prefix:
+    /// building the state for position `k+1` only ever *appends* it and never
+    /// touches states `0..=k` (scan reads `S[k]`, predict/complete write only the
+    /// new state). So feeding a candidate continuation and then
+    /// [`EarleyChart::rollback_to`]-ing back costs time proportional to the
+    /// continuation's length — **not** the whole prefix. That is the basis for
+    /// fast per-token grammar masking: the committed prefix is parsed once, and
+    /// each candidate token is validated by a short feed-then-rollback instead of
+    /// a full re-parse. Results are bit-for-bit identical to
+    /// [`allowed_next`](Self::allowed_next) / [`is_live_prefix`](Self::is_live_prefix)
+    /// / [`accepts`](Self::accepts) (SDD-502).
+    pub fn start_chart(&self) -> EarleyChart {
+        let mut chart: Vec<Vec<Item>> = vec![Vec::new()];
+        let mut seen: Vec<HashSet<Item>> = vec![HashSet::new()];
+        for &ri in &self.by_lhs[self.start] {
+            let it = Item {
+                rule: ri,
+                dot: 0,
+                origin: 0,
+            };
+            if seen[0].insert(it) {
+                chart[0].push(it);
+            }
+        }
+        self.close_state(&mut chart, &mut seen, 0);
+        EarleyChart { chart, seen }
+    }
+
+    /// Advance an incremental chart by one input character: SCAN the current last
+    /// state with `c`, then predict/complete the new state to a fixpoint. Always
+    /// appends exactly one state. Returns whether the prefix stays parseable (the
+    /// new state is non-empty). Feeding into an already-dead chart keeps appending
+    /// empty states and returns `false`.
+    fn scan_char(&self, ec: &mut EarleyChart, c: char) -> bool {
+        let p = ec.chart.len() - 1;
+        let mut scanned: Vec<Item> = Vec::new();
+        for item in &ec.chart[p] {
+            let rule = &self.rules[item.rule];
+            if item.dot < rule.rhs.len() {
+                if let Symbol::Term(t) = &rule.rhs[item.dot] {
+                    if t.matches(c) {
+                        scanned.push(Item {
+                            rule: item.rule,
+                            dot: item.dot + 1,
+                            origin: item.origin,
+                        });
+                    }
+                }
+            }
+        }
+        ec.chart.push(Vec::new());
+        ec.seen.push(HashSet::new());
+        let np = p + 1;
+        for it in scanned {
+            if ec.seen[np].insert(it) {
+                ec.chart[np].push(it);
+            }
+        }
+        self.close_state(&mut ec.chart, &mut ec.seen, np);
+        !ec.chart[np].is_empty()
+    }
+
+    /// The allowed-next set implied by an incremental chart's last state. An empty
+    /// last state (a dead prefix) yields the empty, non-complete set — exactly
+    /// what [`allowed_next`](Self::allowed_next) returns for an unparseable prefix.
+    fn chart_next_set(&self, ec: &EarleyChart) -> NextSet {
+        let last = ec.chart.last().expect("chart always has >=1 state");
+        let mut terminals: Vec<Terminal> = Vec::new();
+        for item in last {
+            let rule = &self.rules[item.rule];
+            if item.dot < rule.rhs.len() {
+                if let Symbol::Term(t) = &rule.rhs[item.dot] {
+                    if !terminals.contains(t) {
+                        terminals.push(t.clone());
+                    }
+                }
+            }
+        }
+        NextSet {
+            terminals,
+            complete: self.state_accepts(last),
+        }
+    }
+}
+
+/// A persistent, appendable Earley chart for **incremental** prefix parsing —
+/// the substrate for fast grammar-constrained decoding (SDD-502).
+///
+/// Build one with [`Grammar::start_chart`], extend it a character at a time with
+/// [`EarleyChart::feed`], read the allowed-next set with
+/// [`EarleyChart::next_set`], and undo a speculative feed with
+/// [`EarleyChart::rollback_to`]. Because extending a chart never mutates earlier
+/// states, a committed prefix can be parsed once and each candidate continuation
+/// validated by a bounded feed-then-rollback — the per-token cost becomes
+/// proportional to the token's length, not the prefix's.
+#[derive(Debug, Clone)]
+pub struct EarleyChart {
+    chart: Vec<Vec<Item>>,
+    seen: Vec<HashSet<Item>>,
+}
+
+impl EarleyChart {
+    /// Number of characters consumed so far (the chart holds `this + 1` states).
+    pub fn chars_consumed(&self) -> usize {
+        self.chart.len() - 1
+    }
+
+    /// Feed one character, extending the parse by one position. Returns whether
+    /// the prefix stays parseable (a `false` means this character made the prefix
+    /// a dead end).
+    pub fn feed(&mut self, grammar: &Grammar, c: char) -> bool {
+        grammar.scan_char(self, c)
+    }
+
+    /// Feed every character of `s` in order, stopping at the first character that
+    /// kills the parse. Returns whether the prefix remains parseable (the final
+    /// state is non-empty). For the strict dead-end check use
+    /// [`is_live`](Self::is_live).
+    pub fn feed_str(&mut self, grammar: &Grammar, s: &str) -> bool {
+        for c in s.chars() {
+            if !self.feed(grammar, c) {
+                return false;
+            }
+        }
+        !self
+            .chart
+            .last()
+            .expect("chart always has >=1 state")
+            .is_empty()
+    }
+
+    /// Roll back to `chars` characters consumed, discarding everything fed since.
+    /// Because feeding only appends states, this exactly restores the earlier
+    /// committed state.
+    ///
+    /// # Panics
+    /// Panics if `chars` exceeds the current [`chars_consumed`](Self::chars_consumed).
+    pub fn rollback_to(&mut self, chars: usize) {
+        let keep = chars + 1;
+        assert!(
+            keep <= self.chart.len(),
+            "rollback target {chars} beyond current length {}",
+            self.chars_consumed()
+        );
+        self.chart.truncate(keep);
+        self.seen.truncate(keep);
+    }
+
+    /// The terminals that may legally follow the consumed prefix, and whether the
+    /// prefix is already a complete sentence. Identical to
+    /// [`Grammar::allowed_next`] for the same prefix.
+    pub fn next_set(&self, grammar: &Grammar) -> NextSet {
+        grammar.chart_next_set(self)
+    }
+
+    /// Whether the consumed prefix is live (not a dead end). Identical to
+    /// [`Grammar::is_live_prefix`] for the same prefix.
+    pub fn is_live(&self, grammar: &Grammar) -> bool {
+        !self.next_set(grammar).is_dead()
+    }
+
+    /// Whether the consumed prefix is a complete sentence. Identical to
+    /// [`Grammar::accepts`] for the same prefix.
+    pub fn accepts(&self, grammar: &Grammar) -> bool {
+        grammar.state_accepts(self.chart.last().expect("chart always has >=1 state"))
+    }
 }
 
 /// Append `item` to state `s` if not already present.
@@ -583,6 +754,104 @@ mod tests {
         let back: Grammar = serde_json::from_str(&j).unwrap();
         assert_eq!(g, back);
         assert!(back.accepts("(())"));
+    }
+
+    // --- incremental parser (EarleyChart) parity ---
+
+    /// Feeding a prefix into an EarleyChart must yield exactly the same
+    /// allowed-next / liveness / acceptance as the from-scratch functions — for
+    /// every prefix of a growing string, on several grammars, including dead ends.
+    #[test]
+    fn incremental_chart_matches_from_scratch() {
+        let cases: &[(Grammar, &[&str])] = &[
+            (
+                balanced(),
+                &["", "(", "((", "(()", "(())", "()()", ")", "()x", "(()))"],
+            ),
+            (number(), &["", "1", "12", "12a", "007", "x", "9z"]),
+            (
+                expr(),
+                &["", "1", "1+", "1+2", "(1+2)+3", "(1+2", "+1", "((1))"],
+            ),
+        ];
+        for (g, prefixes) in cases {
+            for prefix in *prefixes {
+                // build the chart incrementally, one char at a time.
+                let mut ec = g.start_chart();
+                ec.feed_str(g, prefix);
+                // parity: allowed_next, is_live_prefix, accepts.
+                assert_eq!(
+                    ec.next_set(g),
+                    g.allowed_next(prefix),
+                    "next_set mismatch for {prefix:?}"
+                );
+                assert_eq!(
+                    ec.is_live(g),
+                    g.is_live_prefix(prefix),
+                    "is_live mismatch for {prefix:?}"
+                );
+                assert_eq!(
+                    ec.accepts(g),
+                    g.accepts(prefix),
+                    "accepts mismatch for {prefix:?}"
+                );
+            }
+        }
+    }
+
+    /// A speculative feed followed by rollback must exactly restore the committed
+    /// state — the property that makes per-token validation cheap and correct.
+    #[test]
+    fn feed_then_rollback_restores_state() {
+        let g = balanced();
+        let mut ec = g.start_chart();
+        ec.feed_str(&g, "(()"); // committed prefix
+        let committed_len = ec.chars_consumed();
+        let committed_next = ec.next_set(&g);
+        // speculatively feed several continuations; each must match the
+        // from-scratch check, and rollback must restore the committed state.
+        for cont in ["", ")", "))", "()", "x", "())("] {
+            let mut live = true;
+            for c in cont.chars() {
+                if !ec.feed(&g, c) {
+                    live = false;
+                    break;
+                }
+            }
+            let spec_live = live && ec.is_live(&g);
+            assert_eq!(
+                spec_live,
+                g.is_live_prefix(&format!("((){cont}")),
+                "speculative liveness for cont={cont:?}"
+            );
+            ec.rollback_to(committed_len);
+            assert_eq!(ec.chars_consumed(), committed_len);
+            assert_eq!(
+                ec.next_set(&g),
+                committed_next,
+                "state not restored after {cont:?}"
+            );
+        }
+    }
+
+    /// Committing characters one at a time (accept path) must track the
+    /// from-scratch parse at every step, including deep nesting.
+    #[test]
+    fn incremental_commit_tracks_stepwise() {
+        let g = balanced();
+        let mut ec = g.start_chart();
+        let mut built = String::new();
+        for c in "((()))()".chars() {
+            assert!(ec.feed(&g, c), "feed {c:?} should stay live");
+            built.push(c);
+            assert_eq!(ec.next_set(&g), g.allowed_next(&built));
+            assert_eq!(ec.accepts(&g), g.accepts(&built));
+        }
+        assert!(ec.accepts(&g));
+        // deep nesting doesn't blow up incrementally either.
+        let mut deep = g.start_chart();
+        assert!(deep.feed_str(&g, &"(".repeat(200)));
+        assert!(deep.is_live(&g));
     }
 
     #[test]
