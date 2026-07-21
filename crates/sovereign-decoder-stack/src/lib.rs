@@ -126,6 +126,15 @@ pub struct GenOptions {
     /// the stop tokens are masked out for the first `min_new` steps, forcing a
     /// minimum response length (a common serving constraint). `0` = no minimum.
     pub min_new: usize,
+    /// The M002 token-law allow-mask (SDD-500): a per-vocabulary bitset packed
+    /// 64 tokens per `u64` word (bit `t` set = token `t` allowed), the combined
+    /// output of `sovereign_simd::cheats::token_law_combine` over the active
+    /// laws. When `Some`, every disallowed token is set to `-inf` each step, so
+    /// the model **cannot** emit outside the allow set — the first real
+    /// per-token call site of the M002 bit-machine. Correctness (not
+    /// acceleration): it applies whenever present, regardless of `avx-mode`.
+    /// `None` = unconstrained (identity).
+    pub token_law: Option<Vec<u64>>,
 }
 
 impl GenOptions {
@@ -158,6 +167,16 @@ impl GenOptions {
     /// Force at least `min_new` tokens before any stop token may be emitted.
     pub fn with_min_new(mut self, min_new: usize) -> Self {
         self.min_new = min_new;
+        self
+    }
+
+    /// Constrain generation to a M002 token-law allow-mask (SDD-500): a
+    /// per-vocabulary bitset (bit `t` = token `t` allowed), typically the output
+    /// of `sovereign_simd::cheats::token_law_combine` over the active laws.
+    /// Disallowed tokens are `-inf`-masked every step; the model cannot emit
+    /// outside the set.
+    pub fn with_token_law(mut self, allow: Vec<u64>) -> Self {
+        self.token_law = Some(allow);
         self
     }
 }
@@ -412,6 +431,13 @@ impl DecoderStack {
         for _ in 0..opts.max_new {
             let mut l = logits.clone();
             opts.mask.apply(&mut l);
+            // M002 token-law bitset (SDD-500) — the first real per-token call
+            // site of the bit-machine: disallowed tokens go to -inf so the
+            // model cannot emit outside the allow set. Correctness, not
+            // acceleration: applied whenever present, regardless of avx-mode.
+            if let Some(ref allow) = opts.token_law {
+                sovereign_token_law_mask::mask_logits(allow, &mut l);
+            }
             if let Some(n) = opts.no_repeat_ngram {
                 LogitMask::new().no_repeat_ngram(&history, n).apply(&mut l);
             }
@@ -1164,6 +1190,49 @@ mod tests {
         assert_eq!(
             a.generate_until(&prompt, 6, 9, &[]).unwrap(),
             b.generate(&prompt, 6, 9).unwrap()
+        );
+    }
+
+    #[test]
+    fn token_law_mask_constrains_generation_to_the_allow_set() {
+        // SDD-500: the M002 token-law bitset actually gates generation.
+        // vocab 8, greedy for determinism. Allow ONLY tokens {2, 5}.
+        let cfg = config(8, 4, 2, Sampler::greedy());
+        let allow = vec![(1u64 << 2) | (1u64 << 5)]; // bits 2 and 5 set
+        let prompt = [1usize, 3];
+
+        let mut m = DecoderStack::new(cfg.clone()).unwrap();
+        let out = m
+            .generate_with(
+                &prompt,
+                7,
+                &GenOptions::new(12).with_token_law(allow),
+                |_| {},
+            )
+            .unwrap();
+        assert!(!out.is_empty());
+        for t in &out {
+            assert!(*t == 2 || *t == 5, "emitted disallowed token {t}");
+        }
+
+        // Proof the MASK is what constrained it: a full-allow mask (every bit
+        // set) must be an exact no-op vs unconstrained generation.
+        let mut unc = DecoderStack::new(cfg.clone()).unwrap();
+        let unconstrained = unc
+            .generate_with(&prompt, 7, &GenOptions::new(12), |_| {})
+            .unwrap();
+        let mut full = DecoderStack::new(cfg).unwrap();
+        let full_allow = full
+            .generate_with(
+                &prompt,
+                7,
+                &GenOptions::new(12).with_token_law(vec![u64::MAX]),
+                |_| {},
+            )
+            .unwrap();
+        assert_eq!(
+            unconstrained, full_allow,
+            "a full-allow mask must be a no-op"
         );
     }
 

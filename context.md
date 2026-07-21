@@ -26,7 +26,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 | metric | count | source of truth |
 |---|---:|---|
-| workspace crates | 721 | `crates/*/` |
+| workspace crates | 722 | `crates/*/` |
 | dashboards (d-nn) | 29 | `webapp/d-*/` |
 | cockpit panels (total) | 62 | `webapp/*/index.html` |
 | sdd files | 210 | `docs/sdd/<NNN>-*.md` |
@@ -354,7 +354,7 @@ Per SDD-040 Phase A → E ordering + selfdef Guardian/UX-harness implementations
 46. ~~sovereign-doctrinal-preservation~~ ✓
 47. ~~sovereign-cgroup-systemd~~ ✓
 
-**sovereign-os Rust workspace: 721 crates total** (counts-as-contract enforced by `tests/lint/test_context_md_counts.py`)
+**sovereign-os Rust workspace: 722 crates total** (counts-as-contract enforced by `tests/lint/test_context_md_counts.py`)
 
 ### Stage 2+ build scripts (per M062 PR 10 → Stage Gate 5 → Stage 2)
 
@@ -416,7 +416,7 @@ number collision + INDEX/mandate append conflicts):
 ## Build/test hygiene (environment caveat — 2026-05-27)
 
 **DO NOT run `cargo test --workspace` / `cargo build --workspace` here.** This
-repo has **721 crates** (was 475 when this caveat was written 2026-05-27 —
+repo has **722 crates** (was 475 when this caveat was written 2026-05-27 —
 live figure: the COUNTS-CONTRACT block above) and the sibling selfdef has
 **535+**; a full-workspace
 build produces a `target/` of ~13 GB *per repo*. The container has ~16 GB

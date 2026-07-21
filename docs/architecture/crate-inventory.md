@@ -10,9 +10,9 @@ The workspace is large — most of it does not run yet. This is the complete map
 | Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
 | Production libraries | 91 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
-| Demo-hub-only libraries | 29 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
+| Demo-hub-only libraries | 30 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
 | Other libraries | 142 | reached only through other non-production trees |
-| **Total** | **721** | **96 crates (13%) are production-reachable today** |
+| **Total** | **722** | **96 crates (13%) are production-reachable today** |
 
 **✅ integrated** marks the **96** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
@@ -705,9 +705,18 @@ Typed, tested UI-state models. Compiled to wasm by `cockpit-wasm` (SDD-974) so a
 
 ---
 
-## 4. Demo-hub-only libraries (29) — reached only via the island hubs
+## 4. Demo-hub-only libraries (30) — reached only via the island hubs
 
 Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon does not use — so nothing that runs reaches them. Wiring a hub into production, or giving these real consumers, is the open work (audit F-2026-083/088/089).
+
+#### `token-·` (3)
+
+- **`sovereign-token-grammar-mask`** — Bridges a character-level context-free grammar to token-level decoding: given the text generated so far, computes the boolean mask of which vocabulary tokens keep a valid parse alive, plus whether end-of-sequence is allowed. The piece that makes grammar-constrained generation work on a real tokenizer — a model emits tokens, not characters — by feeding each candidate token's string through the Earley recognizer with a cheap first-character prefilter. Composes sovereign-cfg-grammar.
+- **`sovereign-token-healing`** — Token healing for generation: when a prompt ends mid-token, trim the trailing token(s) and constrain the first generated token to be consistent with the removed text, so the model re-chooses a natural boundary instead of being locked into a bad split. Fixes the prompt/completion seam for completion and constrained decoding.
+- **`sovereign-token-law-mask`** — The M002 token-law bitset as a decode-time logit mask (SDD-500). Turns the M00117 token_law_combine allow-mask (sovereign-simd::cheats) into a per-token logit transform: a token whose allow-bit is 0 is set to -inf before sampling, so a running model CANNOT emit it. The FIRST real per-token call site of the M002 bit-machine — policy becomes bits, gating generation. A LogitProcessor for sovereign-logit-pipeline; wired into sovereign-decoder-stack's in-repo decode loop (not the external-proxy path, which exposes no logits).
+
+#### assorted (27)
+
 - **`sovereign-answer-extract`** — Final-answer extraction from chain-of-thought output: pulls the answer out of a model's reasoning by honoring 'Answer:'/'Final answer:'/'the answer is' markers (falling back to the last line), and extracts the last numeric value for math tasks. The step between reasoning and a usable answer — pairs with self-consistency voting.
 - **`sovereign-best-of-n`** — Inference-time scaling by sampling N candidates and picking a winner: best-of-N by a score (logprob or reward), top-k selection, and weighted self-consistency that sums each distinct answer's candidate scores and takes the highest. The aggregation layer for spending more compute at decode time to get a better answer.
 - **`sovereign-cfg-grammar`** — Context-free grammar recognizer with an incremental Earley parser, computing the set of terminals allowed to come next after any prefix. The engine behind grammar-constrained decoding (GBNF-style guided generation): unlike a regular-expression matcher it handles nested and recursive structure — balanced brackets, JSON, expression grammars — so a generator can be masked to only-valid continuations token by token.
@@ -733,8 +742,6 @@ Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon 
 - **`sovereign-semantic-cache`** — A semantic completion cache: stores completions keyed by their prompt's embedding and returns a cached one for any new prompt whose embedding is within a cosine-similarity threshold — so near-duplicate requests (paraphrases, typos) hit the cache, not just exact repeats. The fuzzy counterpart to the exact-match completion cache. Composes sovereign-embed.
 - **`sovereign-suffix-array`** — Suffix array over a byte string with prefix-doubling construction and Kasai LCP: index every suffix once, then count or locate any substring by binary search in O(m log n), and find the longest repeated substring from the LCP array. For detecting degenerate verbatim repetition in generations and fast substring queries over a fixed text.
 - **`sovereign-text-eval`** — Generation-quality metrics: BLEU (clipped n-gram precision with brevity penalty) and ROUGE-N / ROUGE-L (n-gram and longest-common-subsequence overlap) for scoring generated text against one or more references. The standard kit for evaluating summaries, translations, and completions.
-- **`sovereign-token-grammar-mask`** — Bridges a character-level context-free grammar to token-level decoding: given the text generated so far, computes the boolean mask of which vocabulary tokens keep a valid parse alive, plus whether end-of-sequence is allowed. The piece that makes grammar-constrained generation work on a real tokenizer — a model emits tokens, not characters — by feeding each candidate token's string through the Earley recognizer with a cheap first-character prefilter. Composes sovereign-cfg-grammar.
-- **`sovereign-token-healing`** — Token healing for generation: when a prompt ends mid-token, trim the trailing token(s) and constrain the first generated token to be consistent with the removed text, so the model re-chooses a natural boundary instead of being locked into a bad split. Fixes the prompt/completion seam for completion and constrained decoding.
 - **`sovereign-typical-sampling`** — Locally typical sampling (Meister et al.): keep the smallest set of tokens whose surprisal is closest to the distribution's conditional entropy and whose probability sums to a target mass, then sample from those. A truncation method distinct from top-k / top-p / min-p, aimed at more human-like, less degenerate generation.
 - **`sovereign-xtc-sampler`** — XTC (Exclude Top Choices) sampler: with a set probability, removes the most-probable tokens whenever several already clear a probability threshold, keeping only the least-probable confident option plus the long tail. Boosts diversity and creativity without the incoherence of high temperature — it only fires when there is a safe alternative, so a single forced token is never excluded. Operates as a logit mask with a seeded activation roll.
 
