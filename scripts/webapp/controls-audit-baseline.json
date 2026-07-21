@@ -371,6 +371,13 @@
     "status": "no-actions"
   },
   {
+    "slug": "rustdoc-panel",
+    "exec_rail": 0,
+    "proxy_copy": false,
+    "wireable_gap": false,
+    "status": "no-actions"
+  },
+  {
     "slug": "science",
     "exec_rail": 0,
     "proxy_copy": false,

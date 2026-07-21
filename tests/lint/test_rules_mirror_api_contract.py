@@ -180,9 +180,15 @@ def test_osctl_dispatches_rules_mirror():
 def test_master_dashboard_route_registered():
     # F-2026-072: the aggregator route table moved to the generated
     # config/dashboard-routes.yaml and uses the canonical catalog slug.
+    # F-2026-070: the d-12 rules-mirror was unified into sovereign-networking-api
+    # (port 8139), which serves /api/d-12/snapshot alongside network-edge +
+    # edge-firewall — so the d-12-networking route now declares the unified port.
     routes = (REPO_ROOT / "config" / "dashboard-routes.yaml").read_text(encoding="utf-8")
-    assert "d-12-networking" in routes, "aggregator table missing d-12-networking route"
-    assert "8133" in routes, "d-12-networking route must declare port 8133"
+    d12 = [ln for ln in routes.splitlines() if "slug: d-12-networking," in ln]
+    assert d12, "aggregator table missing d-12-networking route"
+    assert "port: 8139" in d12[0], (
+        "d-12-networking route must declare the unified networking-api port 8139 "
+        f"(F-2026-070); got: {d12[0]}")
 
 
 # ---- live endpoints (the exact d-12 fetch contract) -----------------------
