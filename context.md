@@ -29,7 +29,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 | workspace crates | 722 | `crates/*/` |
 | dashboards (d-nn) | 29 | `webapp/d-*/` |
 | cockpit panels (total) | 62 | `webapp/*/index.html` |
-| sdd files | 210 | `docs/sdd/<NNN>-*.md` |
+| sdd files | 211 | `docs/sdd/<NNN>-*.md` |
 | milestone files | 85 | `backlog/milestones/*.md` |
 
 <!-- END COUNTS-CONTRACT -->

@@ -5528,6 +5528,7 @@ dependencies = [
  "sovereign-semantic-cache",
  "sovereign-token-grammar-mask",
  "sovereign-token-healing",
+ "sovereign-token-law-mask",
  "sovereign-tokenizer",
  "sovereign-toxicity",
  "sovereign-transformer-block",

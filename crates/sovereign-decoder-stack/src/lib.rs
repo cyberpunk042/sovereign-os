@@ -866,6 +866,54 @@ impl DecoderStack {
         }
         Ok(generated)
     }
+
+    /// The M002-native dynamic constraint loop (SDD-501): like
+    /// [`generate_dynamic_mask_until`](Self::generate_dynamic_mask_until) but the
+    /// per-step hook returns a **token-law allow-mask** (a packed `Vec<u64>`,
+    /// typically `sovereign_token_law_mask::TokenLawPlanes::combine_with(...)`
+    /// intersecting a grammar plane with static policy planes) rather than a
+    /// `LogitMask`. `law_fn(&generated)` returns `None` to stop (the grammar is
+    /// complete, or no token keeps every plane satisfiable — never sample from
+    /// an all-masked row) or `Some(allow)` to `-inf`-mask every disallowed token
+    /// and continue. This is the multi-plane realization of M00117: one running
+    /// model confined by grammar **and** policy at once, composed by the real
+    /// `token_law_combine` kernel. Generates at most `max_new` tokens.
+    pub fn generate_dynamic_token_law_until<M>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mut law_fn: M,
+    ) -> Result<Vec<usize>, StackError>
+    where
+        M: FnMut(&[usize]) -> Option<Vec<u64>>,
+    {
+        if prompt.is_empty() {
+            return Err(StackError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let Some(allow) = law_fn(&generated) else {
+                break;
+            };
+            sovereign_token_law_mask::mask_logits(&allow, &mut logits);
+            let pos = self.position() as u64;
+            let recent_start = self.recent.len().saturating_sub(self.config.recent_window);
+            let token = self.config.sampler.sample_seeded(
+                &logits,
+                &self.recent[recent_start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
 }
 
 /// Deterministic splitmix64 → uniform `[0, 1)` from one seed, so the Mirostat
@@ -1191,6 +1239,35 @@ mod tests {
             a.generate_until(&prompt, 6, 9, &[]).unwrap(),
             b.generate(&prompt, 6, 9).unwrap()
         );
+    }
+
+    #[test]
+    fn dynamic_token_law_composes_grammar_and_policy() {
+        // SDD-501: multi-plane composition gates the decoder. A static safety
+        // plane bans token 5; a per-step "grammar" plane allows {2,5,6}; the AND
+        // confines generation to {2,6}, and the loop stops when law_fn says None.
+        use sovereign_token_law_mask::TokenLawPlanes;
+        let cfg = config(8, 4, 2, Sampler::greedy());
+        let planes = TokenLawPlanes::new(8).with_allow_ids(&[0, 1, 2, 3, 4, 6, 7]); // ban 5
+        let prompt = [1usize, 3];
+        let mut m = DecoderStack::new(cfg).unwrap();
+        let out = m
+            .generate_dynamic_token_law_until(&prompt, 12, 7, |generated| {
+                if generated.len() >= 5 {
+                    None // stop after five tokens
+                } else {
+                    // "grammar" this step allows {2,5,6}; AND static-ban(5) → {2,6}
+                    Some(planes.combine_with(&[2, 5, 6]))
+                }
+            })
+            .unwrap();
+        assert_eq!(out.len(), 5);
+        for t in &out {
+            assert!(
+                *t == 2 || *t == 6,
+                "emitted a token outside grammar∧policy: {t}"
+            );
+        }
     }
 
     #[test]

@@ -574,6 +574,67 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
     }
 
+    /// Constrain a completion to a JSON schema **and** a set of static policy
+    /// planes at once (SDD-501 / M00117): the grammar plane — recomputed per
+    /// position via [`sovereign_token_grammar_mask::TokenGrammarMask`] — is
+    /// AND-combined with `policy_planes` (each a per-vocabulary allow-mask: a
+    /// safety denylist, a tool/schema allow-list) through the real
+    /// `token_law_combine` kernel every step, so the model is confined by the
+    /// grammar **and** every policy simultaneously. Stops when the grammar is
+    /// complete, when no token keeps the parse valid, or when the intersection
+    /// is empty (every grammar-legal token is policy-banned). Reproducible per
+    /// `seed`. This is the multi-plane composition the single grammar path
+    /// ([`complete_json_schema`](Self::complete_json_schema)) does not do — one
+    /// running model, several composed token-law planes.
+    pub fn complete_json_schema_with_laws(
+        &self,
+        prompt: &str,
+        schema: &sovereign_json_schema_grammar::Schema,
+        policy_planes: &[&[u64]],
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let grammar = sovereign_json_schema_grammar::compile(schema);
+        let vocab_size = self.tokenizer.vocab_size();
+        let vocab: Vec<String> = (0..vocab_size)
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let tgm = sovereign_token_grammar_mask::TokenGrammarMask::new(grammar, vocab);
+        let mut planes = sovereign_token_law_mask::TokenLawPlanes::new(vocab_size);
+        for p in policy_planes {
+            planes = planes.with_plane(p.to_vec());
+        }
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids =
+            model.generate_dynamic_token_law_until(&prompt_ids, max_new, seed, |generated| {
+                let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+                let prefix = self.tokenizer.decode(&so_far).unwrap_or_default();
+                let mask = tgm.mask(&prefix);
+                if mask.eos {
+                    return None;
+                }
+                let allowed = mask.allowed_ids();
+                if allowed.is_empty() {
+                    return None;
+                }
+                let combined = planes.combine_with(&allowed);
+                // Empty intersection — every grammar-legal token is policy-banned;
+                // stop rather than sample from an all-masked logit row.
+                if combined.iter().all(|w| *w == 0) {
+                    return None;
+                }
+                Some(combined)
+            })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
     /// Complete `prompt` and **extract the first balanced JSON value** from the
     /// output (`sovereign-json-extract`), returning `Some(value)` or `None` if the
     /// completion contains no JSON. Models emit structured answers wrapped in
@@ -1644,6 +1705,49 @@ mod tests {
         assert!(
             out.chars().all(|c| allowed.contains(&c)),
             "out-of-grammar char in {out:?}"
+        );
+    }
+
+    #[test]
+    fn json_schema_with_laws_composes_grammar_and_policy() {
+        use sovereign_json_schema_grammar::Schema;
+        // SDD-501: grammar ∧ policy. The {"ok": <bool>} grammar allows both
+        // 't' (true) and 'f' (false). A policy plane BANS the byte 't' → the
+        // model can no longer spell "true", so the composition forces "false"
+        // and no 't' ever appears — a constraint NEITHER path does alone.
+        let llm = runtime(Sampler::greedy());
+        let schema = Schema::object([("ok".to_string(), Schema::Boolean)]);
+        let words = llm.vocab_size().div_ceil(64);
+        let mut ban_t = vec![u64::MAX; words];
+        let t = b't' as usize;
+        ban_t[t >> 6] &= !(1u64 << (t & 63));
+        let out = llm
+            .complete_json_schema_with_laws("emit: ", &schema, &[&ban_t], 40, 7)
+            .unwrap();
+        assert!(
+            !out.contains('t'),
+            "policy banned 't' but it appears: {out:?}"
+        );
+        // still confined to the grammar alphabet (the grammar plane still holds)
+        let allowed: std::collections::HashSet<char> = "{}\":oktruefalse \t\n\r".chars().collect();
+        assert!(
+            out.chars().all(|c| allowed.contains(&c)),
+            "out-of-grammar char in {out:?}"
+        );
+    }
+
+    #[test]
+    fn json_schema_with_no_laws_equals_the_grammar_only_path() {
+        use sovereign_json_schema_grammar::Schema;
+        // With zero policy planes the composition is exactly the grammar path —
+        // proving the multi-plane route is a superset, not a divergence.
+        let schema = Schema::object([("ok".to_string(), Schema::Boolean)]);
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        assert_eq!(
+            a.complete_json_schema_with_laws("emit: ", &schema, &[], 40, 7)
+                .unwrap(),
+            b.complete_json_schema("emit: ", &schema, 40, 7).unwrap(),
         );
     }
 

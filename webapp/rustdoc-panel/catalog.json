@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_by": "scripts/webapp/gen-rustdoc-panel-catalog.py",
-  "count": 721,
+  "count": 722,
   "crates": [
     {
       "name": "sovereign-agent-loop",
@@ -2722,6 +2722,10 @@
     {
       "name": "sovereign-token-healing",
       "description": "Token healing for generation: when a prompt ends mid-token, trim the trailing token(s) and constrain the first generated token to be consistent with the removed text, so the model re-chooses a natural boundary instead of being locked into a bad split. Fixes the prompt/completion seam for completion and constrained decoding."
+    },
+    {
+      "name": "sovereign-token-law-mask",
+      "description": "The M002 token-law bitset as a decode-time logit mask (SDD-500). Turns the M00117 token_law_combine allow-mask (sovereign-simd::cheats) into a per-token logit transform: a token whose allow-bit is 0 is set to -inf before sampling, so a running model CANNOT emit it. The FIRST real per-token call site of the M002 bit-machine \u2014 policy becomes bits, gating generation. A LogitProcessor for sovereign-logit-pipeline; wired into sovereign-decoder-stack's in-repo decode loop (not the external-proxy path, which exposes no logits)."
     },
     {
       "name": "sovereign-token-meter",
