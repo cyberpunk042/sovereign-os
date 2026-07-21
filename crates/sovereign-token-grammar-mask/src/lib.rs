@@ -33,7 +33,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub use sovereign_cfg_grammar::{Grammar, GrammarBuilder, NextSet, Symbol, Terminal};
+pub use sovereign_cfg_grammar::{EarleyChart, Grammar, GrammarBuilder, NextSet, Symbol, Terminal};
 
 /// Schema version of the token-grammar-mask surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
@@ -102,45 +102,34 @@ impl TokenGrammarMask {
     }
 
     /// Compute the token mask for `prefix` (the text generated so far).
+    ///
+    /// Incremental (SDD-502): the prefix is parsed **once** into an
+    /// [`EarleyChart`], then each surviving candidate token is validated by
+    /// feeding its characters onto that committed chart and rolling back — cost
+    /// proportional to the token's length, not the prefix's. The result is
+    /// bit-for-bit identical to the previous per-token full re-parse.
     pub fn mask(&self, prefix: &str) -> Mask {
-        let next = self.grammar.allowed_next(prefix);
+        let mut base = self.grammar.start_chart();
+        base.feed_str(&self.grammar, prefix);
+        let next = base.next_set(&self.grammar);
         let eos = next.complete;
-        // a buffer reused for prefix+token checks.
-        let mut buf = String::with_capacity(prefix.len() + 16);
-        let allowed = self
-            .vocab
-            .iter()
-            .zip(&self.first_char)
-            .map(|(tok, fc)| self.token_allowed(prefix, tok, *fc, &next, &mut buf))
-            .collect();
-        Mask { allowed, eos }
-    }
-
-    /// Whether a single token may be appended to `prefix`, using the prefilter.
-    fn token_allowed(
-        &self,
-        prefix: &str,
-        token: &str,
-        first: Option<char>,
-        next: &NextSet,
-        buf: &mut String,
-    ) -> bool {
-        match first {
-            // the empty token never advances the parse; treat it as not allowed
-            // (a generator should use EOS, not an empty token, to stop).
-            None => false,
-            Some(c) => {
+        let base_len = base.chars_consumed();
+        let mut allowed = Vec::with_capacity(self.vocab.len());
+        for (tok, fc) in self.vocab.iter().zip(&self.first_char) {
+            allowed.push(match *fc {
+                // the empty token never advances the parse; treat it as not allowed
+                // (a generator should use EOS, not an empty token, to stop).
+                None => false,
                 // cheap rejection: first char must be an allowed next terminal.
-                if !next.allows(c) {
-                    return false;
+                Some(c) if !next.allows(c) => false,
+                Some(_) => {
+                    let ok = token_keeps_live(&mut base, &self.grammar, tok);
+                    base.rollback_to(base_len);
+                    ok
                 }
-                // full check: prefix+token must remain a live prefix.
-                buf.clear();
-                buf.push_str(prefix);
-                buf.push_str(token);
-                self.grammar.is_live_prefix(buf)
-            }
+            });
         }
+        Mask { allowed, eos }
     }
 
     /// The ids of tokens permitted after `prefix`.
@@ -159,6 +148,125 @@ impl TokenGrammarMask {
             }
         }
         m.eos
+    }
+}
+
+/// Feed `token`'s characters onto a committed [`EarleyChart`] and report whether
+/// the extended prefix stays a live prefix — the incremental equivalent of
+/// `grammar.is_live_prefix(prefix + token)`. The caller is responsible for
+/// rolling the chart back afterwards (this leaves the fed characters in place so
+/// a *commit* path can reuse it).
+fn token_keeps_live(chart: &mut EarleyChart, grammar: &Grammar, token: &str) -> bool {
+    for c in token.chars() {
+        if !chart.feed(grammar, c) {
+            return false;
+        }
+    }
+    chart.is_live(grammar)
+}
+
+/// A grammar token mask that **persists** its Earley state across decode steps.
+///
+/// [`TokenGrammarMask::mask`] is incremental *within a call* (it parses the
+/// prefix once, then validates each token by feed-then-rollback), but it still
+/// re-parses the whole prefix every step. This masker goes one step further: it
+/// holds the committed [`EarleyChart`] for the accepted text and
+/// [`advance`](Self::advance)s it by the newly-accepted characters, so the
+/// per-step prefix cost is only the *new* characters — the fully-incremental
+/// path (SDD-502).
+///
+/// It operates in the **character domain** (the grammar's domain). A token-driven
+/// decode loop may use it only when the tokenizer is *char-concatenative* —
+/// `decode(a) + decode(b) == decode([a, b])` — feeding each accepted token's
+/// decoded text via [`advance`](Self::advance). The byte-level BPE path satisfies
+/// this; a merge-BPE tokenizer generally does not, which is why the stateless
+/// [`TokenGrammarMask::mask`] (also incremental, but per-call — no concatenation
+/// assumption) stays the default for the LLM wiring.
+#[derive(Debug, Clone)]
+pub struct IncrementalGrammarMask {
+    grammar: Grammar,
+    vocab: Vec<String>,
+    first_char: Vec<Option<char>>,
+    committed: EarleyChart,
+}
+
+impl IncrementalGrammarMask {
+    /// Build a stateful constraint from a grammar and a vocabulary of token
+    /// strings. The committed chart starts empty (before any generated text).
+    pub fn new(grammar: Grammar, vocab: Vec<String>) -> Self {
+        let first_char = vocab.iter().map(|t| t.chars().next()).collect();
+        let committed = grammar.start_chart();
+        Self {
+            grammar,
+            vocab,
+            first_char,
+            committed,
+        }
+    }
+
+    /// The vocabulary size.
+    pub fn vocab_size(&self) -> usize {
+        self.vocab.len()
+    }
+    /// The underlying grammar.
+    pub fn grammar(&self) -> &Grammar {
+        &self.grammar
+    }
+    /// The token string for `id`, if in range.
+    pub fn token(&self, id: usize) -> Option<&str> {
+        self.vocab.get(id).map(|s| s.as_str())
+    }
+    /// Characters of accepted text committed so far.
+    pub fn chars_consumed(&self) -> usize {
+        self.committed.chars_consumed()
+    }
+
+    /// The token mask for the currently-committed prefix. Uses the committed
+    /// chart as the base for feed-then-rollback, so the committed state is
+    /// unchanged on return (hence `&mut self`: the transient feed mutates it).
+    /// Identical output to [`TokenGrammarMask::mask`] for the same prefix.
+    pub fn mask(&mut self) -> Mask {
+        let next = self.committed.next_set(&self.grammar);
+        let eos = next.complete;
+        let base_len = self.committed.chars_consumed();
+        let mut allowed = Vec::with_capacity(self.vocab.len());
+        for i in 0..self.vocab.len() {
+            let ok = match self.first_char[i] {
+                None => false,
+                Some(c) if !next.allows(c) => false,
+                Some(_) => {
+                    let live = token_keeps_live(&mut self.committed, &self.grammar, &self.vocab[i]);
+                    self.committed.rollback_to(base_len);
+                    live
+                }
+            };
+            allowed.push(ok);
+        }
+        Mask { allowed, eos }
+    }
+
+    /// Permanently extend the committed prefix by `text`'s characters (the
+    /// accept path). Returns whether the prefix remains parseable. Feeding text
+    /// that kills the parse leaves the chart dead; callers should only advance by
+    /// text that a prior [`mask`](Self::mask) permitted.
+    pub fn advance(&mut self, text: &str) -> bool {
+        self.committed.feed_str(&self.grammar, text)
+    }
+
+    /// Permanently extend the committed prefix by token `id`'s string. Returns
+    /// whether the prefix remains parseable, or `false` if `id` is out of range.
+    pub fn advance_token(&mut self, id: usize) -> bool {
+        match self.vocab.get(id) {
+            // token_keeps_live leaves the fed characters in place → committed.
+            Some(tok) => token_keeps_live(&mut self.committed, &self.grammar, tok),
+            None => false,
+        }
+    }
+
+    /// Whether end-of-sequence is currently permitted (the committed prefix is a
+    /// complete sentence).
+    pub fn eos_allowed(&self) -> bool {
+        self.committed.accepts(&self.grammar)
     }
 }
 
@@ -292,6 +400,56 @@ mod tests {
                 };
                 assert_eq!(mask.allows(id), brute, "prefix={prefix:?} tok={tok:?}");
             }
+        }
+    }
+
+    #[test]
+    fn incremental_masker_matches_stateless() {
+        // the stateful (across-step) masker must produce the SAME mask as the
+        // stateless per-call masker at every step.
+        let g = number();
+        let v = vocab(&["0", "5", "12", "99", "1x", "", "7", "x"]);
+        let stateless = TokenGrammarMask::new(g.clone(), v.clone());
+        let mut inc = IncrementalGrammarMask::new(g, v);
+        let mut prefix = String::new();
+        assert_eq!(inc.mask(), stateless.mask(&prefix)); // empty prefix
+        for tok in ["1", "2", "3"] {
+            assert!(inc.advance(tok));
+            prefix.push_str(tok);
+            assert_eq!(inc.mask(), stateless.mask(&prefix), "prefix={prefix:?}");
+            assert_eq!(inc.eos_allowed(), stateless.mask(&prefix).eos);
+        }
+    }
+
+    #[test]
+    fn incremental_masker_advance_token_tracks_eos() {
+        let g = balanced();
+        let v = vocab(&["(", ")", "()"]);
+        let mut inc = IncrementalGrammarMask::new(g, v);
+        assert!(inc.eos_allowed()); // empty is a complete balanced sentence
+        assert!(inc.advance_token(0)); // "("
+        assert!(!inc.eos_allowed()); // "(" not complete
+        assert!(inc.advance_token(1)); // ")"
+        assert!(inc.eos_allowed()); // "()" complete
+        assert_eq!(inc.chars_consumed(), 2);
+    }
+
+    #[test]
+    fn stateless_mask_large_prefix_matches_brute() {
+        // a long prefix must still match a brute-force is_live_prefix check for
+        // every token — the incremental mask has no length-dependent divergence.
+        let g = balanced();
+        let prefix = "(".repeat(50);
+        let v = vocab(&["(", ")", "()", "((", "x", ""]);
+        let m = TokenGrammarMask::new(g.clone(), v.clone());
+        let mask = m.mask(&prefix);
+        for (id, tok) in v.iter().enumerate() {
+            let brute = if tok.is_empty() {
+                false
+            } else {
+                g.is_live_prefix(&format!("{prefix}{tok}"))
+            };
+            assert_eq!(mask.allows(id), brute, "tok={tok:?}");
         }
     }
 
