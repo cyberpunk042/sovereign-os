@@ -32,6 +32,9 @@ use serde::{Deserialize, Serialize};
 pub mod fm;
 pub use fm::FmIndex;
 
+pub mod span_cache;
+pub use span_cache::{SpanCache, SpanHit};
+
 /// The ChromoFold stable-C-ABI version this build binds (`CHROMOFOLD_ABI_VERSION`),
 /// re-exported from the FFI crate so consumers read it without touching `unsafe`.
 pub use sovereign_chromofold_sys::ABI_VERSION;

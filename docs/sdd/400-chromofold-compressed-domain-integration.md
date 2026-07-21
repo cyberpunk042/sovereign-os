@@ -246,6 +246,13 @@ predict — a spec-decode draft is an internal, not an operator query).
 - **`FmIndex::longest_matching_span(query)`** — the prompt-cache / echo primitive: the longest *suffix* of `query`
   already in the corpus, and where, in one FM backward search. Verified against a naive oracle (4500 checks);
   exposed as `chromofold span --corpus <file> --query "<ids>"`.
+- **`SpanCache` component** (`span_cache.rs`) — the SDD-400 headline workload made a real component: it holds a set
+  of cached token-stream *entries* (prompts/completions/documents) as one FM-index (separator-joined so a span
+  can't cross a boundary) and answers `longest_cached_span(query) → (len, entry, offset)` — the longest suffix of
+  a new query already cached, resolved to *which entry + offset*, so a caller reuses that entry's state (KV /
+  embedding) instead of recomputing. Corpus-agnostic (the caller decides what feeds it — durable memory, a
+  completion corpus), CPU / no GPU, build-once-recover-many. Verified against a naive consecutive-span oracle over
+  250 randomized cache sets + boundary/edge cases (17 crate tests total).
 - **`sovereign-retrieval::PhraseStore`** — exact **word-sequence phrase** retrieval as a new lexical mode
   alongside term-overlap + BM25: each document's terms map (shared vocab) to an `FmIndex`, and a query is ranked
   by contiguous-phrase occurrence `count` — so "cat sat" scores "the cat sat" but not "sat on the cat". It
