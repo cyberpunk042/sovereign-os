@@ -103,3 +103,63 @@ def test_exec_api_serves_the_avx_mode_inventory():
     assert 'in ("custom", "hybrid")' in api
     # degrades honestly when the module is absent (never kills the rail)
     assert "avx-mode module unavailable" in api
+
+
+# ── health-scan probe #8: the AVX-mode execution posture (2026-07-21) ───────
+# avx-mode is a live mode like cpu_mode (which has a probe) but had none. The
+# probe surfaces which execution path is active AND — when the bit-machine
+# (custom/hybrid) is engaged — whether the host actually carries the AVX-512 F
+# floor; if not, the ZMM kernels fall back to scalar (a grounded attention).
+
+import importlib.util as _ilu
+
+
+def _load_health_scan():
+    spec = _ilu.spec_from_file_location(
+        "health_scan", REPO / "scripts" / "hardware" / "health-scan.py")
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _probe_with(monkeypatch, avx_json, advisor_json="{}"):
+    hs = _load_health_scan()
+
+    def fake(script, args):
+        if script == "avx-mode.py":
+            return (0, avx_json, "")
+        if script == "avx512-advisor.py":
+            return (0, advisor_json, "")
+        return (0, "{}", "")
+
+    hs._run_probe = fake
+    return hs.probe_avx_mode()
+
+
+def test_avx_probe_registered_as_eighth():
+    hs = _load_health_scan()
+    assert "avx_mode" in hs.PROBES
+    assert len(hs.PROBES) == 8
+
+
+def test_avx_probe_math_path_is_informational(monkeypatch):
+    r = _probe_with(monkeypatch, '{"active":"builtin"}')
+    assert r["probe"] == "avx_mode" and r["severity"] == "informational"
+    assert "not engaged" in r["detail"]
+
+
+def test_avx_probe_engaged_with_avx512_is_ok(monkeypatch):
+    r = _probe_with(monkeypatch, '{"active":"custom"}', '{"avx512_supported":true}')
+    assert r["severity"] == "ok" and "bit-machine engaged" in r["detail"]
+
+
+def test_avx_probe_engaged_without_avx512_is_attention(monkeypatch):
+    r = _probe_with(monkeypatch, '{"active":"hybrid"}', '{"avx512_supported":false}')
+    assert r["severity"] == "attention" and r["rc"] == 1
+    assert "fall back to scalar" in r["detail"]
+    assert r["flagged_items"] == [{"id": "avx512f", "present": False}]
+
+
+def test_avx_probe_unreadable_degrades_informational(monkeypatch):
+    r = _probe_with(monkeypatch, "not json")
+    assert r["severity"] == "informational" and "unreadable" in r["detail"]
