@@ -19,13 +19,20 @@ play:
   * **hybrid**  — both: the bit-machine routes, the math tiers compute.
   * **off**     — scalar baseline; no AVX (portable path, any x86-64).
 
-HONESTY (do-not-minimize): the custom bit-machine is spec-rich but crate-light
-today — `sovereign-control-word` is a `u64` (not the 128/256/ZMM limbs the spec
-wants), `sovereign-branch-tree` is a scalar tree (not the AVX-512 masked SoA
-scheduler), and the M008 bit-cheats have no crate yet. So selecting `custom` /
-`hybrid` RECORDS the mode and flips the profile knobs, but the ZMM kernels it
-gates are scaffold — the switch is real; what it drives lands downstream. This
-tool degrades honestly and says so.
+HONESTY (do-not-minimize, refreshed 2026-07-20 — the crates landed since the
+original scaffold note): the bit-machine kernels are REAL today —
+`sovereign-control-word` carries the M00013 layout + M00104 branch
+permissions, `sovereign-simd::round` is the AVX-512 round kernel
+(bit-identical to scalar), `sovereign-bit-cheats` / `sovereign-branch-tree` /
+`sovereign-branch-scheduler` / `sovereign-control-word-service` all exist and
+are consumed (gatewayd, cortex, coat). What remains downstream is the
+PER-TOKEN INFERENCE integration — selecting `custom`/`hybrid` records the
+mode and gates the `/v1/control-word/round` route; it does not yet steer
+token-by-token routing inside the LM serving path. The compat layer gates
+this switch too: C008/C011 relate avx-mode to inference-tier pulse and the
+ultra-sovereign-efficiency profile, and `sovereign-osctl avx-mode set` runs
+the compat precheck before executing (see docs/src/avx-mode-bit-machine.md
+§ Compatibility).
 
 Sovereignty: stdlib-only. SOVEREIGN_OS_AVX_MODE_DRYRUN=1 prints the plan.
 """
@@ -101,7 +108,9 @@ BUILTIN_TIERS = [
 DRYRUN = os.environ.get("SOVEREIGN_OS_AVX_MODE_DRYRUN") == "1"
 STATE_FILE = Path(os.environ.get(
     "SOVEREIGN_OS_AVX_MODE_STATE", "/etc/sovereign-os/avx-mode.active"))
-DEFAULT_MODE = "builtin"  # honest default: BuiltIn math is real; custom is scaffold
+DEFAULT_MODE = "builtin"  # default: straight math needs no opt-in; the bit-machine
+                          # (custom/hybrid) is real but opt-in — runs_bit_machine()
+                          # stays false until the operator chooses it
 
 
 def _active() -> str:
@@ -144,10 +153,11 @@ def set_mode(mode: str) -> dict[str, object]:
         return {"ok": False, "error": f"unknown mode {mode!r} (valid: {', '.join(MASTER_MODES)})"}
     notes = _write(mode)
     if MASTER_MODES[mode]["built"] == "scaffold":
+        # No mode is scaffold today (all four are real + live-verified); the
+        # branch stays so a future scaffold-tier mode degrades honestly.
         notes.append(
-            "the custom bit-microcode kernels this mode gates are SCAFFOLD today "
-            "(control-word is u64 not ZMM; branch-tree is scalar; M008 crate-less) "
-            "— the mode is recorded, the kernels land downstream (M002/M007/M008).")
+            "this mode's kernels are SCAFFOLD today — the mode is recorded; "
+            "what it gates lands downstream.")
     return {"ok": True, "mode": mode, "dryrun": DRYRUN, "notes": notes}
 
 

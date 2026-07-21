@@ -98,6 +98,31 @@ computing live from the same logic as the Rust kernels (parity-locked).
 including the avx-mode hot-swap (write the state file, the next request sees it).
 Requires cargo + curl + python3.
 
+## Compatibility
+
+The `avx-mode` switch is under the ⚖ compat registry (`config/compatibility.yaml`)
+— which is itself the M002 "policy becomes bits" pattern applied at the
+OS-config layer: `scripts/operator/compat.py` compiles every declared option to
+a stable bit in a u64 universe, pick-one exclusivity is an AND-mask per group
+(avx-mode `custom|builtin|hybrid|off` is one such group), and rule checks are
+`(word >> bit) & 1` membership tests — the same shift-and-AND primitive as the
+M00017 LUT.
+
+What gates this switch today:
+
+- **C008** (warn) — inference-tier **pulse** conflicts with avx-mode **off**:
+  Pulse is the CPU/AVX-512 bitnet.cpp tier; the scalar baseline starves it.
+- **C011** (suggest) — the **ultra-sovereign-efficiency** runtime profile leans
+  on the CPU's AVX-512 engine; avx-mode **off** drops it to scalar.
+- **Pick-one exclusivity** — the four modes are mutually exclusive by
+  construction (the u64 group mask); the ⚖ pane's drill-in shows it.
+
+Enforcement is layered: `sovereign-osctl avx-mode set <mode>` runs the compat
+precheck before executing (force refuses with reason + remediation;
+`SOVEREIGN_OS_COMPAT_OVERRIDE=1` is the audited override), the exec-rail
+`POST /api/control/execute` applies the same pre-change gate, and the panel
+selects grey force-incompatible options with the rule as tooltip.
+
 ## Honest boundaries
 
 - **The kernels are real and live-verified; deep inference integration is the
