@@ -9,26 +9,28 @@
 //!
 //! ## What works today
 //!
-//! - [`availability`] — is the native engine linked, or are we honest-degrading?
+//! - [`FmIndex`] — the **CPU-native FM-index (provenance-B, SDD-400 Q-400-F)**: a
+//!   self-contained, `unsafe`-free port that answers `count` / `ranges` / `locate`
+//!   / `predict` over a token stream with **no GPU and no native library**,
+//!   verified against a naive substring oracle. This is the working search path.
+//! - [`availability`] — is the native GPU engine (provenance-A) linked?
 //! - [`engine_root`] — the resident engine checkout (`CHROMOFOLD_ROOT`, else
 //!   `WARP_SHADERS_ROOT`), or `None` when absent (honest-degrade / offline).
 //! - [`descriptor`] — the [`CapabilityDescriptor`], a sovereign-side mirror of the
-//!   native `packaging/chromofold_capability.json` source-of-truth: which
-//!   primitives the ABI offers, the library/headers, and the resolved root.
+//!   native `packaging/chromofold_capability.json` source-of-truth.
 //!
-//! ## What is deliberately not wired yet
+//! ## The two backends
 //!
-//! The committed search C ABI (`chromofold_search.h`: `cf_fm_count`/`ranges`/
-//! `locate`) is bound in `sovereign-chromofold-sys`, but it is **device-native**
-//! (every pointer is a device pointer). The safe host-side surface here —
-//! marshalling a host pattern into device memory, loading a `cf_fm_view`, running
-//! the query — is the hardware-gated **step 7** of SDD-400. Until then [`count`],
-//! [`ranges`], [`locate`] honest-degrade: [`ChromoFoldError::Unavailable`] when no
-//! engine is linked, [`ChromoFoldError::NotImplemented`] when it is (the ABI is
-//! there; the host marshalling is not). [`predict`] is a *derived* n-gram capability
-//! (built on count/ranges, not a C entry point) and returns `NotImplemented`.
+//! - **provenance-B** ([`FmIndex`]) — CPU-native Rust, always available, the
+//!   reference-grade correctness floor.
+//! - **provenance-A** (`sovereign-chromofold-sys` + the GPU engine) — the
+//!   device-native hot path; its safe host-side marshalling is the hardware-gated
+//!   **step 7** of SDD-400. Both must agree with the same oracle.
 
 use serde::{Deserialize, Serialize};
+
+pub mod fm;
+pub use fm::FmIndex;
 
 /// The ChromoFold stable-C-ABI version this build binds (`CHROMOFOLD_ABI_VERSION`),
 /// re-exported from the FFI crate so consumers read it without touching `unsafe`.
@@ -122,6 +124,9 @@ pub struct CapabilityDescriptor {
     pub availability: Availability,
     /// The resolved engine root, or `None` when honest-degrading.
     pub engine_root: Option<String>,
+    /// Whether the CPU-native FM-index backend (provenance-B, [`FmIndex`]) is
+    /// available. Always `true` — it needs no GPU and no native library.
+    pub cpu_fm_index: bool,
     /// The per-capability map (mirrors the native descriptor).
     pub capabilities: Vec<Capability>,
 }
@@ -157,6 +162,7 @@ pub fn descriptor() -> CapabilityDescriptor {
         root_default_env: ROOT_DEFAULT_ENV.to_string(),
         availability: availability(),
         engine_root: engine_root(),
+        cpu_fm_index: true,
         capabilities: vec![
             cap("wavelet_access", "chromofold.h", "cf_access_async", false),
             cap("wavelet_rank", "chromofold.h", "cf_rank_async", false),
@@ -195,67 +201,10 @@ pub fn descriptor() -> CapabilityDescriptor {
     }
 }
 
-/// Errors from the safe ChromoFold surface.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum ChromoFoldError {
-    /// The native engine is not linked into this build (honest-degrade).
-    #[error(
-        "chromofold engine not linked (honest-degrade); build with the `linked` feature and a resident libchromofold"
-    )]
-    Unavailable,
-    /// The C ABI is bound, but the safe host-side path (device marshalling of the
-    /// query, SDD-400 step 7) is not implemented yet — honest, not fabricated.
-    #[error(
-        "chromofold safe host-side path not implemented yet (SDD-400 step 7: device marshalling of the query)"
-    )]
-    NotImplemented,
-}
-
-/// FM-index `count`: number of occurrences of `pattern` in the compressed corpus
-/// (the Lane-A, sovereign-os-first primitive).
-///
-/// # Errors
-/// [`ChromoFoldError::Unavailable`] when no engine is linked; otherwise
-/// [`ChromoFoldError::NotImplemented`] — the `cf_fm_count_async` C ABI is bound in
-/// `sovereign-chromofold-sys`, but the host→device marshalling is SDD-400 step 7.
-pub fn count(_pattern: &[u32]) -> Result<u64, ChromoFoldError> {
-    match availability() {
-        Availability::Unavailable => Err(ChromoFoldError::Unavailable),
-        Availability::Linked => Err(ChromoFoldError::NotImplemented),
-    }
-}
-
-/// FM-index `ranges`: the suffix-array `[lo, hi)` interval for `pattern`
-/// (occurrences = `hi - lo`).
-///
-/// # Errors
-/// As [`count`].
-pub fn ranges(_pattern: &[u32]) -> Result<(u64, u64), ChromoFoldError> {
-    match availability() {
-        Availability::Unavailable => Err(ChromoFoldError::Unavailable),
-        Availability::Linked => Err(ChromoFoldError::NotImplemented),
-    }
-}
-
-/// FM-index `locate`: text positions of every occurrence of `pattern`.
-///
-/// # Errors
-/// As [`count`].
-pub fn locate(_pattern: &[u32]) -> Result<Vec<u64>, ChromoFoldError> {
-    match availability() {
-        Availability::Unavailable => Err(ChromoFoldError::Unavailable),
-        Availability::Linked => Err(ChromoFoldError::NotImplemented),
-    }
-}
-
-/// `predict`: the next-token distribution for `context` — a *derived* on-GPU n-gram
-/// draft model built on FM-index count/ranges (not a C ABI entry point).
-///
-/// # Errors
-/// [`ChromoFoldError::NotImplemented`] — the derived path is future work (SDD-400).
-pub fn predict(_context: &[u32]) -> Result<Vec<(u32, f32)>, ChromoFoldError> {
-    Err(ChromoFoldError::NotImplemented)
-}
+// The searchable surface is [`FmIndex`] (provenance-B, CPU-native). It supersedes
+// the earlier corpus-less honest-degrade stubs: a real FM-index needs a corpus,
+// so search lives on the index, not on free functions. The GPU host path
+// (provenance-A) will add its own surface at SDD-400 step 7.
 
 #[cfg(test)]
 mod tests {
@@ -263,9 +212,17 @@ mod tests {
 
     #[test]
     fn availability_is_honest_degrade_by_default() {
-        // opt-in, off by default: no engine linked → Unavailable, never a
-        // fabricated "Linked".
+        // opt-in, off by default: no GPU engine linked → Unavailable, never a
+        // fabricated "Linked". (The CPU FmIndex backend is independent of this.)
         assert_eq!(availability(), Availability::Unavailable);
+    }
+
+    #[test]
+    fn cpu_fm_index_backend_is_available_and_works() {
+        // provenance-B: the CPU FM-index works with no GPU / no engine linked.
+        assert!(descriptor().cpu_fm_index);
+        let idx = FmIndex::build(&"abracadabra".bytes().map(u32::from).collect::<Vec<_>>());
+        assert_eq!(idx.count(&[b'a' as u32]), 5);
     }
 
     #[test]
@@ -292,17 +249,6 @@ mod tests {
                 .filter(|c| c.id.starts_with("fm_") || c.id.starts_with("rrrw_"))
                 .all(|c| c.header == "chromofold_search.h")
         );
-    }
-
-    #[test]
-    fn fm_index_surface_honest_degrades_not_fabricates() {
-        // with no engine linked (the default) the search surface reports the
-        // engine is unavailable — it never fabricates a search result.
-        assert_eq!(count(&[1, 2, 3]), Err(ChromoFoldError::Unavailable));
-        assert_eq!(ranges(&[1, 2, 3]), Err(ChromoFoldError::Unavailable));
-        assert_eq!(locate(&[1, 2, 3]), Err(ChromoFoldError::Unavailable));
-        // predict is derived + future regardless of linkage.
-        assert_eq!(predict(&[1, 2]), Err(ChromoFoldError::NotImplemented));
     }
 
     #[test]

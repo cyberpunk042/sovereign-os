@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 publish.workspace = true
-description = "The safe Rust surface for the ChromoFold GPU-resident, searchable compressed-domain engine (SDD-400). Forbids `unsafe` (all FFI is quarantined in `sovereign-chromofold-sys`); reports honest-degrade availability when the engine is not linked, exposes the capability descriptor (the source-of-truth for the honest-degrade UI, SDD-300 pattern), and holds the FM-index `count`/`locate`/`predict` surface as ABI-pending stubs until the native session freezes their stable C ABI (Lane A)."
+description = "The safe Rust surface for the ChromoFold searchable compressed-domain engine (SDD-400). Forbids `unsafe`; ships a CPU-native FM-index (provenance-B: `count`/`ranges`/`locate`/`predict` over a token stream, no GPU, no native library, verified against a naive substring oracle), plus the capability descriptor + availability for the GPU engine (provenance-A, whose FFI is quarantined in `sovereign-chromofold-sys`). Opt-in, off by default; honest-degrade."
 
 [lints]
 workspace = true
@@ -23,4 +23,3 @@ linked = ["sovereign-chromofold-sys/linked"]
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-chromofold-sys = { path = "../sovereign-chromofold-sys" }
-thiserror = { workspace = true }

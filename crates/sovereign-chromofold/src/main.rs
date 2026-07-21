@@ -9,9 +9,7 @@
 
 use std::process::ExitCode;
 
-use sovereign_chromofold::{
-    Availability, CapabilityDescriptor, ChromoFoldError, availability, count, descriptor,
-};
+use sovereign_chromofold::{Availability, CapabilityDescriptor, FmIndex, availability, descriptor};
 
 fn print_info() {
     let d = descriptor();
@@ -22,8 +20,9 @@ fn print_info() {
     }
 }
 
-/// Offline, no-GPU self-test: the descriptor serializes + round-trips, the FM-index
-/// surface honest-degrades (never fabricates), and availability is reported truthfully.
+/// Offline, no-GPU self-test: the descriptor round-trips, and the CPU-native
+/// FM-index (provenance-B) returns the correct count/locate for a known stream —
+/// a real functional check, no GPU, no fabrication.
 fn selftest() -> Result<(), String> {
     let d = descriptor();
     let json =
@@ -33,13 +32,22 @@ fn selftest() -> Result<(), String> {
     if back != d {
         return Err("descriptor did not survive a serde round-trip".to_string());
     }
-    // the FM-index surface must honest-degrade, never fabricate a search result:
-    // Unavailable when no engine is linked, NotImplemented when it is (the C ABI is
-    // bound but the host-side device marshalling is SDD-400 step 7).
-    match (availability(), count(&[1, 2, 3])) {
-        (Availability::Unavailable, Err(ChromoFoldError::Unavailable)) => {}
-        (Availability::Linked, Err(ChromoFoldError::NotImplemented)) => {}
-        other => return Err(format!("FM-index count did not honest-degrade: {other:?}")),
+    // provenance-B functional check against a known answer ("abracadabra").
+    let text: Vec<u32> = "abracadabra".bytes().map(u32::from).collect();
+    let idx = FmIndex::build(&text);
+    let a = b'a' as u32;
+    if idx.count(&[a]) != 5 {
+        return Err(format!(
+            "FM-index count('a') = {}, expected 5",
+            idx.count(&[a])
+        ));
+    }
+    let abra: Vec<u32> = "abra".bytes().map(u32::from).collect();
+    if idx.locate(&abra) != vec![0, 7] {
+        return Err(format!(
+            "FM-index locate('abra') = {:?}, expected [0, 7]",
+            idx.locate(&abra)
+        ));
     }
     Ok(())
 }

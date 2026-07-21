@@ -563,7 +563,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-chromofold-sys",
- "thiserror",
 ]
 
 [[package]]

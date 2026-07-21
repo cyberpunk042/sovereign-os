@@ -132,9 +132,9 @@ share one correctness oracle. Surfacing it is proposed (Q-400-F), gated on the p
 | Q-400-B | Which subsystem binds **first**? KV cache (long-context VRAM win) · weights/MoE bank · or **FM-index compressed-domain search** (the one capability with *no* existing analogue)? | **answered** (2026-07-20) — **Lane A, FM-index-search-first**, confirmed by both this session and the native-engine session (which is landing `cf_count`/`cf_locate`/`cf_predict` in the stable C ABI) |
 | Q-400-C | **CI posture** with no GPU / no SAIN-01 box present: keep the C-ABI/GPU steps hardware-gated and CI-test only the pure seams? | **answered** (2026-07-20) — yes, the SDD-724 split. The native `chromofold_capability.json` declares `conformance_requires_gpu: false` + a `null_arg_contract` (every entry point returns `CF_ERR_INVALID_ARGUMENT` on a NULL pointer *before any CUDA call*), so a linked box validates the real `.so` ABI without a GPU; the sovereign side ships a pure-Rust no-GPU header-seam conformance + a `#[cfg(feature=linked)]` null-arg seam test |
 | Q-400-D | Cross-repo root: `WARP_SHADERS_ROOT` or a distinct `CHROMOFOLD_ROOT`? | **answered** (2026-07-20) — the native `chromofold_capability.json` sets `root_env: CHROMOFOLD_ROOT`, `root_default_env: WARP_SHADERS_ROOT`; the wrapper's `engine_root()` resolves exactly that order |
-| Q-400-E | Vendor the repo(s) as submodule(s) for host-resident builds (SDD-300 Q-300-D analogue)? | proposed (Stage N) |
-| Q-400-F | Surface **engine provenance** (A: link `../chromoFold` C++/CUDA C ABI · B: port differently in-workspace) as a **build-configurator config-card** control (SDD-709 pattern), so the operator picks the backend at build/config time? | proposed — operator-floated (*"Maybe it will be a choice in the config card"*) |
-| Q-400-G | `../chromoFold` is **pre-implementation** (M0/M1 roadmap). Gate the C-ABI binding (provenance A) on its M1 landing, and use the Warp prototype (341-test oracle) as the interim floor + the fixture/golden-vector source for CI until then? | proposed (recommend yes) |
+| Q-400-E | Vendor the repo(s) as submodule(s) for host-resident builds (SDD-300 Q-300-D analogue)? | **deferred — Stage N** (recommendation, awaiting operator): the SDD-300 committed-metadata + checkout-root pattern already gives honest-degrade without host residency; a submodule adds CI/host-residency weight for no current gain while the engine query path is pre-hardware. Revisit when a resident build is actually needed. |
+| Q-400-F | Surface **engine provenance** (A: link `../chromoFold` C++/CUDA C ABI · B: port differently in-workspace) as a **build-configurator config-card** control (SDD-709 pattern)? | **unblocked** (2026-07-21) — **provenance-B now exists** (`FmIndex`, the CPU-native Rust backend, works today). Both backends are real, so a config-card is now honest to build. Not yet built: surfacing the choice as a build-configurator control is the remaining step, an operator call on whether to expose it (the two backends already coexist in-crate). |
+| Q-400-G | `../chromoFold` is pre-implementation on the device path. Gate the C-ABI binding (provenance A) on its M1 landing, Warp prototype as the interim floor/fixture source? | **recommend yes — already in effect**: the `linked` feature is OFF by default and the safe host path returns `NotImplemented` until step 7, so provenance-A's device path is de-facto gated; the committed Warp golden vectors are the CI fixture source today. Operator confirmation closes it. |
 
 ## Way forward (phased — each phase its own PR + gate)
 
@@ -211,14 +211,25 @@ loopback), a `dashboard-catalog.yaml` `science`-category entry, the generated `d
 the `feature-coverage.yaml` move from a cli_only waiver to `coverage: chromofold → [chromofold]` (the verb now has
 a dashboard home). Read-only end to end (R10212/SB-077); the panel shows "offline" until step 7 gives it live data.
 
-> Note: `sovereign-osctl master-dashboard render` is currently blocked by a **pre-existing** port collision from
-> the just-merged F-2026-070 (the networking triplet `d-12-networking`/`edge-firewall`/`network-edge` all share
-> :8139 in `dashboard-routes.yaml` at HEAD). ChromoFold's route (:8147) is unique and not involved; the collision
-> reproduces on HEAD without any ChromoFold change. Left for the networking workstream — out of SDD-400 scope.
+**Provenance-B CPU FM-index landed (2026-07-21, operator: *"Build provenance-B (Rust FM-index)"*)** — a
+self-contained, `unsafe`-free `FmIndex` in `crates/sovereign-chromofold/src/fm.rs`: BWT (via suffix array) + C-table
++ Occ rank, FM backward search for `count`/`ranges`/`locate`, and a derived n-gram `predict`. It is the **working
+search path with no GPU and no native library** — the CPU sibling of the GPU engine (provenance-A). Correctness is
+proven against a **naive substring oracle** (a known "abracadabra"/"mississippi" case + a 200×20 randomized
+cross-check — 4000 assertions), so it agrees with any correct FM-index, ChromoFold's included. Reference-grade
+(O(n² log n) SA, dense σ·n Occ) — the honest, verifiable floor; a production build uses provenance-A or a
+wavelet-tree rank. The descriptor now carries `cpu_fm_index: true`, and the `chromofold selftest` binary runs a
+real functional check (count/locate known answers) instead of a stub.
 
-**Remaining:** only step 7 (real link + host→device marshalling + bit-for-bit golden-vector round-trip vs the
-Warp oracle — hardware-gated). Provenance option B (native-Rust port) and the config-card (Q-400-F) remain open
-operator calls.
+> Note (resolved): the pre-existing F-2026-070 :8139 networking-triplet port collision that had blocked
+> `master-dashboard render` was fixed by the same merge that landed the parallel work — the full
+> panel/dashboard/systemd sweep is now green. ChromoFold's route (:8147) was never involved.
+
+**Remaining:** only step 7 — provenance-A's **GPU** path (real link + host→device marshalling + bit-for-bit
+golden-vector round-trip vs the Warp oracle), **hardware-gated**. Everything decision-free and CPU-doable is done.
+Open questions dispositioned: Q-400-E deferred to Stage N; **Q-400-F unblocked** (both backends now exist — the
+build-configurator config-card is buildable, an operator call on whether to expose it); Q-400-G recommend-yes and
+already de-facto in effect via the off-by-default `linked` feature.
 
 ## Cross-references
 

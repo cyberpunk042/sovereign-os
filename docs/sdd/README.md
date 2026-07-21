@@ -26,7 +26,7 @@ on 2026-07-09 — SDD-070), each session allocates numbers **within its own disj
 > There is **no shared "any new / unassigned → 900–999" catch-all** — it was itself a collision
 > source (two unassigned sessions both grabbed the next free 900-number: SDD-900 on 2026-07-12,
 > SDD-969 on 2026-07-13). **Every new unassigned session claims its OWN disjoint 100-wide block**
-> and adds a row here (`800–899` + `700–799` + `600–699` + `500–599` are taken → next free block: `400–499`, …).
+> and adds a row here (`800–899` + `700–799` + `600–699` + `500–599` + `400–499` are taken → the next unassigned session claims the next free disjoint block and coordinates in this registry, …).
 > See SDD-100 amendments (2026-07-12, 2026-07-13).
 
 The historical `064–071` / `E11.M32–M38` numbers (allocated before banding) stay as-is — the
