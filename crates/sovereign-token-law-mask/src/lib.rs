@@ -201,12 +201,34 @@ impl TokenLawPlanes {
     /// kernel. The result is the set of tokens allowed by the grammar **and**
     /// every policy plane at once: pass it to
     /// `DecoderStack::generate_dynamic_token_law_until` or [`mask_logits`].
+    ///
+    /// This is the single-dynamic-source case of
+    /// [`combine_with_dynamics`](Self::combine_with_dynamics).
     #[must_use]
     pub fn combine_with(&self, dynamic_allow_ids: &[usize]) -> Vec<u64> {
-        let dynamic = pack_allowed(dynamic_allow_ids, self.words);
-        let mut refs: Vec<&[u64]> = Vec::with_capacity(self.static_planes.len() + 1);
-        refs.push(&dynamic);
+        self.combine_with_dynamics(&[dynamic_allow_ids])
+    }
+
+    /// Combine **several** dynamic planes — each an allow-*list* of token ids
+    /// reported by an independent per-position constraint (a grammar's
+    /// `allowed_ids`, a regex's `allowed_token_ids`, a tool-name enum) — with all
+    /// static policy planes, via the M00117 [`token_law_combine`] `And` kernel. A
+    /// token survives only if **every** dynamic source **and** every static plane
+    /// allows it — so a model can be confined by grammar ∧ regex ∧ policy at once
+    /// (SDD-503). With no dynamic and no static planes the result is all-allowed
+    /// (identity).
+    #[must_use]
+    pub fn combine_with_dynamics(&self, dynamic_allow_id_lists: &[&[usize]]) -> Vec<u64> {
+        let dynamics: Vec<Vec<u64>> = dynamic_allow_id_lists
+            .iter()
+            .map(|ids| pack_allowed(ids, self.words))
+            .collect();
+        let mut refs: Vec<&[u64]> = Vec::with_capacity(dynamics.len() + self.static_planes.len());
+        refs.extend(dynamics.iter().map(Vec::as_slice));
         refs.extend(self.static_planes.iter().map(Vec::as_slice));
+        if refs.is_empty() {
+            return vec![u64::MAX; self.words];
+        }
         token_law_combine(&refs, LawCombine::And)
     }
 }
@@ -323,5 +345,35 @@ mod tests {
         let combined = planes.combine_with(&[0, 1, 70]);
         // grammar {0,1,70} AND static {0,1} (widened) = {0,1}
         assert_eq!(combined, vec![0b11u64, 0u64]);
+    }
+
+    #[test]
+    fn multiple_dynamic_planes_all_intersect_with_policy() {
+        // vocab 8. Static safety plane bans token 6 → {0,1,2,3,4,5,7}.
+        // Dynamic source A (grammar) allows {2,5,6}; dynamic source B (regex)
+        // allows {5,6,7}. grammar ∧ regex = {5,6}; ∧ safety (no 6) = {5}.
+        // A constraint NO single source expresses — SDD-503 multi-source.
+        let planes = TokenLawPlanes::new(8).with_allow_ids(&[0, 1, 2, 3, 4, 5, 7]);
+        let a = [2usize, 5, 6];
+        let b = [5usize, 6, 7];
+        let combined = planes.combine_with_dynamics(&[&a, &b]);
+        assert_eq!(combined, pack_allowed(&[5], 1));
+    }
+
+    #[test]
+    fn combine_with_is_the_single_dynamic_case_of_combine_with_dynamics() {
+        let planes = TokenLawPlanes::new(8).with_allow_ids(&[0, 1, 2, 3, 4, 6, 7]);
+        let ids = [2usize, 5, 6];
+        assert_eq!(
+            planes.combine_with(&ids),
+            planes.combine_with_dynamics(&[&ids])
+        );
+    }
+
+    #[test]
+    fn no_planes_at_all_is_identity() {
+        // no static planes, no dynamic sources → everything allowed.
+        let planes = TokenLawPlanes::new(8);
+        assert_eq!(planes.combine_with_dynamics(&[]), vec![u64::MAX]);
     }
 }
