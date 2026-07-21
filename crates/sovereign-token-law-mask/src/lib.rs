@@ -112,6 +112,105 @@ impl LogitProcessor for TokenLawMask {
     }
 }
 
+/// Pack an allow-*list* (token ids the caller permits) into the packed `Vec<u64>`
+/// allow-mask this crate + [`token_law_combine`] consume. `words` is the mask
+/// width `⌈V/64⌉` (so a plane covers the whole vocabulary even when few tokens
+/// are allowed); ids `>= words*64` are dropped. This is the seam that lets a
+/// dynamic constraint that reports allowed *ids* (e.g.
+/// `sovereign-token-grammar-mask`'s `allowed_ids()`, or
+/// `sovereign-regex-constrain`) become a token-law *plane* that composes with
+/// the others (SDD-501).
+#[must_use]
+pub fn pack_allowed(ids: &[usize], words: usize) -> Vec<u64> {
+    let mut mask = vec![0u64; words];
+    for &t in ids {
+        let word = t >> 6;
+        if word < words {
+            mask[word] |= 1u64 << (t & 63);
+        }
+    }
+    mask
+}
+
+/// Compose several token-law **planes** — the M00117 "grammar / schema / tool /
+/// safety / route" bitsets — into one allowed-token mask per step, so a running
+/// model is confined by **all** of them at once (SDD-501). The static planes
+/// (safety denylist, tool/schema allow-list — fixed across a generation) are
+/// held here; a dynamic plane (a grammar/regex constraint recomputed each
+/// position) is AND-combined in via [`TokenLawPlanes::combine_with`]. The
+/// combine is the real M00117 [`token_law_combine`] kernel — `And`, so a token
+/// survives only if every plane allows it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TokenLawPlanes {
+    words: usize,
+    static_planes: Vec<Vec<u64>>,
+}
+
+impl TokenLawPlanes {
+    /// A plane set over a `vocab`-token vocabulary (mask width `⌈vocab/64⌉`).
+    #[must_use]
+    pub fn new(vocab: usize) -> Self {
+        Self {
+            words: vocab.div_ceil(64),
+            static_planes: Vec::new(),
+        }
+    }
+
+    /// The mask width in `u64` words (`⌈vocab/64⌉`).
+    #[must_use]
+    pub fn words(&self) -> usize {
+        self.words
+    }
+
+    /// Add a static plane from a pre-packed allow-mask (widened/truncated to the
+    /// vocabulary width so all planes align for the combine).
+    #[must_use]
+    pub fn with_plane(mut self, mut allow: Vec<u64>) -> Self {
+        allow.resize(self.words, 0);
+        self.static_planes.push(allow);
+        self
+    }
+
+    /// Add a static plane from an allow-*list* of token ids (packed here).
+    #[must_use]
+    pub fn with_allow_ids(self, ids: &[usize]) -> Self {
+        let words = self.words;
+        self.with_plane(pack_allowed(ids, words))
+    }
+
+    /// Number of static planes held.
+    #[must_use]
+    pub fn plane_count(&self) -> usize {
+        self.static_planes.len()
+    }
+
+    /// Combine the static planes alone (no dynamic constraint) into one
+    /// allow-mask. With no planes this is "all allowed" (identity).
+    #[must_use]
+    pub fn combine_static(&self) -> Vec<u64> {
+        if self.static_planes.is_empty() {
+            return vec![u64::MAX; self.words];
+        }
+        let refs: Vec<&[u64]> = self.static_planes.iter().map(Vec::as_slice).collect();
+        token_law_combine(&refs, LawCombine::And)
+    }
+
+    /// Combine a dynamic plane — given as the allow-*list* of token ids a
+    /// per-position constraint reports (e.g. `TokenGrammarMask::allowed_ids`) —
+    /// with all static planes, via the M00117 [`token_law_combine`] `And`
+    /// kernel. The result is the set of tokens allowed by the grammar **and**
+    /// every policy plane at once: pass it to
+    /// `DecoderStack::generate_dynamic_token_law_until` or [`mask_logits`].
+    #[must_use]
+    pub fn combine_with(&self, dynamic_allow_ids: &[usize]) -> Vec<u64> {
+        let dynamic = pack_allowed(dynamic_allow_ids, self.words);
+        let mut refs: Vec<&[u64]> = Vec::with_capacity(self.static_planes.len() + 1);
+        refs.push(&dynamic);
+        refs.extend(self.static_planes.iter().map(Vec::as_slice));
+        token_law_combine(&refs, LawCombine::And)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,5 +277,51 @@ mod tests {
         m.process(&[], &mut via_trait);
         m.apply(&mut via_apply);
         assert_eq!(via_trait, via_apply);
+    }
+
+    #[test]
+    fn pack_allowed_sets_the_right_bits_and_drops_out_of_range() {
+        // allow {1, 3, 65} over a 2-word (128-token) mask
+        let m = pack_allowed(&[1, 3, 65], 2);
+        assert_eq!(m, vec![0b1010u64, 1u64 << 1]); // word0: bits1,3 ; word1: bit65-64=1
+        // an id past the width is dropped, not a panic
+        assert_eq!(pack_allowed(&[200], 1), vec![0u64]);
+    }
+
+    #[test]
+    fn planes_and_compose_grammar_with_static_policy() {
+        // vocab 8. Static safety plane bans token 5 → allows {0,1,2,3,4,6,7}.
+        // Dynamic grammar plane (this step) allows {2, 5, 6}.
+        // AND → {2, 6} (5 is grammar-legal but safety-banned; the composition
+        // is exactly the M00117 intersection).
+        let planes = TokenLawPlanes::new(8).with_allow_ids(&[0, 1, 2, 3, 4, 6, 7]);
+        assert_eq!(planes.plane_count(), 1);
+        let combined = planes.combine_with(&[2, 5, 6]);
+        // combined allow bits = {2,6} = 0b0100_0100 = 0x44
+        assert_eq!(combined, vec![0b0100_0100u64]);
+        // and it equals the raw kernel of the two packed planes
+        let grammar = pack_allowed(&[2, 5, 6], 1);
+        let safety = pack_allowed(&[0, 1, 2, 3, 4, 6, 7], 1);
+        let refs: [&[u64]; 2] = [&grammar, &safety];
+        assert_eq!(combined, token_law_combine(&refs, LawCombine::And));
+    }
+
+    #[test]
+    fn empty_planes_are_identity_grammar_alone_survives() {
+        // No static planes → combine_with is just the (packed) grammar plane.
+        let planes = TokenLawPlanes::new(8);
+        assert_eq!(planes.combine_static(), vec![u64::MAX]); // all allowed
+        assert_eq!(planes.combine_with(&[1, 4]), pack_allowed(&[1, 4], 1));
+    }
+
+    #[test]
+    fn with_plane_widens_to_the_vocabulary() {
+        // a narrow plane (1 word) added to a 2-word plane set is zero-widened
+        // so the combine aligns instead of truncating the vocabulary.
+        let planes = TokenLawPlanes::new(100).with_plane(vec![0b11u64]); // words = 2
+        assert_eq!(planes.words(), 2);
+        let combined = planes.combine_with(&[0, 1, 70]);
+        // grammar {0,1,70} AND static {0,1} (widened) = {0,1}
+        assert_eq!(combined, vec![0b11u64, 0u64]);
     }
 }
