@@ -3,7 +3,7 @@
 //!
 //! Every other crate in this workspace forbids `unsafe`
 //! (`[workspace.lints.rust] unsafe_code = "forbid"`). Binding a C ABI needs
-//! `extern "C"` + `unsafe` call sites, so — per **SDD-500** — this is the single,
+//! `extern "C"` + `unsafe` call sites, so — per **SDD-400** — this is the single,
 //! operator-approved place they live (the SECOND carve-out after `sovereign-simd`).
 //! The safe surface callers use is [`sovereign-chromofold`]; nothing outside this
 //! crate ever sees a raw device pointer or writes `unsafe`.
@@ -31,7 +31,7 @@
 //!
 //! The `extern "C"` block + `unsafe {}` wrappers are behind the OFF-by-default
 //! `linked` feature. With it off (the default, and the only state possible today
-//! while `libchromofold` is pre-implementation — SDD-500 Q-500-G) the crate
+//! while `libchromofold` is pre-implementation — SDD-400 Q-400-G) the crate
 //! compiles as a pure stub, links nothing, and [`linked`] reports `false` — so
 //! the box behaves exactly as it does without ChromoFold.
 

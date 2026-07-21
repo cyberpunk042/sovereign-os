@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """``sovereign-osctl chromofold`` — read-only, honest-degrade CLI for the
-ChromoFold GPU-resident compressed-domain search engine (SDD-500).
+ChromoFold GPU-resident compressed-domain search engine (SDD-400).
 
 Mirrors the native engine's ``chromofold info`` / ``chromofold selftest`` on the
 sovereign-os side, with ZERO GPU and ZERO mutation:
@@ -15,7 +15,7 @@ sovereign-os side, with ZERO GPU and ZERO mutation:
 Source of truth is the native ``packaging/chromofold_capability.json`` in the
 resident engine checkout, resolved from ``CHROMOFOLD_ROOT`` (else
 ``WARP_SHADERS_ROOT``) — the root contract the native descriptor declares
-(SDD-500 Q-500-D). These are READ-ONLY diagnostics: when no checkout is resident
+(SDD-400 Q-400-D). These are READ-ONLY diagnostics: when no checkout is resident
 they **honestly report the offline state and exit 0** (a successful status
 report, like ``warp status``) — never fabricating a capability or a search result
 (SB-077). Only a resident-but-broken fixture makes ``selftest`` fail (exit 1).

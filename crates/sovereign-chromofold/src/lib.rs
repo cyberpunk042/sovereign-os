@@ -2,7 +2,7 @@
 //!
 //! ChromoFold is a GPU-resident, random-access, **searchable** entropy+index
 //! layer over the token-/tensor-shaped data an LLM runs on. This crate is the
-//! safe wrapper (**SDD-500**) — it forbids `unsafe` (inherited from the
+//! safe wrapper (**SDD-400**) — it forbids `unsafe` (inherited from the
 //! workspace) and calls only the safe entry points of the sanctioned FFI crate
 //! [`sovereign_chromofold_sys`]. It is an **opt-in, off-by-default** sibling to
 //! the existing kv/quant/compress reference controllers, never a replacement.
@@ -22,7 +22,7 @@
 //! `locate`) is bound in `sovereign-chromofold-sys`, but it is **device-native**
 //! (every pointer is a device pointer). The safe host-side surface here —
 //! marshalling a host pattern into device memory, loading a `cf_fm_view`, running
-//! the query — is the hardware-gated **step 7** of SDD-500. Until then [`count`],
+//! the query — is the hardware-gated **step 7** of SDD-400. Until then [`count`],
 //! [`ranges`], [`locate`] honest-degrade: [`ChromoFoldError::Unavailable`] when no
 //! engine is linked, [`ChromoFoldError::NotImplemented`] when it is (the ABI is
 //! there; the host marshalling is not). [`predict`] is a *derived* n-gram capability
@@ -64,7 +64,7 @@ pub fn availability() -> Availability {
 }
 
 /// Resolve the resident engine checkout: `CHROMOFOLD_ROOT`, else `WARP_SHADERS_ROOT`
-/// (the native capability contract, SDD-500 Q-500-D). `None` means honest-degrade —
+/// (the native capability contract, SDD-400 Q-400-D). `None` means honest-degrade —
 /// no checkout resident, so metadata/fixtures come from the committed source-of-truth
 /// and device operations are offline.
 #[must_use]
@@ -204,9 +204,9 @@ pub enum ChromoFoldError {
     )]
     Unavailable,
     /// The C ABI is bound, but the safe host-side path (device marshalling of the
-    /// query, SDD-500 step 7) is not implemented yet — honest, not fabricated.
+    /// query, SDD-400 step 7) is not implemented yet — honest, not fabricated.
     #[error(
-        "chromofold safe host-side path not implemented yet (SDD-500 step 7: device marshalling of the query)"
+        "chromofold safe host-side path not implemented yet (SDD-400 step 7: device marshalling of the query)"
     )]
     NotImplemented,
 }
@@ -217,7 +217,7 @@ pub enum ChromoFoldError {
 /// # Errors
 /// [`ChromoFoldError::Unavailable`] when no engine is linked; otherwise
 /// [`ChromoFoldError::NotImplemented`] — the `cf_fm_count_async` C ABI is bound in
-/// `sovereign-chromofold-sys`, but the host→device marshalling is SDD-500 step 7.
+/// `sovereign-chromofold-sys`, but the host→device marshalling is SDD-400 step 7.
 pub fn count(_pattern: &[u32]) -> Result<u64, ChromoFoldError> {
     match availability() {
         Availability::Unavailable => Err(ChromoFoldError::Unavailable),
@@ -252,7 +252,7 @@ pub fn locate(_pattern: &[u32]) -> Result<Vec<u64>, ChromoFoldError> {
 /// draft model built on FM-index count/ranges (not a C ABI entry point).
 ///
 /// # Errors
-/// [`ChromoFoldError::NotImplemented`] — the derived path is future work (SDD-500).
+/// [`ChromoFoldError::NotImplemented`] — the derived path is future work (SDD-400).
 pub fn predict(_context: &[u32]) -> Result<Vec<(u32, f32)>, ChromoFoldError> {
     Err(ChromoFoldError::NotImplemented)
 }

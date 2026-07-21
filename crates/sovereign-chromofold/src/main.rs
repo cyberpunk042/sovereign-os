@@ -1,11 +1,11 @@
 //! `chromofold` — the honest-degrade diagnostic CLI for the ChromoFold surface.
 //!
 //! Mirrors the upstream engine's `chromofold info` / `chromofold selftest`
-//! (SDD-500): `info` prints the [`sovereign_chromofold::CapabilityDescriptor`] as
+//! (SDD-400): `info` prints the [`sovereign_chromofold::CapabilityDescriptor`] as
 //! JSON — the machine-readable truth about which primitives this build offers —
 //! and `selftest` runs the offline, no-GPU round-trip that validates the surface
 //! without ever fabricating a capability the build lacks. It is the precursor to
-//! the `sovereign-osctl chromofold` verb (SDD-500 §Way forward step 5).
+//! the `sovereign-osctl chromofold` verb (SDD-400 §Way forward step 5).
 
 use std::process::ExitCode;
 
@@ -35,7 +35,7 @@ fn selftest() -> Result<(), String> {
     }
     // the FM-index surface must honest-degrade, never fabricate a search result:
     // Unavailable when no engine is linked, NotImplemented when it is (the C ABI is
-    // bound but the host-side device marshalling is SDD-500 step 7).
+    // bound but the host-side device marshalling is SDD-400 step 7).
     match (availability(), count(&[1, 2, 3])) {
         (Availability::Unavailable, Err(ChromoFoldError::Unavailable)) => {}
         (Availability::Linked, Err(ChromoFoldError::NotImplemented)) => {}

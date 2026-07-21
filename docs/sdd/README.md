@@ -21,7 +21,7 @@ on 2026-07-09 — SDD-070), each session allocates numbers **within its own disj
 | **phase-1 audit — continuation** (build-and-flash readiness) | **700–799** | **E11.M700–M799** |
 | **control-bits** (M002 bit-machine per-token integration) | **500–599** | **E11.M500–M599** |
 | **cockpit-hotswap** (settings-pane hotswaps) | **600–699** | **E11.M600–M699** |
-| **chromofold-integration** (ChromoFold compressed-domain, opt-in) | **500–599** | **E11.M500–M599** |
+| **chromofold-integration** (ChromoFold compressed-domain, opt-in) | **400–499** | **E11.M400–M499** |
 
 > There is **no shared "any new / unassigned → 900–999" catch-all** — it was itself a collision
 > source (two unassigned sessions both grabbed the next free 900-number: SDD-900 on 2026-07-12,

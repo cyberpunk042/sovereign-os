@@ -209,7 +209,7 @@ Benchmark a scene (ms/frame) \[en] exec-rail-gated
 .SS chromofold
 .TP
 \f[B]sovereign-osctl chromofold info [\[en]json]\f[R]
-SDD-500: ChromoFold compressed-domain search \[en] print the read-only capability descriptor (ABI version, library, headers, and the per-primitive map incl. the Lane-A fm_count) read from the native packaging/chromofold_capability.json in the resident engine checkout (CHROMOFOLD_ROOT, else WARP_SHADERS_ROOT). Reports the offline state honestly (exit 0) when none is resident.
+SDD-400: ChromoFold compressed-domain search \[en] print the read-only capability descriptor (ABI version, library, headers, and the per-primitive map incl. the Lane-A fm_count) read from the native packaging/chromofold_capability.json in the resident engine checkout (CHROMOFOLD_ROOT, else WARP_SHADERS_ROOT). Reports the offline state honestly (exit 0) when none is resident.
 .TP
 \f[B]sovereign-osctl chromofold selftest [\[en]json]\f[R]
 The no-GPU header-seam self-test: validate the committed reference fixtures\[cq] 4-byte magic + u32-LE version against the engine\[cq]s own capability descriptor (mirroring packaging/seam_check.c). Never touches a GPU or mutates state.

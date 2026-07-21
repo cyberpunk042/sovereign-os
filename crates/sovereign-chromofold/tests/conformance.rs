@@ -1,7 +1,7 @@
-//! Conformance seam (SDD-500) — the sovereign-os side of the native session's
+//! Conformance seam (SDD-400) — the sovereign-os side of the native session's
 //! "C-link conformance test", minus the link.
 //!
-//! It cannot link `libchromofold` (pre-implementation — SDD-500 Q-500-G), so it
+//! It cannot link `libchromofold` (pre-implementation — SDD-400 Q-400-G), so it
 //! verifies the parts that hold regardless of the engine being present: the
 //! bound ABI constants match the committed C header, and the committed
 //! `cf_wavelet_view` fixture satisfies every layout invariant the header

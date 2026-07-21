@@ -1,9 +1,9 @@
 [Unit]
-Description=Sovereign ChromoFold compressed-domain search read-only REST API + panel (SDD-500)
+Description=Sovereign ChromoFold compressed-domain search read-only REST API + panel (SDD-400)
 Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/chromofold-api.py
 # Read-only observability over the ChromoFold capability descriptor (the
 # ../chromoFold C++/CUDA engine + its Warp oracle). A real device search stays
-# the hardware-gated engine path (SDD-500 step 7) — never a web write. Opt-in,
+# the hardware-gated engine path (SDD-400 step 7) — never a web write. Opt-in,
 # OFF by default: with no engine checkout resident it honestly reports offline.
 After=network.target
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scripts/operator/chromofold-api.py — SDD-500 ChromoFold panel HTTP API + webapp.
+scripts/operator/chromofold-api.py — SDD-400 ChromoFold panel HTTP API + webapp.
 
 Read-only observability for the ChromoFold compressed-domain search engine (the
 ../chromoFold C++/CUDA engine + its ../warp-solar-system-shaders Warp oracle):
@@ -10,7 +10,7 @@ the resolved engine root) and a no-GPU header-seam selftest.
 It shells to scripts/inference/chromofold.py (which reads the native
 packaging/chromofold_capability.json from CHROMOFOLD_ROOT / WARP_SHADERS_ROOT).
 This daemon is stdlib-only — it NEVER imports the engine, NEVER touches a GPU,
-and NEVER runs a search. The real device query is the hardware-gated SDD-500
+and NEVER runs a search. The real device query is the hardware-gated SDD-400
 step 7; this daemon fail-closes 405 on writes (R10212 / SB-077).
 
 Endpoints:
@@ -118,11 +118,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         # deliberately read-only: a real device search is the hardware-gated
-        # SDD-500 step 7, not a web verb. Fail closed.
+        # SDD-400 step 7, not a web verb. Fail closed.
         return self._send(405, json.dumps({
             "error": "chromofold-api is read-only",
             "hint": "info/selftest are diagnostics; device search is the "
-                    "hardware-gated engine path (SDD-500 step 7), never a web write"}))
+                    "hardware-gated engine path (SDD-400 step 7), never a web write"}))
 
 
 def main():

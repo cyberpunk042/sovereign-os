@@ -778,7 +778,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     {name:'Science & Simulation', items:[
       {id:'—', dir:'science', label:'Science Tools', ico:'⚛', desc:'The operator\'s science catalog — DNA / protein / particle tools. NVIDIA Warp (particles) is integrated: a differentiable particle sim on GPU (RTX PRO 6000) or CPU fallback. Read-only; running a sim is the gated sovereign-osctl science run.', menuHover:'The GPU as a scientific instrument — NVIDIA Warp compiling Python kernels to run simulation and numeric compute on the same Blackwell silicon (RTX PRO 6000 + RTX 5090) and RTX 4090 that serve inference, so the machine is a compute instrument, not only an inference server. It answers ‘what can the box compute for me beyond serving models, and is that capability ready.’ Open it to confirm Warp is live and which GPU it targets, to browse the available science tools, or to run a simulation — remembering that a heavy run competes for the very VRAM inference needs (watch D-09). It is the panel that shows the box is general-purpose compute you own, not a single-purpose appliance, and it draws on the same GPU budget the orchestration and hardware-pressure panels track.'},
       {id:'—', dir:'warp', label:'Warp Management', ico:'✵', desc:'Real management of the warp-solar-system-shaders NVIDIA-Warp engine — 217 scenes + 20 lib packages, the scene→lib / lib→lib relation graph drawn inline, and per-scene Render / Bench execution through the control-exec rail (GPU or CPU fallback).', menuHover:'The engine room of the box’s NVIDIA-Warp rendering project, made navigable and runnable. Where the Science panel catalogs Warp as one tool, this opens the whole warp-solar-system-shaders engine: 217 auto-discovered scene shaders and the 20 lib packages they are built from, with the real Python import graph between them drawn as a dependency map so you can SEE which scenes lean on which libs and how the libs stack. It answers ‘what is in this engine and how does it fit together’ — and then lets you act: each scene carries Render and Bench buttons that execute through the same sanctioned control-exec rail as every other privileged action (dry-run by default, type-to-confirm), or degrade to a copyable command where the panel is not fronted by the exec daemon. Open it to explore the engine’s structure, to render or benchmark a specific scene from the cockpit, or to understand the relations a flat catalog hides. The scene/lib catalog is generated from the project and committed, so it is the source of truth even though the shaders repo is not resident on the host.'},
-      {id:'—', dir:'chromofold', label:'ChromoFold', ico:'🧬', desc:'ChromoFold compressed-domain search (SDD-500) — the GPU-resident, random-access, searchable entropy+index layer over the data an LLM runs on (KV, weights, MoE, adapters, prompt caches, token streams), from the ../chromoFold engine. Read-only status; opt-in and OFF by default.', menuHover:'The read-only face of the ChromoFold integration — a GPU-resident, searchable compression engine for the token- and tensor-shaped data an LLM runs on, composed ON TOP OF quantization (it is the lossless entropy + random-access + FM-index layer, not a quantizer). It answers ‘is the compressed-domain search engine present, and what can it do here’ — showing the bound C-ABI capabilities (packed-wavelet access/rank, the RRR self-index, and the Lane-A FM-index count/ranges/locate) read from the native capability descriptor. It is opt-in and OFF by default: with no engine checkout + GPU resident it honestly reports OFFLINE and never fabricates a result (SB-077); the real device search is the hardware-gated step, and this panel only ever reads (R10212). Open it to confirm the engine’s presence and ABI, to see which primitives are available, or to read where the integration stands. It sits beside the Warp panel — both surface the sibling warp-solar-system-shaders / ../chromoFold projects.'},
+      {id:'—', dir:'chromofold', label:'ChromoFold', ico:'🧬', desc:'ChromoFold compressed-domain search (SDD-400) — the GPU-resident, random-access, searchable entropy+index layer over the data an LLM runs on (KV, weights, MoE, adapters, prompt caches, token streams), from the ../chromoFold engine. Read-only status; opt-in and OFF by default.', menuHover:'The read-only face of the ChromoFold integration — a GPU-resident, searchable compression engine for the token- and tensor-shaped data an LLM runs on, composed ON TOP OF quantization (it is the lossless entropy + random-access + FM-index layer, not a quantizer). It answers ‘is the compressed-domain search engine present, and what can it do here’ — showing the bound C-ABI capabilities (packed-wavelet access/rank, the RRR self-index, and the Lane-A FM-index count/ranges/locate) read from the native capability descriptor. It is opt-in and OFF by default: with no engine checkout + GPU resident it honestly reports OFFLINE and never fabricates a result (SB-077); the real device search is the hardware-gated step, and this panel only ever reads (R10212). Open it to confirm the engine’s presence and ABI, to see which primitives are available, or to read where the integration stands. It sits beside the Warp panel — both surface the sibling warp-solar-system-shaders / ../chromoFold projects.'},
     ]},
   ];
   // Expose the catalog (labels + rich per-panel narratives) so the course
@@ -1050,10 +1050,35 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       off:{m:'—',c:'sovereign-cpu-dispatch',r:'—',n:'scalar baseline, any x86-64 (the bit-machine is not run)'}
     };
     var avxBacking=document.getElementById('so-avx-backing');
+    var avxLiveActive=null;   // the mode ACTUALLY active on the box (GET /api/control/avx-mode)
     function avxBackingRefresh(){ if(!avxBacking||!avxSel)return; var b=AVX_BACKING[avxSel.value]||AVX_BACKING.builtin;
+      var live='';
+      if(avxLiveActive){
+        var same=(avxSel.value===avxLiveActive);
+        live='<br><b>Active on the box:</b> <span class="mono">'+avxLiveActive+'</span>'+
+          (avxLiveActive==='custom'||avxLiveActive==='hybrid'?' — bit-machine engaged':' — bit-machine idle')+
+          (same?' (selected)':' — Apply to switch to '+avxSel.value);
+      }
       avxBacking.innerHTML='<b>Backed by:</b> '+b.n+'<br><b>Milestones:</b> <span class="mono">'+b.m+'</span>'+
-        '<br><b>Crates:</b> <span class="mono">'+b.c+'</span><br><b>Routes:</b> <span class="mono">'+b.r+'</span>'; }
-    if(avxSel){ avxSel.addEventListener('change',avxBackingRefresh); avxBackingRefresh(); }
+        '<br><b>Crates:</b> <span class="mono">'+b.c+'</span><br><b>Routes:</b> <span class="mono">'+b.r+'</span>'+live; }
+    // ── Live active-mode prefill (2026-07-21): the AVX select defaulted to the
+    //    first option ('custom') on every panel regardless of the box's real
+    //    mode — the notifykit-class blank-select gap. GET /api/control/avx-mode
+    //    is the read-only inventory (same truth as `avx-mode inventory`); set
+    //    the select to `active` so it shows live state, and surface whether the
+    //    bit-machine is engaged. Silent no-op when the exec API is absent
+    //    (static serving) — the select stays fully usable at its default. ──
+    function soAvxLive(){
+      fetch('/api/control/avx-mode',{headers:{Accept:'application/json'}})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(p){
+          if(!p || !p.available || !p.active) return;
+          avxLiveActive=p.active;
+          if(avxSel && AVX_BACKING[p.active]) avxSel.value=p.active;
+          avxBackingRefresh();
+        },function(){}).catch(function(){});
+    }
+    if(avxSel){ avxSel.addEventListener('change',avxBackingRefresh); avxBackingRefresh(); soAvxLive(); }
     // ── Provider / origin drill-in modal (SDD-600 Part 2) — edit ONE consumer.
     //    Each consumer speaks its own protocol; the copy is the exact swap CLI. ──
     var SO_PROVIDERS=[
@@ -1803,7 +1828,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <body>
 
 <h1>ChromoFold</h1>
-<p class="sub">GPU-resident, searchable compressed-domain engine (SDD-500) — <b>opt-in, off by default</b>. Read-only status; this panel never runs a query or mutates state (R10212 / SB-077).</p>
+<p class="sub">GPU-resident, searchable compressed-domain engine (SDD-400) — <b>opt-in, off by default</b>. Read-only status; this panel never runs a query or mutates state (R10212 / SB-077).</p>
 
 <div id="banner" class="banner offline">Loading engine status…</div>
 
@@ -1813,7 +1838,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <table class="caps"><thead><tr><th>Primitive</th><th>C ABI</th><th>Header</th></tr></thead><tbody id="caps"><tr><td class="empty" colspan="3">Loading…</td></tr></tbody></table>
 
 <footer>
-  Descriptor read from the native <code>packaging/chromofold_capability.json</code> via <code>sovereign-osctl chromofold info</code> (CHROMOFOLD_ROOT → WARP_SHADERS_ROOT). Engine: <code>../chromoFold</code> (C++/CUDA); oracle: <code>warp-solar-system-shaders/warp_compress</code>. The real device search is the hardware-gated SDD-500 step 7.
+  Descriptor read from the native <code>packaging/chromofold_capability.json</code> via <code>sovereign-osctl chromofold info</code> (CHROMOFOLD_ROOT → WARP_SHADERS_ROOT). Engine: <code>../chromoFold</code> (C++/CUDA); oracle: <code>warp-solar-system-shaders/warp_compress</code>. The real device search is the hardware-gated SDD-400 step 7.
 </footer>
 
 <script>

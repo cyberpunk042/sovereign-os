@@ -1,4 +1,4 @@
-"""Contract for `sovereign-osctl chromofold` (SDD-500).
+"""Contract for `sovereign-osctl chromofold` (SDD-400).
 
 The read-only ChromoFold CLI (`scripts/inference/chromofold.py`) must:
   * exist, be executable, stdlib-only (no network, no third-party deps);

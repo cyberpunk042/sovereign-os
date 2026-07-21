@@ -15,7 +15,7 @@ baseline can neither rot nor be quietly weakened:
   5. crate `.rs` sources hardcode no `/home` `/Users` `/root` absolute paths;
   6. `unsafe` is confined to the sanctioned carve-outs (`sovereign-simd` for
      AVX-512 intrinsics, and `sovereign-chromofold-sys` for the ChromoFold C-ABI
-     FFI per SDD-500 — the only crates the operator permits `unsafe` in).
+     FFI per SDD-400 — the only crates the operator permits `unsafe` in).
 
   7. every member crate inherits the workspace lints at compile time
      (`[lints] workspace = true`), except the sanctioned carve-outs
@@ -45,7 +45,7 @@ CRATES = REPO_ROOT / "crates"
 NO_TEST_ALLOWLIST = {"sovereign-feature-selftest"}
 # The sanctioned `unsafe` carve-outs (operator decisions): `sovereign-simd` for
 # AVX-512 intrinsics, `sovereign-chromofold-sys` for the ChromoFold C-ABI FFI
-# (SDD-500 — the `extern "C"` block + `unsafe {}` call sites, quarantined here).
+# (SDD-400 — the `extern "C"` block + `unsafe {}` call sites, quarantined here).
 UNSAFE_ALLOWLIST = {"sovereign-simd", "sovereign-chromofold-sys"}
 
 _MARKER_RE = re.compile(r"\btodo!\s*\(|\bunimplemented!\s*\(|\bFIXME\b|\bTODO\b")

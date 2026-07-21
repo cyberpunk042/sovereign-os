@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_by": "scripts/webapp/gen-rustdoc-panel-catalog.py",
-  "count": 723,
+  "count": 725,
   "crates": [
     {
       "name": "sovereign-agent-loop",
@@ -133,11 +133,11 @@
     },
     {
       "name": "sovereign-chromofold",
-      "description": "The safe Rust surface for the ChromoFold GPU-resident, searchable compressed-domain engine (SDD-500). Forbids `unsafe` (all FFI is quarantined in `sovereign-chromofold-sys`); reports honest-degrade availability when the engine is not linked, exposes the capability descriptor (the source-of-truth for the honest-degrade UI, SDD-300 pattern), and holds the FM-index `count`/`locate`/`predict` surface as ABI-pending stubs until the native session freezes their stable C ABI (Lane A)."
+      "description": "The safe Rust surface for the ChromoFold GPU-resident, searchable compressed-domain engine (SDD-400). Forbids `unsafe` (all FFI is quarantined in `sovereign-chromofold-sys`); reports honest-degrade availability when the engine is not linked, exposes the capability descriptor (the source-of-truth for the honest-degrade UI, SDD-300 pattern), and holds the FM-index `count`/`locate`/`predict` surface as ABI-pending stubs until the native session freezes their stable C ABI (Lane A)."
     },
     {
       "name": "sovereign-chromofold-sys",
-      "description": "The sanctioned-unsafe FFI carve-out over the ChromoFold native engine's stable C ABI (`chromofold.h`, ABI v0 / M1: packed-wavelet access + rank + fused embedding-gather). Mirrors the committed C header 1:1; the actual link to `libchromofold` is behind the OFF-by-default `linked` feature, so a box with no engine present compiles a pure stub and behaves exactly as today. `unsafe` is confined HERE (SDD-500) \u2014 the safe wrapper is `sovereign-chromofold`."
+      "description": "The sanctioned-unsafe FFI carve-out over the ChromoFold native engine's stable C ABI (`chromofold.h`, ABI v0 / M1: packed-wavelet access + rank + fused embedding-gather). Mirrors the committed C header 1:1; the actual link to `libchromofold` is behind the OFF-by-default `linked` feature, so a box with no engine present compiles a pure stub and behaves exactly as today. `unsafe` is confined HERE (SDD-400) \u2014 the safe wrapper is `sovereign-chromofold`."
     },
     {
       "name": "sovereign-chunker",

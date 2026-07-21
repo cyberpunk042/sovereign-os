@@ -1,9 +1,9 @@
-# SDD-500 — ChromoFold compressed-domain integration (DESIGN / positioning)
+# SDD-400 — ChromoFold compressed-domain integration (DESIGN / positioning)
 
 > Status: **design — positioning only** (no binding code this session; the build is TODO behind operator approval of the Q-rows)
 > Owner: operator-directed 2026-07-20 (verbatim: *"Lets look to start integrating chromoFold coming from : ../warp-solar-system-shaders"* → *"continue, and as usual this is an opt-in feature, its not even on by default"* → *"../chromoFold is the C++ version which we will be allowed to test to if we dont chose to port it differently. Maybe it will be a choice in the config card"*).
-> Mandate module: **E11.M500**.
-> Number band: **500–599** per SDD-100 (first SDD in the new `chromofold-integration` session band; registered in `docs/sdd/SESSIONS.md`).
+> Mandate module: **E11.M400**.
+> Number band: **400–499** per SDD-100 (first SDD in the new `chromofold-integration` session band; registered in `docs/sdd/SESSIONS.md`).
 > Stage: **implement** (positioning locked; **Lane A / FM-index-first** phase-2 scaffolding landed 2026-07-20 — see Build status).
 > Opt-in: **true — OFF BY DEFAULT.** Per the operator's standing opt-in directive and the verbatim above, ChromoFold is never on unless explicitly enabled; a box with no ChromoFold checkout, and every default profile, behaves exactly as today.
 
@@ -79,8 +79,8 @@ Whichever provenance wins, the **PROJECT_SYNC contract binds sovereign-os too**:
 Warp prototype oracle **bit-for-bit** against the frozen golden vectors (`.cfwv`/`.cfrr`) before any timing
 number is trusted — the prototype is the floor, not an optional reference. This is the safety rail that makes a
 provenance *choice* honest: the operator can swap engines behind one config-card control precisely because they
-share one correctness oracle. Surfacing it is proposed (Q-500-F), gated on the pre-implementation timing
-(Q-500-G); nothing is locked here.
+share one correctness oracle. Surfacing it is proposed (Q-400-F), gated on the pre-implementation timing
+(Q-400-G); nothing is locked here.
 
 ## Required coverage (what the eventual build must satisfy — not built this session)
 
@@ -122,29 +122,29 @@ share one correctness oracle. Surfacing it is proposed (Q-500-F), gated on the p
 - **Vendoring the repo as a git submodule** now — deferred to a later stage, mirroring SDD-300's Q-300-D
   (proposed, Stage N).
 - **The Python `transformers` `ChromoFoldCache` path** as the primary binding — the C ABI is the chosen path for
-  the Rust runtime; the Python drop-in cache is noted only as an alternative evaluated and set aside (see Q-500-A).
+  the Rust runtime; the Python drop-in cache is noted only as an alternative evaluated and set aside (see Q-400-A).
 
 ## Open questions (operator decisions before any build)
 
 | Q | Question | Status |
 |---|---|---|
-| Q-500-A | Confirm **native C ABI (Rust FFI)** as the binding, with `unsafe` quarantined in one `-sys` crate + safe wrapper — over the Python `chromofold[torch]` drop-in cache in the gateway loop? | **answered** (operator chose native C ABI, 2026-07-20) — recorded for the record; the Python path is the documented alternative if `libchromofold` is not build-available on SAIN-01 |
-| Q-500-B | Which subsystem binds **first**? KV cache (long-context VRAM win) · weights/MoE bank · or **FM-index compressed-domain search** (the one capability with *no* existing analogue)? | **answered** (2026-07-20) — **Lane A, FM-index-search-first**, confirmed by both this session and the native-engine session (which is landing `cf_count`/`cf_locate`/`cf_predict` in the stable C ABI) |
-| Q-500-C | **CI posture** with no GPU / no SAIN-01 box present: keep the C-ABI/GPU steps hardware-gated and CI-test only the pure seams? | **answered** (2026-07-20) — yes, the SDD-724 split. The native `chromofold_capability.json` declares `conformance_requires_gpu: false` + a `null_arg_contract` (every entry point returns `CF_ERR_INVALID_ARGUMENT` on a NULL pointer *before any CUDA call*), so a linked box validates the real `.so` ABI without a GPU; the sovereign side ships a pure-Rust no-GPU header-seam conformance + a `#[cfg(feature=linked)]` null-arg seam test |
-| Q-500-D | Cross-repo root: `WARP_SHADERS_ROOT` or a distinct `CHROMOFOLD_ROOT`? | **answered** (2026-07-20) — the native `chromofold_capability.json` sets `root_env: CHROMOFOLD_ROOT`, `root_default_env: WARP_SHADERS_ROOT`; the wrapper's `engine_root()` resolves exactly that order |
-| Q-500-E | Vendor the repo(s) as submodule(s) for host-resident builds (SDD-300 Q-300-D analogue)? | proposed (Stage N) |
-| Q-500-F | Surface **engine provenance** (A: link `../chromoFold` C++/CUDA C ABI · B: port differently in-workspace) as a **build-configurator config-card** control (SDD-709 pattern), so the operator picks the backend at build/config time? | proposed — operator-floated (*"Maybe it will be a choice in the config card"*) |
-| Q-500-G | `../chromoFold` is **pre-implementation** (M0/M1 roadmap). Gate the C-ABI binding (provenance A) on its M1 landing, and use the Warp prototype (341-test oracle) as the interim floor + the fixture/golden-vector source for CI until then? | proposed (recommend yes) |
+| Q-400-A | Confirm **native C ABI (Rust FFI)** as the binding, with `unsafe` quarantined in one `-sys` crate + safe wrapper — over the Python `chromofold[torch]` drop-in cache in the gateway loop? | **answered** (operator chose native C ABI, 2026-07-20) — recorded for the record; the Python path is the documented alternative if `libchromofold` is not build-available on SAIN-01 |
+| Q-400-B | Which subsystem binds **first**? KV cache (long-context VRAM win) · weights/MoE bank · or **FM-index compressed-domain search** (the one capability with *no* existing analogue)? | **answered** (2026-07-20) — **Lane A, FM-index-search-first**, confirmed by both this session and the native-engine session (which is landing `cf_count`/`cf_locate`/`cf_predict` in the stable C ABI) |
+| Q-400-C | **CI posture** with no GPU / no SAIN-01 box present: keep the C-ABI/GPU steps hardware-gated and CI-test only the pure seams? | **answered** (2026-07-20) — yes, the SDD-724 split. The native `chromofold_capability.json` declares `conformance_requires_gpu: false` + a `null_arg_contract` (every entry point returns `CF_ERR_INVALID_ARGUMENT` on a NULL pointer *before any CUDA call*), so a linked box validates the real `.so` ABI without a GPU; the sovereign side ships a pure-Rust no-GPU header-seam conformance + a `#[cfg(feature=linked)]` null-arg seam test |
+| Q-400-D | Cross-repo root: `WARP_SHADERS_ROOT` or a distinct `CHROMOFOLD_ROOT`? | **answered** (2026-07-20) — the native `chromofold_capability.json` sets `root_env: CHROMOFOLD_ROOT`, `root_default_env: WARP_SHADERS_ROOT`; the wrapper's `engine_root()` resolves exactly that order |
+| Q-400-E | Vendor the repo(s) as submodule(s) for host-resident builds (SDD-300 Q-300-D analogue)? | proposed (Stage N) |
+| Q-400-F | Surface **engine provenance** (A: link `../chromoFold` C++/CUDA C ABI · B: port differently in-workspace) as a **build-configurator config-card** control (SDD-709 pattern), so the operator picks the backend at build/config time? | proposed — operator-floated (*"Maybe it will be a choice in the config card"*) |
+| Q-400-G | `../chromoFold` is **pre-implementation** (M0/M1 roadmap). Gate the C-ABI binding (provenance A) on its M1 landing, and use the Warp prototype (341-test oracle) as the interim floor + the fixture/golden-vector source for CI until then? | proposed (recommend yes) |
 
 ## Way forward (phased — each phase its own PR + gate)
 
 1. **This SDD (positioning)** — design-lock; `F-2026-119` registered; no code. *(this session)*
 2. **`sovereign-chromofold-sys`** — the `unsafe`-isolated FFI crate over `../chromoFold`'s `libchromofold` C ABI
-   (build-gated on `libchromofold` presence + the engine reaching M1, Q-500-G; pure-Rust FFI-signature +
+   (build-gated on `libchromofold` presence + the engine reaching M1, Q-400-G; pure-Rust FFI-signature +
    `.cfold`-header contract tests in CI; golden-vector round-trip against the Warp oracle). *Provenance B swaps
    this for a safe-Rust primitive verified against the same goldens.*
 3. **`sovereign-chromofold`** — the safe wrapper (no `unsafe` past this line); the chosen first subsystem
-   (Q-500-B) exercised end-to-end behind the checkout root, honest-degrade when absent. **If Q-500-F lands:** an
+   (Q-400-B) exercised end-to-end behind the checkout root, honest-degrade when absent. **If Q-400-F lands:** an
    engine-provenance config-card control (build-configurator, SDD-709 pattern) selecting the backend behind this
    one wrapper surface.
 4. **Cockpit surface** — a read-only panel/section surfacing ratio / resident-VRAM-saved / search availability
@@ -163,7 +163,7 @@ Coordinated with the native-engine session's **Lane A** (FM-index-search-first).
   **committed** `chromofold.h` ABI v0 (`cf_status`, `cf_wavelet_view`, `cf_access_async`, `cf_rank_async` — the
   header's *"FM-index primitive"* —, `cf_embedding_gather_async`; `ABI_VERSION=0`, `CF_WAVELET_SB=8`). The
   `extern "C"` block + `unsafe {}` wrappers are behind the OFF-by-default `linked` feature, so the default build
-  needs no `libchromofold` (which is still pre-implementation, Q-500-G) and the box behaves as today. Registered
+  needs no `libchromofold` (which is still pre-implementation, Q-400-G) and the box behaves as today. Registered
   as the **second** sanctioned-unsafe crate (after `sovereign-simd`) in the workspace-hygiene allowlist + root
   Cargo.toml.
 - **`crates/sovereign-chromofold`** (step 3) — the safe wrapper (`unsafe`-forbidden), the `CapabilityDescriptor`
@@ -184,7 +184,7 @@ Coordinated with the native-engine session's **Lane A** (FM-index-search-first).
   `chromofold_search.h`**: `cf_rrrw_view`/`cf_fm_view` (`#[repr(C)]`, `c_int`-correct) + `cf_rrrw_access`/`rank`
   and the Lane-A **`cf_fm_count`/`cf_fm_ranges`/`cf_fm_locate`** — all behind the OFF-by-default `linked` feature.
   There is **no `cf_predict`** in the ABI — n-gram prediction is a *derived* capability, corrected accordingly.
-- **`sovereign-chromofold`** resolves the engine root (`CHROMOFOLD_ROOT` → `WARP_SHADERS_ROOT`, Q-500-D) and its
+- **`sovereign-chromofold`** resolves the engine root (`CHROMOFOLD_ROOT` → `WARP_SHADERS_ROOT`, Q-400-D) and its
   `CapabilityDescriptor` is now a faithful sovereign-side **mirror of the native `chromofold_capability.json`**
   (schema/library/headers/roots + the 8 capabilities, `fm_count` flagged `sovereign_os_first`). `count`/`ranges`/
   `locate` honest-degrade `Unavailable` (unlinked) / `NotImplemented` (linked; host→device marshalling is step 7);
@@ -214,10 +214,10 @@ a dashboard home). Read-only end to end (R10212/SB-077); the panel shows "offlin
 > Note: `sovereign-osctl master-dashboard render` is currently blocked by a **pre-existing** port collision from
 > the just-merged F-2026-070 (the networking triplet `d-12-networking`/`edge-firewall`/`network-edge` all share
 > :8139 in `dashboard-routes.yaml` at HEAD). ChromoFold's route (:8147) is unique and not involved; the collision
-> reproduces on HEAD without any ChromoFold change. Left for the networking workstream — out of SDD-500 scope.
+> reproduces on HEAD without any ChromoFold change. Left for the networking workstream — out of SDD-400 scope.
 
 **Remaining:** only step 7 (real link + host→device marshalling + bit-for-bit golden-vector round-trip vs the
-Warp oracle — hardware-gated). Provenance option B (native-Rust port) and the config-card (Q-500-F) remain open
+Warp oracle — hardware-gated). Provenance option B (native-Rust port) and the config-card (Q-400-F) remain open
 operator calls.
 
 ## Cross-references
@@ -226,7 +226,7 @@ operator calls.
   (`warp-solar-system-shaders`); source of the committed-metadata + `WARP_SHADERS_ROOT` + honest-degrade pattern
   and the submodule-deferral precedent (Q-300-B / Q-300-D).
 - **SDD-724** (`docs/sdd/724-adapter-eval-gate-producer.md`) — the "only the hardware step is gated; the pure
-  seams are CI-tested via an injected stand-in" split reused in Q-500-C.
+  seams are CI-tested via an injected stand-in" split reused in Q-400-C.
 - **Existing reference controllers (untouched):** `crates/sovereign-kv-cache`, `-kv-window`, `-paged-kv`,
   `-kv-budget`, `-prompt-compress`, `-prefix-cache`, `-quant-llm`, `-quant-block`, `-binary-quant`,
   `-nvfp4-runtime`, `-moe-gate`.
@@ -236,7 +236,7 @@ operator calls.
   ABI), `specs/` (00-constitution … 05-porting-map), `docs/PROJECT_SYNC.md` (the two-repos-one-system contract +
   golden-vector oracle discipline).
 - **SDD-709** (`docs/sdd/709-agent-layer-wizard-and-build-configurator.md`) — the build-configurator config-card
-  pattern reused in Q-500-F for the engine-provenance choice.
+  pattern reused in Q-400-F for the engine-provenance choice.
 - **F-2026-119** — the findings-ledger entry this SDD graduates from (`docs/review/phase-1/99-findings-ledger.md`).
 - Hard rules: R10212 (web never arbitrarily mutates), SB-077 (never fabricate), the opt-in-by-default standing
   directive.
