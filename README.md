@@ -191,6 +191,21 @@ Every PR in this repo is reviewed against these.
 
 ---
 
+# When Present
+## CodeGraph uses tree-sitter to parse source code into ASTs, extracting:
+
+- Nodes: Functions, classes, methods, interfaces, types, variables
+- Edges: Calls, imports, extends, implements, type references
+
+## The MCP server exposes tools Claude can call:
+
+- codegraph_context builds comprehensive context for any task
+- codegraph_search quick symbol search by name. Returns locations only (no code).
+- codegraph_callers/callees traces call relationships
+- codegraph_impact calculates change blast radius
+
+---
+
 ## License
 
 AGPL-3.0-or-later. See [`LICENSE`](LICENSE).

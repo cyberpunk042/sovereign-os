@@ -195,6 +195,12 @@ The default resident-model directory is `/mnt/vault/models`; override it with `S
 **sovereign-osctl chromofold selftest [--json]**
 :   The no-GPU header-seam self-test: validate the committed reference fixtures' 4-byte magic + u32-LE version against the engine's own capability descriptor (mirroring packaging/seam_check.c). Never touches a GPU or mutates state.
 
+**sovereign-osctl chromofold count|locate --corpus <file> --pattern "<ids>" [--json]**
+:   CPU-native FM-index search (provenance-B, no GPU, no native library) over a token-id corpus (whitespace/comma-separated u32 ids): count occurrences of, or locate the text positions of, a pattern. Shells the `sovereign-chromofold` Rust binary; honest-degrades (exit 3) when that binary is not built.
+
+**sovereign-osctl chromofold predict --corpus <file> --context "<ids>" [--json]**
+:   The derived next-token n-gram distribution after `context`, from the same CPU FM-index. Same corpus format; same honest-degrade.
+
 ## gateway
 
 **sovereign-osctl gateway [--addr host:port] [--json]**

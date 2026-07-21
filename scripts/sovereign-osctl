@@ -290,10 +290,15 @@ COMMANDS:
                                needs a shaders checkout (WARP_SHADERS_ROOT) or no-ops
   warp bench <scene> [--json]  Benchmark a scene (ms/frame) — exec-rail-gated
   chromofold info|selftest [--json]
-                               SDD-500: ChromoFold compressed-domain search — read-only
+                               SDD-400: ChromoFold compressed-domain search — read-only
                                capability descriptor + a no-GPU header-seam selftest,
                                read from the resident engine checkout (CHROMOFOLD_ROOT,
                                else WARP_SHADERS_ROOT); reports offline honestly when absent
+  chromofold count|locate --corpus <file> --pattern "<ids>" [--json]
+  chromofold predict --corpus <file> --context "<ids>" [--json]
+                               CPU-native FM-index search (provenance-B, no GPU) over a
+                               token-id corpus; needs the `sovereign-chromofold` binary
+                               (`cargo build -p sovereign-chromofold`) or honest-degrades
 
   gateway [--addr host:port] [--json]
                                Live probe of sovereign-gatewayd (:8787) — the M048
@@ -6522,13 +6527,15 @@ case "${cmd}" in
     "${PYTHON3}" "${__REPO_ROOT}/scripts/warp/warp_manage.py" "$@"
     ;;
   chromofold)
-    # SDD-500: ChromoFold compressed-domain search — the warp-solar-system-shaders /
+    # SDD-400: ChromoFold compressed-domain search — the warp-solar-system-shaders /
     # ../chromoFold GPU-resident, searchable entropy+index engine surfaced READ-ONLY.
-    # info/selftest are stdlib-only: they read the native capability descriptor
-    # (packaging/chromofold_capability.json) from the resident engine checkout
-    # (CHROMOFOLD_ROOT, else WARP_SHADERS_ROOT) and honestly report the offline
-    # state (exit 0) when none is resident. No GPU, no mutation (R10212/SB-077); the
-    # real device search + the cockpit panel + any exec-rail verb are SDD-500 later steps.
+    # info/selftest read the native capability descriptor (packaging/chromofold_
+    # capability.json) from the resident engine checkout (CHROMOFOLD_ROOT, else
+    # WARP_SHADERS_ROOT), honestly reporting offline (exit 0) when none is resident.
+    # count/locate/predict run the CPU-native FM-index (provenance-B) by shelling
+    # the `sovereign-chromofold` Rust binary over a token-id corpus (no GPU), or
+    # honest-degrade (exit 3) when that binary is not built. No mutation (R10212/
+    # SB-077); the GPU device path + any exec-rail verb are SDD-400 later steps.
     "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/chromofold.py" "$@"
     ;;
   gateway)

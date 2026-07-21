@@ -213,6 +213,12 @@ SDD-400: ChromoFold compressed-domain search \[en] print the read-only capabilit
 .TP
 \f[B]sovereign-osctl chromofold selftest [\[en]json]\f[R]
 The no-GPU header-seam self-test: validate the committed reference fixtures\[cq] 4-byte magic + u32-LE version against the engine\[cq]s own capability descriptor (mirroring packaging/seam_check.c). Never touches a GPU or mutates state.
+.TP
+\f[B]sovereign-osctl chromofold count|locate \[en]corpus <file> \[en]pattern \[dq]<ids>\[dq] [\[en]json]\f[R]
+CPU-native FM-index search (provenance-B, no GPU, no native library) over a token-id corpus (whitespace/comma-separated u32 ids): count occurrences of, or locate the text positions of, a pattern. Shells the sovereign-chromofold Rust binary; honest-degrades (exit 3) when that binary is not built.
+.TP
+\f[B]sovereign-osctl chromofold predict \[en]corpus <file> \[en]context \[dq]<ids>\[dq] [\[en]json]\f[R]
+The derived next-token n-gram distribution after the context, from the same CPU FM-index. Same corpus format; same honest-degrade.
 .SS gateway
 .TP
 \f[B]sovereign-osctl gateway [\[en]addr host:port] [\[en]json]\f[R]

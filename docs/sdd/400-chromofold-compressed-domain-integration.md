@@ -221,6 +221,13 @@ cross-check — 4000 assertions), so it agrees with any correct FM-index, Chromo
 wavelet-tree rank. The descriptor now carries `cpu_fm_index: true`, and the `chromofold selftest` binary runs a
 real functional check (count/locate known answers) instead of a stub.
 
+**Operable end-to-end (2026-07-21):** the `sovereign-chromofold` binary gained `count` / `locate` / `predict`
+subcommands over a `--corpus <file>` of token ids (`--pattern`/`--context`, human + `--json`), and the operator
+surface `sovereign-osctl chromofold count|locate|predict` shells that binary (honest-degrade exit-3 when it is not
+built — the warp-render pattern). So the compressed-domain search is now runnable from the command line on CPU,
+no GPU — the "searchable" promise, delivered on the reference backend. Verified: `count("a")=5`, `locate("abra")=[0,7]`,
+`predict` after `a` → b:0.5/c:0.25/d:0.25 over "abracadabra". Man topic + help + the CLI contract test updated.
+
 > Note (resolved): the pre-existing F-2026-070 :8139 networking-triplet port collision that had blocked
 > `master-dashboard render` was fixed by the same merge that landed the parallel work — the full
 > panel/dashboard/systemd sweep is now green. ChromoFold's route (:8147) was never involved.

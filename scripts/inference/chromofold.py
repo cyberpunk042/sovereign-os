@@ -11,6 +11,10 @@ sovereign-os side, with ZERO GPU and ZERO mutation:
                  reference fixtures' header seam (4-byte magic + u32-LE version)
                  against the engine's own ``chromofold_capability.json``
                  (mirroring ``packaging/seam_check.c``).
+* ``count`` / ``locate`` / ``predict`` — the CPU-native FM-index (provenance-B):
+                 real compressed-domain search over a ``--corpus`` token stream,
+                 by shelling the ``sovereign-chromofold`` Rust binary (no GPU, no
+                 native library); honest-degrades (exit 3) when it is not built.
 
 Source of truth is the native ``packaging/chromofold_capability.json`` in the
 resident engine checkout, resolved from ``CHROMOFOLD_ROOT`` (else
@@ -26,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -153,13 +158,71 @@ def cmd_selftest(json_out: bool) -> int:
     return 1
 
 
+def fm_binary() -> str | None:
+    """Locate the `sovereign-chromofold` Rust binary (the CPU FM-index,
+    provenance-B). An explicit ``$CHROMOFOLD_FM_BIN`` wins (and is honoured
+    strictly — a set-but-missing path honest-degrades rather than silently
+    falling back); otherwise the repo `target/{release,debug}` build is used."""
+    env = os.environ.get("CHROMOFOLD_FM_BIN", "").strip()
+    if env:
+        return env if Path(env).is_file() else None
+    repo = Path(__file__).resolve().parents[2]
+    for prof in ("release", "debug"):
+        cand = repo / "target" / prof / "sovereign-chromofold"
+        if cand.is_file():
+            return str(cand)
+    return None
+
+
+def cmd_fm(kind: str, corpus: str | None, query: str | None, json_out: bool) -> int:
+    """count / locate / predict via the CPU FM-index binary, or honest-degrade."""
+    binp = fm_binary()
+    if binp is None:
+        if json_out:
+            print(json.dumps({kind: "unavailable", "reason": "fm-binary-not-built"}))
+        else:
+            print(
+                "chromofold: CPU FM-index binary not built — run "
+                "`cargo build -p sovereign-chromofold` or set $CHROMOFOLD_FM_BIN. "
+                "Honest-degrade (no fabricated result).",
+                file=sys.stderr,
+            )
+        return 3  # honest-degrade: the search tool is not present (warp-render pattern)
+    query_key = "--context" if kind == "predict" else "--pattern"
+    if not corpus:
+        print(f"chromofold {kind}: --corpus <file> is required", file=sys.stderr)
+        return 1
+    if not query:
+        print(f"chromofold {kind}: {query_key} \"<token ids>\" is required", file=sys.stderr)
+        return 1
+    cmd = [binp, kind, "--corpus", corpus, query_key, query]
+    if json_out:
+        cmd.append("--json")
+    try:
+        return subprocess.run(cmd, check=False).returncode
+    except OSError as e:
+        print(f"chromofold {kind}: could not run {binp}: {e}", file=sys.stderr)
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="sovereign-osctl chromofold", description=__doc__)
-    p.add_argument("command", nargs="?", default="info", choices=["info", "selftest"])
+    p.add_argument(
+        "command",
+        nargs="?",
+        default="info",
+        choices=["info", "selftest", "count", "locate", "predict"],
+    )
     p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.add_argument("--corpus", help="token-stream file (whitespace/comma-separated u32 ids)")
+    p.add_argument("--pattern", help="pattern token ids (count/locate)")
+    p.add_argument("--context", help="context token ids (predict)")
     args = p.parse_args(argv)
     if args.command == "selftest":
         return cmd_selftest(args.json)
+    if args.command in ("count", "locate", "predict"):
+        query = args.context if args.command == "predict" else args.pattern
+        return cmd_fm(args.command, args.corpus, query, args.json)
     return cmd_info(args.json)
 
 

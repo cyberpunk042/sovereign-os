@@ -42,6 +42,46 @@ def test_cli_is_stdlib_only():
         assert banned not in src, f"{banned!r} — the chromofold CLI must be stdlib-only"
 
 
+def _run_search(args, fm_bin):
+    """Run the CLI with a controlled CHROMOFOLD_FM_BIN (and no engine root)."""
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("CHROMOFOLD_ROOT", "WARP_SHADERS_ROOT", "CHROMOFOLD_FM_BIN")
+    }
+    env["CHROMOFOLD_FM_BIN"] = fm_bin
+    return subprocess.run(
+        ["python3", str(CLI), *args],
+        cwd=ROOT, env=env, capture_output=True, text=True, timeout=20, check=False,
+    )
+
+
+def test_search_subcommands_are_wired():
+    src = CLI.read_text(encoding="utf-8")
+    for sub in ("count", "locate", "predict"):
+        assert f'"{sub}"' in src, f"chromofold CLI missing the {sub!r} subcommand"
+
+
+def test_count_honest_degrades_when_fm_binary_absent(tmp_path):
+    corpus = tmp_path / "c.txt"
+    corpus.write_text("1 2 3 1\n")
+    # an explicit, missing binary path → honest-degrade (never fabricate a count).
+    r = _run_search(["count", "--corpus", str(corpus), "--pattern", "1"], "/nonexistent/nope")
+    assert r.returncode == 3, f"absent fm-binary must honest-degrade (exit 3): {r.stdout}{r.stderr}"
+    blob = (r.stdout + r.stderr).lower()
+    assert "not built" in blob or "honest-degrade" in blob
+
+
+def test_count_json_honest_degrade_is_machine_readable(tmp_path):
+    corpus = tmp_path / "c.txt"
+    corpus.write_text("1 2\n")
+    r = _run_search(["count", "--json", "--corpus", str(corpus), "--pattern", "1"], "/nonexistent/nope")
+    assert r.returncode == 3
+    payload = json.loads(r.stdout)
+    assert payload["count"] == "unavailable"
+    assert payload["reason"] == "fm-binary-not-built"
+
+
 def test_info_offline_reports_and_exits_zero():
     r = _run(["info"], root=None)
     assert r.returncode == 0, f"offline info should exit 0, got {r.returncode}: {r.stderr}"
