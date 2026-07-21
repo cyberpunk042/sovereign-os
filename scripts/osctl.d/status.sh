@@ -96,4 +96,40 @@ EOF
   else
     echo "  active: default (no /etc/sovereign-os/active-whitelabel)"
   fi
+  echo
+
+  # Compute posture (R226 health-scan probes): the box's execution modes +
+  # the cross-system compatibility verdict, surfaced where the operator reads
+  # status. avx_mode is the M002 AVX/bit-machine path, cpu_mode the governor
+  # mode, compat the ⚖ registry verdict. Read-only; attention (e.g. custom
+  # bit-machine on a host without AVX-512) is marked [!]. rc=1 on a probe means
+  # "attention", not a status failure, so the invocations tolerate it.
+  local _hs="${__REPO_ROOT}/scripts/hardware/health-scan.py"
+  if [ -r "${_hs}" ]; then
+    echo "[Compute posture]"
+    local _probe _json
+    for _probe in avx_mode cpu_mode compat; do
+      _json="$("${PYTHON3}" "${_hs}" --probe "${_probe}" --json 2>/dev/null || true)"
+      if [ -n "${_json}" ]; then
+        printf '%s' "${_json}" | "${PYTHON3}" -c '
+import json, sys
+name = sys.argv[1]
+try:
+    p = json.load(sys.stdin)
+except Exception:
+    p = None
+if not p:
+    print("  " + name + ": (verdict unavailable)")
+else:
+    sev = p.get("severity", "?")
+    det = p.get("detail", "")
+    mark = "[!] " if sev in ("attention", "down") else ""
+    print("  " + p.get("probe", name) + ": " + mark + sev + " - " + det)
+' "${_probe}" 2>/dev/null || echo "  ${_probe}: (verdict unavailable)"
+      else
+        echo "  ${_probe}: (probe unavailable)"
+      fi
+    done
+    echo
+  fi
 }

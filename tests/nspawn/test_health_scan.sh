@@ -67,7 +67,7 @@ assert ids == {"gpu", "network", "cpu_mode", "fs_usage", "raid", "flex", "compat
 for p in d["probes"]:
     assert p["severity"] in {"ok", "attention", "informational"}, p
     assert "vector" in p and "round" in p and "detail" in p
-assert "total" in d["summary"] and d["summary"]["total"] == 7
+assert "total" in d["summary"] and d["summary"]["total"] == 8
 assert isinstance(d["needs_attention"], bool)
 PY
 

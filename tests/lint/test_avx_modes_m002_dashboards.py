@@ -163,3 +163,62 @@ def test_avx_probe_engaged_without_avx512_is_attention(monkeypatch):
 def test_avx_probe_unreadable_degrades_informational(monkeypatch):
     r = _probe_with(monkeypatch, "not json")
     assert r["severity"] == "informational" and "unreadable" in r["detail"]
+
+
+# ── compute posture in `sovereign-osctl status` + notify fan-out (2026-07-21) ──
+import json as _json
+import subprocess as _sp
+import sys as _sys
+
+STATUS_SH = REPO / "scripts" / "osctl.d" / "status.sh"
+DISPATCH = REPO / "scripts" / "notify" / "dispatch.py"
+
+
+def test_status_surfaces_compute_posture():
+    """`sovereign-osctl status` gained a [Compute posture] section surfacing
+    the avx_mode + cpu_mode + compat health-scan verdicts where the operator
+    reads status (previously they only lived in the machine-readable scan)."""
+    sh = STATUS_SH.read_text(encoding="utf-8")
+    assert "[Compute posture]" in sh
+    assert "for _probe in avx_mode cpu_mode compat" in sh
+    assert "health-scan.py" in sh
+    # attention is marked, and a probe rc=1 (attention) must not fail status
+    assert "[!] " in sh and "|| true" in sh
+
+
+def test_avx_attention_flows_through_notify_dispatch(tmp_path):
+    """R228 fan-out is generic over probes — a NEW probe reaching attention
+    notifies with zero per-probe wiring. Prove it for avx_mode via a synthetic
+    scan (the hardware attention — custom bit-machine on a non-AVX-512 host —
+    cannot be forced by env, so feed the scan through --from-file)."""
+    scan = tmp_path / "scan.json"
+    scan.write_text(_json.dumps({
+        "round": "R226", "vector": "SDD-026 Z-6 (scan layer)",
+        "started_at": "2026-07-21T00:00:00Z",
+        "probes": [{
+            "probe": "avx_mode", "round": "R226+", "vector": "Z-4",
+            "rc": 1, "severity": "attention",
+            "detail": "custom: bit-machine engaged but this host lacks the AVX-512 F floor",
+            "flagged_items": [{"id": "avx512f", "present": False}],
+        }],
+        "summary": {"total": 1, "ok": 0, "attention": 1, "informational": 0},
+        "needs_attention": True,
+    }), encoding="utf-8")
+    sink = tmp_path / "sink.jsonl"
+    cfg = tmp_path / "notifykit.toml"
+    cfg.write_text(
+        f'[channels.file]\nkind = "file"\nenabled = true\npath = "{sink}"\n',
+        encoding="utf-8")
+    env = dict(**{k: v for k, v in __import__("os").environ.items()})
+    env["SOVEREIGN_OS_NOTIFYKIT_CONFIG"] = str(cfg)
+    env["SOVEREIGN_OS_NOTIFYKIT_OVERRIDES"] = str(tmp_path / "ov.json")
+    env["SOVEREIGN_OS_NOTIFY_STATE"] = str(tmp_path / "state.json")
+    env["SOVEREIGN_OS_NOTIFY_CONFIG"] = str(tmp_path / "absent-notify.toml")
+    r = _sp.run([_sys.executable, str(DISPATCH), "dispatch",
+                 "--from-file", str(scan), "--json"],
+                capture_output=True, text=True, env=env)
+    out = _json.loads(r.stdout)
+    events = {e["probe"] for e in out.get("events", [])}
+    assert "avx_mode" in events, out
+    rows = [_json.loads(x) for x in sink.read_text().splitlines()] if sink.exists() else []
+    assert any("avx_mode" in x.get("title", "") for x in rows), rows
