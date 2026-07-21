@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-token-law-deny"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The NEGATIVE token-law plane: forbid a running model from ever emitting text that contains any of a set of denied substrings (safety/injection/toxicity phrases). A substring ban is not a per-token property — a forbidden phrase can span token boundaries — so this drives an Aho-Corasick automaton incrementally from the committed generation and bans exactly the tokens that would COMPLETE a banned match. safe_token_ids returns the allow-list (all tokens minus the completing ones), the same shape sovereign-token-law-mask's TokenLawPlanes consumes, so it composes with grammar/regex/policy planes. Composes sovereign-aho-corasick."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-aho-corasick = { path = "../sovereign-aho-corasick" }

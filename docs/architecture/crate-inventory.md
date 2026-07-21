@@ -10,9 +10,9 @@ The workspace is large — most of it does not run yet. This is the complete map
 | Binaries (`main.rs`/`bin/`) | 41 | the executables; a few run in prod, the rest are dev/demo/config-gen |
 | Production libraries | 91 | run inside the gatewayd / telemetry / resource-control closure |
 | Cockpit UX-state crates | 418 | wasm-bridged in source (SDD-974); **0 of ~55 panels wired** |
-| Demo-hub-only libraries | 30 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
+| Demo-hub-only libraries | 31 | reached only via `sovereign-llm` / `sovereign-retrieval` (nothing runs them) |
 | Other libraries | 142 | reached only through other non-production trees |
-| **Total** | **722** | **96 crates (13%) are production-reachable today** |
+| **Total** | **723** | **96 crates (13%) are production-reachable today** |
 
 **✅ integrated** marks the **96** crates that are actually _used_ by a running production binary (in the gatewayd / telemetry / resource-control dependency closure). Each carries a short note naming the usage that validates it — its production consumer(s) and/or that it runs as a binary. **Used, not merely referenced**: a cockpit crate wasm-bridged for a panel (SDD-800, 0 panels wired) or a crate reached only through a demo/dev binary or the `sovereign-llm` / `sovereign-retrieval` hubs is NOT integrated. The flag is generated from the closure and enforced by `tests/lint/test_crate_inventory_integrated_flag.py`.
 
@@ -705,14 +705,15 @@ Typed, tested UI-state models. Compiled to wasm by `cockpit-wasm` (SDD-974) so a
 
 ---
 
-## 4. Demo-hub-only libraries (30) — reached only via the island hubs
+## 4. Demo-hub-only libraries (31) — reached only via the island hubs
 
 Consumed only through `sovereign-llm` / `sovereign-retrieval`, which the daemon does not use — so nothing that runs reaches them. Wiring a hub into production, or giving these real consumers, is the open work (audit F-2026-083/088/089).
 
-#### `token-·` (3)
+#### `token-·` (4)
 
 - **`sovereign-token-grammar-mask`** — Bridges a character-level context-free grammar to token-level decoding: given the text generated so far, computes the boolean mask of which vocabulary tokens keep a valid parse alive, plus whether end-of-sequence is allowed. The piece that makes grammar-constrained generation work on a real tokenizer — a model emits tokens, not characters — by feeding each candidate token's string through the Earley recognizer with a cheap first-character prefilter. Composes sovereign-cfg-grammar.
 - **`sovereign-token-healing`** — Token healing for generation: when a prompt ends mid-token, trim the trailing token(s) and constrain the first generated token to be consistent with the removed text, so the model re-chooses a natural boundary instead of being locked into a bad split. Fixes the prompt/completion seam for completion and constrained decoding.
+- **`sovereign-token-law-deny`** — The NEGATIVE token-law plane: forbid a running model from ever emitting text that contains any of a set of denied substrings (safety/injection/toxicity phrases). A substring ban is not a per-token property — a forbidden phrase can span token boundaries — so this drives an Aho-Corasick automaton incrementally from the committed generation and bans exactly the tokens that would COMPLETE a banned match. safe_token_ids returns the allow-list (all tokens minus the completing ones), the same shape sovereign-token-law-mask's TokenLawPlanes consumes, so it composes with grammar/regex/policy planes. Composes sovereign-aho-corasick.
 - **`sovereign-token-law-mask`** — The M002 token-law bitset as a decode-time logit mask (SDD-500). Turns the M00117 token_law_combine allow-mask (sovereign-simd::cheats) into a per-token logit transform: a token whose allow-bit is 0 is set to -inf before sampling, so a running model CANNOT emit it. The FIRST real per-token call site of the M002 bit-machine — policy becomes bits, gating generation. A LogitProcessor for sovereign-logit-pipeline; wired into sovereign-decoder-stack's in-repo decode loop (not the external-proxy path, which exposes no logits).
 
 #### assorted (27)

@@ -5512,6 +5512,7 @@ dependencies = [
  "sovereign-diversity",
  "sovereign-dry-sampler",
  "sovereign-ffn",
+ "sovereign-injection-detect",
  "sovereign-json-extract",
  "sovereign-json-schema-grammar",
  "sovereign-logit-mask",
@@ -5528,6 +5529,7 @@ dependencies = [
  "sovereign-semantic-cache",
  "sovereign-token-grammar-mask",
  "sovereign-token-healing",
+ "sovereign-token-law-deny",
  "sovereign-token-law-mask",
  "sovereign-tokenizer",
  "sovereign-toxicity",
@@ -6677,6 +6679,13 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "sovereign-token-law-deny"
+version = "0.1.0"
+dependencies = [
+ "sovereign-aho-corasick",
 ]
 
 [[package]]

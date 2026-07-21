@@ -758,6 +758,106 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
     }
 
+    /// Generate a completion whose text is **guaranteed never to contain** any of
+    /// `deny_patterns` — the **negative** token-law plane (SDD-504 / M00117
+    /// "safety"). A denied substring can span token boundaries, so this drives a
+    /// `sovereign-token-law-deny` Aho-Corasick automaton from the committed text
+    /// and, each step, bans exactly the tokens whose bytes would *complete* a
+    /// banned match (`DenyConstraint::safe_token_ids` → the allow-list). The
+    /// guarantee is per-step and exact: a banned phrase can only appear at the byte
+    /// that finishes it, and that token is masked at that step — not a post-hoc
+    /// scanner. `deny_patterns` are literal substrings (e.g.
+    /// `sovereign_injection_detect::PATTERNS`). Reproducible per `seed`.
+    pub fn complete_with_safety_denylist(
+        &self,
+        prompt: &str,
+        deny_patterns: &[&str],
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let deny = sovereign_token_law_deny::DenyConstraint::new(deny_patterns);
+        let vocab_size = self.tokenizer.vocab_size();
+        let vocab: Vec<String> = (0..vocab_size)
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let vocab_refs: Vec<&str> = vocab.iter().map(String::as_str).collect();
+        let planes = sovereign_token_law_mask::TokenLawPlanes::new(vocab_size);
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids =
+            model.generate_dynamic_token_law_until(&prompt_ids, max_new, seed, |generated| {
+                let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+                let text = self.tokenizer.decode(&so_far).unwrap_or_default();
+                let safe = deny.safe_token_ids(&text, &vocab_refs);
+                if safe.is_empty() {
+                    return None;
+                }
+                Some(planes.combine_with(&safe))
+            })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
+    /// Constrain a completion to a **regex** (a *positive* plane) **and** a safety
+    /// **denylist** (a *negative* plane) at once (SDD-504 / M00117). Both are
+    /// dynamic sources recomputed per position — the regex's viable-token ids and
+    /// the denylist's safe-token ids — AND-combined via
+    /// [`TokenLawPlanes::combine_with_dynamics`](sovereign_token_law_mask::TokenLawPlanes::combine_with_dynamics).
+    /// The output both matches `pattern` and never contains a `deny_patterns`
+    /// substring — a positive-and-negative composition no single constraint
+    /// expresses. Stops on an empty source or an empty intersection. Reproducible
+    /// per `seed`; errors if `pattern` is not a valid regex.
+    pub fn complete_regex_with_safety_denylist(
+        &self,
+        prompt: &str,
+        pattern: &str,
+        deny_patterns: &[&str],
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let constraint = sovereign_regex_constrain::RegexConstraint::new(pattern)
+            .map_err(|e| LlmError::Regex(e.to_string()))?;
+        let deny = sovereign_token_law_deny::DenyConstraint::new(deny_patterns);
+        let vocab_size = self.tokenizer.vocab_size();
+        let vocab: Vec<String> = (0..vocab_size)
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let vocab_refs: Vec<&str> = vocab.iter().map(String::as_str).collect();
+        let planes = sovereign_token_law_mask::TokenLawPlanes::new(vocab_size);
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids =
+            model.generate_dynamic_token_law_until(&prompt_ids, max_new, seed, |generated| {
+                let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+                let text = self.tokenizer.decode(&so_far).unwrap_or_default();
+                let r_ids = constraint.allowed_token_ids(&text, &vocab_refs);
+                if r_ids.is_empty() {
+                    return None;
+                }
+                let safe = deny.safe_token_ids(&text, &vocab_refs);
+                if safe.is_empty() {
+                    return None;
+                }
+                let combined = planes.combine_with_dynamics(&[&r_ids, &safe]);
+                if combined.iter().all(|w| *w == 0) {
+                    return None;
+                }
+                Some(combined)
+            })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
     /// Complete `prompt` and **extract the first balanced JSON value** from the
     /// output (`sovereign-json-extract`), returning `Some(value)` or `None` if the
     /// completion contains no JSON. Models emit structured answers wrapped in
@@ -1967,6 +2067,61 @@ mod tests {
             !out.chars()
                 .any(|c| c.is_ascii_uppercase() || c.is_ascii_digit()),
             "regex should forbid uppercase/digits the grammar allows: {out:?}"
+        );
+    }
+
+    #[test]
+    fn safety_denylist_never_emits_a_banned_byte() {
+        // SDD-504: the negative plane. Banning the byte 'a' guarantees the output
+        // contains no 'a', whatever the (random) weights would otherwise pick.
+        let llm = runtime(Sampler::greedy());
+        let out = llm
+            .complete_with_safety_denylist("say: ", &["a"], 12, 7)
+            .unwrap();
+        assert!(
+            !out.contains('a'),
+            "denylist banned 'a' but it appears: {out:?}"
+        );
+        // the guarantee, checked by an independent post-hoc scan.
+        let deny = sovereign_token_law_deny::DenyConstraint::new(["a"]);
+        assert!(!deny.is_denied(&out));
+    }
+
+    #[test]
+    fn regex_with_safety_denylist_composes_positive_and_negative() {
+        // SDD-504: a POSITIVE constraint (regex [a-z]+) AND a NEGATIVE one
+        // (denylist "z") at once → lowercase letters with no 'z' (a-y only) — a
+        // composition no single constraint expresses.
+        let llm = runtime(Sampler::greedy());
+        let out = llm
+            .complete_regex_with_safety_denylist("word: ", "[a-z]+", &["z"], 8, 7)
+            .unwrap();
+        assert!(!out.is_empty());
+        assert!(
+            out.chars().all(|c| c.is_ascii_lowercase() && c != 'z'),
+            "regex∧denylist violated (want a-y): {out:?}"
+        );
+    }
+
+    #[test]
+    fn safety_denylist_consumes_the_real_injection_pattern_source() {
+        // SDD-504: the denylist accepts a REAL safety source verbatim — the
+        // sovereign-injection-detect prompt-injection phrase list — and the output
+        // is guaranteed to contain none of them.
+        let llm = runtime(Sampler::greedy());
+        let out = llm
+            .complete_with_safety_denylist(
+                "assistant: ",
+                sovereign_injection_detect::PATTERNS,
+                16,
+                7,
+            )
+            .unwrap();
+        let deny =
+            sovereign_token_law_deny::DenyConstraint::new(sovereign_injection_detect::PATTERNS);
+        assert!(
+            !deny.is_denied(&out),
+            "an injection phrase slipped through: {out:?}"
         );
     }
 
