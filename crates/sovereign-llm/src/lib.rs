@@ -156,6 +156,10 @@ pub struct TokenLawSpec<'a> {
     /// A negative safety plane — output NEVER contains any of these literal
     /// substrings (`sovereign-token-law-deny`).
     pub denylist: &'a [&'a str],
+    /// A negative regex plane — output NEVER *matches* any of these patterns
+    /// anywhere (`sovereign-regex-constrain::RegexDenyConstraint`; e.g. an SSN
+    /// shape). The negated counterpart of `regex` (SDD-506).
+    pub regex_denylist: &'a [&'a str],
     /// Static policy planes — pre-packed per-vocabulary allow-bitsets, fixed
     /// across the generation (a route/tool/safety allow-mask).
     pub policy_planes: &'a [&'a [u64]],
@@ -167,6 +171,7 @@ impl TokenLawSpec<'_> {
         self.schema.is_none()
             && self.regex.is_none()
             && self.denylist.is_empty()
+            && self.regex_denylist.is_empty()
             && self.policy_planes.is_empty()
     }
 }
@@ -896,10 +901,11 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
     }
 
-    /// **The unified token-law engine** (SDD-505 / M00117): constrain a completion
-    /// by ANY combination of planes declared in `spec` — a JSON-schema grammar, a
-    /// regex, a safety denylist, and static policy bitsets — all AND-composed per
-    /// decode step into one allow-mask through the real `token_law_combine`
+    /// **The unified token-law engine** (SDD-505/506 / M00117): constrain a
+    /// completion by ANY combination of planes declared in `spec` — a JSON-schema
+    /// grammar, a positive regex, a safety denylist, a **negative** regex denylist,
+    /// and static policy bitsets — all AND-composed per decode step into one
+    /// allow-mask through the real `token_law_combine`
     /// kernel. A token survives only if **every** active plane allows it, so one
     /// running model can be confined by grammar ∧ regex ∧ tool ∧ safety ∧ policy
     /// simultaneously — the full M00117 five-plane vision in a single call,
@@ -940,6 +946,14 @@ impl SovereignLlm {
                 spec.denylist.iter().copied(),
             ))
         };
+        let regex_deny: Vec<sovereign_regex_constrain::RegexDenyConstraint> = spec
+            .regex_denylist
+            .iter()
+            .map(|p| {
+                sovereign_regex_constrain::RegexDenyConstraint::new(p)
+                    .map_err(|e| LlmError::Regex(e.to_string()))
+            })
+            .collect::<Result<_, _>>()?;
         let mut planes = sovereign_token_law_mask::TokenLawPlanes::new(vocab_size);
         for p in spec.policy_planes {
             planes = planes.with_plane(p.to_vec());
@@ -979,6 +993,13 @@ impl SovereignLlm {
                 }
                 if let Some(deny) = &deny {
                     let ids = deny.safe_token_ids(&text, &vocab_refs);
+                    if ids.is_empty() {
+                        return None;
+                    }
+                    dynamics.push(ids);
+                }
+                for rd in &regex_deny {
+                    let ids = rd.safe_token_ids(&text, &vocab_refs);
                     if ids.is_empty() {
                         return None;
                     }
@@ -2333,6 +2354,7 @@ mod tests {
             regex: Some("\"[a-z]+\""),
             denylist: &["bad"],
             policy_planes: &[ban_q_ref],
+            ..Default::default()
         };
         let out = llm.complete_with_token_law("emit: ", &spec, 14, 7).unwrap();
         assert!(
@@ -2355,6 +2377,34 @@ mod tests {
         let out = llm.complete_with_token_law("hello ", &spec, 6, 7).unwrap();
         // an unconstrained run produces up to max_new tokens (no plane stops it).
         assert!(out.chars().count() <= 6);
+    }
+
+    #[test]
+    fn token_law_spec_negative_regex_forbids_a_pattern() {
+        // SDD-506: a NEGATIVE regex plane in the unified engine. Positive regex
+        // [a-z]+ (lowercase) AND a regex denylist [xyz] (never x/y/z) → lowercase
+        // letters a–w only. The forbidden thing is a regex CLASS, not a literal
+        // substring — a constraint the SDD-504 literal denylist can't express.
+        let llm = runtime(Sampler::greedy());
+        let spec = TokenLawSpec {
+            regex: Some("[a-z]+"),
+            regex_denylist: &["[xyz]"],
+            ..Default::default()
+        };
+        assert!(!spec.is_empty());
+        let out = llm.complete_with_token_law("word: ", &spec, 8, 7).unwrap();
+        assert!(!out.is_empty());
+        assert!(
+            out.chars()
+                .all(|c| c.is_ascii_lowercase() && !"xyz".contains(c)),
+            "regex ∧ negative-regex violated (want a-w): {out:?}"
+        );
+        // the output never matches the forbidden pattern (independent scan).
+        let rd = sovereign_regex_constrain::RegexDenyConstraint::new("[xyz]").unwrap();
+        assert!(
+            !rd.is_denied(&out),
+            "a forbidden char slipped through: {out:?}"
+        );
     }
 
     #[test]
