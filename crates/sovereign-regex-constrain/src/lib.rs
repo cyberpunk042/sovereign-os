@@ -120,6 +120,80 @@ impl RegexConstraint {
     }
 }
 
+/// A regex-driven **negative** constraint: forbid a running model from ever
+/// emitting text that MATCHES `pattern` anywhere — a *negated* regex (an SSN
+/// shape `\d\d\d-\d\d-\d\d\d\d`, a forbidden id format). The positive
+/// [`RegexConstraint`] forces output *onto* a pattern; this keeps it *off* one.
+///
+/// Like the literal-substring safety plane (`sovereign-token-law-deny`), a
+/// forbidden match can span token boundaries, so it drives the **unanchored**
+/// NFA ([`Regex::step_unanchored`]) from the committed generation and bans
+/// exactly the tokens whose characters would **complete** a match.
+/// [`safe_token_ids`](Self::safe_token_ids) returns the allow-list — the same
+/// `Vec<usize>` shape a token-law plane consumes (SDD-506). The guarantee is
+/// exact and per-step: a forbidden match can only appear at the character that
+/// completes it, and that token is banned at that step.
+///
+/// A pattern that matches the empty string forbids everything; don't use one.
+#[derive(Debug, Clone)]
+pub struct RegexDenyConstraint {
+    re: Regex,
+}
+
+impl RegexDenyConstraint {
+    /// Compile a forbidden `pattern`.
+    pub fn new(pattern: &str) -> Result<Self, sovereign_regex_nfa::RegexError> {
+        Ok(Self {
+            re: Regex::new(pattern)?,
+        })
+    }
+
+    /// Wrap an already-compiled forbidden [`Regex`].
+    pub fn from_regex(re: Regex) -> Self {
+        Self { re }
+    }
+
+    /// The underlying forbidden regex.
+    pub fn regex(&self) -> &Regex {
+        &self.re
+    }
+
+    /// Whether `text` already contains a match of the forbidden pattern anywhere
+    /// (a post-hoc scan — useful for asserting the plane's guarantee held).
+    pub fn is_denied(&self, text: &str) -> bool {
+        self.re.matches_anywhere(text)
+    }
+
+    /// The ids of tokens that are **safe** to append after `generated` — i.e.
+    /// appending the token's characters does not complete a match of the
+    /// forbidden pattern anywhere. `vocab[i]` is the surface string of token id
+    /// `i`. Mirrors [`RegexConstraint::allowed_token_ids`]: the returned
+    /// `Vec<usize>` is the allow-list a token-law plane consumes.
+    pub fn safe_token_ids(&self, generated: &str, vocab: &[&str]) -> Vec<usize> {
+        // Advance the unanchored search over the committed prefix once.
+        let mut base = self.re.start_unanchored();
+        for c in generated.chars() {
+            base = self.re.step_unanchored(&base, c);
+        }
+        let mut safe = Vec::with_capacity(vocab.len());
+        for (id, tok) in vocab.iter().enumerate() {
+            let mut set = base.clone();
+            let mut completes = false;
+            for c in tok.chars() {
+                set = self.re.step_unanchored(&set, c);
+                if self.re.is_accepting(&set) {
+                    completes = true;
+                    break;
+                }
+            }
+            if !completes {
+                safe.push(id);
+            }
+        }
+        safe
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,5 +303,56 @@ mod tests {
         assert!(c.is_satisfied(&out), "built '{out}' which doesn't match");
         // every char is in the allowed alphabet
         assert!(out.chars().all(|ch| "abc!".contains(ch)));
+    }
+
+    // ── RegexDenyConstraint (SDD-506: the negated-regex plane) ─────────────
+
+    fn vocab(words: &[&str]) -> Vec<String> {
+        words.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn deny_bans_the_token_completing_a_regex_match() {
+        // forbidden "ab": after committed "a", the token "b" completes it →
+        // banned; "c"/"x" are safe. The match spans the token boundary.
+        let d = RegexDenyConstraint::new("ab").unwrap();
+        let v = vocab(&["b", "c", "x"]);
+        let refs: Vec<&str> = v.iter().map(String::as_str).collect();
+        assert_eq!(d.safe_token_ids("a", &refs), vec![1, 2]);
+    }
+
+    #[test]
+    fn deny_bans_a_token_whose_own_chars_match() {
+        // forbidden two digits: a token that is itself two digits is banned.
+        let d = RegexDenyConstraint::new(r"\d\d").unwrap();
+        let v = vocab(&["12", "1a", "ab"]);
+        let refs: Vec<&str> = v.iter().map(String::as_str).collect();
+        assert_eq!(d.safe_token_ids("", &refs), vec![1, 2]);
+    }
+
+    #[test]
+    fn deny_catches_a_cross_token_digit_pair() {
+        // forbidden \d\d; committed "1"; the token "2" completes "12" → banned.
+        let d = RegexDenyConstraint::new(r"\d\d").unwrap();
+        let v = vocab(&["2", "a", "x"]);
+        let refs: Vec<&str> = v.iter().map(String::as_str).collect();
+        assert_eq!(d.safe_token_ids("1", &refs), vec![1, 2]);
+    }
+
+    #[test]
+    fn deny_forbids_a_pattern_matched_mid_token() {
+        // an alternation forbidden anywhere: a token containing "dog" is banned
+        // even embedded, from a clean prefix.
+        let d = RegexDenyConstraint::new("cat|dog").unwrap();
+        let v = vocab(&["xdogy", "fish", "ok"]);
+        let refs: Vec<&str> = v.iter().map(String::as_str).collect();
+        assert_eq!(d.safe_token_ids("", &refs), vec![1, 2]);
+    }
+
+    #[test]
+    fn deny_is_denied_scans_for_a_match_anywhere() {
+        let d = RegexDenyConstraint::new(r"\d\d\d").unwrap();
+        assert!(d.is_denied("order 427 shipped")); // "427" inside
+        assert!(!d.is_denied("order forty-two"));
     }
 }

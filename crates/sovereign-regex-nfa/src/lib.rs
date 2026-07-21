@@ -223,6 +223,50 @@ impl Regex {
         }
         true
     }
+
+    // ── Unanchored (substring) search ──────────────────────────────────────
+    //
+    // [`is_match`] is anchored: the *whole* string must match. Constrained
+    // decoding sometimes needs the opposite question — does the pattern match
+    // *anywhere* in a stream? — e.g. to FORBID it (a negated-regex denylist). The
+    // trick is standard Thompson simulation with the start state always active:
+    // re-seed the start closure at every position so a match may begin there, and
+    // an accepting live set means a substring match ends at the current position.
+
+    /// The initial live set for an **unanchored** (substring) search. Drive it
+    /// with [`step_unanchored`](Self::step_unanchored); an [`is_accepting`] set
+    /// means a match ended at the last consumed character.
+    pub fn start_unanchored(&self) -> BTreeSet<usize> {
+        self.start()
+    }
+
+    /// Advance an unanchored search by `c`: step every live state **and** re-seed
+    /// the start closure, so a match may begin at this position. Never empties
+    /// (the start state is always alive), so the caller checks [`is_accepting`]
+    /// to detect a completed substring match rather than emptiness.
+    pub fn step_unanchored(&self, set: &BTreeSet<usize>, c: char) -> BTreeSet<usize> {
+        let mut next = self.step(set, c);
+        // re-inject the start closure — union of two epsilon-closed sets is itself
+        // epsilon-closed, so no re-closure is needed.
+        next.extend(self.start());
+        next
+    }
+
+    /// Whether the pattern matches **any substring** of `text` (unanchored). The
+    /// negated-search counterpart of [`is_match`].
+    pub fn matches_anywhere(&self, text: &str) -> bool {
+        let mut set = self.start_unanchored();
+        if self.is_accepting(&set) {
+            return true; // pattern accepts the empty string → matches everywhere
+        }
+        for c in text.chars() {
+            set = self.step_unanchored(&set, c);
+            if self.is_accepting(&set) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 /// Recursive-descent parser building NFA fragments directly.
@@ -562,6 +606,40 @@ mod tests {
             Err(RegexError::NothingToRepeat(_))
         ));
         assert!(matches!(Regex::new("[a-z"), Err(RegexError::UnexpectedEnd)));
+    }
+
+    #[test]
+    fn matches_anywhere_finds_substrings() {
+        // unanchored: the pattern may match any substring, unlike is_match.
+        let re = Regex::new(r"\d\d\d").unwrap();
+        assert!(re.matches_anywhere("id=427x")); // "427" inside
+        assert!(re.matches_anywhere("427"));
+        assert!(!re.matches_anywhere("id=42x")); // only two digits in a row
+        assert!(!re.matches_anywhere("no digits here"));
+        // is_match stays anchored (whole string)
+        assert!(!re.is_match("id=427x"));
+        assert!(re.is_match("427"));
+    }
+
+    #[test]
+    fn step_unanchored_detects_a_match_completing_mid_stream() {
+        // drive char-by-char; is_accepting flips true exactly when a substring
+        // match completes — the basis of a negated-regex denylist plane.
+        let re = Regex::new("ab").unwrap();
+        let mut set = re.start_unanchored();
+        assert!(!re.is_accepting(&set));
+        for (c, want) in [('x', false), ('a', false), ('b', true), ('y', false)] {
+            set = re.step_unanchored(&set, c);
+            assert_eq!(re.is_accepting(&set), want, "after {c:?}");
+        }
+    }
+
+    #[test]
+    fn matches_anywhere_with_alternation_and_classes() {
+        let re = Regex::new("cat|dog").unwrap();
+        assert!(re.matches_anywhere("the cat sat"));
+        assert!(re.matches_anywhere("a dog!"));
+        assert!(!re.matches_anywhere("a fish"));
     }
 
     #[test]
