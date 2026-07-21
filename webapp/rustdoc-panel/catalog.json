@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_by": "scripts/webapp/gen-rustdoc-panel-catalog.py",
-  "count": 722,
+  "count": 723,
   "crates": [
     {
       "name": "sovereign-agent-loop",
@@ -2722,6 +2722,10 @@
     {
       "name": "sovereign-token-healing",
       "description": "Token healing for generation: when a prompt ends mid-token, trim the trailing token(s) and constrain the first generated token to be consistent with the removed text, so the model re-chooses a natural boundary instead of being locked into a bad split. Fixes the prompt/completion seam for completion and constrained decoding."
+    },
+    {
+      "name": "sovereign-token-law-deny",
+      "description": "The NEGATIVE token-law plane: forbid a running model from ever emitting text that contains any of a set of denied substrings (safety/injection/toxicity phrases). A substring ban is not a per-token property \u2014 a forbidden phrase can span token boundaries \u2014 so this drives an Aho-Corasick automaton incrementally from the committed generation and bans exactly the tokens that would COMPLETE a banned match. safe_token_ids returns the allow-list (all tokens minus the completing ones), the same shape sovereign-token-law-mask's TokenLawPlanes consumes, so it composes with grammar/regex/policy planes. Composes sovereign-aho-corasick."
     },
     {
       "name": "sovereign-token-law-mask",

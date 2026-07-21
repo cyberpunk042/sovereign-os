@@ -48,8 +48,11 @@ CLI:
               Dump the dedup state file.
 
 Exit codes:
-  0  dispatch succeeded (or was a no-op, e.g. nothing transitioned)
-  1  at least one channel failed to deliver
+  0  dispatch succeeded (or was a no-op, e.g. nothing transitioned). An
+     unavailable DEFAULT file sink (privileged /var/log path not writable in an
+     unprivileged/CI/sandbox context) is skipped, not a failure.
+  1  at least one channel failed to deliver (an explicitly-configured sink, or a
+     real delivery error)
   2  usage error / config error
 
 Environment variables (test + operator):
@@ -272,6 +275,15 @@ def deliver_file(
                 fh.write(json.dumps(ev) + "\n")
         return (True, f"appended {len(events)} event(s) to {sink}")
     except OSError as e:
+        # The default sink (/var/log/sovereign-os/...) is a privileged system
+        # path. When the process can't create or write it — an unprivileged
+        # host, a CI runner, a sandbox — that is an expected "sink unavailable"
+        # condition, not a delivery failure: a best-effort local audit trail
+        # must not hard-fail the whole dispatch when a real notification channel
+        # may still have delivered. An EXPLICITLY configured path that fails is a
+        # genuine failure and stays fatal.
+        if sink == DEFAULT_FILE_SINK:
+            return (True, f"skipped: default sink {sink} unavailable ({e})")
         return (False, f"file sink {sink}: {e}")
 
 

@@ -66,6 +66,14 @@ pub struct AhoCorasick {
     patterns: Vec<Vec<u8>>,
 }
 
+/// An opaque incremental scan state — a node in the automaton reached by
+/// consuming some bytes. Produced by [`AhoCorasick::start`] and advanced with
+/// [`AhoCorasick::advance`]; only the automaton that made it can interpret it, so
+/// it can never index the wrong graph. `Copy`, so a committed state can be probed
+/// with a candidate continuation and simply discarded (no rollback needed).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AcState(usize);
+
 /// One occurrence of a pattern in the searched text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Match {
@@ -192,6 +200,31 @@ impl AhoCorasick {
             }
             state = self.nodes[state].fail;
         }
+    }
+
+    /// The initial scan state (the automaton root, before any input).
+    ///
+    /// The incremental API ([`start`](Self::start) / [`advance`](Self::advance) /
+    /// [`hits`](Self::hits)) exposes the same goto/failure walk the whole-haystack
+    /// scans use, one byte at a time — so a caller can drive matching *as bytes
+    /// arrive* and, crucially, probe a candidate continuation from a committed
+    /// state without re-scanning the prefix. That is what lets a decode loop ask
+    /// "would appending this token's bytes complete a banned pattern?" in time
+    /// proportional to the token, not the whole generation (SDD-504).
+    pub fn start(&self) -> AcState {
+        AcState(0)
+    }
+
+    /// Advance the scan by one byte, returning the new state.
+    pub fn advance(&self, state: AcState, b: u8) -> AcState {
+        AcState(self.step(state.0, b))
+    }
+
+    /// Whether `state` sits on a match — i.e. some pattern ends exactly at the
+    /// last byte consumed to reach it (including suffix patterns via failure
+    /// links). Reaching a hitting state means a banned substring just completed.
+    pub fn hits(&self, state: AcState) -> bool {
+        !self.nodes[state.0].outputs.is_empty()
     }
 
     /// Every occurrence of every pattern in `haystack`, in scan order (by end
@@ -361,6 +394,45 @@ mod tests {
         assert!(!ac.is_match_str("anything at all"));
         assert!(ac.find_all_str("anything").is_empty());
         assert!(ac.earliest(b"anything").is_none());
+    }
+
+    #[test]
+    fn incremental_start_advance_hits_matches_whole_scan() {
+        // The incremental walk must agree with find_all: driving byte-by-byte and
+        // asking `hits` at each position flags exactly the positions where a
+        // whole-haystack scan reports a match end.
+        let ac = AhoCorasick::new(["he", "she", "hers"]);
+        let hay = b"ushers";
+        let mut s = ac.start();
+        let mut hit_ends: Vec<usize> = Vec::new();
+        for (i, &b) in hay.iter().enumerate() {
+            s = ac.advance(s, b);
+            if ac.hits(s) {
+                hit_ends.push(i + 1);
+            }
+        }
+        let scan_ends: Vec<usize> = {
+            let mut e: Vec<usize> = ac.find_all(hay).iter().map(|m| m.end).collect();
+            e.sort_unstable();
+            e.dedup();
+            e
+        };
+        assert_eq!(hit_ends, scan_ends);
+    }
+
+    #[test]
+    fn committed_state_probes_a_continuation_without_rescanning() {
+        // From a committed state, advancing a candidate's bytes hits exactly when
+        // the candidate completes a pattern — the core of the negative-constraint
+        // plane (SDD-504). Forbidden "ab": after "a", 'b' completes it.
+        let ac = AhoCorasick::new(["ab"]);
+        let mut base = ac.start();
+        base = ac.advance(base, b'a'); // committed prefix "a"
+        assert!(!ac.hits(base));
+        assert!(ac.hits(ac.advance(base, b'b')), "'b' completes 'ab'");
+        assert!(!ac.hits(ac.advance(base, b'x')), "'x' does not");
+        // `base` itself is unchanged (Copy) — no rollback needed.
+        assert!(!ac.hits(base));
     }
 
     #[test]

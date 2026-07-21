@@ -35,6 +35,7 @@ sovereign-token-healing = { path = "../sovereign-token-healing" }
 sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
 sovereign-token-grammar-mask = { path = "../sovereign-token-grammar-mask" }
 sovereign-token-law-mask = { path = "../sovereign-token-law-mask" }
+sovereign-token-law-deny = { path = "../sovereign-token-law-deny" }
 sovereign-context-budget = { path = "../sovereign-context-budget" }
 sovereign-xtc-sampler = { path = "../sovereign-xtc-sampler" }
 sovereign-dry-sampler = { path = "../sovereign-dry-sampler" }
@@ -49,3 +50,4 @@ sovereign-confidence-calibration = { path = "../sovereign-confidence-calibration
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-ffn = { path = "../sovereign-ffn" }
+sovereign-injection-detect = { path = "../sovereign-injection-detect" }
