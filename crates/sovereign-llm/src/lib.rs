@@ -921,43 +921,23 @@ impl SovereignLlm {
         max_new: usize,
         seed: u64,
     ) -> Result<String, LlmError> {
-        let vocab_size = self.tokenizer.vocab_size();
-        let vocab: Vec<String> = (0..vocab_size)
+        let vocab: Vec<String> = (0..self.tokenizer.vocab_size())
             .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
             .collect();
-        let vocab_refs: Vec<&str> = vocab.iter().map(String::as_str).collect();
 
-        // Build each active constraint once.
-        let tgm = spec.schema.map(|s| {
-            let grammar = sovereign_json_schema_grammar::compile(s);
-            sovereign_token_grammar_mask::TokenGrammarMask::new(grammar, vocab.clone())
-        });
-        let regex = match spec.regex {
-            Some(p) => Some(
-                sovereign_regex_constrain::RegexConstraint::new(p)
-                    .map_err(|e| LlmError::Regex(e.to_string()))?,
-            ),
-            None => None,
+        // Compile the active laws once, then fuse them per step through the
+        // checkpoint-free `sovereign-token-law-fuse` primitive — the SAME mask
+        // definition the M00155 data-plane surface (`/v1/data-plane/token-law/
+        // fuse`) exposes, so generation and inspection never diverge (SDD-507).
+        let layers = sovereign_token_law_fuse::FuseLayers {
+            schema: spec.schema,
+            regex: spec.regex,
+            denylist: spec.denylist,
+            regex_denylist: spec.regex_denylist,
+            policy_planes: spec.policy_planes,
         };
-        let deny = if spec.denylist.is_empty() {
-            None
-        } else {
-            Some(sovereign_token_law_deny::DenyConstraint::new(
-                spec.denylist.iter().copied(),
-            ))
-        };
-        let regex_deny: Vec<sovereign_regex_constrain::RegexDenyConstraint> = spec
-            .regex_denylist
-            .iter()
-            .map(|p| {
-                sovereign_regex_constrain::RegexDenyConstraint::new(p)
-                    .map_err(|e| LlmError::Regex(e.to_string()))
-            })
-            .collect::<Result<_, _>>()?;
-        let mut planes = sovereign_token_law_mask::TokenLawPlanes::new(vocab_size);
-        for p in spec.policy_planes {
-            planes = planes.with_plane(p.to_vec());
-        }
+        let compiled = sovereign_token_law_fuse::CompiledFuse::compile(&layers, vocab)
+            .map_err(|e| LlmError::Regex(e.0))?;
 
         let prompt_ids: Vec<usize> = self
             .tokenizer
@@ -970,47 +950,10 @@ impl SovereignLlm {
             model.generate_dynamic_token_law_until(&prompt_ids, max_new, seed, |generated| {
                 let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
                 let text = self.tokenizer.decode(&so_far).unwrap_or_default();
-                // Collect the allow-list of every ACTIVE dynamic plane; any empty
-                // one, or a completed grammar, stops generation.
-                let mut dynamics: Vec<Vec<usize>> = Vec::new();
-                if let Some(tgm) = &tgm {
-                    let m = tgm.mask(&text);
-                    if m.eos {
-                        return None;
-                    }
-                    let ids = m.allowed_ids();
-                    if ids.is_empty() {
-                        return None;
-                    }
-                    dynamics.push(ids);
-                }
-                if let Some(rc) = &regex {
-                    let ids = rc.allowed_token_ids(&text, &vocab_refs);
-                    if ids.is_empty() {
-                        return None;
-                    }
-                    dynamics.push(ids);
-                }
-                if let Some(deny) = &deny {
-                    let ids = deny.safe_token_ids(&text, &vocab_refs);
-                    if ids.is_empty() {
-                        return None;
-                    }
-                    dynamics.push(ids);
-                }
-                for rd in &regex_deny {
-                    let ids = rd.safe_token_ids(&text, &vocab_refs);
-                    if ids.is_empty() {
-                        return None;
-                    }
-                    dynamics.push(ids);
-                }
-                let refs: Vec<&[usize]> = dynamics.iter().map(Vec::as_slice).collect();
-                let combined = planes.combine_with_dynamics(&refs);
-                if combined.iter().all(|w| *w == 0) {
-                    return None;
-                }
-                Some(combined)
+                // A completed grammar, an empty plane, or an empty intersection
+                // all set `stop`; otherwise apply the fused allow-mask.
+                let fused = compiled.fused_mask(&text);
+                if fused.stop { None } else { Some(fused.mask) }
             })?;
         let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
         Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())

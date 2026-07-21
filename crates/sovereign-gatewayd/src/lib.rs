@@ -649,6 +649,11 @@ pub struct GatewayServer {
     born: std::time::Instant,
     /// Count of requests refused by the rate limiter (surfaced on `/metrics`).
     rate_limited: std::sync::atomic::AtomicU64,
+    /// Cumulative count of token-law layers fused over `POST /v1/data-plane/
+    /// token-law/fuse` (SDD-507, F00798 `sovereign_data_plane_token_law_mask_layers`).
+    /// Each fuse adds the number of active laws (grammar/regex/denylist/…) it
+    /// composed, so an operator sees the data plane's mask-fusion is live.
+    token_law_mask_layers: std::sync::atomic::AtomicU64,
     /// Structured runtime observability: a bounded ring of the most recent
     /// [`ObservabilitySpan`]s (one per local model call), exposed read-only on
     /// `GET /v1/events`. Oldest is dropped past `EVENTS_CAP`.
@@ -1713,6 +1718,7 @@ impl GatewayServer {
             rate_start: std::time::Instant::now(),
             born: std::time::Instant::now(),
             rate_limited: std::sync::atomic::AtomicU64::new(0),
+            token_law_mask_layers: std::sync::atomic::AtomicU64::new(0),
             events: Mutex::new(VecDeque::new()),
             trace_seq: std::sync::atomic::AtomicU64::new(1),
             corpus: RwLock::new(corpus),
@@ -2005,6 +2011,19 @@ impl GatewayServer {
     /// Count of generation requests refused by the rate limiter (for `/metrics`).
     pub fn rate_limited_count(&self) -> u64 {
         self.rate_limited.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Record a token-law fusion over the data plane: add the number of laws it
+    /// composed (SDD-507 F00798). Returns nothing; surfaced on `/metrics`.
+    pub fn record_token_law_fuse(&self, layers: usize) {
+        self.token_law_mask_layers
+            .fetch_add(layers as u64, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Cumulative token-law mask layers fused (SDD-507 F00798).
+    pub fn token_law_mask_layers_count(&self) -> u64 {
+        self.token_law_mask_layers
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Bound on the observability event ring — the most recent N spans are kept.
@@ -2974,6 +2993,15 @@ impl GatewayServer {
         s.push_str(&format!(
             "sovereign_gateway_rate_limited_total {}\n",
             self.rate_limited_count()
+        ));
+        // SDD-507 (M00155 F00798): token-law mask layers fused over the data plane.
+        s.push_str(
+            "# HELP sovereign_data_plane_token_law_mask_layers Token-law laws fused over POST /v1/data-plane/token-law/fuse.\n",
+        );
+        s.push_str("# TYPE sovereign_data_plane_token_law_mask_layers counter\n");
+        s.push_str(&format!(
+            "sovereign_data_plane_token_law_mask_layers {}\n",
+            self.token_law_mask_layers_count()
         ));
         s.push_str(
             "# HELP sovereign_gateway_nic_topology_compliant 1 when the station's NIC layout \\n             matches the master-spec §8.1 Zero-Trust model.\n",

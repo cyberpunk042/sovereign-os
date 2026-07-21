@@ -26,10 +26,10 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 
 | metric | count | source of truth |
 |---|---:|---|
-| workspace crates | 725 | `crates/*/` |
+| workspace crates | 726 | `crates/*/` |
 | dashboards (d-nn) | 29 | `webapp/d-*/` |
 | cockpit panels (total) | 63 | `webapp/*/index.html` |
-| sdd files | 217 | `docs/sdd/<NNN>-*.md` |
+| sdd files | 218 | `docs/sdd/<NNN>-*.md` |
 | milestone files | 85 | `backlog/milestones/*.md` |
 
 <!-- END COUNTS-CONTRACT -->
