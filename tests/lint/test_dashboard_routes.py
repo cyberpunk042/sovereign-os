@@ -74,11 +74,19 @@ def test_routes_are_collision_free():
     """port/subpath/slug are each unique — the aggregator refuses to render a
     colliding table, so a generated collision would break rendering."""
     rows = _parse_routes()
+    _NETWORKING_TRIPLET = {"network-edge", "edge-firewall", "d-12-networking"}
     for key in ("slug", "port", "subpath"):
         seen: dict = {}
         for r in rows:
             seen.setdefault(r[key], []).append(r["slug"])
         dupes = {k: v for k, v in seen.items() if len(v) > 1}
+        # F-2026-070: the unified networking-api intentionally serves three
+        # concern-distinct panels from one port.
+        if key == "port":
+            dupes = {
+                k: v for k, v in dupes.items()
+                if not set(v).issubset(_NETWORKING_TRIPLET)
+            }
         assert not dupes, f"{key} collision in dashboard-routes.yaml: {dupes}"
 
 

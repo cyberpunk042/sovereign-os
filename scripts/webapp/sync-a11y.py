@@ -104,6 +104,7 @@ ADOPTED_PANELS: list[str] = [
     "ux-design-audit",
     "warp",
     "weaver",
+    "rustdoc-panel",
 ]
 
 _BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)

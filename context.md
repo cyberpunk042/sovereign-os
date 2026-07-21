@@ -28,7 +28,7 @@ Full doctrine: `docs/standing-directives/two-ultimate-solutions.md`.
 |---|---:|---|
 | workspace crates | 721 | `crates/*/` |
 | dashboards (d-nn) | 29 | `webapp/d-*/` |
-| cockpit panels (total) | 61 | `webapp/*/index.html` |
+| cockpit panels (total) | 62 | `webapp/*/index.html` |
 | sdd files | 209 | `docs/sdd/<NNN>-*.md` |
 | milestone files | 85 | `backlog/milestones/*.md` |
 
@@ -265,10 +265,10 @@ Per operator: *"little piece by little piece and progress in this massive endles
 
 Determined from `docs/review/phase-1/99-findings-ledger.md` open items; worked sequentially:
 
-1. **F-2026-070** — Merge the `network-edge` / `edge-firewall` / `d-12-networking` triplet at the API level (the other three clusters were reframed as non-forks; this triplet remains)
-2. **F-2026-073** — Build sync/drift tooling for the 5 unmanaged snippet families (`control-surface.js/css`, `a11y`, `demo-mode`, `nav`, `responsive`) following the `sync-helpers.py` / `test_helpers_contract.py` pattern
-3. **F-2026-093** — Build local rustdoc as a panel (rustdoc-as-panel opportunity; docs.rs links are already repointed to GitHub source per SDD-960)
-4. **M085 / M086** — Populate the two empty milestones (0 R-rows each) with full 170-R-row content: Zen 5 AVX-512 three-tier instruction exploitation + scalar-reference → SIMD lift plan
+1. ~~**F-2026-070** — Merge the `network-edge` / `edge-firewall` / `d-12-networking` triplet at the API level~~ **DONE (2026-07-20)** — unified `scripts/operator/networking-api.py` daemon (port 8139) serves all backward-compatible root paths (`/detect`, `/state`, `/candidates`, `/recommend`, `/install-plan`, `/api/d-12/snapshot`, `/api/d-12/stream`) plus namespaced variants (`/network-edge/*`, `/edge-firewall/*`); systemd unit `sovereign-networking-api.service`; dashboard-catalog + dashboard-routes + panel-api-routes regenerated; lint exceptions added for intentional triplet port-sharing; 23-test contract coverage in `test_networking_api_contract.py`. **Remaining (operator call):** panel fetch-url migration to namespaced paths (if desired) + old daemon deprecation.
+2. ~~**F-2026-073** — Build sync/drift tooling for the 5 unmanaged snippet families~~ **DONE (PR #214, 2026-07-17)** — generic `sync-snippet.py` + `test_shared_snippets_contract.py` landed; a11y marker-managed, demo-mode verbatim ratchet, control-surface asserted already-gated, nav/responsive divergence surfaced; helpers deduplicated into `sync-helpers.py` + `test_helpers_contract.py` with 4 real adopters (d-03/d-04/d-09/d-11); wired into `preflight.sh`
+3. ~~**F-2026-093** — Build local rustdoc as a panel~~ **DONE (2026-07-20)** — `webapp/rustdoc-panel/index.html` + `catalog.json` + `scripts/webapp/gen-rustdoc-panel-catalog.py` + `tests/lint/test_rustdoc_panel_contract.py`; registered in dashboard-catalog.yaml; app-shell/a11y/course/nav/responsive adopted
+4. ~~**M085 / M086** — Populate the two empty milestones~~ **DONE (2026-07-20)** — 170 R-rows each, full feature/requirement tables, backlog docs regenerated
 
 **Operator-blocked (needs SAIN-01 or explicit operator call):**
 - **A** · Notifications go-live (notifykit.toml + secrets + channel test)

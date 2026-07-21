@@ -3,18 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sovereign-os D-18 trust scores</title>
-<meta name="x-sovereign-module" content="d-18-trust-scores-webapp">
-<meta name="x-sovereign-shipped-in" content="R-impl-SDD040-phaseD-item5">
-<meta name="x-sovereign-standing-rule" content="We do not minimize anything.">
-<meta name="x-sovereign-catalog-source" content="M060 R10123 D-18 trust scores + selfdef MS042 trust-score-tracker (M01095 + R09999 + R10039) + MS040 profile evaluation input + MS007 typed-mirror selfdef-trust-score-mirror (7 of 9)">
-<meta name="x-sovereign-doctrine" content="MS043 R10212 web NEVER mutates IPS state — READ-ONLY mirror consumer; score adjust/decay via selfdefctl + operator MS003 only">
-<meta name="x-sovereign-mirror-source" content="selfdef-trust-score-mirror @ schema 1.0.0">
-<!-- M060 R10137/R10140/R10141 personalization apply-snippet — same
-     ~20 lines that ship in master-dashboard's <head>; reads prefs
-     from localStorage and applies them pre-paint so the operator's
-     theme/accent/typography choices render with no FOUC. The
-     canonical control surface is /webapp/personalization/. -->
+<title>Rustdoc · sovereign-os</title>
+<meta name="x-sovereign-module" content="rustdoc-panel-webapp">
+<meta name="x-sovereign-shipped-in" content="F-2026-093">
+<meta name="x-sovereign-standing-rule" content="docs ARE the source of truth.">
 <script>
   (function(){
     var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
@@ -35,19 +27,13 @@
   })();
 </script>
 <style>
-  /* M060 R10137 light-theme overrides (the apply-snippet above sets
-     data-theme; the dark-theme :root in the main stylesheet below is
-     the default). */
   html[data-theme="light"] {
     --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555;
     --panel:#ffffff; --border:#d8d8d8;
   }
 </style>
 
-
-<!-- M060 F05100 + WCAG 2.1 AA accessibility snippet — see webapp/_shared/a11y-snippet.html for full doc -->
-<style>
-  <!-- A11Y:BEGIN M060 -->
+<!-- A11Y:BEGIN M060 -->
 <!-- ─────────────────────────────────────────────────────────────────
 M060 F05100 + R10100 WCAG 2.1 AA accessibility snippet — canonical
 small CSS block embedded in every cockpit dashboard's <head> right
@@ -155,7 +141,7 @@ adoption pattern.
   })();
 </script>
 <!-- A11Y:END M060 -->
-<!-- M060 F05099 + R10142 responsive-layout snippet — see webapp/_shared/responsive-snippet.html for full doc -->
+
 <style>
   4K      ≥2400px  — body max-width raises to 1600px (otherwise the
                      content looks lost on a huge display)
@@ -202,119 +188,6 @@ a11y; contract test catches drift.
 </style>
 
 
-<style>
-  :root {
-    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
-    --good:#7ad17a; --bad:#ff7676; --warn:#e6c062;
-    --trusted:#7ad17a; --watched:#9bd1ff; --suspect:#e6c062; --untrusted:#ff7676;
-    --panel:#171717; --border:#262626;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale, 1));line-height:1.5}
-  body{padding:1.2rem;max-width:1200px;margin:0 auto}
-  h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
-  h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
-  .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
-  table{width:100%;border-collapse:collapse;font-size:.85rem}
-  th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
-  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
-  tr:last-child td{border-bottom:none}
-  tr:hover{background:rgba(155,209,255,0.03)}
-  .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
-  .num{font-variant-numeric:tabular-nums;text-align:right}
-  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
-  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
-  .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
-  .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
-  .stat .u{color:var(--muted);font-size:.78rem}
-  .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border);font-weight:500}
-  .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
-  .pill.accent{background:#143d3d;color:var(--accent)} .pill.muted{background:#1c1c1c;color:var(--muted)}
-  .pill.trusted{background:#143d14;color:var(--trusted)} .pill.watched{background:#143d3d;color:var(--watched)}
-  .pill.suspect{background:#3d2f14;color:var(--suspect)} .pill.untrusted{background:#3d1414;color:var(--untrusted)}
-  button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
-  button:hover{border-color:var(--accent)}
-  button.danger:hover{border-color:var(--bad);color:var(--bad)}
-  .filters{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;align-items:center}
-  .filter{padding:.25rem .6rem;border-radius:3px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
-  .filter.on{background:#143d3d;color:var(--accent);border-color:var(--accent)}
-  .badge-mirror{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;background:#1c1c1c;color:var(--muted);border:1px dashed var(--border)}
-  .band-card{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.55rem .8rem;border-top:3px solid currentColor}
-  .band-card.trusted{color:var(--trusted)} .band-card.watched{color:var(--watched)}
-  .band-card.suspect{color:var(--suspect)} .band-card.untrusted{color:var(--untrusted)}
-  .band-card .nm{font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
-  .band-card .v{font-size:1.4rem;font-weight:600;color:var(--fg);margin-top:.2rem;font-variant-numeric:tabular-nums}
-  .band-card .d{color:var(--muted);font-size:.7rem}
-  .sparkline{display:inline-block;height:24px;width:120px;vertical-align:middle}
-  .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
-  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
-  code{color:var(--accent);background:#0a0a0a;padding:0 3px;border-radius:2px;font-size:.82rem}
-  .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
-  .toast.show{opacity:1}
-  .score-bar{position:relative;background:#0a0a0a;border:1px solid var(--border);border-radius:3px;height:8px;overflow:hidden;min-width:120px}
-  .score-bar .fill{position:absolute;top:0;left:0;bottom:0;transition:width .25s ease}
-  .score-bar .fill.trusted{background:var(--trusted)} .score-bar .fill.watched{background:var(--watched)}
-  .score-bar .fill.suspect{background:var(--suspect)} .score-bar .fill.untrusted{background:var(--untrusted)}
-  .trend-down{color:var(--bad)} .trend-up{color:var(--good)} .trend-flat{color:var(--muted)}
-</style>
-<!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
-<style>
-/* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
- * DEMO mode is opt-in sample data for exploring panels with no daemon. The badge
- * is a persistent, unmistakable ribbon so DEMO data is NEVER mistaken for real
- * telemetry (the SB-077 reconciliation). Inlined verbatim into demo-capable
- * panels alongside demo-mode.js. */
-#so-demo-badge {
-  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 9600;
-  background: #e6c062; color: #0a0a0a; font-weight: 700; font-size: .72rem; letter-spacing: .03em;
-  padding: .28rem .65rem; border-radius: 6px; box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
-  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; pointer-events: none;
-}
-/* Lift clear of the guided-course rail when it is showing (SDD-203) — the rail
-   occupies the bottom band, so raise the badge above it + a small margin rather
-   than letting it sit directly on the rail. Inert on panels with no course rail. */
-body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 12px); }
-#so-demo-badge .sub { font-weight: 400; opacity: .82; }
-</style>
-<script>
-/* webapp/_shared/demo-mode.js — SDD-116 shared DEMO-mode helper (opt-in sample data).
- *
- * Reads the `sovereign-os.demo` localStorage flag (schema-guarded) and renders a
- * persistent DEMO badge. Demo-capable panels call `soDemo.on()` to branch to their
- * clearly-labelled sample data. The SB-077 reconciliation: DEMO is opt-in (off by
- * default; never self-enables), ALWAYS badged, and makes ZERO network calls
- * (R10212 strengthened — the demo render path never fetches). Inlined verbatim into
- * demo-capable panels alongside demo-mode.css. */
-(function () {
-  "use strict";
-  var DKEY = 'sovereign-os.demo', DSCHEMA = 1;
-  function on() {
-    try {
-      var r = localStorage.getItem(DKEY); var p = r ? JSON.parse(r) : null;
-      return !!(p && p.schema === DSCHEMA && p.on);
-    } catch (e) { return false; }
-  }
-  function set(v) {
-    try { localStorage.setItem(DKEY, JSON.stringify({ schema: DSCHEMA, on: !!v })); } catch (e) {}
-  }
-  function badge() {
-    var b = document.getElementById('so-demo-badge');
-    if (on()) {
-      if (!b) {
-        b = document.createElement('div'); b.id = 'so-demo-badge';
-        b.innerHTML = 'DEMO <span class="sub">· sample data — not real telemetry</span>';
-        b.setAttribute('role', 'status');
-        (document.body || document.documentElement).appendChild(b);
-      }
-    } else if (b) { b.remove(); }
-  }
-  window.soDemo = { on: on, set: set, badge: badge, KEY: DKEY, SCHEMA: DSCHEMA };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', badge);
-  else badge();
-})();
-</script>
 <!-- NAV:BEGIN M060 -->
 <!-- ─────────────────────────────────────────────────────────────────
 M060 R10055 + R10058-R10105 keyboard-nav snippet — canonical
@@ -551,8 +424,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   })();
 </script>
 <!-- NAV:END M060 -->
-</head>
-<body>
+
+
 <!-- APP-SHELL:BEGIN M067 -->
 <style id="so-app-shell-style">
   :root{
@@ -1176,35 +1049,10 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       off:{m:'—',c:'sovereign-cpu-dispatch',r:'—',n:'scalar baseline, any x86-64 (the bit-machine is not run)'}
     };
     var avxBacking=document.getElementById('so-avx-backing');
-    var avxLiveActive=null;   // the mode ACTUALLY active on the box (GET /api/control/avx-mode)
     function avxBackingRefresh(){ if(!avxBacking||!avxSel)return; var b=AVX_BACKING[avxSel.value]||AVX_BACKING.builtin;
-      var live='';
-      if(avxLiveActive){
-        var same=(avxSel.value===avxLiveActive);
-        live='<br><b>Active on the box:</b> <span class="mono">'+avxLiveActive+'</span>'+
-          (avxLiveActive==='custom'||avxLiveActive==='hybrid'?' — bit-machine engaged':' — bit-machine idle')+
-          (same?' (selected)':' — Apply to switch to '+avxSel.value);
-      }
       avxBacking.innerHTML='<b>Backed by:</b> '+b.n+'<br><b>Milestones:</b> <span class="mono">'+b.m+'</span>'+
-        '<br><b>Crates:</b> <span class="mono">'+b.c+'</span><br><b>Routes:</b> <span class="mono">'+b.r+'</span>'+live; }
-    // ── Live active-mode prefill (2026-07-21): the AVX select defaulted to the
-    //    first option ('custom') on every panel regardless of the box's real
-    //    mode — the notifykit-class blank-select gap. GET /api/control/avx-mode
-    //    is the read-only inventory (same truth as `avx-mode inventory`); set
-    //    the select to `active` so it shows live state, and surface whether the
-    //    bit-machine is engaged. Silent no-op when the exec API is absent
-    //    (static serving) — the select stays fully usable at its default. ──
-    function soAvxLive(){
-      fetch('/api/control/avx-mode',{headers:{Accept:'application/json'}})
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(p){
-          if(!p || !p.available || !p.active) return;
-          avxLiveActive=p.active;
-          if(avxSel && AVX_BACKING[p.active]) avxSel.value=p.active;
-          avxBackingRefresh();
-        },function(){}).catch(function(){});
-    }
-    if(avxSel){ avxSel.addEventListener('change',avxBackingRefresh); avxBackingRefresh(); soAvxLive(); }
+        '<br><b>Crates:</b> <span class="mono">'+b.c+'</span><br><b>Routes:</b> <span class="mono">'+b.r+'</span>'; }
+    if(avxSel){ avxSel.addEventListener('change',avxBackingRefresh); avxBackingRefresh(); }
     // ── Provider / origin drill-in modal (SDD-600 Part 2) — edit ONE consumer.
     //    Each consumer speaks its own protocol; the copy is the exact swap CLI. ──
     var SO_PROVIDERS=[
@@ -1916,1017 +1764,88 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 </script>
 <!-- APP-SHELL:END M067 -->
 
-
-<h1>D-18 — trust scores <span class="badge-mirror" style="font-size:.7rem">read-only via selfdef-trust-score-mirror</span></h1>
-<div class="sub">per-tool trust score history · 0..1000 fixed-point · 4-band classification · MS042 telemetry input · MS040 profile evaluation — <a href="../master-dashboard/">D-00 main</a></div>
-
-<!-- M060 mirror-status banner -->
-<div id="mirror-status-banner" class="mirror-banner offline" role="status" aria-live="polite">
-  <span class="dot"></span>
-  <strong id="mirror-state-label">mirror: offline</strong>
-  <span id="mirror-state-detail" class="muted">
-    no <code>trust-scores.json</code> published yet — enable
-    <code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code>
-    (deltas daemon-populated by scoring; operator admit/adjust via
-    <code>selfdefctl trust-scores admit|operator-delta</code>)
-  </span>
-  <span class="spacer"></span>
-  <span class="muted" id="mirror-last-update">last update: —</span>
-  <span class="muted">· schema <code id="mirror-schema-version">1.0.0</code></span>
-</div>
 <style>
-  .mirror-banner { display:flex; align-items:center; gap:.6rem; padding:.55rem .85rem;
-    border:1px solid var(--border, #2a2a2a); border-radius:.4rem; margin:.55rem 0 1rem;
-    font-size:.85rem; background:rgba(255,255,255,.02); }
-  .mirror-banner.online  { border-color:#1f7a3a; background:rgba(31,122,58,.10); }
-  .mirror-banner.offline { border-color:#7a3a1f; background:rgba(122,58,31,.10); }
-  .mirror-banner .dot { width:.55rem; height:.55rem; border-radius:50%;
-    background:#7a3a1f; box-shadow:0 0 .35rem rgba(122,58,31,.5); }
-  .mirror-banner.online .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
-  .mirror-banner .spacer { flex:1; }
+  :root {
+    --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --accent:#9bd1ff;
+    --panel:#171717; --border:#262626;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 1.2rem; background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: calc(14px * var(--font-scale, 1)); line-height: 1.5; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 .2rem; font-weight: 600; }
+  .sub { color: var(--muted); margin: 0 0 1.4rem; font-size: .85rem; }
+  .search { width: 100%; padding: .5rem .7rem; background: var(--panel); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; font-family: inherit; font-size: .9rem; margin-bottom: 1rem; }
+  .search:focus { outline: none; border-color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .6rem; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: .7rem .9rem; }
+  .card .name { font-weight: 600; color: var(--accent); font-size: .9rem; margin-bottom: .25rem; }
+  .card .name a { color: inherit; text-decoration: none; }
+  .card .name a:hover { text-decoration: underline; }
+  .card .desc { color: var(--muted); font-size: .82rem; line-height: 1.4; }
+  .card .meta { color: var(--muted); font-size: .72rem; margin-top: .35rem; }
+  .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+  footer { margin-top: 2rem; color: var(--muted); font-size: .75rem; border-top: 1px solid var(--border); padding-top: .8rem; }
 </style>
+</head>
+<body>
 
-<h2>4-band classification</h2>
-<div class="row">
-  <div class="band-card trusted">
-    <div class="nm">Trusted (≥ 800)</div>
-    <div class="v" id="b-trusted">0</div>
-    <div class="d">Tier A/B auto-approve eligible · mean <span id="m-trusted">—</span></div>
-  </div>
-  <div class="band-card watched">
-    <div class="nm">Watched (500–799)</div>
-    <div class="v" id="b-watched">0</div>
-    <div class="d">telemetry retained · profile-gated · mean <span id="m-watched">—</span></div>
-  </div>
-  <div class="band-card suspect">
-    <div class="nm">Suspect (200–499)</div>
-    <div class="v" id="b-suspect">0</div>
-    <div class="d">operator-ask · Tier C/D escalation · mean <span id="m-suspect">—</span></div>
-  </div>
-  <div class="band-card untrusted">
-    <div class="nm">Untrusted (< 200)</div>
-    <div class="v" id="b-untrusted">0</div>
-    <div class="d">auto-quarantine · forfeit candidate · mean <span id="m-untrusted">—</span></div>
-  </div>
-</div>
-
-<h2>summary</h2>
-<div class="row">
-  <div class="stat"><div class="k">total tools</div><div class="v" id="s-total">0</div><div class="u">tracked</div></div>
-  <div class="stat"><div class="k">mean score</div><div class="v" id="s-mean">0</div><div class="u">across all tools</div></div>
-  <div class="stat"><div class="k">trending down</div><div class="v warn" id="s-down">0</div><div class="u">last 5 deltas net &lt; 0</div></div>
-  <div class="stat"><div class="k">executions (24h)</div><div class="v ok" id="s-exec">0</div><div class="u">successful</div></div>
-  <div class="stat"><div class="k">mismatches (24h)</div><div class="v bad" id="s-miss">0</div><div class="u">declaration drift</div></div>
-</div>
-
-<h2>per-tool scores</h2>
-<div class="panel">
-  <div class="filters" id="band-filters">
-    <span style="font-size:.72rem;color:var(--muted)">band:</span>
-    <div class="filter on" data-band="trusted">trusted</div>
-    <div class="filter on" data-band="watched">watched</div>
-    <div class="filter on" data-band="suspect">suspect</div>
-    <div class="filter on" data-band="untrusted">untrusted</div>
-    <span style="font-size:.72rem;color:var(--muted);margin-left:1rem">sort:</span>
-    <div class="filter" data-sort="score-desc">↓ score</div>
-    <div class="filter on" data-sort="trend">trend</div>
-    <div class="filter" data-sort="tool">name</div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>tool</th>
-        <th>band</th>
-        <th>score</th>
-        <th>trend</th>
-        <th>history</th>
-        <th class="num">exec</th>
-        <th class="num">mismatch</th>
-        <th class="num">reliability</th>
-        <th>actions</th>
-      </tr>
-    </thead>
-    <tbody id="tool-tbody"></tbody>
-  </table>
-</div>
-
-<h2>actions <span class="muted" style="font-size:.75rem;font-weight:400">— web is READ-ONLY mirror consumer; score adjust/decay via selfdefctl + operator MS003 (R10212)</span></h2>
-<div class="row">
-  <button onclick="emit('selfdefctl trust list --band trusted')">copy: list trusted</button>
-  <button onclick="emit('selfdefctl trust show --tool <name> --history 30d')">copy: 30d history</button>
-  <button class="warn" onclick="emit('selfdefctl trust adjust --tool <name> --delta -200 --reason \"...\"')">copy: penalty (-200)</button>
-  <button onclick="emit('selfdefctl trust adjust --tool <name> --delta +50 --reason \"operator endorse\"')">copy: bonus (+50)</button>
-  <button class="danger" onclick="emit('selfdefctl trust forfeit --tool <name> --confirm')">copy: forfeit (cap to 0)</button>
-</div>
-
-<div class="footer">
-  D-18 · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-17-quarantine/">D-17 quarantine</a> · <a href="../d-14-capability-tokens/">D-14 capability</a><br>
-  mirror source: <code>selfdef-trust-score-mirror @ 1.0.0</code> · MS042 trust-score-tracker · MS040 profile evaluation · MS007 typed-mirror crate #7 of 9
-</div>
-
-<div class="toast" id="toast">copied</div>
+<h1>Rustdoc Catalog</h1>
+<p class="sub">Workspace crate index — <span id="crate-count">—</span> crates. Search by name or description.</p>
+<input type="text" class="search" id="search" placeholder="Filter crates…" autocomplete="off">
+<div class="grid" id="grid"><div class="empty">Loading catalog…</div></div>
+<footer>
+  Generated by <code>scripts/webapp/gen-rustdoc-panel-catalog.py</code> ·
+  Links point to GitHub source (local rustdoc: run <code>cargo doc --workspace --no-deps</code>)
+</footer>
 
 <script>
-  // Live data from the read-only selfdef-trust-score-mirror publisher API
-  // (scripts/operator/trust-mirror-api.py). Schema mirrors
-  // selfdef-trust-score-mirror::TrustScoreMirrorSnapshot 1.0.0. No mutations
-  // from this surface — R10212 (score reset is selfdefctl + MS003 on the IPS).
-  let seed = { schema_version: "1.0.0", mirror_status: "offline", captured_at: null, summaries: [], tools: [] };
+(function(){
+  var grid = document.getElementById('grid');
+  var search = document.getElementById('search');
+  var countEl = document.getElementById('crate-count');
+  var crates = [];
 
-  function renderMirrorBanner() {
-    const b = document.getElementById('mirror-status-banner'); if (!b) return;
-    const label = document.getElementById('mirror-state-label');
-    const detail = document.getElementById('mirror-state-detail');
-    const last = document.getElementById('mirror-last-update');
-    const sch = document.getElementById('mirror-schema-version');
-    const online = seed.mirror_status === 'online';
-    b.classList.toggle('online', online); b.classList.toggle('offline', !online);
-    if (online) { label.textContent = 'mirror: online';
-      detail.innerHTML = 'consuming <code>selfdef-trust-score-mirror</code> via <code>selfdefd</code> export'; }
-    else { label.textContent = 'mirror: offline';
-      detail.innerHTML = 'no <code>trust-scores.json</code> published yet — enable ' +
-        '<code>[deployment].selfdef_mirror_dir</code> in <code>selfdef.toml</code> ' +
-        '(deltas daemon-populated by scoring; operator admit/adjust via ' +
-        '<code>selfdefctl trust-scores admit|operator-delta</code>)'; }
-    last.textContent = seed.captured_at
-      ? 'last update: ' + new Date(seed.captured_at).toLocaleString()
-      : 'last update: never';
-    if (seed.schema_version) sch.textContent = seed.schema_version;
-  }
-
-  function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
-  const DEMO_D18 = {
-    schema_version:"1.0.0", mirror_status:"online", captured_at:"2026-06-30T14:00:00Z", summaries:[],
-    tools:[
-      {tool:"demo/exec-rail", declarer:"control-exec", band:"trusted", current_score:940, executions_total:1200, mismatches_total:3, history:[{score_after:900},{score_after:915},{score_after:928},{score_after:940}]},
-      {tool:"demo/session-reaper", declarer:"m057", band:"trusted", current_score:880, executions_total:640, mismatches_total:5, history:[{score_after:860},{score_after:870},{score_after:880}]},
-      {tool:"demo/memory-janitor", declarer:"m028", band:"watched", current_score:610, executions_total:210, mismatches_total:18, history:[{score_after:640},{score_after:625},{score_after:610}]},
-      {tool:"demo/flash-writer", declarer:"selfdef", band:"suspect", current_score:340, executions_total:44, mismatches_total:22, history:[{score_after:400},{score_after:370},{score_after:340}]}
-    ]
-  };
-  async function load() {
-    if (demoActive()) { seed = Object.assign(seed, DEMO_D18); renderMirrorBanner(); renderTiles(); renderTools(); const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; if(window.soDemo)window.soDemo.badge(); return; }
-    try {
-      const r = await fetch('/api/d-18/snapshot', { credentials: 'same-origin' });
-      if (r.ok) seed = Object.assign(seed, await r.json());
-    } catch (e) { /* mirror offline — keep empty-safe defaults */ }
-    renderMirrorBanner();
-    renderTiles();
-    renderTools();
-  }
-
-  function reliability(t) { const total = t.executions_total + t.mismatches_total; return total === 0 ? 1.0 : t.executions_total / total; }
-  function trend(t) {
-    const tail = t.history.slice(-5);
-    if (tail.length < 2) return 0;
-    return tail[tail.length - 1].score_after - tail[0].score_after;
-  }
-
-  // band tiles + summary tiles (rendered from the live mirror snapshot)
-  function renderTiles() {
-    const tools = seed.tools || [];
-    const bands = { trusted: [], watched: [], suspect: [], untrusted: [] };
-    for (const t of tools) (bands[t.band] = bands[t.band] || []).push(t);
-    for (const [name, list] of Object.entries(bands)) {
-      const bEl = document.getElementById('b-' + name);
-      if (bEl) bEl.textContent = list.length;
-      const mean = list.length === 0 ? 0 : Math.round(list.reduce((a, t) => a + t.current_score, 0) / list.length);
-      const mEl = document.getElementById('m-' + name);
-      if (mEl) mEl.textContent = mean || '—';
+  function render(list) {
+    if (!list.length) {
+      grid.innerHTML = '<div class="empty">No crates match.</div>';
+      return;
     }
-    document.getElementById('s-total').textContent = tools.length;
-    const totalMean = tools.length ? Math.round(tools.reduce((a, t) => a + t.current_score, 0) / tools.length) : '—';
-    document.getElementById('s-mean').textContent = totalMean;
-    document.getElementById('s-down').textContent = tools.filter(t => trend(t) < 0).length;
-    document.getElementById('s-exec').textContent = tools.reduce((a, t) => a + t.executions_total, 0);
-    document.getElementById('s-miss').textContent = tools.reduce((a, t) => a + t.mismatches_total, 0);
+    var html = '';
+    list.forEach(function(c){
+      var src = 'https://github.com/cyberpunk042/sovereign-os/tree/main/crates/' + c.name.replace(/\./g, '-');
+      html += '<div class="card">' +
+        '<div class="name"><a href="' + src + '" target="_blank" rel="noopener">' + c.name + '</a></div>' +
+        '<div class="desc">' + (c.description || '—') + '</div>' +
+        '<div class="meta"><a href="' + src + '">source</a></div>' +
+      '</div>';
+    });
+    grid.innerHTML = html;
+    countEl.textContent = list.length;
   }
 
-  function drawSparkline(scores) {
-    const w = 120, h = 24;
-    const max = 1000, min = 0;
-    const pts = scores.map((s, i) => {
-      const x = (i / Math.max(1, scores.length - 1)) * w;
-      const y = h - ((s - min) / (max - min)) * h;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-      <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>`;
+  function filter() {
+    var q = (search.value || '').trim().toLowerCase();
+    if (!q) { render(crates); return; }
+    render(crates.filter(function(c){
+      return c.name.toLowerCase().indexOf(q) >= 0 || (c.description || '').toLowerCase().indexOf(q) >= 0;
+    }));
   }
 
-  function renderTools() {
-    const activeBands = new Set([...document.querySelectorAll('#band-filters .filter.on[data-band]')].map(f => f.dataset.band));
-    const sortFilter = [...document.querySelectorAll('#band-filters .filter.on[data-sort]')].map(f => f.dataset.sort)[0] || 'trend';
-    let tools = (seed.tools || []).filter(t => activeBands.has(t.band));
-    if (sortFilter === 'score-desc') tools.sort((a, b) => b.current_score - a.current_score);
-    else if (sortFilter === 'trend') tools.sort((a, b) => trend(a) - trend(b));  // worst-trending first
-    else tools.sort((a, b) => a.tool.localeCompare(b.tool));
+  fetch('./catalog.json', { headers: { Accept: 'application/json' } })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      crates = data.crates || [];
+      render(crates);
+    })
+    .catch(function(e){
+      grid.innerHTML = '<div class="empty">Failed to load catalog.json</div>';
+      console.error(e);
+    });
 
-    const tb = document.getElementById('tool-tbody');
-    tb.innerHTML = '';
-    for (const t of tools) {
-      const tr_ = trend(t);
-      const trendCls = tr_ < -10 ? 'trend-down' : (tr_ > 10 ? 'trend-up' : 'trend-flat');
-      const trendStr = tr_ > 0 ? '+' + tr_ : tr_;
-      const rel = reliability(t);
-      const rel_pct = (rel * 100).toFixed(1) + '%';
-      const scoreFillCls = t.band;
-      const scores = t.history.map(h => h.score_after);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><code>${t.tool}</code><br><span class="muted" style="font-size:.7rem">${t.declarer}</span></td>
-        <td><span class="pill ${t.band}">${t.band}</span></td>
-        <td>
-          <div class="num">${t.current_score}</div>
-          <div class="score-bar"><div class="fill ${scoreFillCls}" style="width:${(t.current_score/10)}%"></div></div>
-        </td>
-        <td class="num ${trendCls}">${trendStr}</td>
-        <td style="color:var(--${t.band === 'trusted' ? 'trusted' : (t.band === 'watched' ? 'watched' : (t.band === 'suspect' ? 'suspect' : 'untrusted'))})">${drawSparkline(scores)}</td>
-        <td class="num">${t.executions_total.toLocaleString()}</td>
-        <td class="num">${t.mismatches_total}</td>
-        <td class="num ${rel < 0.9 ? 'bad' : (rel < 0.98 ? 'warn' : 'ok')}">${rel_pct}</td>
-        <td>
-          <button onclick="emit('selfdefctl trust show --tool ${t.tool} --history 30d')">history</button>
-          <button class="danger" onclick="emit('selfdefctl trust adjust --tool ${t.tool} --delta -200 --reason penalty')">penalty</button>
-        </td>
-      `;
-      tb.appendChild(tr);
-    }
-    if (!tb.children.length) {
-      tb.innerHTML = '<tr><td colspan="9" class="muted">' +
-        (seed.mirror_status === 'offline'
-          ? 'selfdef-trust-score-mirror offline — no per-tool trust scores published yet'
-          : 'no tools match the band filter') + '</td></tr>';
-    }
-  }
-
-  // filter behaviors
-  document.querySelectorAll('#band-filters .filter[data-band]').forEach(f => f.addEventListener('click', () => { f.classList.toggle('on'); renderTools(); }));
-  document.querySelectorAll('#band-filters .filter[data-sort]').forEach(f => f.addEventListener('click', () => {
-    document.querySelectorAll('#band-filters .filter[data-sort]').forEach(x => x.classList.remove('on'));
-    f.classList.add('on');
-    renderTools();
-  }));
-
-  function emit(cmd) {
-    navigator.clipboard.writeText(cmd).then(() => showToast('copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
-  }
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(showToast._h);
-    showToast._h = setTimeout(() => t.classList.remove('show'), 1800);
-  }
-  window.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); window.location.href = '../master-dashboard/'; }
-  });
-
-  // initial load + 30s refresh from the read-only selfdef-trust-score-mirror
-  load();
-  setInterval(load, 30000);
+  search.addEventListener('input', filter);
+})();
 </script>
 
-
-<!-- SDD-045 Phase C — control surface (INLINED per the single-file doctrine).
-     Renders config/control-systems.yaml (served at /control-systems): the
-     global controls (profile / dashboard on-off / auth tier) + the modes &
-     feature toggles that govern THIS panel. Read-only: each control copies
-     its exact sovereign-osctl command. Canonical source (lockstep-linted):
-     webapp/_shared/control-surface.{css,js}. -->
-<h2>controls — profiles, modes &amp; feature toggles</h2>
-<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
-<style>
-/* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
- * Renders the control-systems registry (profiles / modes / feature toggles)
- * as a grid of control cards. Monochrome, framework-free; inherits the
- * panel palette variables (--bg/--fg/--muted/--accent/--border/--mono).
- *
- * R10274 (functional cockpit): a control can now be EXECUTED from the card
- * (the sanctioned same-origin control-exec-api POST) — the copyable command
- * is demoted to a labelled fallback. R10212 is preserved: proxy-only controls
- * (selfdef / perimeter) render NO execute affordance, and every per-panel
- * daemon stays read-only — the ONLY write path is the dedicated exec daemon. */
-.cs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; }
-.cs-card {
-  display: flex; flex-direction: column; gap: .35rem;
-  padding: .6rem .75rem; border: 1px solid var(--border, #262626);
-  border-radius: .4rem; background: rgba(255, 255, 255, .02);
-  transition: border-color .12s ease;
-}
-.cs-card:hover { border-color: rgba(255, 255, 255, .12); }
-.cs-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.cs-label { font-weight: 600; flex: 1; }
-.cs-kind {
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted, #888); border: 1px solid var(--border, #262626);
-  border-radius: 3px; padding: 0 .35rem;
-}
-.cs-global {
-  font-size: .7rem; color: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
-}
-.cs-proxy {
-  font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
-  border-radius: 3px; padding: 0 .35rem; letter-spacing: .02em;
-}
-.cs-desc { color: var(--muted, #888); font-size: .8rem; line-height: 1.45; }
-.cs-opts { display: flex; flex-wrap: wrap; gap: .3rem; }
-.cs-opt { font-size: .72rem; background: var(--border, #262626); border-radius: 3px; padding: 1px 6px; }
-
-/* ── argument rail: one control per change_cli placeholder ──────────────── */
-.cs-args { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .1rem 0; }
-.cs-lit { font-family: var(--mono, ui-monospace, monospace); font-size: .74rem; color: var(--muted, #888); }
-.cs-verbs { display: inline-flex; border: 1px solid var(--border, #262626); border-radius: 4px; overflow: hidden; }
-.cs-verb {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .72rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 0; border-right: 1px solid var(--border, #262626);
-  padding: .2rem .5rem; cursor: pointer;
-}
-.cs-verb:last-child { border-right: 0; }
-.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
-.cs-arg {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
-}
-.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
-
-/* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
-.cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
-.cs-exec {
-  font-size: .76rem; font-weight: 600; cursor: pointer;
-  color: #0a0a0a; background: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
-  padding: .28rem .6rem; white-space: nowrap;
-}
-.cs-exec:hover { filter: brightness(1.08); }
-.cs-exec:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-.cs-cmd {
-  font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
-  text-align: left; color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
-  border: 1px solid var(--border, #262626); border-radius: 4px;
-  padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
-}
-.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
-.cs-copy { flex: 1; }
-/* result line — dry-run / executed / rejected feedback, always visible */
-.cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
-.cs-result.ok { color: #6fcf6f; }
-.cs-result.dry { color: var(--accent, #9bd1ff); }
-.cs-result.warn { color: #e0b050; }
-.cs-result.err { color: #e06a6a; }
-.cs-result.muted { color: var(--muted, #888); }
-/* inline type-to-confirm gate for privileged controls */
-.cs-confirm {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
-  padding: .35rem .4rem; margin-top: .1rem;
-  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
-}
-.cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
-.cs-confirm-msg code { color: var(--fg, #e6e6e6); }
-.cs-confirm-in { max-width: 14ch; }
-.cs-confirm-cancel { flex: 0 0 auto; }
-.cs-empty { color: var(--muted, #888); }
-</style>
-<script>
-/* webapp/_shared/control-surface.js — SDD-045 shared control-surface renderer.
- *
- * Renders the control-systems registry (config/control-systems.yaml, served
- * as GET /control-systems) — the operator's "everything can be turned on and
- * off + tons of modes and profiles" — as a grid of control cards. Reused by
- * every dashboard so each becomes a CONTROL surface.
- *
- * R10274 — functional cockpit: a control is now EXECUTED from the card. Each
- * change_cli placeholder becomes an input (enum → segmented buttons keyed
- * `verb`/`verbN`; free `<name>` → a datalist input seeded from `options`,
- * matching the server's _action_exec.resolve_argv keying). Execute POSTs
- * {control_id, args, confirm} to the sanctioned same-origin control-exec-api
- * (POST /api/control/execute); the copyable command is demoted to a labelled
- * fallback, and any 405 / unreachable exec front degrades gracefully to Copy.
- *
- * R10212 is preserved: the web still never *arbitrarily* mutates. Proxy-only
- * controls (selfdef / perimeter — mirrors _action_exec.SELFDEF_OWNED, drift-
- * guarded by tests/lint/test_control_surface_execute_boundary.py) render NO
- * execute affordance (signed-proxy badge + copy only). Every per-panel daemon
- * stays read-only (405 on writes); the ONE write path is the dedicated exec
- * daemon, where every action is allowlisted + options-validated + confirm/
- * key-gated + OCSF-5001 audited + DRY_RUN by default.
- *
- * Usage:
- *   const n = SovereignControlSurface.render(el, systems, {
- *     filterSlug: 'runtime-modes',      // only global + systems governing slug
- *     executeUrl: '/api/control/execute', // same-origin sanctioned write daemon
- *     onCopy: (cmd) => showToast(cmd)     // optional copy callback
- *   });
- */
-(function (global) {
-  "use strict";
-
-  // R10212 boundary — mirrors _action_exec.SELFDEF_OWNED. selfdef/perimeter are
-  // signed-proxy ONLY: never executed locally. (drift-guarded by lint.)
-  var PROXY_ONLY = ["selfdef", "perimeter"];
-  var EXECUTE_URL = "/api/control/execute";
-
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-
-  function isProxyOnly(sys) {
-    if (typeof sys.execute_local === "boolean") return !sys.execute_local;
-    return PROXY_ONLY.indexOf(sys.id) >= 0;
-  }
-
-  // Parse a change_cli template, mirroring _action_exec.resolve_argv:
-  //   {a|b}  → enum, arg-key 'verb' (first) / 'verb1' / 'verb2' ...
-  //   <name> → free, arg-key name
-  //   else   → literal token
-  function parseTemplate(changeCli) {
-    var toks = String(changeCli || "").trim().split(/\s+/).filter(Boolean);
-    var out = [], enumSeen = 0;
-    toks.forEach(function (t) {
-      var em = /^\{([a-z0-9|_-]+)\}$/.exec(t);
-      if (em) {
-        out.push({ kind: "enum", key: enumSeen === 0 ? "verb" : "verb" + enumSeen,
-                   alts: em[1].split("|") });
-        enumSeen += 1; return;
-      }
-      var fm = /^<([a-z0-9_-]+)>$/.exec(t);
-      if (fm) { out.push({ kind: "free", key: fm[1] }); return; }
-      out.push({ kind: "lit", text: t });
-    });
-    return out;
-  }
-
-  // Reassemble the concrete command from the template + collected args (for the
-  // Copy fallback + result echo); unfilled placeholders stay as <name>/{a|b}.
-  function assembleCmd(changeCli, args) {
-    return parseTemplate(changeCli).map(function (t) {
-      if (t.kind === "lit") return t.text;
-      if (t.kind === "enum") return args[t.key] || ("{" + t.alts.join("|") + "}");
-      return args[t.key] || ("<" + t.key + ">");
-    }).join(" ");
-  }
-
-  function collectArgs(card) {
-    var args = {};
-    Array.prototype.forEach.call(card.querySelectorAll(".cs-verbs"), function (grp) {
-      var pressed = grp.querySelector('.cs-verb[aria-pressed="true"]');
-      if (pressed) args[grp.getAttribute("data-argkey")] = pressed.getAttribute("data-val");
-    });
-    Array.prototype.forEach.call(card.querySelectorAll("input.cs-arg"), function (inp) {
-      var v = (inp.value || "").trim();
-      if (v) args[inp.getAttribute("data-argkey")] = v;
-    });
-    return args;
-  }
-
-  function copy(text, opts) {
-    if (navigator.clipboard) { try { navigator.clipboard.writeText(text); } catch (e) { /* noop */ } }
-    if (opts && typeof opts.onCopy === "function") opts.onCopy(text);
-  }
-
-  function setResult(el, cls, msg) {
-    if (!el) return;
-    el.className = "cs-result " + cls;
-    el.textContent = msg;
-  }
-
-  function toolWarning(stdout) {
-    // Best-effort: the sanctioned exec-api echoes the tool's stdout; if it is
-    // JSON carrying a truthy `warning`, return it for the result line (e.g.
-    // model-warm's dtype/state drift, SDD-049 Stage 4). Never throws — a
-    // non-JSON / warning-less tool just yields no banner.
-    if (!stdout) return null;
-    try { var j = JSON.parse(stdout); return (j && j.warning) ? String(j.warning) : null; }
-    catch (e) { return null; }
-  }
-
-  function execute(url, controlId, args, confirmed) {
-    return fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ control_id: controlId, args: args, confirm: !!confirmed })
-    }).then(function (r) {
-      return r.json().then(
-        function (j) { return { status: r.status, body: j || {} }; },
-        function () { return { status: r.status, body: {} }; });
-    });
-  }
-
-  // Inline type-to-confirm gate for privileged controls (replaces window.prompt
-  // — accessible, on-palette, non-blocking). Type the control id, Confirm →
-  // re-execute with confirm:true; Cancel/mismatch → no execution.
-  function askConfirm(card, sys, opts) {
-    var result = card.querySelector(".cs-result");
-    var host = card.querySelector(".cs-confirm");
-    if (!host) {
-      host = document.createElement("div");
-      host.className = "cs-confirm";
-      card.insertBefore(host, result);
-    }
-    host.innerHTML =
-      '<span class="cs-confirm-msg">privileged — type <code>' + esc(sys.id) + "</code> to confirm</span>"
-      + '<input class="cs-arg cs-confirm-in" placeholder="' + esc(sys.id) + '" aria-label="type ' + esc(sys.id) + ' to confirm">'
-      + '<button type="button" class="cs-exec cs-confirm-ok">Confirm</button>'
-      + '<button type="button" class="cs-cmd cs-confirm-cancel">Cancel</button>';
-    var inp = host.querySelector(".cs-confirm-in");
-    if (inp.focus) inp.focus();
-    function done(ok) {
-      var typed = (inp.value || "").trim();
-      if (host.parentNode) host.parentNode.removeChild(host);
-      if (ok && typed === sys.id) execAction(card, sys, opts, true);
-      else setResult(result, "warn", "confirmation " + (ok ? "mismatch" : "cancelled") + " — not executed");
-    }
-    host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
-    host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
-    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
-  }
-
-  function execAction(card, sys, opts, confirmed) {
-    var result = card.querySelector(".cs-result");
-    var args = collectArgs(card);
-    var url = (opts && opts.executeUrl) || EXECUTE_URL;
-    setResult(result, "muted", "executing…");
-    execute(url, sys.id, args, confirmed).then(function (res) {
-      var b = res.body || {};
-      if (res.status === 200) {
-        if (b.dry_run) setResult(result, "dry", "dry-run ✓ would run: " + ((b.would_run || []).join(" ") || assembleCmd(sys.change_cli, args)));
-        else {
-          // A live exec echoes the tool's JSON on stdout; surface a tool-level
-          // `warning` (model-warm's dtype/state drift, SDD-049 Stage 4) so it
-          // reaches the operator instead of hiding behind a bare "exit 0".
-          var warn = toolWarning(b.stdout);
-          setResult(result, warn ? "warn" : "ok",
-            "executed ✓ exit " + (b.exit_code != null ? b.exit_code : 0) + (warn ? " — ⚠ " + warn : ""));
-        }
-      } else if (res.status === 403) {
-        if (confirmed) {
-          // already type-confirmed → 403 is a server-side gate (e.g. the
-          // operator key is not loaded). Surface the reason; do NOT re-prompt.
-          setResult(result, "warn", b.error || "not permitted (operator key required)");
-        } else {
-          // privileged control — inline type-to-confirm gate, ONCE
-          askConfirm(card, sys, opts);
-        }
-      } else if (res.status === 409) {
-        if (b.compat) {
-          // compat pre-change gate refusal (the ⚖ registry, NOT the R10212
-          // boundary): surface the RULE + remediation at the point of
-          // rejection, and offer the server-verified fix plan inline —
-          // "force something else off in order to enable one thing".
-          setResult(result, "err",
-            "⚖ " + (b.error || "compat gate refused")
-            + " INSTEAD: " + (b.remediation || "open the ⚖ Compatibility pane"));
-          fixPlan(result, b.resolution, url);
-        } else if (b.boundary) {
-          setResult(result, "warn", "signed-proxy only (R10212) — command copied");
-          copy(assembleCmd(sys.change_cli, args), opts);
-        } else {
-          // the remaining 409: single-flight lock (another action running)
-          setResult(result, "warn", b.error || "another cockpit action is already running");
-        }
-      } else if (res.status === 400) {
-        setResult(result, "warn", b.error || "invalid arguments — pick a value");
-      } else if (res.status === 404) {
-        setResult(result, "err", b.error || "unknown control");
-      } else if (res.status === 405) {
-        setResult(result, "muted", "execution not available on this origin — command copied");
-        copy(assembleCmd(sys.change_cli, args), opts);
-      } else {
-        setResult(result, "err", b.error || ("error " + res.status));
-      }
-    }).catch(function () {
-      // exec daemon unreachable (per-port-direct read-only front) → copy fallback
-      setResult(result, "muted", "exec endpoint unreachable — command copied");
-      copy(assembleCmd(sys.change_cli, collectArgs(card)), opts);
-    });
-  }
-
-  // The server-verified compat RESOLUTION plan riding a 409 refusal — one
-  // "Force: <label>" button per step; each executes through the SAME
-  // sanctioned rail (dry-run until live). Mirrors the app-shell ⚖ pane's
-  // shared renderer so both surfaces offer the identical way out.
-  function fixPlan(result, resolution, url) {
-    if (!result || !resolution || !(resolution.plan || []).length) return;
-    var head = document.createElement("div");
-    head.className = "cs-fix-head";
-    head.textContent = resolution.resolved_all
-      ? "Verified fix plan — applying these clears ALL findings:"
-      : (resolution.clean_after
-        ? "Verified fix plan — clears every gating finding (advisories may remain):"
-        : "Fix plan (partial — force findings would remain):");
-    result.appendChild(head);
-    resolution.plan.forEach(function (stp) {
-      var row = document.createElement("div");
-      row.className = "cs-fix-row";
-      var btn = document.createElement("button");
-      btn.type = "button"; btn.className = "cs-exec cs-fix";
-      btn.textContent = "Force: " + stp.label;
-      btn.title = stp.rule_id + " — executes control " + stp.system + " via the exec rail";
-      var out = document.createElement("span");
-      out.className = "cs-result muted";
-      btn.addEventListener("click", function () {
-        out.textContent = "executing…";
-        execute(url, stp.system, stp.args || {}, false).then(function (r) {
-          var rb = r.body || {};
-          if (r.status === 200) {
-            out.textContent = rb.dry_run
-              ? "dry-run ✓ would run: " + ((rb.would_run || []).join(" ") || stp.system)
-              : "executed ✓ exit " + (rb.exit_code != null ? rb.exit_code : 0);
-          } else out.textContent = rb.error || ("error " + r.status);
-        }).catch(function () { out.textContent = "exec endpoint unreachable"; });
-      });
-      row.appendChild(btn); row.appendChild(out); result.appendChild(row);
-    });
-  }
-
-  function argsRailHtml(sys) {
-    var opts = (sys.options || []).map(String);
-    var html = parseTemplate(sys.change_cli).map(function (t) {
-      if (t.kind === "lit") return "";                 // literals live in the Copy line
-      if (t.kind === "enum") {
-        return '<span class="cs-verbs" data-argkey="' + esc(t.key) + '">'
-          + t.alts.map(function (a, i) {
-              return '<button type="button" class="cs-verb" data-val="' + esc(a)
-                + '" aria-pressed="' + (i === 0 ? "true" : "false") + '">' + esc(a) + "</button>";
-            }).join("") + "</span>";
-      }
-      var listId = "csl-" + esc(sys.id) + "-" + esc(t.key);
-      var dl = opts.length
-        ? '<datalist id="' + listId + '">'
-            + opts.map(function (o) { return '<option value="' + esc(o) + '"></option>'; }).join("")
-            + "</datalist>"
-        : "";
-      return '<input class="cs-arg" data-argkey="' + esc(t.key) + '" placeholder="' + esc(t.key) + '"'
-        + (opts.length ? ' list="' + listId + '"' : "") + ">" + dl;
-    }).join("");
-    return html ? '<div class="cs-args">' + html + "</div>" : "";
-  }
-
-  function cardHtml(sys) {
-    var proxy = isProxyOnly(sys);
-    // Options already rendered as one-click buttons must NOT ALSO appear as inert
-    // grey pills — a duplicated value reads as clickable-but-dead. Keep pills only
-    // for options with no button (free-input controls where the pill is the sole
-    // hint, or a semantic label like a toggle's on/off vs its enable/disable verb).
-    var buttonVals = {};
-    parseTemplate(sys.change_cli).forEach(function (t) {
-      if (t.kind === "enum") { t.alts.forEach(function (a) { buttonVals[a] = true; }); }
-    });
-    var pills = (sys.options || [])
-      .filter(function (o) { return !buttonVals[String(o)]; })
-      .map(function (o) { return '<span class="cs-opt">' + esc(o) + "</span>"; }).join("");
-    var change = sys.change_cli || "";
-    var actions = change
-      ? '<div class="cs-actions">'
-          + (proxy ? "" : '<button type="button" class="cs-exec">Execute</button>')
-          + '<button type="button" class="cs-cmd cs-copy" data-cmd="' + esc(change)
-            + '" title="copy the operator command (fallback)">$ ' + esc(change) + "</button>"
-          + "</div>"
-      : "";
-    return '<div class="cs-card cs-' + esc(sys.kind) + '" data-cid="' + esc(sys.id) + '">'
-      + '<div class="cs-head">'
-      + '<span class="cs-label">' + esc(sys.label) + "</span>"
-      + '<span class="cs-kind">' + esc(sys.kind) + "</span>"
-      + (sys.scope === "global" ? '<span class="cs-global">global</span>' : "")
-      + (proxy ? '<span class="cs-proxy" title="R10212: signed-proxy only — never executed locally">signed proxy</span>' : "")
-      + "</div>"
-      + '<div class="cs-desc">' + esc(sys.description) + "</div>"
-      + (pills ? '<div class="cs-opts">' + pills + "</div>" : "")
-      + argsRailHtml(sys)
-      + actions
-      + '<div class="cs-result muted"></div>'
-      + "</div>";
-  }
-
-  // Per-option compat greying (mirrors the app-shell's soCompatMark): the
-  // READ-ONLY per-option preview (GET /api/control/compat?control_id=, same
-  // loopback daemon) greys force-incompatible enum verbs (⛔ disabled +
-  // rule/reason/remediation tooltip) and annotates warn/suggest (⚠) — the
-  // SAME registry truth as the execute() pre-change gate, so a greyed option
-  // is exactly one the gate would refuse. Toggle verbs map onto their state
-  // options via the gate's own verb map ({enable→on, disable→off}). Inert
-  // option pills get the same mark. Silent no-op when the exec API is absent
-  // (static / per-port read-only serving) — the rail stays fully usable.
-  var COMPAT_VERB_MAP = { on: "enable", off: "disable" }; // option → toggle verb
-  function markCompat(card, sys) {
-    fetch("/api/control/compat?control_id=" + encodeURIComponent(sys.id),
-          { headers: { Accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (p) {
-        if (!p || !p.available || !p.options) return;
-        p.options.forEach(function (row) {
-          var f = (row.findings && row.findings[0]) || null;
-          if (!row.gating && !f) return;
-          var tip = f ? (f.rule_id + ": " + f.reason + " — " + f.remediation) : "";
-          var verbAlias = COMPAT_VERB_MAP[row.option] || null;
-          Array.prototype.forEach.call(card.querySelectorAll(".cs-verb"), function (btn) {
-            var val = btn.getAttribute("data-val");
-            if (val !== row.option && val !== verbAlias) return;
-            if (row.gating) {
-              btn.disabled = true;
-              if (btn.textContent.indexOf("⛔") !== 0) btn.textContent = "⛔ " + btn.textContent;
-            } else if (btn.textContent.indexOf("⚠") !== 0) {
-              btn.textContent = "⚠ " + btn.textContent;
-            }
-            if (tip) btn.title = tip;
-          });
-          Array.prototype.forEach.call(card.querySelectorAll(".cs-opt"), function (pill) {
-            if (pill.textContent.replace(/^[⛔⚠] /, "") !== row.option) return;
-            var mark = row.gating ? "⛔" : "⚠";
-            if (pill.textContent.indexOf(mark) !== 0) pill.textContent = mark + " " + pill.textContent;
-            if (tip) pill.title = tip;
-          });
-        });
-      }, function () { /* exec API absent — stay silent */ })
-      .catch(function () {});
-  }
-
-  function render(containerEl, systems, opts) {
-    opts = opts || {};
-    var slug = opts.filterSlug || null;
-    var list = (systems || []).filter(function (s) {
-      if (!slug) return true;                       // no filter → all systems
-      // SRP: a panel shows ONLY the controls that GOVERN it (its applies_to) —
-      // no "global" controls bleeding onto every dashboard.
-      return (s.applies_to || []).indexOf(slug) >= 0;
-    });
-    var byId = {};
-    list.forEach(function (s) { byId[s.id] = s; });
-    containerEl.innerHTML = list.map(cardHtml).join("")
-      || '<div class="cs-empty">(no controls for this surface)</div>';
-
-    // segmented enum toggles
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-verbs"), function (grp) {
-      grp.addEventListener("click", function (e) {
-        var btn = e.target && e.target.classList && e.target.classList.contains("cs-verb") ? e.target : null;
-        if (!btn) return;
-        Array.prototype.forEach.call(grp.querySelectorAll(".cs-verb"), function (b) {
-          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
-        });
-      });
-    });
-    // copy fallback — copies the concrete command assembled from current args
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-copy"), function (b) {
-      b.addEventListener("click", function () {
-        var card = b.parentNode.parentNode;
-        var cmd = assembleCmd(b.getAttribute("data-cmd"), collectArgs(card));
-        copy(cmd, opts);
-        setResult(card.querySelector(".cs-result"), "muted", "copied: " + cmd);
-      });
-    });
-    // execute — the sanctioned R10274 write path
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-exec"), function (b) {
-      b.addEventListener("click", function () {
-        var card = b.parentNode.parentNode;
-        var sys = byId[card.getAttribute("data-cid")];
-        if (sys) execAction(card, sys, opts, false);
-      });
-    });
-    // compat greying — annotate every executable card's options against the
-    // box's current state (read-only preview; silent when the API is absent)
-    Array.prototype.forEach.call(containerEl.querySelectorAll(".cs-card"), function (card) {
-      var sys = byId[card.getAttribute("data-cid")];
-      if (sys && !isProxyOnly(sys) && sys.change_cli) markCompat(card, sys);
-    });
-    return list.length;
-  }
-
-  // Convenience: load the control registry (same-origin) and render.
-  // Full display data comes from the panel's own read-only /control-systems;
-  // the authoritative execute-local/live overlay comes from /api/control/registry
-  // when the origin is fronted by the exec daemon (else copy-first per PROXY_ONLY).
-  function load(containerEl, opts) {
-    opts = opts || {};
-    var base = fetch("/control-systems", { headers: { Accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .catch(function () { return null; });
-    var reg = fetch("/api/control/registry", { headers: { Accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .catch(function () { return null; });
-    return Promise.all([base, reg]).then(function (res) {
-      var b = res[0], g = res[1];
-      if (!b || b.error) {
-        containerEl.innerHTML = '<div class="cs-empty">controls unavailable'
-          + (b && b.error ? ": " + esc(b.error) : "") + "</div>";
-        return 0;
-      }
-      var systems = (b.systems || []).slice();
-      if (g && g.controls) {
-        var execMap = {};
-        g.controls.forEach(function (c) { execMap[c.id] = c.execute_local; });
-        systems.forEach(function (s) { if (s.id in execMap) s.execute_local = execMap[s.id]; });
-        opts.live = !!g.live;
-      }
-      var n = render(containerEl, systems, opts);
-      // SRP: no control governs this panel -> hide the section (heading too)
-      var h = containerEl.previousElementSibling;
-      containerEl.style.display = n ? "" : "none";
-      if (h && /^H[1-6]$/.test(h.tagName)) h.style.display = n ? "" : "none";
-      return n;
-    });
-  }
-
-  global.SovereignControlSurface = { render: render, load: load };
-})(window);
-</script>
-<script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'d-18-trust-scores'});</script>
-
-
-
-
-<!-- SDD-200 Assistant gold data — hardcoded per-element hover intel. Read by the app-shell (window.SO_ASSIST). Accurate per SB-077. -->
-<script>
-window.SO_ASSIST = {
- "context": {
-  "icon": "◐",
-  "title": "D-18 · Trust Scores",
-  "content": "A read-only mirror of selfdef's trust scoring (MS042). Every tool earns a trust score by its behaviour, and that score sorts it into one of four bands — Trusted (≥800, auto-approve), Watched, Suspect, Untrusted (<200, auto-quarantine). Trust is earned and decays over time, so tools move between bands as they act; the band is the policy applied to them.\n\nRead it to see which tools the box trusts to run freely and which it's watching or gating — and, via trending-down, which are losing trust before they change band. Scores are adjusted/decayed in selfdef (signed selfdefctl + MS003), never here."
- },
- "nodes": [
-  {
-   "icon": "◆",
-   "title": "Mirror status",
-   "content": "Whether this read-only mirror of selfdef's trust scores is live or stale. If offline, everything below is history, not the current IPS state.",
-   "children": [
-    {
-     "selector": "#mirror-status-banner",
-     "title": "Mirror live vs offline",
-     "content": "This panel is a READ-ONLY mirror of selfdef's trust scores (M060 bridge). Green = live; offline = stale. The box never manages trust scores here — that's selfdefctl trust-scores + MS003 on the selfdef side.",
-     "icon": "◆",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A mirror, not a control</div>selfdef owns trust scores; sovereign-os only reflects it so you can see the IPS in one cockpit. Changes happen in selfdef (signed), never from this panel.<div class=\"so-xref\"><span class=\"x\">→</span> D-00 — M060 chain health<br><span class=\"x\">→</span> D-25 — mirror-chain detail</div></div>",
-     "variants": [
-      {
-       "when": {
-        "textContains": "live"
-       },
-       "content": "Live — selfdef is feeding this mirror; the trust scores is current.",
-       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● Mirror live</div>Reflecting the real IPS trust scores now.</div>"
-      },
-      {
-       "when": {
-        "textContains": "offline"
-       },
-       "content": "Offline — the bridge is stale; treat the trust scores below as history.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">◌ Mirror offline</div>Stale bridge — not the current IPS state.</div>"
-      }
-     ]
-    },
-    {
-     "selector": "#mirror-state-label",
-     "title": "Mirror label",
-     "content": "One-word mirror state — live or offline; whether the trust scores can be trusted as current.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-word trust-mirror health</div>Live or offline — whether the trust scores are current. Bands shift as tools earn and lose trust, so a stale read can misplace a tool that just crossed a boundary.</div>"
-    },
-    {
-     "selector": "#mirror-state-detail",
-     "title": "Mirror detail",
-     "content": "The producer/endpoint behind the mirror and why it's live or offline. Managed via selfdefctl trust-scores on the selfdef side.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The M060 bridge status</div>The producer behind the mirror and why it's live or offline — the bridge carrying selfdef's trust scoring here.</div>"
-    },
-    {
-     "selector": "#mirror-last-update",
-     "title": "Mirror freshness",
-     "content": "When selfdef last captured this snapshot (ISO captured_at). On an offline mirror, how stale it is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">When selfdef last captured</div>The snapshot time. A tool's trajectory can flip within a few executions, so an old timestamp means a band change may not show yet.</div>"
-    },
-    {
-     "selector": "#mirror-schema-version",
-     "title": "Mirror schema",
-     "content": "The MS007 typed-mirror-crate schema version — confirms mirror and consumer agree on the data shape.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">MS007 crate compatibility</div>The typed-mirror-crate schema version — confirms mirror and consumer agree on the score shape, so bands and means render correctly.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "◐",
-   "title": "4-band classification",
-   "content": "selfdef scores every tool's trustworthiness and sorts it into four bands — Trusted, Watched, Suspect, Untrusted. The band isn't a label, it's the policy: Trusted tools auto-approve, Untrusted ones auto-quarantine. Trust is earned by good behaviour and decays over time, so a tool moves between bands as it acts.",
-   "children": [
-    {
-     "selector": "#b-trusted",
-     "title": "Trusted (≥ 800)",
-     "content": "Tools in the Trusted band — Tier A/B auto-approve eligible — earned enough trust to act with less friction. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
-     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">Trusted band · auto-approve eligible</div>Tools that earned enough trust to be Tier A/B auto-approve eligible — routine, proven-safe. The band a tool WANTS to be in; getting here takes a clean history.</div>"
-    },
-    {
-     "selector": "#m-trusted",
-     "title": "Trusted mean",
-     "content": "The mean trust score within the Trusted band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Mean depth within a band</div>Not just how many tools are Trusted, but how far into the band they sit. A Trusted band with a low mean is full of tools barely over the line — closer to demotion than the count suggests.</div>"
-    },
-    {
-     "selector": "#b-watched",
-     "title": "Watched (500–799)",
-     "content": "Tools in the Watched band — telemetry retained · profile-gated — trusted but observed. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Watched band · telemetry retained</div>Trust-building tools — allowed but with telemetry kept and profile-gating. Not yet auto-approve; the probationary middle where a tool proves itself before promotion.</div>"
-    },
-    {
-     "selector": "#m-watched",
-     "title": "Watched mean",
-     "content": "The mean trust score within the Watched band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Depth within the Watched band</div>The mean score inside Watched — how close its tools are to promotion vs demotion. A mean near the Trusted boundary means the band is graduating; near Suspect means it's slipping.</div>"
-    },
-    {
-     "selector": "#b-suspect",
-     "title": "Suspect (200–499)",
-     "content": "Tools in the Suspect band — operator-ask · Tier C/D escalation — actions need your say-so. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Suspect band · operator-ask</div>Tools that trigger an operator-ask and Tier C/D escalation — trust is low enough that the box won't run them unsupervised. Actions here land in your queue.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — where suspect-tool actions escalate</div></div>"
-    },
-    {
-     "selector": "#m-suspect",
-     "title": "Suspect mean",
-     "content": "The mean trust score within the Suspect band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">How deep the suspicion runs</div>The mean score inside the Suspect band. A mean near the Watched boundary means these tools are recoverable; a mean near Untrusted means they're one bad run from auto-quarantine.<div class=\"so-xref\"><span class=\"x\">→</span> b-untrusted — the band below, where these could fall</div></div>"
-    },
-    {
-     "selector": "#b-untrusted",
-     "title": "Untrusted (< 200)",
-     "content": "Tools in the Untrusted band — auto-quarantine · forfeit candidate — too little trust to run freely. Trust is earned and decays: a tool's score determines how much friction its actions get, from auto-approve (Trusted) to auto-quarantine (Untrusted). The band IS the policy applied to it.",
-     "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Untrusted band · auto-quarantine</div>The bottom band — auto-quarantine and forfeit-candidate. A tool here is treated as hostile by default; it can't act without containment.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where untrusted tools land</div></div>"
-    },
-    {
-     "selector": "#m-untrusted",
-     "title": "Untrusted mean",
-     "content": "The mean trust score within the Untrusted band — how deep into the band its tools sit. A Trusted-band mean near the 800 floor is different from one near 1000; it tells you how solid the band's trust really is.",
-     "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">How deep the distrust runs</div>The mean score inside the Untrusted band — how far below the line its tools sit. A mean near the Suspect boundary means some are recoverable; a mean at the floor means they're firmly auto-quarantine material.<div class=\"so-xref\"><span class=\"x\">→</span> D-17 quarantine — where untrusted tools land</div></div>"
-    }
-   ]
-  },
-  {
-   "icon": "▤",
-   "title": "Summary",
-   "content": "The trust population — how many tools, the overall mean, how many are trending down, and recent execution volume. Trending-down is the early warning: tools losing trust before they hit a lower band.",
-   "children": [
-    {
-     "selector": "#s-total",
-     "title": "Total tools",
-     "content": "How many tools are being trust-scored — the full population selfdef tracks. Every tool that acts has a score.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The scored population</div>Every tool selfdef is trust-scoring. Trust isn't assigned once — it's continuously earned and lost, so this is the live population whose bands shift as behaviour changes.<div class=\"so-xref\"><span class=\"x\">→</span> MS039 authority rings — how trust maps to what a tool may do</div></div>"
-    },
-    {
-     "selector": "#s-mean",
-     "title": "Mean score",
-     "content": "The average trust across all tools. The box's overall trust health — a falling mean means tools are collectively losing trust, worth understanding why.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The box's overall trust health</div>Average trust across all tools. A high mean means a well-behaved population; a falling mean is the early signal that tools are collectively losing trust — worth catching before individual tools cross a band boundary.</div>"
-    },
-    {
-     "selector": "#s-down",
-     "title": "Trending down",
-     "content": "How many tools' last 5 score-deltas net negative — tools actively losing trust. The leading indicator: these will drop bands (and gain friction) if the trend continues.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Trending-down is the early warning</div>A tool doesn't fall from Trusted to Suspect instantly — it trends down first. Catching a tool here, before it changes band, is the chance to understand why it's misbehaving.</div>"
-    },
-    {
-     "selector": "#s-exec",
-     "title": "Executions (24h)",
-     "content": "How many tool executions ran in the last day (successful) — the activity volume the scores are computed from. More executions = more evidence, so more meaningful scores.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Yesterday's activity base</div>Successful tool executions in the last day — the denominator behind trust movement. A tool can only earn or lose trust by running; low activity means slow trust change.</div>"
-    }
-   ]
-  },
-  {
-   "icon": "≣",
-   "title": "Per-tool scores",
-   "content": "Every scored tool with its band and trajectory.",
-   "children": [
-    {
-     "selector": "#tool-tbody",
-     "title": "Per-tool scores",
-     "content": "Each tool with its trust score, band, and recent trajectory. Hover a row for how trusted the tool is and which way it's heading — a Trusted tool trending down is more interesting than a stable Suspect one.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A tool's score is its earned autonomy</div>The score decides how much friction the tool's actions get. Read it with the trajectory: direction matters as much as the current number.<div class=\"so-xref\"><span class=\"x\">→</span> a tool that drops to Untrusted becomes an auto-quarantine candidate (D-17)</div></div>",
-     "dynamic": true,
-     "childTemplate": {
-      "selector": "#tool-tbody > tr",
-      "nameSelector": "td:first-child,td",
-      "title": "Tool · {{name}}",
-      "content": "Tool {{name}} — its trust score, band, and recent trajectory. The trajectory matters more than the number: a high score trending down is a tool to watch before it crosses into Suspect.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Tool · {{name}}</div>One trust-scored tool. Band decides how it's treated (auto-approve → auto-quarantine); trajectory says which way it's heading.</div>"
-     }
-    }
-   ]
-  },
-  {
-   "icon": "⎈",
-   "title": "Actions & controls",
-   "content": "Web is a READ-ONLY mirror consumer — trust scores via selfdefctl trust-scores + MS003 on the selfdef side.",
-   "children": [
-    {
-     "selector": "#control-surface",
-     "title": "Controls rail",
-     "content": "Mirror controls — each copies its selfdefctl trust-scores verb (§1g / R10212). Reads the mirror; every change runs through the signed selfdef CLI, never the web.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Copy-command mirror boundary</div>Each control copies its selfdefctl trust-scores verb (§1g / R10212). Trust is earned by behaviour, not set by hand — the web mirrors the scores read-only.</div>"
-    }
-   ]
-  }
- ]
-};
-</script>
 <!-- COURSE:BEGIN M090 -->
 <style id="so-course-style">
   :root{ --so-course-rail-h:46px; }
@@ -3431,10 +2350,6 @@ window.SO_ASSIST = {
 })();
 </script>
 <!-- COURSE:END M090 -->
-<script type="module">
-  // cockpit-crate runtime (F-2026-001): run the real sovereign-cockpit-* crates.
-  import { enhance } from '/_shared/cockpit-runtime.js';
-  enhance(document).catch(() => {});   // additive + graceful: no-op if the bridge is absent
-</script>
+
 </body>
 </html>

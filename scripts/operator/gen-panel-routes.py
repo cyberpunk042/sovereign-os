@@ -40,13 +40,19 @@ HUB_LOCAL_PREFIXES = {"/api/run", "/api/cancel"}
 # That proxy path must NOT register /api/node-exporter → master-dashboard's own
 # port — the prefix belongs to node_exporter, not a panel API.
 SPECIAL_PREFIXES = {"/api/node-exporter"}
+# Superseded by the unified networking-api (F-2026-070). Their prefixes
+# are served by the unified daemon; registering them here would collide.
+SUPERSEDED = {"network-edge-api", "edge-firewall-api", "rules-mirror-api"}
 
 _PORT_RE = re.compile(r'_PORT",\s*"(\d+)"')
 _PREFIX_RE = re.compile(r'"(/api/[a-z0-9][a-z0-9-]*)')
 
 
 def _api_files() -> list[Path]:
-    return sorted(p for p in API_DIR.glob("*-api.py") if p.stem != HUB)
+    return sorted(
+        p for p in API_DIR.glob("*-api.py")
+        if p.stem != HUB and p.stem not in SUPERSEDED
+    )
 
 
 def build_routes() -> dict[str, dict]:
