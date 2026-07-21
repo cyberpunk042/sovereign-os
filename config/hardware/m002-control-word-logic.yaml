@@ -14,6 +14,11 @@
 # masked ops are the deterministic policy-fusion of M051's cortex; the 64-entry
 # LUT is the VPTERNLOG path of M085's T2 tier. This is the foundational bit-logic
 # primitive beneath the whole deterministic control substrate (M006/M009).
+# The ⚖ compat engine (scripts/operator/compat.py, config/compatibility.yaml)
+# re-applies the same pattern at the OS-config layer: options -> stable bits in
+# a u64 universe, pick-one exclusivity as per-group AND-masks, rule checks as
+# (word >> bit) & 1 — M002's shift-and-AND primitive as the policy gate that
+# now also fronts the avx-mode switch itself (C008/C011 + the osctl precheck).
 # STATUS: spec-materialization (SDD+TDD — the per-branch control-word bit logic).
 # Locked to spec by tests/lint/test_m002_control_word_logic.py.
 # Per operator §1g (sacrosanct): "We do not minimize anything."

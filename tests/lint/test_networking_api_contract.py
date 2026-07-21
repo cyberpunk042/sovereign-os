@@ -59,14 +59,36 @@ class TestLiveEndpoints:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        # wait for the listen banner (max 5s)
+        # Wait until the daemon actually ACCEPTS on the port — poll the socket
+        # rather than trusting the stdout banner. Under the full-suite load the
+        # banner can appear before the listener is ready (or the process can die
+        # on startup), which yielded a URL to a not-ready daemon → intermittent
+        # ECONNREFUSED. Poll up to ~10s; if it never comes up, fail loudly with
+        # the daemon's own stderr instead of a bare connection error downstream.
+        import socket as _socket
         import time
-        for _ in range(50):
-            line = proc.stdout.readline()
-            if b"on http://" in line:
-                break
-            time.sleep(0.1)
         base = f"http://127.0.0.1:{port}"
+        ready = False
+        for _ in range(100):
+            if proc.poll() is not None:  # daemon exited during startup
+                break
+            with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as _s:
+                _s.settimeout(0.5)
+                if _s.connect_ex(("127.0.0.1", port)) == 0:
+                    ready = True
+                    break
+            time.sleep(0.1)
+        if not ready:
+            err = b""
+            try:
+                if proc.poll() is not None:
+                    err = (proc.stderr.read() or b"")
+            except Exception:  # noqa: BLE001
+                pass
+            proc.terminate()
+            raise RuntimeError(
+                f"networking-api did not accept on :{port} within 10s "
+                f"(rc={proc.poll()}); stderr: {err.decode(errors='replace')[:500]}")
         yield base
         proc.terminate()
         proc.wait(timeout=5)

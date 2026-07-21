@@ -110,9 +110,15 @@ SANCTIONED_NOTIFYKIT_FETCH = "/api/control/notifykit"
 # current-state findings + checkable inventory) feeding the shared overlay and
 # the header badge ("if something is off you will have a badge in the header").
 SANCTIONED_COMPAT_PANE_FETCH = "/api/control/compat"
+# 2026-07-21 M002 AVX-mode live prefill: the READ-ONLY avx-mode inventory (same
+# truth as `sovereign-osctl avx-mode inventory`) so the settings-pane AVX select
+# prefills to the mode ACTUALLY active on the box instead of always defaulting
+# to the first option. Fixed loopback path, zero egress.
+SANCTIONED_AVX_MODE_FETCH = "/api/control/avx-mode"
 SANCTIONED_FETCHES = {
     SANCTIONED_CHAT_FETCH, SANCTIONED_EXEC_FETCH, SANCTIONED_COMPAT_FETCH,
     SANCTIONED_NOTIFYKIT_FETCH, SANCTIONED_COMPAT_PANE_FETCH,
+    SANCTIONED_AVX_MODE_FETCH,
 }
 
 

@@ -227,6 +227,18 @@ def _emit_metric(verb: str, backend: str, result: str) -> None:
 # --- Collision detection ---
 
 
+# F-2026-070: the unified sovereign-networking-api intentionally fronts three
+# concern-distinct panels (each its own subpath) from ONE upstream port — a
+# reverse-proxy fan-in (many subpaths → one backend), not a real collision.
+# A shared port among ONLY these slugs is allowed; any other shared port, or a
+# shared subpath, is still a genuine collision. Mirrors the exemption in
+# tests/lint/test_dashboard_routes.py::test_routes_are_collision_free.
+# Design is documented (not a surprise) in docs/src/ops/cockpit.md
+# § "Routing — how panels reach their backends (and why some share a port)".
+# Adding a new unified group is a DELIBERATE edit here (never a silent relax).
+_UNIFIED_SHARED_PORT_SLUGS = frozenset({"network-edge", "edge-firewall", "d-12-networking"})
+
+
 def detect_collisions() -> dict:
     """Detect port/subpath/slug collisions in DASHBOARD_ROUTES.
 
@@ -239,14 +251,23 @@ def detect_collisions() -> dict:
         port_to_slugs.setdefault(route["port"], []).append(slug)
         subpath_to_slugs.setdefault(route["subpath"], []).append(slug)
     port_collisions = {
-        p: slugs for p, slugs in port_to_slugs.items() if len(slugs) > 1
+        p: slugs for p, slugs in port_to_slugs.items()
+        if len(slugs) > 1 and not set(slugs).issubset(_UNIFIED_SHARED_PORT_SLUGS)
     }
     subpath_collisions = {
         s: slugs for s, slugs in subpath_to_slugs.items() if len(slugs) > 1
     }
+    # Intentional shared-port fan-in (declared unified group) — surfaced, not
+    # hidden, so an operator running `collisions` SEES the shared port is by
+    # design (see docs/src/ops/cockpit.md § Routing). Distinct from a collision.
+    intentional_shared_ports = {
+        p: slugs for p, slugs in port_to_slugs.items()
+        if len(slugs) > 1 and set(slugs).issubset(_UNIFIED_SHARED_PORT_SLUGS)
+    }
     return {
         "port_collisions": port_collisions,
         "subpath_collisions": subpath_collisions,
+        "intentional_shared_ports": intentional_shared_ports,
         "has_collisions": bool(port_collisions or subpath_collisions),
     }
 
@@ -650,6 +671,11 @@ def cmd_collisions(args) -> int:
                 print(f"    port {p} claimed by: {slugs}")
             for s, slugs in coll["subpath_collisions"].items():
                 print(f"    subpath {s!r} claimed by: {slugs}")
+        # Always surface the by-design shared-port fan-in (distinct subpaths →
+        # one unified daemon) so it never reads as a hidden exception.
+        for p, slugs in coll.get("intentional_shared_ports", {}).items():
+            print(f"  · intentional shared port {p} (one unified daemon, distinct "
+                  f"subpaths): {', '.join(slugs)}")
     result = "collisions" if coll["has_collisions"] else "clean"
     _emit_metric("collisions", "any", result)
     return 2 if coll["has_collisions"] else 0

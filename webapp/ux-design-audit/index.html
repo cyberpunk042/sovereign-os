@@ -1157,10 +1157,35 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       off:{m:'—',c:'sovereign-cpu-dispatch',r:'—',n:'scalar baseline, any x86-64 (the bit-machine is not run)'}
     };
     var avxBacking=document.getElementById('so-avx-backing');
+    var avxLiveActive=null;   // the mode ACTUALLY active on the box (GET /api/control/avx-mode)
     function avxBackingRefresh(){ if(!avxBacking||!avxSel)return; var b=AVX_BACKING[avxSel.value]||AVX_BACKING.builtin;
+      var live='';
+      if(avxLiveActive){
+        var same=(avxSel.value===avxLiveActive);
+        live='<br><b>Active on the box:</b> <span class="mono">'+avxLiveActive+'</span>'+
+          (avxLiveActive==='custom'||avxLiveActive==='hybrid'?' — bit-machine engaged':' — bit-machine idle')+
+          (same?' (selected)':' — Apply to switch to '+avxSel.value);
+      }
       avxBacking.innerHTML='<b>Backed by:</b> '+b.n+'<br><b>Milestones:</b> <span class="mono">'+b.m+'</span>'+
-        '<br><b>Crates:</b> <span class="mono">'+b.c+'</span><br><b>Routes:</b> <span class="mono">'+b.r+'</span>'; }
-    if(avxSel){ avxSel.addEventListener('change',avxBackingRefresh); avxBackingRefresh(); }
+        '<br><b>Crates:</b> <span class="mono">'+b.c+'</span><br><b>Routes:</b> <span class="mono">'+b.r+'</span>'+live; }
+    // ── Live active-mode prefill (2026-07-21): the AVX select defaulted to the
+    //    first option ('custom') on every panel regardless of the box's real
+    //    mode — the notifykit-class blank-select gap. GET /api/control/avx-mode
+    //    is the read-only inventory (same truth as `avx-mode inventory`); set
+    //    the select to `active` so it shows live state, and surface whether the
+    //    bit-machine is engaged. Silent no-op when the exec API is absent
+    //    (static serving) — the select stays fully usable at its default. ──
+    function soAvxLive(){
+      fetch('/api/control/avx-mode',{headers:{Accept:'application/json'}})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(p){
+          if(!p || !p.available || !p.active) return;
+          avxLiveActive=p.active;
+          if(avxSel && AVX_BACKING[p.active]) avxSel.value=p.active;
+          avxBackingRefresh();
+        },function(){}).catch(function(){});
+    }
+    if(avxSel){ avxSel.addEventListener('change',avxBackingRefresh); avxBackingRefresh(); soAvxLive(); }
     // ── Provider / origin drill-in modal (SDD-600 Part 2) — edit ONE consumer.
     //    Each consumer speaks its own protocol; the copy is the exact swap CLI. ──
     var SO_PROVIDERS=[
