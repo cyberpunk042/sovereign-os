@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (209 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (210 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -138,6 +138,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (209 total), by number.
 - [SDD-206 — The gateway safety spine (input screening + output redaction, made real on the daemon)](../sdd/206-gateway-safety-spine.md)
 - [SDD-207 — The Sovereign Compute Plane (Phase 1: VRAM-fit job placement)](../sdd/207-compute-plane.md)
 - [SDD-300 — Warp management panel (warp-solar-system-shaders: catalog, relations & execution)](../sdd/300-warp-management-panel.md)
+- [SDD-500 — Per-token token-law bitset: wiring the M002 bit-machine into the in-repo decode loop](../sdd/500-per-token-token-law-bitset.md)
 - [SDD-600 — Cockpit hotswap controls (frontend · provider/origin · AVX modes)](../sdd/600-cockpit-hotswap-controls.md)
 - [SDD-700 — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (F-2026-107..108)](../sdd/700-operator-sudoers-privesc-guard.md)
 - [SDD-701 — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (F-2026-109..110)](../sdd/701-nvidia-gpu-bringup.md)
