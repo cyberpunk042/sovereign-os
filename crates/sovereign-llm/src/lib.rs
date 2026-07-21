@@ -635,6 +635,129 @@ impl SovereignLlm {
         Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
     }
 
+    /// Constrain a completion to a **regular expression** *and* a set of static
+    /// policy planes at once (SDD-503 / M00117). The regex plane — the token ids
+    /// that keep the pattern satisfiable, recomputed per position via
+    /// [`sovereign_regex_constrain::RegexConstraint::allowed_token_ids`] — is
+    /// AND-combined with `policy_planes` (each a per-vocabulary allow-mask) through
+    /// the real `token_law_combine` kernel every step. This is the regex sibling
+    /// of [`complete_json_schema_with_laws`](Self::complete_json_schema_with_laws):
+    /// a **real constraint source** feeding a token-law plane, not a hand-built
+    /// bitset (SDD-500 Q4 / SDD-501's tracked non-goal). A tool-name allow-list is
+    /// just a `(name_a|name_b|…)` alternation pattern. Stops when no token keeps
+    /// the pattern satisfiable or the intersection with policy is empty.
+    /// Reproducible per `seed`; errors if `pattern` is not a valid regex.
+    pub fn complete_regex_with_laws(
+        &self,
+        prompt: &str,
+        pattern: &str,
+        policy_planes: &[&[u64]],
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let constraint = sovereign_regex_constrain::RegexConstraint::new(pattern)
+            .map_err(|e| LlmError::Regex(e.to_string()))?;
+        let vocab_size = self.tokenizer.vocab_size();
+        let vocab: Vec<String> = (0..vocab_size)
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let vocab_refs: Vec<&str> = vocab.iter().map(String::as_str).collect();
+        let mut planes = sovereign_token_law_mask::TokenLawPlanes::new(vocab_size);
+        for p in policy_planes {
+            planes = planes.with_plane(p.to_vec());
+        }
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids =
+            model.generate_dynamic_token_law_until(&prompt_ids, max_new, seed, |generated| {
+                let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+                let text = self.tokenizer.decode(&so_far).unwrap_or_default();
+                let allowed = constraint.allowed_token_ids(&text, &vocab_refs);
+                if allowed.is_empty() {
+                    return None;
+                }
+                let combined = planes.combine_with(&allowed);
+                if combined.iter().all(|w| *w == 0) {
+                    return None;
+                }
+                Some(combined)
+            })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
+    /// Constrain a completion to a JSON schema **and** a regex **and** static
+    /// policy planes — all at once (SDD-503 / M00117). Two independent *dynamic*
+    /// sources are recomputed per position — the grammar plane
+    /// ([`sovereign_token_grammar_mask::TokenGrammarMask`]) and the regex plane
+    /// ([`sovereign_regex_constrain::RegexConstraint`]) — and AND-combined with
+    /// each other and with `policy_planes` through
+    /// [`TokenLawPlanes::combine_with_dynamics`](sovereign_token_law_mask::TokenLawPlanes::combine_with_dynamics).
+    /// A token survives only if the grammar, the regex, **and** every policy plane
+    /// allow it — a multi-source composition no single constraint expresses (e.g.
+    /// a JSON string whose *content* the regex further restricts). Stops on grammar
+    /// completion, an empty source, or an empty intersection. Reproducible per
+    /// `seed`; errors if `pattern` is not a valid regex.
+    pub fn complete_json_schema_and_regex_with_laws(
+        &self,
+        prompt: &str,
+        schema: &sovereign_json_schema_grammar::Schema,
+        pattern: &str,
+        policy_planes: &[&[u64]],
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let grammar = sovereign_json_schema_grammar::compile(schema);
+        let constraint = sovereign_regex_constrain::RegexConstraint::new(pattern)
+            .map_err(|e| LlmError::Regex(e.to_string()))?;
+        let vocab_size = self.tokenizer.vocab_size();
+        let vocab: Vec<String> = (0..vocab_size)
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let vocab_refs: Vec<&str> = vocab.iter().map(String::as_str).collect();
+        let tgm = sovereign_token_grammar_mask::TokenGrammarMask::new(grammar, vocab.clone());
+        let mut planes = sovereign_token_law_mask::TokenLawPlanes::new(vocab_size);
+        for p in policy_planes {
+            planes = planes.with_plane(p.to_vec());
+        }
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids =
+            model.generate_dynamic_token_law_until(&prompt_ids, max_new, seed, |generated| {
+                let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+                let text = self.tokenizer.decode(&so_far).unwrap_or_default();
+                let gmask = tgm.mask(&text);
+                if gmask.eos {
+                    return None;
+                }
+                let g_ids = gmask.allowed_ids();
+                if g_ids.is_empty() {
+                    return None;
+                }
+                let r_ids = constraint.allowed_token_ids(&text, &vocab_refs);
+                if r_ids.is_empty() {
+                    return None;
+                }
+                let combined = planes.combine_with_dynamics(&[&g_ids, &r_ids]);
+                if combined.iter().all(|w| *w == 0) {
+                    return None;
+                }
+                Some(combined)
+            })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
     /// Complete `prompt` and **extract the first balanced JSON value** from the
     /// output (`sovereign-json-extract`), returning `Some(value)` or `None` if the
     /// completion contains no JSON. Models emit structured answers wrapped in
@@ -1748,6 +1871,102 @@ mod tests {
             a.complete_json_schema_with_laws("emit: ", &schema, &[], 40, 7)
                 .unwrap(),
             b.complete_json_schema("emit: ", &schema, 40, 7).unwrap(),
+        );
+    }
+
+    #[test]
+    fn regex_with_laws_composes_pattern_and_policy() {
+        // SDD-503: regex as a REAL constraint source ∧ a policy plane. The
+        // pattern [0-9]+ confines to digits; a policy plane bans the byte '5' →
+        // the output is digits with no '5' — the two composed per step.
+        let llm = runtime(Sampler::greedy());
+        let words = llm.vocab_size().div_ceil(64);
+        let mut ban_5 = vec![u64::MAX; words];
+        let five = b'5' as usize;
+        ban_5[five >> 6] &= !(1u64 << (five & 63));
+        let out = llm
+            .complete_regex_with_laws("number: ", "[0-9]+", &[&ban_5], 8, 7)
+            .unwrap();
+        assert!(!out.is_empty(), "should generate at least one digit");
+        assert!(
+            out.chars().all(|c| c.is_ascii_digit()),
+            "regex [0-9]+ violated: {out:?}"
+        );
+        assert!(
+            !out.contains('5'),
+            "policy banned '5' but it appears: {out:?}"
+        );
+    }
+
+    #[test]
+    fn regex_with_laws_zero_planes_still_matches_the_pattern() {
+        // With no policy planes the regex plane alone holds — output matches [0-9]+.
+        let llm = runtime(Sampler::greedy());
+        let out = llm
+            .complete_regex_with_laws("number: ", "[0-9]+", &[], 6, 7)
+            .unwrap();
+        assert!(!out.is_empty());
+        assert!(
+            out.chars().all(|c| c.is_ascii_digit()),
+            "not all digits: {out:?}"
+        );
+    }
+
+    #[test]
+    fn tool_name_allow_list_via_regex_alternation() {
+        // SDD-503: a tool-name allow-list is just an alternation pattern. The
+        // regex plane confines the output to a PREFIX of one of the allowed tool
+        // names — the model can never spell a name outside the set.
+        let llm = runtime(Sampler::greedy());
+        let out = llm
+            .complete_regex_with_laws("call: ", "(get_weather|search_web)", &[], 11, 7)
+            .unwrap();
+        assert!(!out.is_empty());
+        assert!(
+            "get_weather".starts_with(&out) || "search_web".starts_with(&out),
+            "output {out:?} is not a prefix of an allowed tool name"
+        );
+    }
+
+    #[test]
+    fn json_schema_and_regex_compose_all_three() {
+        use sovereign_json_schema_grammar::Schema;
+        // SDD-503: grammar ∧ regex ∧ policy, all at once. The JSON-string grammar
+        // allows ANY printable between the quotes (and even the empty string "");
+        // the regex "[a-z]+" narrows the content to one-or-more LOWERCASE letters
+        // (forbidding uppercase, digits, AND the empty string the grammar allows);
+        // a policy plane bans 'z'. So every char is either a quote or a lowercase
+        // letter that is not 'z' — a constraint no single source expresses.
+        let llm = runtime(Sampler::greedy());
+        let words = llm.vocab_size().div_ceil(64);
+        let mut ban_z = vec![u64::MAX; words];
+        let z = b'z' as usize;
+        ban_z[z >> 6] &= !(1u64 << (z & 63));
+        let out = llm
+            .complete_json_schema_and_regex_with_laws(
+                "emit: ",
+                &Schema::StringType,
+                "\"[a-z]+\"",
+                &[&ban_z],
+                12,
+                7,
+            )
+            .unwrap();
+        assert!(
+            out.starts_with('"'),
+            "grammar requires a leading quote: {out:?}"
+        );
+        assert!(out.len() >= 2, "regex forces at least one letter: {out:?}");
+        assert!(
+            out.chars()
+                .all(|c| c == '"' || (c.is_ascii_lowercase() && c != 'z')),
+            "grammar∧regex∧policy violated: {out:?}"
+        );
+        // the regex genuinely narrowed the grammar: no uppercase, no digit.
+        assert!(
+            !out.chars()
+                .any(|c| c.is_ascii_uppercase() || c.is_ascii_digit()),
+            "regex should forbid uppercase/digits the grammar allows: {out:?}"
         );
     }
 
