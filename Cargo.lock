@@ -4710,6 +4710,7 @@ dependencies = [
  "sovereign-repetition-penalty",
  "sovereign-rmsnorm",
  "sovereign-sampler",
+ "sovereign-token-law-mask",
  "sovereign-transformer-block",
  "sovereign-typical-sampling",
  "sovereign-xtc-sampler",
@@ -6675,6 +6676,14 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "sovereign-token-law-mask"
+version = "0.1.0"
+dependencies = [
+ "sovereign-logit-pipeline",
+ "sovereign-simd",
 ]
 
 [[package]]

@@ -1,0 +1,17 @@
+[package]
+name = "sovereign-token-law-mask"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The M002 token-law bitset as a decode-time logit mask (SDD-500). Turns the M00117 token_law_combine allow-mask (sovereign-simd::cheats) into a per-token logit transform: a token whose allow-bit is 0 is set to -inf before sampling, so a running model CANNOT emit it. The FIRST real per-token call site of the M002 bit-machine — policy becomes bits, gating generation. A LogitProcessor for sovereign-logit-pipeline; wired into sovereign-decoder-stack's in-repo decode loop (not the external-proxy path, which exposes no logits)."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-logit-pipeline = { path = "../sovereign-logit-pipeline" }
+sovereign-simd = { path = "../sovereign-simd" }

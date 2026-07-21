@@ -1,6 +1,13 @@
 # SDD-500 — Per-token token-law bitset: wiring the M002 bit-machine into the in-repo decode loop
 
-> Status: draft · Mandate: **E11.M500** (control-bits band 500–599)
+> Status: active · Mandate: **E11.M500** (control-bits band 500–599)
+>
+> **v1 shipped 2026-07-21** — the operator greenlit all five recommended
+> defaults (Q1 mask always-on when laws present · Q2 dedicated
+> `sovereign-token-law-mask` sibling crate · Q3 `sovereign-decoder-stack` first ·
+> Q4 caller-supplied bitset · Q5 `token_law_combine` as the future
+> XGrammar/LLGuidance substrate), and the design below is realized: the M002
+> bit-machine now has its first real per-token call site. See § "v1 shipped".
 >
 > Design pass (no code). Operator-directed 2026-07-21 ("still on the control
 > bits, lets explore what we should do" → "Design the per-token hook"). This is
@@ -123,6 +130,36 @@ confirmation because it differs from the round-engine's gating.
 - **Q3 — targets:** wire `decoder-stack` only, or also `decode-loop::decode_next`?
 - **Q4 — law source for v1:** caller-supplied bitset (proposed), or make the first real law a grammar/tool constraint now?
 - **Q5 — M00130/M00131 relationship:** treat this as the substrate the future XGrammar/LLGuidance masks feed, or a parallel path?
+
+## v1 shipped (2026-07-21)
+
+The design above is realized (operator greenlit all five defaults):
+
+- **`crates/sovereign-token-law-mask`** (new) — `TokenLawMask` + the free
+  `mask_logits(allow, logits)` (exact scalar, disallowed → `-inf`),
+  `from_laws(laws, combine)` over the real `sovereign_simd::cheats::token_law_combine`
+  kernel, `allowed_count()`, and `impl LogitProcessor` for the pipeline. Q2:
+  a dedicated sibling so the generic `logit-pipeline` stays free of the M002
+  (`simd`) dep. `#![forbid(unsafe_code)]`; 5 unit tests (exact mask, past-width
+  disallowed, empty/full, kernel parity, trait≡apply).
+- **`sovereign-decoder-stack`** — `GenOptions::token_law: Option<Vec<u64>>` +
+  `with_token_law(...)`; `generate_with` applies it each step right after the
+  base mask (Q1 always-on, no `avx-mode` gate). Integration test proves a
+  `{2,5}`-allow mask confines a greedy run to `{2,5}`, and a full-allow mask is
+  an exact no-op vs unconstrained.
+- **`tests/lint/test_token_law_mask_contract.py`** — pins the kernel tie, the
+  per-token application, the SDD reference, and (the honesty lock) that the
+  external-proxy out-of-scope boundary stays documented in the crate.
+
+Verified: `cargo test -p sovereign-token-law-mask -p sovereign-decoder-stack`
+41 pass; `cargo clippy` clean; crate-inventory regenerated; the crate is
+reachable (decoder-stack depends on it — not an orphan).
+
+**What remains (future, tracked):** deriving the laws from a real constraint
+source (grammar / tool schema / the unbuilt M00130 XGrammar + M00131 LLGuidance
+per-token masks — Q4/Q5), and — only if the box serves from its own in-repo
+stack — carrying this into a production path (Q3's `decode-loop` sibling, and
+the external-proxy boundary stays a non-goal).
 
 ## Non-goals
 
