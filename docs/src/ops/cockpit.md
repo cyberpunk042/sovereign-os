@@ -42,6 +42,45 @@ The master-dashboard is the operator's index. On it:
 `http://127.0.0.1:8100/panels` is the same described catalog as a standalone
 global view.
 
+## Routing — how panels reach their backends (and why some share a port)
+
+The master-dashboard is **one reverse proxy** on a single super-port. It routes
+each request to a backend daemon by **subpath** — the route table lives in the
+generated `config/dashboard-routes.yaml` (`slug → upstream-port → subpath`):
+
+```
+/d-12-networking/  ─┐
+/edge-firewall/    ─┼──►  127.0.0.1:8139   (one daemon: sovereign-networking-api)
+/network-edge/     ─┘
+```
+
+A **port is a backend's address**, not a panel's. So several routes with
+*distinct subpaths* can legitimately point at the **same port** — it just means
+one daemon serves all of them. That is exactly the case above: F-2026-070
+unified three formerly-separate networking daemons into a single
+`sovereign-networking-api` on port 8139 that answers `/api/d-12/…`,
+`/network-edge/…` and `/edge-firewall/…`. This is a **reverse-proxy fan-in**
+(many subpaths → one backend), and it is intentional, not a mistake.
+
+**What still counts as a collision** (the aggregator refuses to render if either
+happens — `sovereign-osctl master-dashboard collisions` reports it):
+
+- **Same subpath on two routes** — two panels both claim one URL, so the proxy
+  can't tell which backend to use.
+- **Unrelated panels on one port** — a shared port is allowed *only* for a
+  declared unified group; any other port shared by two slugs is a real
+  address clash (two daemons can't both bind it).
+
+Enforcement lives in `scripts/operator/master-dashboard.py` `detect_collisions()`
+(the runtime gate) and is drift-locked by
+`tests/lint/test_dashboard_routes.py` + `test_master_dashboard_api_contract.py`.
+The intentional shared-port group is currently an **explicit set** of the three
+networking slugs (`_UNIFIED_SHARED_PORT_SLUGS`) — so a *new* unified group is a
+deliberate, reviewed edit, never a silent relaxation. (A fully-general rule —
+"any slugs declaring the same upstream `api` may share a port" — would carry the
+`api` field into the generated routes; deferred until a second unified group
+needs it.)
+
 ## The control surface (on every dashboard)
 
 Every panel carries a **controls — profiles, modes & feature toggles**

@@ -365,3 +365,49 @@ def test_master_dashboard_surface_map_extended_to_api():
     assert api_row.get("state") == "shipped", (
         f"master-dashboard api surface must be shipped; got {api_row}"
     )
+
+
+# ── shared-port fan-in is DOCUMENTED + SURFACED, not a hidden exception ──────
+# (operator directive 2026-07-21: "make sure the design is well-known and not a
+# surprise, we want this clean"). The intentional shared port (unified
+# networking-api on 8139) must (a) be reported by the detector as intentional,
+# (b) be printed by the collisions CLI, and (c) be documented in the operator
+# docs — so no future reader mistakes it for a bug.
+import importlib.util as _ilu
+
+_COCKPIT_DOC = REPO_ROOT / "docs" / "src" / "ops" / "cockpit.md"
+_MD = REPO_ROOT / "scripts" / "operator" / "master-dashboard.py"
+
+
+def _load_md():
+    spec = _ilu.spec_from_file_location("master_dashboard", _MD)
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_intentional_shared_port_is_reported_not_collided():
+    md = _load_md()
+    coll = md.detect_collisions()
+    assert coll["has_collisions"] is False
+    isp = coll.get("intentional_shared_ports", {})
+    # the unified networking triplet shares one port, reported as intentional
+    triplet = {"network-edge", "edge-firewall", "d-12-networking"}
+    assert any(set(slugs) == triplet for slugs in isp.values()), (
+        f"unified networking shared port not surfaced as intentional: {isp}")
+
+
+def test_collisions_cli_surfaces_the_fan_in():
+    r = subprocess.run(
+        ["python3", str(_MD), "collisions"],
+        capture_output=True, text=True, cwd=str(REPO_ROOT))
+    assert r.returncode == 0, r.stderr
+    assert "intentional shared port" in r.stdout, r.stdout
+
+
+def test_shared_port_design_is_documented():
+    doc = _COCKPIT_DOC.read_text(encoding="utf-8")
+    # the routing section explains the fan-in in operator-facing docs
+    assert "reverse-proxy fan-in" in doc
+    assert "sovereign-networking-api" in doc
+    assert "share a port" in doc or "shared port" in doc
