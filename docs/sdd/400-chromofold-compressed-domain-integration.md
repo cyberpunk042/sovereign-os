@@ -242,6 +242,18 @@ binary exposes it as `chromofold draft --corpus <file> [--max-ngram N] [--min-ng
 library API (`propose_draft`) is the integration surface (the osctl verb stays the operator-facing count/locate/
 predict — a spec-decode draft is an internal, not an operator query).
 
+**Span recovery + a RAG consumer (2026-07-21):** two more consumer integrations, both CPU, no GPU.
+- **`FmIndex::longest_matching_span(query)`** — the prompt-cache / echo primitive: the longest *suffix* of `query`
+  already in the corpus, and where, in one FM backward search. Verified against a naive oracle (4500 checks);
+  exposed as `chromofold span --corpus <file> --query "<ids>"`.
+- **`sovereign-retrieval::PhraseStore`** — exact **word-sequence phrase** retrieval as a new lexical mode
+  alongside term-overlap + BM25: each document's terms map (shared vocab) to an `FmIndex`, and a query is ranked
+  by contiguous-phrase occurrence `count` — so "cat sat" scores "the cat sat" but not "sat on the cat". It
+  implements the crate's `Retriever` trait (drops into `RagResponder`), verified against a naive consecutive-term
+  oracle. **This makes `sovereign-chromofold` production-consumed by the RAG path** (`sovereign-retrieval` now
+  depends on it) — the first non-self consumer, the genuine "integrated, not just present" milestone. Additive:
+  `DocStore`/`Bm25Store` and every existing retrieval test are unchanged (66 pass).
+
 > Note (resolved): the pre-existing F-2026-070 :8139 networking-triplet port collision that had blocked
 > `master-dashboard render` was fixed by the same merge that landed the parallel work — the full
 > panel/dashboard/systemd sweep is now green. ChromoFold's route (:8147) was never involved.

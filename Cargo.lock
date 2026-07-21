@@ -6218,6 +6218,7 @@ dependencies = [
  "sovereign-binary-quant",
  "sovereign-bktree",
  "sovereign-bm25",
+ "sovereign-chromofold",
  "sovereign-chunker",
  "sovereign-embed",
  "sovereign-hnsw",

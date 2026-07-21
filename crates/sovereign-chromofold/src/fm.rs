@@ -316,6 +316,42 @@ impl FmIndex {
         Vec::new()
     }
 
+    /// **Span recovery**: the longest *suffix* of `query` that occurs anywhere in
+    /// the indexed corpus, as `(length, sorted corpus positions of that suffix)`.
+    ///
+    /// This is the prompt-cache / echo primitive — "how much of what I'm about to
+    /// process is already in the cache, and where" — computed in one FM backward
+    /// search (extend the match from the query's end while the SA interval stays
+    /// non-empty). `(0, [])` when not even the last token occurs.
+    #[must_use]
+    pub fn longest_matching_span(&self, query: &[u32]) -> (usize, Vec<usize>) {
+        let mut lo = 0usize;
+        let mut hi = self.n;
+        let mut best_len = 0usize;
+        let mut best = (0usize, 0usize);
+        for (k, &t) in query.iter().rev().enumerate() {
+            let Some(&sym) = self.remap.get(&t) else {
+                break;
+            };
+            let nlo = self.c[sym] + self.wt.rank(sym as u32, lo);
+            let nhi = self.c[sym] + self.wt.rank(sym as u32, hi);
+            if nlo >= nhi {
+                break; // suffix of length k+1 does not occur — k is the longest
+            }
+            lo = nlo;
+            hi = nhi;
+            best_len = k + 1;
+            best = (lo, hi);
+        }
+        if best_len == 0 {
+            return (0, Vec::new());
+        }
+        let (l, h) = best;
+        let mut positions: Vec<usize> = (l..h).map(|r| self.sa[r] as usize).collect();
+        positions.sort_unstable();
+        (best_len, positions)
+    }
+
     /// Original token-stream length (without the sentinel).
     #[must_use]
     pub fn len(&self) -> usize {
@@ -465,6 +501,55 @@ mod tests {
                     fm, spec,
                     "draft mismatch ctx={ctx:?} ({maxg},{ming},{maxd})"
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn longest_matching_span_matches_naive() {
+        // naive oracle: the largest L such that query[len-L..] is a substring of corpus.
+        fn naive_longest(corpus: &[u32], query: &[u32]) -> usize {
+            for len in (1..=query.len()).rev() {
+                let suffix = &query[query.len() - len..];
+                if len <= corpus.len()
+                    && (0..=corpus.len() - len).any(|i| &corpus[i..i + len] == suffix)
+                {
+                    return len;
+                }
+            }
+            0
+        }
+        let mut state: u64 = 0x0f0e0d0c0b0a0908;
+        let mut next = |m: u64| {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (state >> 33) % m
+        };
+        for _ in 0..300 {
+            let sigma = (next(4) + 1) as u32;
+            let corpus: Vec<u32> = (0..(next(40) + 1))
+                .map(|_| next(sigma as u64) as u32)
+                .collect();
+            let idx = FmIndex::build(&corpus);
+            for _ in 0..15 {
+                let q: Vec<u32> = (0..(next(8) + 1))
+                    .map(|_| next(sigma as u64 + 1) as u32)
+                    .collect();
+                let (len, pos) = idx.longest_matching_span(&q);
+                assert_eq!(
+                    len,
+                    naive_longest(&corpus, &q),
+                    "span len corpus={corpus:?} q={q:?}"
+                );
+                // when a span is found, every reported position really starts that suffix.
+                if len > 0 {
+                    let suffix = &q[q.len() - len..];
+                    assert!(!pos.is_empty());
+                    for &p in &pos {
+                        assert_eq!(&corpus[p..p + len], suffix, "bad position {p}");
+                    }
+                }
             }
         }
     }

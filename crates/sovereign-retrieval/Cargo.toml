@@ -16,6 +16,9 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-agent-loop = { path = "../sovereign-agent-loop" }
+# SDD-400: FM-index-backed exact-phrase (word-sequence) retrieval — the ChromoFold
+# compressed-domain search as a lexical retrieval mode (provenance-B, CPU, no GPU).
+sovereign-chromofold = { path = "../sovereign-chromofold" }
 sovereign-embed = { path = "../sovereign-embed" }
 sovereign-chunker = { path = "../sovereign-chunker" }
 sovereign-minhash = { path = "../sovereign-minhash" }

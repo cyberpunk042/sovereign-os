@@ -25,6 +25,7 @@
 
 use serde::{Deserialize, Serialize};
 use sovereign_agent_loop::Responder;
+use sovereign_chromofold::FmIndex;
 use sovereign_embed::EmbedStore;
 use std::collections::HashMap;
 
@@ -1704,6 +1705,119 @@ impl<R: Responder, Ret: Retriever> Responder for RagResponder<R, Ret> {
     }
 }
 
+/// Exact-**phrase** retrieval backed by the ChromoFold FM-index (SDD-400).
+///
+/// Where [`DocStore`] ranks by *term overlap* (a bag of words) and `Bm25Store` by
+/// term frequency/rarity, `PhraseStore` ranks by **exact word-sequence** matches:
+/// how often the query appears as a *contiguous run of terms* in each document —
+/// so "cat sat" scores a document with "the cat sat" but **not** one with "sat on
+/// the cat". Each document is tokenized (the same lowercased-alphanumeric [`tokens`]
+/// as the rest of this crate), its terms mapped to ids via a shared vocabulary, and
+/// an [`FmIndex`] built over that id stream; a query is the same mapping (an unseen
+/// term maps to a reserved id present in no document, so any phrase containing it
+/// scores zero). The score is the FM-index occurrence `count` — O(query) per doc,
+/// no rescan of the text. This is the ChromoFold compressed-domain search surfaced
+/// as a lexical retrieval mode (provenance-B: CPU, no GPU, no native library).
+#[derive(Debug, Clone, Default)]
+pub struct PhraseStore {
+    vocab: std::collections::BTreeMap<String, u32>,
+    docs: Vec<PhraseDoc>,
+}
+
+#[derive(Debug, Clone)]
+struct PhraseDoc {
+    id: String,
+    text: String,
+    fm: FmIndex,
+}
+
+/// Reserved id for a query term never seen in any document — present in no
+/// document's FM-index, so a phrase containing it can never match.
+const PHRASE_UNK: u32 = u32::MAX;
+
+impl PhraseStore {
+    /// A new, empty phrase store.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Number of stored documents.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.docs.len()
+    }
+
+    /// Whether the store holds no documents.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
+    fn intern(&mut self, term: &str) -> u32 {
+        if let Some(&id) = self.vocab.get(term) {
+            return id;
+        }
+        let id = self.vocab.len() as u32;
+        self.vocab.insert(term.to_string(), id);
+        id
+    }
+
+    fn map_query(&self, terms: &[String]) -> Vec<u32> {
+        terms
+            .iter()
+            .map(|t| self.vocab.get(t).copied().unwrap_or(PHRASE_UNK))
+            .collect()
+    }
+
+    /// Add a document: tokenize it, map terms to ids, and build its FM-index.
+    pub fn add(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let text = text.into();
+        let ids: Vec<u32> = tokens(&text).iter().map(|t| self.intern(t)).collect();
+        let fm = FmIndex::build(&ids);
+        self.docs.push(PhraseDoc {
+            id: id.into(),
+            text,
+            fm,
+        });
+    }
+
+    /// The top-`k` documents ranked by how often `query` occurs as a contiguous
+    /// term sequence (score = occurrence count), ties broken by document id.
+    /// Documents with zero occurrences are omitted.
+    #[must_use]
+    pub fn retrieve_phrase(&self, query: &str, k: usize) -> Vec<ScoredDoc> {
+        let q = self.map_query(&tokens(query));
+        if q.is_empty() {
+            return Vec::new();
+        }
+        let mut scored: Vec<ScoredDoc> = self
+            .docs
+            .iter()
+            .filter_map(|d| {
+                let c = d.fm.count(&q);
+                (c > 0).then(|| ScoredDoc {
+                    id: d.id.clone(),
+                    text: d.text.clone(),
+                    score: u32::try_from(c).unwrap_or(u32::MAX),
+                })
+            })
+            .collect();
+        scored.sort_by(|a, b| b.score.cmp(&a.score).then_with(|| a.id.cmp(&b.id)));
+        scored.truncate(k);
+        scored
+    }
+}
+
+impl Retriever for PhraseStore {
+    fn retrieve_context(&self, query: &str, k: usize) -> Vec<String> {
+        self.retrieve_phrase(query, k)
+            .into_iter()
+            .map(|d| d.text)
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2642,5 +2756,76 @@ mod tests {
         assert!(prompts[0].starts_with("Context:\n"));
         // subword match pulls the rust doc, not the cooking one
         assert!(prompts[0].contains("rust ownership"));
+    }
+
+    #[test]
+    fn phrase_store_ranks_by_exact_phrase_occurrence() {
+        let mut s = PhraseStore::new();
+        s.add("a", "the cat sat and the cat sat again"); // "cat sat" ×2
+        s.add("b", "the cat sat once"); // "cat sat" ×1
+        s.add("c", "sat on the cat"); // terms present, phrase absent
+        let hits = s.retrieve_phrase("cat sat", 5);
+        assert_eq!(
+            hits.iter().map(|d| d.id.as_str()).collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+        assert_eq!(hits[0].score, 2);
+        assert_eq!(hits[1].score, 1);
+        // doc "c" has both terms but not as a phrase → excluded (unlike term overlap).
+        assert!(hits.iter().all(|d| d.id != "c"));
+    }
+
+    #[test]
+    fn phrase_store_matches_naive_consecutive_term_count() {
+        // naive oracle: count contiguous term-sequence occurrences.
+        fn naive(text: &str, phrase: &str) -> u32 {
+            let t = tokens(text);
+            let p = tokens(phrase);
+            if p.is_empty() || p.len() > t.len() {
+                return 0;
+            }
+            (0..=t.len() - p.len())
+                .filter(|&i| t[i..i + p.len()] == p[..])
+                .count() as u32
+        }
+        let docs = [
+            ("d1", "alpha beta beta alpha beta"),
+            ("d2", "beta alpha beta alpha beta alpha"),
+            ("d3", "gamma gamma alpha beta gamma"),
+        ];
+        let mut s = PhraseStore::new();
+        for (id, txt) in docs {
+            s.add(id, txt);
+        }
+        for phrase in [
+            "alpha beta",
+            "beta alpha",
+            "beta beta",
+            "gamma",
+            "delta",
+            "alpha beta gamma",
+        ] {
+            let hits = s.retrieve_phrase(phrase, 10);
+            for (id, txt) in docs {
+                let want = naive(txt, phrase);
+                let got = hits.iter().find(|d| d.id == id).map_or(0, |d| d.score);
+                assert_eq!(got, want, "phrase {phrase:?} in {id}");
+            }
+        }
+    }
+
+    #[test]
+    fn phrase_store_is_a_retriever_and_unknown_terms_match_nothing() {
+        let mut s = PhraseStore::new();
+        s.add("doc", "compressed domain search over tokens");
+        // drops into the RAG Retriever contract
+        let ctx = s.retrieve_context("domain search", 3);
+        assert_eq!(
+            ctx,
+            vec!["compressed domain search over tokens".to_string()]
+        );
+        // a phrase with a never-seen term matches nothing (maps to PHRASE_UNK).
+        assert!(s.retrieve_phrase("domain nonexistentword", 3).is_empty());
+        assert!(s.retrieve_phrase("", 3).is_empty());
     }
 }

@@ -174,6 +174,36 @@ fn cmd_draft(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Span recovery: the longest suffix of `--query` present in the corpus.
+fn cmd_span(args: &[String]) -> Result<(), String> {
+    let json = args.iter().any(|a| a == "--json");
+    let corpus_path = flag(args, "--corpus")
+        .ok_or_else(|| "chromofold span: --corpus <file> is required".to_string())?;
+    let query_raw = flag(args, "--query")
+        .ok_or_else(|| "chromofold span: --query \"<ids>\" is required".to_string())?;
+    let corpus_text = std::fs::read_to_string(corpus_path)
+        .map_err(|e| format!("cannot read corpus {corpus_path}: {e}"))?;
+    let corpus = parse_tokens(&corpus_text).map_err(|e| format!("corpus: {e}"))?;
+    let query = parse_tokens(query_raw).map_err(|e| format!("--query: {e}"))?;
+    let (len, positions) = FmIndex::build(&corpus).longest_matching_span(&query);
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({ "span_len": len, "positions": positions })
+        );
+    } else {
+        println!(
+            "span_len={len} positions={}",
+            positions
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+    }
+    Ok(())
+}
+
 fn usage() {
     eprintln!(
         "chromofold — ChromoFold CPU search + diagnostics (SDD-400)\n\
@@ -183,9 +213,11 @@ fn usage() {
            chromofold count   --corpus <file> --pattern \"<ids>\" [--json]\n  \
            chromofold locate  --corpus <file> --pattern \"<ids>\" [--json]\n  \
            chromofold predict --corpus <file> --context \"<ids>\" [--json]\n  \
-           chromofold draft   --corpus <file> [--max-ngram 3] [--min-ngram 1] [--max-draft 8] [--json]\n\
-         corpus/pattern/context: whitespace- or comma-separated u32 token ids.\n\
-         draft: the prompt-lookup speculative-decoding draft (a drop-in for sovereign-ngram-speculative)."
+           chromofold draft   --corpus <file> [--max-ngram 3] [--min-ngram 1] [--max-draft 8] [--json]\n  \
+           chromofold span    --corpus <file> --query \"<ids>\" [--json]\n\
+         corpus/pattern/context/query: whitespace- or comma-separated u32 token ids.\n\
+         draft: the prompt-lookup speculative-decoding draft (a drop-in for sovereign-ngram-speculative).\n\
+         span:  the longest suffix of --query already in the corpus (prompt-cache span recovery)."
     );
 }
 
@@ -222,6 +254,13 @@ fn main() -> ExitCode {
             }
         },
         "draft" => match cmd_draft(tail) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(why) => {
+                eprintln!("chromofold: {why}");
+                ExitCode::FAILURE
+            }
+        },
+        "span" => match cmd_span(tail) {
             Ok(()) => ExitCode::SUCCESS,
             Err(why) => {
                 eprintln!("chromofold: {why}");
