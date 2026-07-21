@@ -133,6 +133,44 @@ pub struct SovereignLlm {
     model: DecoderStack,
 }
 
+/// A declarative set of the token-law planes to enforce on a completion — the
+/// **unified** M00117 token-law engine (SDD-505). Each field is one plane class;
+/// all set fields are AND-composed per decode step into a single allow-mask
+/// through the real `token_law_combine` kernel, so a running model is confined by
+/// **every** active constraint at once (grammar ∧ regex ∧ tool ∧ safety ∧
+/// policy). An empty spec (`TokenLawSpec::default()`) is unconstrained.
+///
+/// This generalizes the pairwise `complete_*_with_laws` / `..._with_safety_denylist`
+/// methods (SDD-501/503/504) into one entry point:
+/// [`SovereignLlm::complete_with_token_law`]. Build one with a struct literal:
+/// `TokenLawSpec { regex: Some("[a-z]+"), denylist: &["bad"], ..Default::default() }`.
+#[derive(Debug, Clone, Default)]
+pub struct TokenLawSpec<'a> {
+    /// A JSON-schema grammar plane — output conforms to this schema (the parse
+    /// completing is the stop signal). Compiled via `sovereign-json-schema-grammar`.
+    pub schema: Option<&'a sovereign_json_schema_grammar::Schema>,
+    /// A regular-expression plane — output stays viable for this pattern
+    /// (`sovereign-regex-constrain`). A tool-name allow-list is a
+    /// `(name_a|name_b|…)` alternation here.
+    pub regex: Option<&'a str>,
+    /// A negative safety plane — output NEVER contains any of these literal
+    /// substrings (`sovereign-token-law-deny`).
+    pub denylist: &'a [&'a str],
+    /// Static policy planes — pre-packed per-vocabulary allow-bitsets, fixed
+    /// across the generation (a route/tool/safety allow-mask).
+    pub policy_planes: &'a [&'a [u64]],
+}
+
+impl TokenLawSpec<'_> {
+    /// Whether no plane is active (an unconstrained completion).
+    pub fn is_empty(&self) -> bool {
+        self.schema.is_none()
+            && self.regex.is_none()
+            && self.denylist.is_empty()
+            && self.policy_planes.is_empty()
+    }
+}
+
 impl SovereignLlm {
     /// Build a runtime, checking that the model's vocab matches the tokenizer.
     pub fn new(tokenizer: Tokenizer, config: StackConfig) -> Result<Self, LlmError> {
@@ -849,6 +887,105 @@ impl SovereignLlm {
                     return None;
                 }
                 let combined = planes.combine_with_dynamics(&[&r_ids, &safe]);
+                if combined.iter().all(|w| *w == 0) {
+                    return None;
+                }
+                Some(combined)
+            })?;
+        let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();
+        Ok(self.tokenizer.decode(&out_ids).unwrap_or_default())
+    }
+
+    /// **The unified token-law engine** (SDD-505 / M00117): constrain a completion
+    /// by ANY combination of planes declared in `spec` — a JSON-schema grammar, a
+    /// regex, a safety denylist, and static policy bitsets — all AND-composed per
+    /// decode step into one allow-mask through the real `token_law_combine`
+    /// kernel. A token survives only if **every** active plane allows it, so one
+    /// running model can be confined by grammar ∧ regex ∧ tool ∧ safety ∧ policy
+    /// simultaneously — the full M00117 five-plane vision in a single call,
+    /// generalizing the pairwise `complete_*_with_laws` / `..._with_safety_denylist`
+    /// methods. With a set schema, generation stops when the grammar is complete;
+    /// otherwise it runs to `max_new` or until no token keeps every plane
+    /// satisfiable. An empty spec is unconstrained. Reproducible per `seed`;
+    /// errors if `spec.regex` is set and not a valid regex.
+    pub fn complete_with_token_law(
+        &self,
+        prompt: &str,
+        spec: &TokenLawSpec,
+        max_new: usize,
+        seed: u64,
+    ) -> Result<String, LlmError> {
+        let vocab_size = self.tokenizer.vocab_size();
+        let vocab: Vec<String> = (0..vocab_size)
+            .map(|id| self.tokenizer.decode(&[id as u32]).unwrap_or_default())
+            .collect();
+        let vocab_refs: Vec<&str> = vocab.iter().map(String::as_str).collect();
+
+        // Build each active constraint once.
+        let tgm = spec.schema.map(|s| {
+            let grammar = sovereign_json_schema_grammar::compile(s);
+            sovereign_token_grammar_mask::TokenGrammarMask::new(grammar, vocab.clone())
+        });
+        let regex = match spec.regex {
+            Some(p) => Some(
+                sovereign_regex_constrain::RegexConstraint::new(p)
+                    .map_err(|e| LlmError::Regex(e.to_string()))?,
+            ),
+            None => None,
+        };
+        let deny = if spec.denylist.is_empty() {
+            None
+        } else {
+            Some(sovereign_token_law_deny::DenyConstraint::new(
+                spec.denylist.iter().copied(),
+            ))
+        };
+        let mut planes = sovereign_token_law_mask::TokenLawPlanes::new(vocab_size);
+        for p in spec.policy_planes {
+            planes = planes.with_plane(p.to_vec());
+        }
+
+        let prompt_ids: Vec<usize> = self
+            .tokenizer
+            .encode(prompt)
+            .iter()
+            .map(|&i| i as usize)
+            .collect();
+        let mut model = self.model.clone();
+        let gen_ids =
+            model.generate_dynamic_token_law_until(&prompt_ids, max_new, seed, |generated| {
+                let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+                let text = self.tokenizer.decode(&so_far).unwrap_or_default();
+                // Collect the allow-list of every ACTIVE dynamic plane; any empty
+                // one, or a completed grammar, stops generation.
+                let mut dynamics: Vec<Vec<usize>> = Vec::new();
+                if let Some(tgm) = &tgm {
+                    let m = tgm.mask(&text);
+                    if m.eos {
+                        return None;
+                    }
+                    let ids = m.allowed_ids();
+                    if ids.is_empty() {
+                        return None;
+                    }
+                    dynamics.push(ids);
+                }
+                if let Some(rc) = &regex {
+                    let ids = rc.allowed_token_ids(&text, &vocab_refs);
+                    if ids.is_empty() {
+                        return None;
+                    }
+                    dynamics.push(ids);
+                }
+                if let Some(deny) = &deny {
+                    let ids = deny.safe_token_ids(&text, &vocab_refs);
+                    if ids.is_empty() {
+                        return None;
+                    }
+                    dynamics.push(ids);
+                }
+                let refs: Vec<&[usize]> = dynamics.iter().map(Vec::as_slice).collect();
+                let combined = planes.combine_with_dynamics(&refs);
                 if combined.iter().all(|w| *w == 0) {
                     return None;
                 }
@@ -2123,6 +2260,101 @@ mod tests {
             !deny.is_denied(&out),
             "an injection phrase slipped through: {out:?}"
         );
+    }
+
+    // ── SDD-505: the unified token-law engine ──────────────────────────────
+
+    #[test]
+    fn token_law_spec_regex_only_equals_the_dedicated_regex_method() {
+        // A spec with ONLY a regex must reproduce complete_regex_with_laws (no
+        // policy) exactly — the unified engine faithfully generalizes it.
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        let spec = TokenLawSpec {
+            regex: Some("[0-9]+"),
+            ..Default::default()
+        };
+        assert_eq!(
+            a.complete_with_token_law("number: ", &spec, 6, 7).unwrap(),
+            b.complete_regex_with_laws("number: ", "[0-9]+", &[], 6, 7)
+                .unwrap(),
+        );
+    }
+
+    #[test]
+    fn token_law_spec_schema_only_equals_the_dedicated_schema_method() {
+        use sovereign_json_schema_grammar::Schema;
+        let schema = Schema::object([("ok".to_string(), Schema::Boolean)]);
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        let spec = TokenLawSpec {
+            schema: Some(&schema),
+            ..Default::default()
+        };
+        assert_eq!(
+            a.complete_with_token_law("emit: ", &spec, 40, 7).unwrap(),
+            b.complete_json_schema_with_laws("emit: ", &schema, &[], 40, 7)
+                .unwrap(),
+        );
+    }
+
+    #[test]
+    fn token_law_spec_denylist_only_equals_the_dedicated_denylist_method() {
+        let a = runtime(Sampler::greedy());
+        let b = runtime(Sampler::greedy());
+        let spec = TokenLawSpec {
+            denylist: &["a"],
+            ..Default::default()
+        };
+        assert_eq!(
+            a.complete_with_token_law("say: ", &spec, 12, 7).unwrap(),
+            b.complete_with_safety_denylist("say: ", &["a"], 12, 7)
+                .unwrap(),
+        );
+    }
+
+    #[test]
+    fn token_law_spec_composes_all_planes_at_once() {
+        use sovereign_json_schema_grammar::Schema;
+        // SDD-505: grammar ∧ regex ∧ denylist ∧ policy, ALL in one spec — a
+        // constraint no single method expresses. JSON-string grammar (quoted,
+        // any printable) ∧ regex "[a-z]+" (lowercase content) ∧ denylist "bad"
+        // (never that substring) ∧ policy plane banning byte 'q'. Every char is
+        // a quote or a lowercase letter that is not 'q', and "bad" never appears.
+        let llm = runtime(Sampler::greedy());
+        let words = llm.vocab_size().div_ceil(64);
+        let mut ban_q = vec![u64::MAX; words];
+        let q = b'q' as usize;
+        ban_q[q >> 6] &= !(1u64 << (q & 63));
+        let schema = Schema::StringType;
+        let ban_q_ref: &[u64] = &ban_q;
+        let spec = TokenLawSpec {
+            schema: Some(&schema),
+            regex: Some("\"[a-z]+\""),
+            denylist: &["bad"],
+            policy_planes: &[ban_q_ref],
+        };
+        let out = llm.complete_with_token_law("emit: ", &spec, 14, 7).unwrap();
+        assert!(
+            out.starts_with('"'),
+            "grammar requires a leading quote: {out:?}"
+        );
+        assert!(
+            out.chars()
+                .all(|c| c == '"' || (c.is_ascii_lowercase() && c != 'q')),
+            "grammar∧regex∧policy violated: {out:?}"
+        );
+        assert!(!out.contains("bad"), "denylist 'bad' appears: {out:?}");
+    }
+
+    #[test]
+    fn empty_token_law_spec_is_unconstrained_and_runs() {
+        let llm = runtime(Sampler::greedy());
+        let spec = TokenLawSpec::default();
+        assert!(spec.is_empty());
+        let out = llm.complete_with_token_law("hello ", &spec, 6, 7).unwrap();
+        // an unconstrained run produces up to max_new tokens (no plane stops it).
+        assert!(out.chars().count() <= 6);
     }
 
     #[test]
