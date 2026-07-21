@@ -217,9 +217,12 @@ self-contained, `unsafe`-free `FmIndex` in `crates/sovereign-chromofold/src/fm.r
 search path with no GPU and no native library** — the CPU sibling of the GPU engine (provenance-A). Correctness is
 proven against a **naive substring oracle** (a known "abracadabra"/"mississippi" case + a 200×20 randomized
 cross-check — 4000 assertions), so it agrees with any correct FM-index, ChromoFold's included. Reference-grade
-(O(n² log n) SA, dense σ·n Occ) — the honest, verifiable floor; a production build uses provenance-A or a
-wavelet-tree rank. The descriptor now carries `cpu_fm_index: true`, and the `chromofold selftest` binary runs a
-real functional check (count/locate known answers) instead of a stub.
+but built to scale: the suffix array is **prefix-doubling (O(n log² n))** and rank is a **wavelet tree**
+(O(log σ)/query, O(n log σ) space) — the standard succinct FM-index structure — so the index scales to real token
+vocabularies, not just small alphabets (both upgrades 2026-07-21, from the initial O(n² log n) SA + dense σ·n
+`Occ`). Verified against a naive substring oracle, a brute-force suffix array, and a naive rank (9000+ randomized
+assertions). provenance-A remains the GPU hot path. The descriptor carries `cpu_fm_index: true`, and the
+`chromofold selftest` binary runs a real functional check (count/locate known answers) instead of a stub.
 
 **Operable end-to-end (2026-07-21):** the `sovereign-chromofold` binary gained `count` / `locate` / `predict`
 subcommands over a `--corpus <file>` of token ids (`--pattern`/`--context`, human + `--json`), and the operator
@@ -227,6 +230,17 @@ surface `sovereign-osctl chromofold count|locate|predict` shells that binary (ho
 built — the warp-render pattern). So the compressed-domain search is now runnable from the command line on CPU,
 no GPU — the "searchable" promise, delivered on the reference backend. Verified: `count("a")=5`, `locate("abra")=[0,7]`,
 `predict` after `a` → b:0.5/c:0.25/d:0.25 over "abracadabra". Man topic + help + the CLI contract test updated.
+
+**Spec-decode consumer integration (2026-07-21):** `FmIndex::propose_draft(max_ngram, min_ngram, max_draft)` — the
+FM-index realization of prompt-lookup speculative decoding (SDD-400's headline use-case: "the FM-index used as the
+draft cuts forward passes 2.18×"). It is a **verified drop-in** for the existing `sovereign-ngram-speculative`
+`NgramSpeculator::propose`: an equivalence test (`sovereign-ngram-speculative` as a test-only dev-dep) proves the
+FM-index draft is **byte-identical** to the linear-scan draft across 1200 randomized cases — the same result found
+by O(log) `locate` instead of an O(n) scan. Additive + low-risk: only `sovereign-chromofold` changed; the live
+`sovereign-spec-decode` loop opting into the FM-index draft is a one-line follow-up flip (operator's call). The
+binary exposes it as `chromofold draft --corpus <file> [--max-ngram N] [--min-ngram N] [--max-draft N]`; the
+library API (`propose_draft`) is the integration surface (the osctl verb stays the operator-facing count/locate/
+predict — a spec-decode draft is an internal, not an operator query).
 
 > Note (resolved): the pre-existing F-2026-070 :8139 networking-triplet port collision that had blocked
 > `master-dashboard render` was fixed by the same merge that landed the parallel work — the full

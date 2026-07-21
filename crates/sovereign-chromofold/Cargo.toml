@@ -23,3 +23,8 @@ linked = ["sovereign-chromofold-sys/linked"]
 serde = { workspace = true }
 serde_json = { workspace = true }
 sovereign-chromofold-sys = { path = "../sovereign-chromofold-sys" }
+
+[dev-dependencies]
+# test-only oracle: proves FmIndex::propose_draft is a drop-in for the existing
+# prompt-lookup speculative-decoding draft (SDD-400 spec-decode integration).
+sovereign-ngram-speculative = { path = "../sovereign-ngram-speculative" }

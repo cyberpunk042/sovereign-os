@@ -135,6 +135,45 @@ fn cmd_search(kind: &str, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Parse a `--key <usize>` flag with a default.
+fn parse_usize(args: &[String], key: &str, default: usize) -> Result<usize, String> {
+    match flag(args, key) {
+        None => Ok(default),
+        Some(v) => v
+            .parse::<usize>()
+            .map_err(|_| format!("{key}: not a usize: {v:?}")),
+    }
+}
+
+/// Prompt-lookup speculative-decoding draft over a corpus (FmIndex::propose_draft).
+fn cmd_draft(args: &[String]) -> Result<(), String> {
+    let json = args.iter().any(|a| a == "--json");
+    let corpus_path = flag(args, "--corpus")
+        .ok_or_else(|| "chromofold draft: --corpus <file> is required".to_string())?;
+    let max_ngram = parse_usize(args, "--max-ngram", 3)?;
+    let min_ngram = parse_usize(args, "--min-ngram", 1)?;
+    let max_draft = parse_usize(args, "--max-draft", 8)?;
+    let corpus_text = std::fs::read_to_string(corpus_path)
+        .map_err(|e| format!("cannot read corpus {corpus_path}: {e}"))?;
+    let corpus = parse_tokens(&corpus_text).map_err(|e| format!("corpus: {e}"))?;
+    let draft = FmIndex::build(&corpus).propose_draft(max_ngram, min_ngram, max_draft);
+    if json {
+        println!("{}", serde_json::json!({ "draft": draft }));
+    } else if draft.is_empty() {
+        println!("(no draft)");
+    } else {
+        println!(
+            "{}",
+            draft
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+    }
+    Ok(())
+}
+
 fn usage() {
     eprintln!(
         "chromofold — ChromoFold CPU search + diagnostics (SDD-400)\n\
@@ -143,8 +182,10 @@ fn usage() {
            chromofold selftest\n  \
            chromofold count   --corpus <file> --pattern \"<ids>\" [--json]\n  \
            chromofold locate  --corpus <file> --pattern \"<ids>\" [--json]\n  \
-           chromofold predict --corpus <file> --context \"<ids>\" [--json]\n\
-         corpus/pattern/context: whitespace- or comma-separated u32 token ids."
+           chromofold predict --corpus <file> --context \"<ids>\" [--json]\n  \
+           chromofold draft   --corpus <file> [--max-ngram 3] [--min-ngram 1] [--max-draft 8] [--json]\n\
+         corpus/pattern/context: whitespace- or comma-separated u32 token ids.\n\
+         draft: the prompt-lookup speculative-decoding draft (a drop-in for sovereign-ngram-speculative)."
     );
 }
 
@@ -174,6 +215,13 @@ fn main() -> ExitCode {
             }
         },
         "count" | "locate" | "predict" => match cmd_search(cmd, tail) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(why) => {
+                eprintln!("chromofold: {why}");
+                ExitCode::FAILURE
+            }
+        },
+        "draft" => match cmd_draft(tail) {
             Ok(()) => ExitCode::SUCCESS,
             Err(why) => {
                 eprintln!("chromofold: {why}");

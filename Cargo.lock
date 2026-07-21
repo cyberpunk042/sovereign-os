@@ -563,6 +563,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sovereign-chromofold-sys",
+ "sovereign-ngram-speculative",
 ]
 
 [[package]]
