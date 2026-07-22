@@ -72,11 +72,24 @@ The manual `sovereign-osctl <verb>` stays the escape hatch; for a `step-up` op i
 
 ## Phasing
 
-| Phase | Scope |
-|---|---|
-| **A** | The verifier + `auth:` tiering + **TOTP** (stdlib, offline) + enrollment |
-| **B** | The **phone (SMS) + email** OTP layer (mint / verify / rate-limit / replay-burn) over notifykit |
-| **C** | The **config pane** + the step-up modal in `control-surface.js` + break-glass |
+| Phase | Scope | Status |
+|---|---|---|
+| **A** | The step-up core (`auth:` tiering + **TOTP** verifier + single-use elevation) + the opt-in exec-rail gate + enrollment | **shipped 2026-07-22** (see below) |
+| **B** | The **phone (SMS) + email** OTP layer (mint / verify / rate-limit / replay-burn) over notifykit | TODO |
+| **C** | The **config pane** + the step-up modal in `control-surface.js` + break-glass | TODO |
+
+## What shipped — Phase A (2026-07-22)
+
+- **`scripts/operator/lib/stepup.py`** — the pure, stdlib-only core: RFC 6238 **TOTP** (`totp_code`/`totp_verify`, ±1 skew) + enrollment (`new_totp_secret`/`provisioning_uri`/`enroll`) + a short-TTL **single-use `ElevationStore`** (mint / check / consume-burn, self-pruning) + `resolve_tier` (control → `auth:` tier). No new dependency.
+- **`config/control-systems.yaml`** — `auth: step-up` on `os-profile` + `runtime-mode` (the operator retunes the set in the pane; Phase C).
+- **`scripts/operator/_action_exec.py`** — the **opt-in step-up gate**: after the dry-run return (so a preview never burns a factor), a `step-up`-tier control requires a live elevation (consumed single-use); absent → `401 step-up-required` with the offered factors. **Non-breaking:** the gate engages *only* once a TOTP factor is enrolled — an un-enrolled box behaves exactly as before, and a step-up fault never breaks the exec rail (fail-safe to the prior gates).
+- **Tests:** `tests/lint/test_stepup_totp.py` (RFC 6238 Appendix-B known-answer vectors + elevation single-use/expiry/binding + tier resolution) and `tests/lint/test_stepup_action_exec.py` (the gate is opt-in-until-enrolled, engages + requires an elevation once enrolled, and sits after the dry-run return). 12 tests; the broad operator/cockpit/control lint sweep (1135) stays green.
+
+Verification: `python3 -m pytest tests/lint/test_stepup_totp.py tests/lint/test_stepup_action_exec.py` (12 pass) + the operator/control-exec/registry families green; ruff clean. Still **DRAFT** — the phone/email factors (B) and the config pane (C) follow; the operator's Q-row defaults (5-min window / os-profile+runtime-mode+safety-policy+exec-rail-flips as `step-up` / one-time break-glass / milestone) are the assumed defaults, retunable.
+
+### Phase-A honesty (unchanged)
+
+The elevation + secret stores are files under `SOVEREIGN_OS_STEPUP_DIR` (default `/run/sovereign-os/stepup`). For the software MFA to bind more than a browser attacker, that dir + the gate belong behind a **root-owned verifier process** (the operator user should not be able to write its own elevation) — the tracked hardening step, not yet in Phase A. Today Phase A delivers a working, tested TOTP step-up that stops a browser attacker and adds a burned-single-use audit trail; it is explicitly not a hardware guarantee against an existing shell.
 
 ## Open decisions — sign-off before Phase A
 
