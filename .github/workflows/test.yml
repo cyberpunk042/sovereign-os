@@ -73,7 +73,12 @@ jobs:
   schema-lint:
     name: layer 1 — schema + lint
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 5 min was only ever enough while an early test failure aborted the run
+    # before the full ~7000-test layer-1 suite finished. With the suite green
+    # end-to-end it now overruns 5 min and is killed mid-run (reported as
+    # "cancelled"). The same pytest passes in the nspawn job's make-lint under a
+    # 15-min budget — matched here so the standalone job completes too.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:

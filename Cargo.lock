@@ -4956,6 +4956,7 @@ dependencies = [
  "sovereign-srp-scheduler",
  "sovereign-stop-sequence",
  "sovereign-stream-decode",
+ "sovereign-token-law-fuse",
  "sovereign-tool-bridge",
  "sovereign-tool-dispatch",
  "sovereign-toxicity",
@@ -5544,6 +5545,7 @@ dependencies = [
  "sovereign-token-grammar-mask",
  "sovereign-token-healing",
  "sovereign-token-law-deny",
+ "sovereign-token-law-fuse",
  "sovereign-token-law-mask",
  "sovereign-tokenizer",
  "sovereign-toxicity",
@@ -6701,6 +6703,19 @@ name = "sovereign-token-law-deny"
 version = "0.1.0"
 dependencies = [
  "sovereign-aho-corasick",
+]
+
+[[package]]
+name = "sovereign-token-law-fuse"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sovereign-json-schema-grammar",
+ "sovereign-regex-constrain",
+ "sovereign-token-grammar-mask",
+ "sovereign-token-law-deny",
+ "sovereign-token-law-mask",
 ]
 
 [[package]]

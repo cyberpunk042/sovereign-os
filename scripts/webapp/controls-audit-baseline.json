@@ -42,6 +42,13 @@
     "status": "no-actions"
   },
   {
+    "slug": "chromofold",
+    "exec_rail": 0,
+    "proxy_copy": false,
+    "wireable_gap": false,
+    "status": "no-actions"
+  },
+  {
     "slug": "code-console",
     "exec_rail": 0,
     "proxy_copy": false,

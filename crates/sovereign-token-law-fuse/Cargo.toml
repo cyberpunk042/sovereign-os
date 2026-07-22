@@ -1,0 +1,24 @@
+[package]
+name = "sovereign-token-law-fuse"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The checkpoint-free token-law fusion primitive (M00155 / SDD-507): compose the named constraint planes — grammar (JSON-schema) / positive-regex / literal-denylist / negated-regex / static-policy — at a given generated prefix into ONE vocab allow-mask, WITHOUT a transformer. The fused mask is the deterministic-cortex DECISION (which next tokens every active law permits); it depends only on the layer sources + the vocabulary strings, never on trained weights, so it is exact regardless of which checkpoint (or none) is loaded. sovereign-llm's complete_with_token_law consumes this per decode step; a data-plane HTTP route and the osctl surface (F00792/F00795/F00797) drive it directly. Composes sovereign-token-law-mask + sovereign-json-schema-grammar + sovereign-token-grammar-mask + sovereign-regex-constrain + sovereign-token-law-deny."
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sovereign-token-law-mask = { path = "../sovereign-token-law-mask" }
+sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
+sovereign-token-grammar-mask = { path = "../sovereign-token-grammar-mask" }
+sovereign-regex-constrain = { path = "../sovereign-regex-constrain" }
+sovereign-token-law-deny = { path = "../sovereign-token-law-deny" }
+
+[dev-dependencies]
+serde_json = { workspace = true }

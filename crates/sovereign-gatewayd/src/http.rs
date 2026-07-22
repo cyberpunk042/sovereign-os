@@ -155,6 +155,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/branch-scheduler/tick") => branch_scheduler_tick(body),
         ("POST", "/v1/branch-scheduler/tick-v2") => branch_scheduler_tick_v2(body),
         ("POST", "/v1/token-law/allowed-mask") => token_law_allowed_mask(body),
+        ("POST", "/v1/data-plane/token-law/fuse") => token_law_fuse(server, body),
         ("POST", "/v1/math/dot-i8") => math_dot_i8(body),
         ("POST", "/v1/math/attention-fuse") => math_attention_fuse(body),
         ("POST", "/v1/microcode/decode") => microcode_decode(body),
@@ -836,6 +837,45 @@ fn token_law_allowed_mask(body: &str) -> HttpReply {
     )
 }
 
+/// `POST /v1/data-plane/token-law/fuse` (M00155 F00792/F00797, SDD-507) — the
+/// operator surface over the M00117 engine: fuse the NAMED laws
+/// (grammar/regex/denylist/negated-regex/policy) at a generated prefix into one
+/// vocab allow-mask. Unlike `/v1/token-law/allowed-mask` (which combines
+/// pre-packed bitsets), this *derives* each layer's bitset from a real source,
+/// so the caller sends sources, not bitsets. Checkpoint-free: the mask depends
+/// only on the sources + the supplied `vocab`, never on a loaded model — the
+/// deterministic-cortex DECISION exposed for inspection. Body: a
+/// [`sovereign_token_law_fuse::FuseRequest`] `{ schema?, regex?, denylist?,
+/// regex_denylist?, policy_planes?, generated?, vocab }`. Reply: the fused mask,
+/// its allowed-token count, per-layer coverage, the active layer names, and a
+/// `stop` flag (the prefix admits no continuation under these laws).
+fn token_law_fuse(server: &GatewayServer, body: &str) -> HttpReply {
+    let req: sovereign_token_law_fuse::FuseRequest = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => return err(400, format!("invalid token-law fuse request: {e}")),
+    };
+    if req.vocab.is_empty() {
+        return err(400, "token-law fuse: `vocab` must be non-empty".into());
+    }
+    let layers_active = req.layers_active();
+    let fused = match req.fuse() {
+        Ok(f) => f,
+        Err(e) => return err(400, e.to_string()),
+    };
+    server.record_token_law_fuse(layers_active.len());
+    json_reply(
+        200,
+        &serde_json::json!({
+            "kind": "token-law-fuse",
+            "mask": fused.mask,
+            "allowed_tokens": fused.allowed,
+            "per_layer": fused.per_layer,
+            "layers_active": layers_active,
+            "stop": fused.stop,
+        }),
+    )
+}
+
 /// `POST /v1/microcode/decode` (M00113) — decode a control word's bitfields as
 /// an executable micro-op program and run it to a policy outcome. Body:
 /// `{ "control_word": u64 }`. The control word isn't data the policy reads —
@@ -1409,6 +1449,51 @@ mod tests {
 
     fn body_of(reply: &HttpReply) -> serde_json::Value {
         serde_json::from_str(&reply.body).unwrap()
+    }
+
+    #[test]
+    fn token_law_fuse_route_derives_named_layers_and_counts_them() {
+        let server = srv();
+        // grammar-free: positive regex [a-z]+ ∧ negated regex [xyz] over a
+        // 4-token vocab {a,x,q,z} → only a,q survive. Two active layers.
+        let body = r#"{ "regex": "[a-z]+", "regex_denylist": ["[xyz]"],
+                        "vocab": ["a","x","q","z"] }"#;
+        let reply = respond(&server, "POST", "/v1/data-plane/token-law/fuse", body);
+        assert_eq!(reply.status, 200);
+        let v = body_of(&reply);
+        assert_eq!(v["kind"], "token-law-fuse");
+        assert_eq!(v["allowed_tokens"], 2);
+        assert_eq!(
+            v["layers_active"],
+            serde_json::json!(["regex", "regex_denylist"])
+        );
+        assert_eq!(v["stop"], false);
+        // The metric recorded both fused layers.
+        assert_eq!(server.token_law_mask_layers_count(), 2);
+        assert!(
+            server
+                .metrics_prometheus()
+                .contains("sovereign_data_plane_token_law_mask_layers 2")
+        );
+    }
+
+    #[test]
+    fn token_law_fuse_route_rejects_empty_vocab_and_bad_regex() {
+        let server = srv();
+        let empty = respond(
+            &server,
+            "POST",
+            "/v1/data-plane/token-law/fuse",
+            r#"{ "vocab": [] }"#,
+        );
+        assert_eq!(empty.status, 400);
+        let bad = respond(
+            &server,
+            "POST",
+            "/v1/data-plane/token-law/fuse",
+            r#"{ "regex": "[unterminated", "vocab": ["a"] }"#,
+        );
+        assert_eq!(bad.status, 400);
     }
 
     #[test]

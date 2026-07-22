@@ -36,6 +36,7 @@ sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
 sovereign-token-grammar-mask = { path = "../sovereign-token-grammar-mask" }
 sovereign-token-law-mask = { path = "../sovereign-token-law-mask" }
 sovereign-token-law-deny = { path = "../sovereign-token-law-deny" }
+sovereign-token-law-fuse = { path = "../sovereign-token-law-fuse" }
 sovereign-context-budget = { path = "../sovereign-context-budget" }
 sovereign-xtc-sampler = { path = "../sovereign-xtc-sampler" }
 sovereign-dry-sampler = { path = "../sovereign-dry-sampler" }

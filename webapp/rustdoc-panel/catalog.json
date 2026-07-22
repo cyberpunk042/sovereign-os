@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_by": "scripts/webapp/gen-rustdoc-panel-catalog.py",
-  "count": 725,
+  "count": 726,
   "crates": [
     {
       "name": "sovereign-agent-loop",
@@ -2734,6 +2734,10 @@
     {
       "name": "sovereign-token-law-deny",
       "description": "The NEGATIVE token-law plane: forbid a running model from ever emitting text that contains any of a set of denied substrings (safety/injection/toxicity phrases). A substring ban is not a per-token property \u2014 a forbidden phrase can span token boundaries \u2014 so this drives an Aho-Corasick automaton incrementally from the committed generation and bans exactly the tokens that would COMPLETE a banned match. safe_token_ids returns the allow-list (all tokens minus the completing ones), the same shape sovereign-token-law-mask's TokenLawPlanes consumes, so it composes with grammar/regex/policy planes. Composes sovereign-aho-corasick."
+    },
+    {
+      "name": "sovereign-token-law-fuse",
+      "description": "The checkpoint-free token-law fusion primitive (M00155 / SDD-507): compose the named constraint planes \u2014 grammar (JSON-schema) / positive-regex / literal-denylist / negated-regex / static-policy \u2014 at a given generated prefix into ONE vocab allow-mask, WITHOUT a transformer. The fused mask is the deterministic-cortex DECISION (which next tokens every active law permits); it depends only on the layer sources + the vocabulary strings, never on trained weights, so it is exact regardless of which checkpoint (or none) is loaded. sovereign-llm's complete_with_token_law consumes this per decode step; a data-plane HTTP route and the osctl surface (F00792/F00795/F00797) drive it directly. Composes sovereign-token-law-mask + sovereign-json-schema-grammar + sovereign-token-grammar-mask + sovereign-regex-constrain + sovereign-token-law-deny."
     },
     {
       "name": "sovereign-token-law-mask",
