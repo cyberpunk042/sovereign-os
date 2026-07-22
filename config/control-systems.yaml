@@ -41,6 +41,9 @@ systems:
     change_cli: "sovereign-osctl profiles switch {sain-01|developer|minimal|headless|old-workstation}"
     state_path: "/etc/sovereign-os/active-profile"
     privileged: true
+    # SDD-509 step-up MFA tier (opt-in; engages once a factor is enrolled):
+    # a high-privilege OS-profile switch requires a verified step-up factor.
+    auth: step-up
     applies_to: [d-02-profile-choices, build-configurator, personalization]
     refs: [schemas/profile.schema.yaml]
 
@@ -61,6 +64,8 @@ systems:
     change_cli: "sovereign-osctl trinity profile switch {ultra-sovereign-efficiency|high-concurrency-burst|deep-context-synthesis}"
     state_path: "/run/sovereign-os/active-runtime-mode"
     privileged: true
+    # SDD-509 step-up MFA tier (opt-in; engages once a factor is enrolled).
+    auth: step-up
     applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration, d-21-lm-orchestration, d-22-lm-status-operability]
     refs: [schemas/runtime-profile.schema.yaml, SDD-043]
 

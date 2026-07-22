@@ -309,6 +309,55 @@ def _emit_audit(control_id: str, argv: list[str], exit_code: int | None,
         pass
 
 
+# ── SDD-509 step-up MFA integration (opt-in; the pure logic lives in
+#    lib/stepup.py). The step-up dir holds the enrolled TOTP secret + the
+#    elevation ledger; overridable via SOVEREIGN_OS_STEPUP_DIR for tests. Its
+#    intended home is a root-owned dir behind a verifier process. ──
+_STEPUP_MOD: Any = None
+
+
+def _stepup():
+    """Lazily load lib/stepup.py (cached) without sys.path games."""
+    global _STEPUP_MOD
+    if _STEPUP_MOD is None:
+        import importlib.util
+        p = Path(__file__).resolve().parent / "lib" / "stepup.py"
+        spec = importlib.util.spec_from_file_location("_action_exec_stepup", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _STEPUP_MOD = mod
+    return _STEPUP_MOD
+
+
+def _stepup_dir() -> Path:
+    return Path(os.environ.get("SOVEREIGN_OS_STEPUP_DIR", "/run/sovereign-os/stepup"))
+
+
+def _stepup_enabled() -> bool:
+    """Step-up engages only once a factor is enrolled (a TOTP secret exists).
+    Un-enrolled → the gate is a no-op and the rail behaves exactly as before."""
+    try:
+        return _stepup().is_enrolled(_stepup_dir())
+    except Exception:  # never let a step-up fault break the exec rail
+        return False
+
+
+def _stepup_tier(control: dict) -> str:
+    return _stepup().resolve_tier(control)
+
+
+def _stepup_consume(actor: str) -> bool:
+    su = _stepup()
+    store = su.ElevationStore(_stepup_dir() / "elevations.json")
+    return store.consume(actor, "step-up")
+
+
+def _stepup_factors() -> list[str]:
+    """The factors currently available to satisfy a step-up (for the 401
+    challenge). Phase A: TOTP once enrolled. Phone/email land in Phase B."""
+    return ["totp"] if _stepup_enabled() else []
+
+
 def execute(control_id: str, args: dict[str, str] | None = None, *,
             confirm: bool = False, actor: str = "operator",
             dry_run: bool | None = None, timeout: float = 30.0) -> dict[str, Any]:
@@ -406,6 +455,20 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
         if compat_res is not None:
             result["compat"] = compat_res
         return result
+
+    # ── SDD-509 step-up gate — a `step-up`-tier control needs a live elevation
+    #    (minted by a verified factor, e.g. TOTP), consumed single-use on real
+    #    execution. OPT-IN + non-breaking: engages ONLY once a factor is
+    #    enrolled (an un-enrolled box behaves exactly as before). Checked here,
+    #    AFTER the dry-run return, so a preview never burns an elevation. ──
+    if _stepup_enabled() and _stepup_tier(control) == "step-up":
+        if not _stepup_consume(actor):
+            _emit_metric(control_id, "step-up-required")
+            return {"ok": False, "code": 401, "control_id": control_id,
+                    "step_up_required": True, "tier": "step-up",
+                    "error": ("step-up required — verify a factor (TOTP) to "
+                              "elevate this high-privilege operation"),
+                    "factors": _stepup_factors()}
 
     if not _RUN_LOCK.acquire(blocking=False):
         _emit_metric(control_id, "busy")
