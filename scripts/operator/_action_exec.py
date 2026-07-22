@@ -352,10 +352,21 @@ def _stepup_consume(actor: str) -> bool:
     return store.consume(actor, "step-up")
 
 
+def _stepup_notify_config() -> Path:
+    return Path(os.environ.get(
+        "SOVEREIGN_OS_NOTIFYKIT_CONFIG", _REPO_ROOT / "config" / "notifykit.toml"))
+
+
 def _stepup_factors() -> list[str]:
     """The factors currently available to satisfy a step-up (for the 401
-    challenge). Phase A: TOTP once enrolled. Phone/email land in Phase B."""
-    return ["totp"] if _stepup_enabled() else []
+    challenge): TOTP once enrolled (Phase A), plus any configured + enabled
+    notifykit out-of-band channels — ``sms`` / ``email`` (Phase B)."""
+    factors = ["totp"] if _stepup_enabled() else []
+    try:
+        factors += _stepup().available_otp_channels(_stepup_notify_config())
+    except Exception:
+        pass
+    return factors
 
 
 def execute(control_id: str, args: dict[str, str] | None = None, *,
