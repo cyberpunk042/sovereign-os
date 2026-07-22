@@ -115,6 +115,33 @@ _pc_spec = importlib.util.spec_from_file_location(
 _permission = importlib.util.module_from_spec(_pc_spec)
 _pc_spec.loader.exec_module(_permission)
 
+# SDD-509 Phase C — the step-up MFA surface (config pane + step-up modal). The
+# pure logic is in lib/stepup.py; this daemon exposes the read-only status
+# (GET /api/control/stepup) + the auth routes (POST verify / request-otp /
+# enroll). Optional: a broken stepup module never kills the rail.
+try:
+    _su_spec = importlib.util.spec_from_file_location(
+        "_stepup", Path(__file__).resolve().parent / "lib" / "stepup.py")
+    _stepup = importlib.util.module_from_spec(_su_spec)
+    _su_spec.loader.exec_module(_stepup)
+except Exception:  # noqa: BLE001
+    _stepup = None
+
+
+def _stepup_dir() -> Path:
+    return Path(os.environ.get("SOVEREIGN_OS_STEPUP_DIR", "/run/sovereign-os/stepup"))
+
+
+def _stepup_notify_config() -> Path:
+    return Path(os.environ.get(
+        "SOVEREIGN_OS_NOTIFYKIT_CONFIG",
+        Path(__file__).resolve().parents[2] / "config" / "notifykit.toml"))
+
+
+# The cockpit is one actor over the loopback daemon — its elevations are keyed
+# under this session id (mirrors the actor _action_exec.execute() consumes).
+_STEPUP_ACTOR = "cockpit-web"
+
 API_BIND = os.environ.get("CONTROL_EXEC_API_BIND", "127.0.0.1")
 API_PORT = int(os.environ.get("CONTROL_EXEC_API_PORT", "8130"))
 DRY_RUN = bool(os.environ.get("CONTROL_EXEC_API_DRY_RUN"))
@@ -228,16 +255,140 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001 — read path must not crash the daemon
                 self._send_json(500, {"error": f"avx-mode state unreadable: {e}"})
             return
+        if path == "/api/control/stepup":
+            # SDD-509 Phase C: the read-only step-up status the config pane +
+            # the step-up modal prefill from — enrollment state, offerable
+            # factors, break-glass codes left, elevation window, and which
+            # controls sit at the step-up tier. No secret is ever exposed.
+            if _stepup is None:
+                self._send_json(503, {"error": "stepup module unavailable"})
+                return
+            try:
+                reg = _action_exec.load_registry()
+                controls = [{"id": cid, **reg[cid]} for cid in reg]
+                self._send_json(200, _stepup.status(
+                    _stepup_dir(), _stepup_notify_config(), controls=controls))
+            except Exception as e:  # noqa: BLE001 — read path must not crash the daemon
+                self._send_json(500, {"error": f"stepup state unreadable: {e}"})
+            return
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
             "available": ["/api/control/registry", "/api/control/compat",
                           "/api/control/notifykit", "/api/control/avx-mode",
-                          "/api/control/execute (POST)",
+                          "/api/control/stepup",
+                          "/api/control/execute (POST; step-up auth rides a "
+                          "'stepup' body key)",
                           "/version", "/healthz"],
         })
 
     def do_HEAD(self) -> None:  # noqa: N802
         self._send_json(200, {"status": "ok"})
+
+    def _read_json_body(self):
+        """Read + parse the JSON POST body; return (body, None) or (None, err)
+        where err is an already-sent flag (the method sent the 400 itself)."""
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+        if length <= 0 or length > _MAX_BODY:
+            self._send_json(400, {"error": "missing or oversized JSON body "
+                                           f"(0 < Content-Length <= {_MAX_BODY})"})
+            return None, True
+        try:
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError) as e:
+            self._send_json(400, {"error": f"invalid JSON body: {e}"})
+            return None, True
+        if not isinstance(body, dict):
+            self._send_json(400, {"error": "body must be a JSON object"})
+            return None, True
+        return body, None
+
+    def _handle_stepup(self, su: dict) -> None:
+        """SDD-509 Phase C step-up auth sub-actions, carried on the ONE write
+        endpoint (a ``stepup`` key on the /api/control/execute body — the
+        cockpit's single-POST doctrine). Each is gated by possession of a valid
+        factor (or, for re-enrollment, a live elevation), so an attacker without
+        a code gets nothing. Loopback-only.
+
+          {"stepup": {"action": "verify",      "factor": .., "code": ..}}
+          {"stepup": {"action": "request_otp", "factor": "sms"|"email"}}
+          {"stepup": {"action": "enroll",      "account": ..?}}
+          {"stepup": {"action": "regenerate_break_glass"}}
+        """
+        if _stepup is None:
+            self._send_json(503, {"error": "stepup module unavailable"})
+            return
+        action = str(su.get("action") or "")
+        d = _stepup_dir()
+        nc = _stepup_notify_config()
+        if action == "verify":
+            factor = str(su.get("factor") or "")
+            code = str(su.get("code") or "")
+            if not factor or not code:
+                self._send_json(400, {"error": "verify needs {factor, code}"})
+                return
+            try:
+                res = _stepup.verify_factor_and_elevate(d, nc, _STEPUP_ACTOR, factor, code)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"error": f"verify failed: {e}"})
+                return
+            if res is None:
+                self._send_json(400, {"ok": False, "elevated": False,
+                                      "error": f"factor {factor!r} is not set up"})
+                return
+            self._send_json(200 if res else 401,
+                            {"ok": bool(res), "elevated": bool(res), "factor": factor,
+                             "error": None if res else "invalid code"})
+            return
+        if action == "request_otp":
+            factor = str(su.get("factor") or "")
+            if factor not in ("sms", "email"):
+                self._send_json(400, {"error": "request_otp needs factor sms|email"})
+                return
+            try:
+                ok, detail = _stepup.request_otp_and_deliver(d, nc, _STEPUP_ACTOR, factor)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"otp request failed: {e}"})
+                return
+            self._send_json(200 if ok else 503, {"ok": ok, "factor": factor, "detail": detail})
+            return
+        if action in ("enroll", "regenerate_break_glass"):
+            # Bootstrap enrollment is open only on a fresh box; RE-enrolling or
+            # rotating recovery codes (an attacker rotating your secret =
+            # takeover) requires a live elevation — changing a step-up setting
+            # is itself a step-up op.
+            already = _stepup.is_enrolled(d)
+            needs_elevation = action == "regenerate_break_glass" or already
+            if needs_elevation and not _stepup.ElevationStore(
+                    d / "elevations.json").consume(_STEPUP_ACTOR, "step-up"):
+                self._send_json(401, {"ok": False, "step_up_required": True,
+                                      "tier": "step-up",
+                                      "error": "this change requires a live step-up "
+                                               "elevation (verify a current factor first)",
+                                      "factors": _stepup.status(d, nc)["factors"]})
+                return
+            try:
+                if action == "regenerate_break_glass":
+                    recovery = _stepup.generate_break_glass(d)
+                    self._send_json(200, {"ok": True, "recovery_codes": recovery})
+                    return
+                account = str(su.get("account") or "operator@sain-01")
+                secret, uri = _stepup.enroll(d, account)
+                recovery = _stepup.generate_break_glass(d)
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"enroll failed: {e}"})
+                return
+            # secret + recovery codes are returned ONCE (the operator saves them);
+            # they are never persisted in plaintext or re-served.
+            self._send_json(200, {"ok": True, "secret": secret,
+                                  "provisioning_uri": uri, "recovery_codes": recovery,
+                                  "reenrolled": already})
+            return
+        self._send_json(400, {"error": f"unknown stepup action {action!r}",
+                              "actions": ["verify", "request_otp", "enroll",
+                                          "regenerate_break_glass"]})
 
     def do_POST(self) -> None:  # noqa: N802
         path = urllib.parse.urlsplit(self.path).path.rstrip("/") or "/"
@@ -247,20 +398,16 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
                 "available": ["/api/control/execute"],
             })
             return
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            length = 0
-        if length <= 0 or length > _MAX_BODY:
-            self._send_json(400, {"error": "missing or oversized JSON body "
-                                           f"(0 < Content-Length <= {_MAX_BODY})"})
+        body, err = self._read_json_body()
+        if err:
             return
-        try:
-            body = json.loads(self.rfile.read(length).decode("utf-8"))
-        except (ValueError, UnicodeDecodeError) as e:
-            self._send_json(400, {"error": f"invalid JSON body: {e}"})
+        # SDD-509 Phase C: a step-up auth sub-action rides the same write
+        # endpoint (single-POST doctrine) — dispatch it before control execution.
+        su = body.get("stepup")
+        if isinstance(su, dict):
+            self._handle_stepup(su)
             return
-        if not isinstance(body, dict) or not body.get("control_id"):
+        if not body.get("control_id"):
             self._send_json(400, {"error": "body must be an object with a "
                                            "control_id (and optional args, confirm)"})
             return

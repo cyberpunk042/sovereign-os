@@ -90,4 +90,15 @@
 .cs-confirm-msg code { color: var(--fg, #e6e6e6); }
 .cs-confirm-in { max-width: 14ch; }
 .cs-confirm-cancel { flex: 0 0 auto; }
+/* SDD-509 step-up gate — one factor mints an elevation, then the action re-runs */
+.cs-stepup {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-stepup-msg { flex: 1 0 100%; font-size: .72rem; color: var(--muted, #888); }
+.cs-stepup-msg code { color: var(--fg, #e6e6e6); }
+.cs-stepup-factors { flex: 0 0 auto; }
+.cs-stepup-code { max-width: 12ch; }
+.cs-stepup-out { flex: 1 0 100%; }
 .cs-empty { color: var(--muted, #888); }
