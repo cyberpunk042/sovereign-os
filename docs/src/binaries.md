@@ -60,6 +60,7 @@ none is a persistent service.
 | **`sovereign-agent-runtime`** | ReAct agent-loop demo (LlmResponder). Built + tested; not wired into the daemon (F-2026-088). |
 | **`sovereign-inference-demo`** | End-to-end quantized-inference composition demo. Default run uses synthetic weights (a plumbing proof). With `--model-dir DIR` it loads a real Llama-family safetensors model (`config.json` + `*.safetensors` + optional `tokenizer.json`) and runs genuine generation — the repo's proof-of-life for real weights (F-2026-006, completed 2026-07-15). |
 | **`sovereign-chat`** | Interactive chat CLI over the local model. |
+| **`sovereign-chromofold`** | The diagnostic + CPU-search CLI for the ChromoFold compressed-domain surface (SDD-400): `info` prints the capability descriptor as JSON, `selftest` runs the offline no-GPU functional round-trip, and `count` / `locate` / `predict` run the CPU-native FM-index over a `--corpus` of token ids (`--pattern` / `--context`). No GPU, no native library — the working compressed-domain search on the command line; precursor + companion to the `sovereign-osctl chromofold` verb. |
 | **`sovereign-serve`** | The parallel serving orchestrator (cache → complexity → budget). Currently **dead relative to the daemon** — see the SDD-957 decision package (F-2026-089). |
 
 ## Operator config generators
