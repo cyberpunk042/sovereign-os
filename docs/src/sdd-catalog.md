@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (219 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (220 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -148,6 +148,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (219 total), by number.
 - [SDD-506 — The negated-regex denial plane: forbid the output from matching a pattern](../sdd/506-negated-regex-denial-plane.md)
 - [SDD-507 — The token-law fusion data plane: expose the engine's decision as a checkpoint-free surface](../sdd/507-token-law-fusion-data-plane.md)
 - [SDD-508 — Step-up authentication for high-privilege cockpit operations (devsecops MFA)](../sdd/508-step-up-auth-high-privilege-devsecops.md)
+- [SDD-509 — Step-up MFA for high-privilege cockpit operations: TOTP + phone + email code, configurable via a pane (corrects SDD-508)](../sdd/509-step-up-mfa-totp-phone-email-configurable-pane.md)
 - [SDD-600 — Cockpit hotswap controls (frontend · provider/origin · AVX modes)](../sdd/600-cockpit-hotswap-controls.md)
 - [SDD-700 — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (F-2026-107..108)](../sdd/700-operator-sudoers-privesc-guard.md)
 - [SDD-701 — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (F-2026-109..110)](../sdd/701-nvidia-gpu-bringup.md)
