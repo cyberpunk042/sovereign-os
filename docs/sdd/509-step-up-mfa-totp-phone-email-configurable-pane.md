@@ -74,8 +74,8 @@ The manual `sovereign-osctl <verb>` stays the escape hatch; for a `step-up` op i
 
 | Phase | Scope | Status |
 |---|---|---|
-| **A** | The step-up core (`auth:` tiering + **TOTP** verifier + single-use elevation) + the opt-in exec-rail gate + enrollment | **shipped 2026-07-22** (see below) |
-| **B** | The **phone (SMS) + email** OTP layer (mint / verify / rate-limit / replay-burn) over notifykit | TODO |
+| **A** | The step-up core (`auth:` tiering + **TOTP** verifier + single-use elevation) + the opt-in exec-rail gate + enrollment | **shipped 2026-07-22** |
+| **B** | The **phone (SMS) + email** OTP layer (mint / verify / rate-limit / replay-burn) over notifykit | **shipped 2026-07-22** (see below) |
 | **C** | The **config pane** + the step-up modal in `control-surface.js` + break-glass | TODO |
 
 ## What shipped — Phase A (2026-07-22)
@@ -86,6 +86,35 @@ The manual `sovereign-osctl <verb>` stays the escape hatch; for a `step-up` op i
 - **Tests:** `tests/lint/test_stepup_totp.py` (RFC 6238 Appendix-B known-answer vectors + elevation single-use/expiry/binding + tier resolution) and `tests/lint/test_stepup_action_exec.py` (the gate is opt-in-until-enrolled, engages + requires an elevation once enrolled, and sits after the dry-run return). 12 tests; the broad operator/cockpit/control lint sweep (1135) stays green.
 
 Verification: `python3 -m pytest tests/lint/test_stepup_totp.py tests/lint/test_stepup_action_exec.py` (12 pass) + the operator/control-exec/registry families green; ruff clean. Still **DRAFT** — the phone/email factors (B) and the config pane (C) follow; the operator's Q-row defaults (5-min window / os-profile+runtime-mode+safety-policy+exec-rail-flips as `step-up` / one-time break-glass / milestone) are the assumed defaults, retunable.
+
+## What shipped — Phase B (2026-07-22)
+
+The out-of-band phone/email one-time-code factors — the net-new layer notifykit
+lacked (it delivers, but had no OTP concept). All in `scripts/operator/lib/stepup.py`:
+
+- **`OtpStore`** — mint / verify / rate-limit / replay-burn. A code is stored as
+  a **salted SHA-256 hash** (never plaintext at rest); the defense against online
+  guessing is a **per-code attempt budget** (5) + a short TTL (5 min). `verify`
+  burns the matching code, decrements the actor's codes on a wrong guess (drops
+  exhausted), and never lets a wrong guess against one channel's code burn a
+  sibling channel's. `request` enforces a **cooldown** (anti-flood) and replaces a
+  prior code for the same `(actor, channel)`.
+- **`deliver_otp`** — delivers a code over **exactly ONE secure channel**
+  (`sms`→Twilio, `email`→Resend), never the broadcast `dispatch` (which would copy
+  the code into notifykit's file/log channel — a leak). Inert until the operator
+  has configured + enabled that channel (notifykit go-live); a fresh box simply
+  doesn't offer the phone/email factors.
+- **`available_otp_channels`** / `request_otp_and_deliver` / `verify_otp_and_elevate`
+  — the offered-factor list (fed to the `401` challenge via `_stepup_factors`),
+  the mint-and-send path, and the verify-then-elevate path.
+- **Tests:** `tests/lint/test_stepup_otp.py` (9) — single-use, expiry, attempt-budget
+  burn, cooldown anti-flood, prior-code replacement, sibling-channel isolation, the
+  elevate path, delivery inert-until-configured, and the never-broadcast contract.
+
+The `_action_exec` challenge now lists `totp` **+** any configured out-of-band
+factor (`sms`/`email`). Verification: 21 step-up tests (Phase A + B) + the exec-rail
+families green; ruff clean. Phone/email delivery **activates when notifykit is
+configured** (a go-live item); TOTP works offline today.
 
 ### Phase-A honesty (unchanged)
 

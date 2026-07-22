@@ -248,3 +248,216 @@ def verify_and_elevate(
         return False
     ElevationStore(Path(stepup_dir) / "elevations.json").mint(actor, tier, ttl, now)
     return True
+
+
+# ── Phase B: one-time codes delivered out-of-band (phone/email) ─────────────
+# The net-new layer the design flagged: notifykit *delivers*, but has no OTP
+# concept (mint / verify / rate-limit / replay-burn). This is it. A minted code
+# is stored as a SALTED HASH (never plaintext at rest); the real defense against
+# online guessing is the per-code attempt limit + short TTL. A delivered code is
+# sent to exactly ONE secure channel (never the broadcast dispatch — that would
+# copy the code into the file/log channel).
+OTP_DIGITS = 6
+OTP_TTL = 300.0
+OTP_MAX_ATTEMPTS = 5
+OTP_REQUEST_COOLDOWN = 20.0  # min seconds between requests per (actor, channel)
+
+
+def _hash_otp(code: str, salt: str) -> str:
+    return hashlib.sha256((salt + ":" + code).encode("utf-8")).hexdigest()
+
+
+class OtpStore:
+    """Short-TTL, single-use, rate-limited one-time codes (phone/email factor).
+
+    A code is minted for ``(actor, channel)``, stored as a salted hash with a
+    TTL + an attempt budget; ``verify`` constant-time-compares, decrements the
+    budget, and burns the code on success OR on budget exhaustion. A fresh
+    ``request`` for the same ``(actor, channel)`` replaces the prior code and is
+    rate-limited by ``OTP_REQUEST_COOLDOWN``.
+    """
+
+    def __init__(self, path: Path | str):
+        self.path = Path(path)
+
+    def _load(self, now: float) -> list[dict]:
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError):
+            return []
+        return [e for e in raw if isinstance(e, dict) and e.get("expires", 0) > now]
+
+    def _save(self, entries: list[dict]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(entries), encoding="utf-8")
+        tmp.replace(self.path)
+
+    def request(
+        self,
+        actor: str,
+        channel: str,
+        *,
+        now: float | None = None,
+        ttl: float = OTP_TTL,
+        digits: int = OTP_DIGITS,
+        max_attempts: int = OTP_MAX_ATTEMPTS,
+    ) -> str | None:
+        """Mint + persist a code for ``(actor, channel)``; return the PLAINTEXT
+        code to deliver, or None if a request was made too recently (cooldown)."""
+        if now is None:
+            now = time.time()
+        entries = self._load(now)
+        kept: list[dict] = []
+        for e in entries:
+            if e["actor"] == actor and e["channel"] == channel:
+                if now - e.get("issued", 0) < OTP_REQUEST_COOLDOWN:
+                    self._save(entries)  # re-persist the pruned set
+                    return None  # too soon — anti-flood
+                continue  # replace this actor+channel's prior code
+            kept.append(e)
+        code = "".join(str(secrets.randbelow(10)) for _ in range(digits))
+        salt = secrets.token_hex(8)
+        kept.append(
+            {
+                "actor": actor,
+                "channel": channel,
+                "salt": salt,
+                "hash": _hash_otp(code, salt),
+                "issued": now,
+                "expires": now + ttl,
+                "attempts": max_attempts,
+            }
+        )
+        self._save(kept)
+        return code
+
+    def verify(self, actor: str, code: str, now: float | None = None) -> bool:
+        """Check ``code`` for ``actor`` (any channel). On the matching code:
+        burn it, leave the actor's other codes untouched. On a wrong guess:
+        decrement every one of the actor's codes and drop any exhausted."""
+        if now is None:
+            now = time.time()
+        code = (code or "").strip()
+        entries = self._load(now)
+        mine = [e for e in entries if e["actor"] == actor]
+        others = [e for e in entries if e["actor"] != actor]
+        matched = None
+        if code.isdigit():
+            for e in mine:
+                if hmac.compare_digest(e["hash"], _hash_otp(code, e["salt"])):
+                    matched = e
+                    break
+        if matched is not None:
+            self._save(others + [e for e in mine if e is not matched])  # burn matched
+            return True
+        kept = []
+        for e in mine:
+            e["attempts"] = int(e.get("attempts", 0)) - 1
+            if e["attempts"] > 0:
+                kept.append(e)  # budget remains; else burned
+        self._save(others + kept)
+        return False
+
+
+def available_otp_channels(notify_config_path: Path | str) -> list[str]:
+    """The OTP-capable notifykit channels that are configured AND enabled
+    (``twilio`` = phone/SMS, ``resend`` = email). Empty if notifykit isn't set
+    up — so the phone/email factors simply aren't offered until go-live."""
+    try:
+        import sys
+
+        repo = Path(__file__).resolve().parents[3]
+        if str(repo) not in sys.path:
+            sys.path.insert(0, str(repo))
+        from tools.notifykit.config import NotifyConfig
+
+        cfg = NotifyConfig.load(notify_config_path)
+    except Exception:
+        return []
+    kinds = []
+    for ch in cfg.channels.values():
+        if ch.enabled and ch.kind in ("twilio", "resend"):
+            kinds.append("sms" if ch.kind == "twilio" else "email")
+    return sorted(set(kinds))
+
+
+def deliver_otp(
+    code: str,
+    factor: str,
+    notify_config_path: Path | str,
+    *,
+    ttl_min: int = 5,
+) -> tuple[bool, str]:
+    """Deliver ``code`` over exactly ONE secure channel (``sms``→twilio,
+    ``email``→resend) — never the broadcast dispatch (which would copy the code
+    into the file/log channel). Returns ``(ok, detail)``. Inert (``ok=False``)
+    until the operator has configured + enabled that notifykit channel."""
+    kind = {"sms": "twilio", "email": "resend"}.get(factor)
+    if kind is None:
+        return False, f"unknown OTP factor {factor!r}"
+    try:
+        import sys
+
+        repo = Path(__file__).resolve().parents[3]
+        if str(repo) not in sys.path:
+            sys.path.insert(0, str(repo))
+        from tools.notifykit.channels import build_channel
+        from tools.notifykit.config import NotifyConfig
+        from tools.notifykit.event import Event
+
+        cfg = NotifyConfig.load(notify_config_path)
+    except Exception as e:  # notifykit unavailable / misconfigured
+        return False, f"notifykit unavailable: {e}"
+    target = next(
+        (c for c in cfg.channels.values() if c.kind == kind and c.enabled), None
+    )
+    if target is None:
+        return False, f"no enabled {kind} channel"
+    channel = build_channel(target)
+    valid, why = channel.validate()
+    if not valid:
+        return False, f"invalid {kind} config: {why}"
+    event = Event(
+        title="sovereign-os step-up code",
+        message=f"Your sovereign-os step-up code is {code}. It expires in {ttl_min} min.",
+        priority="high",
+        urgency="high",
+        source="stepup",
+    )
+    receipt = channel.send(event)
+    return receipt.ok, receipt.detail
+
+
+def request_otp_and_deliver(
+    stepup_dir: Path | str,
+    notify_config_path: Path | str,
+    actor: str,
+    factor: str,
+    *,
+    now: float | None = None,
+) -> tuple[bool, str]:
+    """Mint an OTP for ``(actor, factor)`` and deliver it over the one secure
+    channel. Returns ``(ok, detail)``; the plaintext code never leaves here."""
+    store = OtpStore(Path(stepup_dir) / "otp.json")
+    code = store.request(actor, factor, now=now)
+    if code is None:
+        return False, "a code was just sent — wait before requesting another"
+    return deliver_otp(code, factor, notify_config_path)
+
+
+def verify_otp_and_elevate(
+    stepup_dir: Path | str,
+    actor: str,
+    code: str,
+    *,
+    tier: str = TIER_STEP_UP,
+    ttl: float = 300.0,
+    now: float | None = None,
+) -> bool:
+    """Verify an out-of-band OTP and, on success, mint an elevation."""
+    store = OtpStore(Path(stepup_dir) / "otp.json")
+    if not store.verify(actor, code, now):
+        return False
+    ElevationStore(Path(stepup_dir) / "elevations.json").mint(actor, tier, ttl, now)
+    return True
