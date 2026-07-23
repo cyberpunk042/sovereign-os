@@ -458,7 +458,13 @@ def test_select_bar_is_client_side_only_no_new_post():
         if t.startswith("/api/") and ("chat" in body):
             pass
     assert "/api/lm-status/chat" in body, "the one sanctioned chat POST must remain"
-    assert "/set" not in body and "/mutate" not in body, "no new mutation endpoint"
+    # The shared app-shell settings pane carries the sanctioned /api/control/setup
+    # exec-rail (dry-run + type-to-confirm — allow-listed by the app-shell contract);
+    # exclude it before checking for a bare mutation endpoint.
+    body_no_sanctioned = body.replace("/api/control/setup", "")
+    assert "/set" not in body_no_sanctioned and "/mutate" not in body_no_sanctioned, (
+        "no new mutation endpoint"
+    )
 
 
 def test_device_blocks_always_visible_when_daemon_down():

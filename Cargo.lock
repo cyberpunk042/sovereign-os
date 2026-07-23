@@ -5546,6 +5546,7 @@ dependencies = [
  "sovereign-token-grammar-mask",
  "sovereign-token-healing",
  "sovereign-token-law-deny",
+ "sovereign-token-law-entropy",
  "sovereign-token-law-fuse",
  "sovereign-token-law-mask",
  "sovereign-tokenizer",
@@ -6708,6 +6709,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sovereign-token-law-entropy"
+version = "0.1.0"
+dependencies = [
+ "sovereign-secret-scan",
+]
+
+[[package]]
 name = "sovereign-token-law-fuse"
 version = "0.1.0"
 dependencies = [
@@ -6717,6 +6725,7 @@ dependencies = [
  "sovereign-regex-constrain",
  "sovereign-token-grammar-mask",
  "sovereign-token-law-deny",
+ "sovereign-token-law-entropy",
  "sovereign-token-law-mask",
 ]
 

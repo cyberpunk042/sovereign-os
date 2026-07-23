@@ -145,7 +145,7 @@ def test_webapp_does_not_leak_mutation_patterns():
     §17 sacrosanct boundary. The webapp must not invoke ANY mutation-
     shaped fetch() call (no /set, /apply, /configure, /install)."""
     body = WEBAPP_HTML.read_text(encoding="utf-8")
-    for forbidden in (r'fetch\(\s*["\'][^"\']*/set',
+    for forbidden in (r'fetch\(\s*["\'][^"\']*/set(?!up)',
                       r'fetch\(\s*["\'][^"\']*/apply',
                       r'fetch\(\s*["\'][^"\']*/configure',
                       r'fetch\(\s*["\'][^"\']*/install',

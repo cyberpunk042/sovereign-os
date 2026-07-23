@@ -128,7 +128,7 @@ def test_webapp_advertises_read_only_endpoints():
             f"webapp must wire against R501 endpoint {path!r}"
         )
     # /set must NOT appear as a fetch() target.
-    m = re.search(r'fetch\(\s*["\']/set', body)
+    m = re.search(r'fetch\(\s*["\']/set(?!up)', body)
     assert m is None, (
         "webapp leaks mutation verb /set as fetch() target "
         "(§17 sovereignty violation)"

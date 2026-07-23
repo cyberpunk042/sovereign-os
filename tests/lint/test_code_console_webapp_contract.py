@@ -121,7 +121,14 @@ def test_webapp_is_read_only_one_sanctioned_post():
     assert re.search(r'fetch\(\s*["\']/(set|apply|mutate)', body) is None, (
         "webapp leaks a mutation verb as fetch() target (R10212 violation)"
     )
-    _PERMITTED_POST = ("/api/control/execute", "/api/code-console/chat")
+    # /api/control/setup is the sanctioned setup exec-rail (dry-run + type-to-confirm,
+    # the same control-exec family as /api/control/execute; allow-listed by the
+    # app-shell contract's SANCTIONED_SETUP_FETCH) carried by the shared settings pane.
+    _PERMITTED_POST = (
+        "/api/control/execute",
+        "/api/control/setup",
+        "/api/code-console/chat",
+    )
     for m in re.finditer(r'fetch\(\s*["\']([^"\']+)["\'][^)]*method:\s*["\']POST["\']', body):
         assert m.group(1) in _PERMITTED_POST, (
             f"code-console leaks an unsanctioned POST to {m.group(1)!r} — only "

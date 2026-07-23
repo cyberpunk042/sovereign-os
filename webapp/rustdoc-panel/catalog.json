@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_by": "scripts/webapp/gen-rustdoc-panel-catalog.py",
-  "count": 726,
+  "count": 727,
   "crates": [
     {
       "name": "sovereign-agent-loop",
@@ -2734,6 +2734,10 @@
     {
       "name": "sovereign-token-law-deny",
       "description": "The NEGATIVE token-law plane: forbid a running model from ever emitting text that contains any of a set of denied substrings (safety/injection/toxicity phrases). A substring ban is not a per-token property \u2014 a forbidden phrase can span token boundaries \u2014 so this drives an Aho-Corasick automaton incrementally from the committed generation and bans exactly the tokens that would COMPLETE a banned match. safe_token_ids returns the allow-list (all tokens minus the completing ones), the same shape sovereign-token-law-mask's TokenLawPlanes consumes, so it composes with grammar/regex/policy planes. Composes sovereign-aho-corasick."
+    },
+    {
+      "name": "sovereign-token-law-entropy",
+      "description": "The ENTROPY token-law plane (SDD-513, M00155 DEEPEN): a text->token safety projection that bans a running model from extending a HIGH-ENTROPY (secret-shaped) run of characters. Unlike the literal-substring deny plane, 'the token that completes a high-entropy secret' is not well-defined at a hard threshold, so this is an explicitly HEURISTIC, monotone/windowed projection: it scores the trailing window of (generated + candidate token) with the SAME sovereign-secret-scan Shannon-entropy definition + thresholds the post-hoc StreamGuard scanner uses, and drops tokens that keep the window at or above threshold. safe_token_ids returns the allow-list (all tokens minus the entropy-raising ones), the same Vec<usize> shape sovereign-token-law-mask's TokenLawPlanes consumes, so it composes with grammar/regex/denylist/policy planes. It COMPLEMENTS, never replaces, the exact post-hoc entropy scan. Composes sovereign-secret-scan."
     },
     {
       "name": "sovereign-token-law-fuse",
