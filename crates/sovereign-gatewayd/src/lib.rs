@@ -710,6 +710,11 @@ pub struct ServingTokenLaw {
     /// the operator's `SOVEREIGN_TOKEN_LAW_MASK_LAYERS` selection (else all).
     #[serde(default)]
     pub mask_layers: Option<Vec<String>>,
+    /// Heuristic entropy plane (SDD-513) — present ⇒ ban tokens that keep the
+    /// trailing window at/above a Shannon-entropy threshold (a text→token
+    /// secret-shape projection). Absent ⇒ off. Complements the post-hoc scan.
+    #[serde(default)]
+    pub entropy: Option<sovereign_token_law_fuse::EntropyRequest>,
 }
 
 impl ServingTokenLaw {
@@ -721,6 +726,7 @@ impl ServingTokenLaw {
             && self.denylist.is_empty()
             && self.regex_denylist.is_empty()
             && self.policy_planes.is_empty()
+            && self.entropy.is_none()
     }
 
     /// The effective layer selection: the request's `mask_layers` if given, else
@@ -753,6 +759,9 @@ impl ServingTokenLaw {
             denylist: &denylist,
             regex_denylist: &regex_denylist,
             policy_planes: &policy_planes,
+            entropy: self
+                .entropy
+                .map(sovereign_token_law_fuse::EntropyRequest::to_constraint),
         }
         .select(&sel);
         sovereign_token_law_fuse::CompiledFuse::compile(&layers, vocab).map_err(|e| e.0)
@@ -781,6 +790,9 @@ impl ServingTokenLaw {
         }
         if !self.policy_planes.is_empty() && sel.policy {
             v.push("policy");
+        }
+        if self.entropy.is_some() && sel.entropy {
+            v.push("entropy");
         }
         v
     }

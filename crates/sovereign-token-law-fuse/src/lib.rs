@@ -26,6 +26,7 @@ use sovereign_json_schema_grammar::Schema;
 use sovereign_regex_constrain::{RegexConstraint, RegexDenyConstraint};
 use sovereign_token_grammar_mask::TokenGrammarMask;
 use sovereign_token_law_deny::DenyConstraint;
+use sovereign_token_law_entropy::EntropyConstraint;
 use sovereign_token_law_mask::TokenLawPlanes;
 
 /// A compile error for one of the regex-shaped layers (`regex` / `regex_denylist`).
@@ -62,6 +63,8 @@ pub struct MaskLayerSet {
     pub regex_denylist: bool,
     /// The static policy-bitset planes.
     pub policy: bool,
+    /// The heuristic entropy (text→token secret-shape) plane (SDD-513).
+    pub entropy: bool,
 }
 
 impl Default for MaskLayerSet {
@@ -79,6 +82,7 @@ impl MaskLayerSet {
             denylist: true,
             regex_denylist: true,
             policy: true,
+            entropy: true,
         }
     }
 
@@ -90,6 +94,7 @@ impl MaskLayerSet {
             denylist: false,
             regex_denylist: false,
             policy: false,
+            entropy: false,
         }
     }
 
@@ -104,10 +109,14 @@ impl MaskLayerSet {
                 self.regex_denylist = true;
             }
             "policy" => self.policy = true,
+            // A DISTINCT name, not folded into `safety`: `safety` stays exactly
+            // denylist+regex_denylist so an existing `safety`-only selection is
+            // unchanged; entropy is opt-in on its own (SDD-513).
+            "entropy" => self.entropy = true,
             other => {
                 return Err(FuseError(format!(
                     "unknown mask layer {other:?}; valid: grammar, schema, tool, \
-                     regex, denylist, regex_denylist, safety, policy"
+                     regex, denylist, regex_denylist, safety, policy, entropy"
                 )));
             }
         }
@@ -169,6 +178,9 @@ impl MaskLayerSet {
         if self.policy {
             v.push("policy");
         }
+        if self.entropy {
+            v.push("entropy");
+        }
         v
     }
 }
@@ -188,6 +200,10 @@ pub struct FuseLayers<'a> {
     pub regex_denylist: &'a [&'a str],
     /// Static policy planes — pre-packed allow-bitsets AND-ed in verbatim.
     pub policy_planes: &'a [&'a [u64]],
+    /// Heuristic entropy plane (SDD-513) — ban tokens that keep the trailing
+    /// window at/above a Shannon-entropy threshold (a text→token secret-shape
+    /// projection). `None` ⇒ the plane is off.
+    pub entropy: Option<EntropyConstraint>,
 }
 
 impl<'a> FuseLayers<'a> {
@@ -216,6 +232,7 @@ impl<'a> FuseLayers<'a> {
             } else {
                 EMPTY_PLANES
             },
+            entropy: if sel.entropy { self.entropy } else { None },
         }
     }
 }
@@ -256,6 +273,7 @@ pub struct CompiledFuse {
     regex: Option<RegexConstraint>,
     deny: Option<DenyConstraint>,
     regex_deny: Vec<RegexDenyConstraint>,
+    entropy: Option<EntropyConstraint>,
     planes: TokenLawPlanes,
 }
 
@@ -294,6 +312,7 @@ impl CompiledFuse {
             regex,
             deny,
             regex_deny,
+            entropy: layers.entropy,
             planes,
         })
     }
@@ -358,6 +377,17 @@ impl CompiledFuse {
             });
             dynamics.push(ids);
         }
+        if let Some(entropy) = &self.entropy {
+            let ids = entropy.safe_token_ids(generated, &vocab_refs);
+            if ids.is_empty() {
+                stop = true;
+            }
+            per_layer.push(LayerCoverage {
+                layer: "entropy",
+                allowed: ids.len(),
+            });
+            dynamics.push(ids);
+        }
 
         let refs: Vec<&[usize]> = dynamics.iter().map(Vec::as_slice).collect();
         let mask = self.planes.combine_with_dynamics(&refs);
@@ -381,6 +411,37 @@ impl CompiledFuse {
     /// The vocabulary size the laws were compiled against.
     pub fn vocab_size(&self) -> usize {
         self.vocab_size
+    }
+}
+
+/// The wire shape of the entropy plane (SDD-513). Present (even `{}`) ⇒ the plane
+/// is ON with the given knobs, each defaulting to the `sovereign-secret-scan`
+/// value the post-hoc scanner uses; absent ⇒ the plane is off.
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize)]
+pub struct EntropyRequest {
+    /// Ban cutoff in bits/char (default: the secret-scan `ENTROPY_THRESHOLD_BITS`).
+    #[serde(default)]
+    pub threshold_bits: Option<f64>,
+    /// Trailing-window character count scored (default: secret-scan window).
+    #[serde(default)]
+    pub window: Option<usize>,
+    /// Shortest window judged (default: secret-scan min length).
+    #[serde(default)]
+    pub min_len: Option<usize>,
+}
+
+impl EntropyRequest {
+    /// Resolve this wire request into a compiled [`EntropyConstraint`], each unset
+    /// knob defaulting to the `sovereign-secret-scan` value the post-hoc scanner
+    /// uses. Public so a serving consumer (gatewayd's `ServingTokenLaw`) reuses the
+    /// SAME defaulting the fuse route does.
+    pub fn to_constraint(self) -> EntropyConstraint {
+        let d = EntropyConstraint::default();
+        EntropyConstraint::new(
+            self.threshold_bits.unwrap_or_else(|| d.threshold_bits()),
+            self.window.unwrap_or_else(|| d.window()),
+            self.min_len.unwrap_or_else(|| d.min_len()),
+        )
     }
 }
 
@@ -412,6 +473,9 @@ pub struct FuseRequest {
     /// `safety`, `policy`). Absent/empty ⇒ all layers active.
     #[serde(default)]
     pub mask_layers: Option<Vec<String>>,
+    /// Heuristic entropy plane (SDD-513) — present ⇒ on. Absent ⇒ off.
+    #[serde(default)]
+    pub entropy: Option<EntropyRequest>,
     /// The vocabulary (token id → string) to mask over.
     pub vocab: Vec<String>,
 }
@@ -440,6 +504,7 @@ impl FuseRequest {
             denylist: &denylist,
             regex_denylist: &regex_denylist,
             policy_planes: &policy_planes,
+            entropy: self.entropy.map(EntropyRequest::to_constraint),
         }
         .select(&sel);
         let compiled = CompiledFuse::compile(&layers, self.vocab.clone())?;
@@ -467,6 +532,9 @@ impl FuseRequest {
         if !self.policy_planes.is_empty() && sel.policy {
             v.push("policy");
         }
+        if self.entropy.is_some() && sel.entropy {
+            v.push("entropy");
+        }
         v
     }
 }
@@ -489,6 +557,53 @@ mod tests {
             }
         }
         ids
+    }
+
+    #[test]
+    fn entropy_plane_fuses_through_the_request_and_bans_a_secret_extender() {
+        // SDD-513: a FuseRequest carrying `entropy` (defaults) at a hot 20-char
+        // prefix must drop the token that keeps the trailing window high-entropy
+        // and keep a low-entropy run, with "entropy" in layers_active.
+        let prefix = "aB3xK9zQ7mP2wL5nR8tV"; // 20 high-entropy chars
+        let req = FuseRequest {
+            entropy: Some(EntropyRequest::default()),
+            generated: prefix.to_string(),
+            vocab: vocab(&["Y4", "aaaaaaaaaaaaaaaaaaaaaa"]),
+            ..Default::default()
+        };
+        assert_eq!(req.layers_active(), vec!["entropy"]);
+        let fused = req.fuse().unwrap();
+        let allowed = set_bits(&fused.mask);
+        assert!(
+            !allowed.contains(&0),
+            "the entropy-extending token must be masked out"
+        );
+        assert!(
+            allowed.contains(&1),
+            "a low-entropy run must survive the entropy plane"
+        );
+    }
+
+    #[test]
+    fn entropy_layer_can_be_deselected() {
+        // With `mask_layers` excluding entropy, the plane is skipped even though
+        // the source is present → the hot extender is allowed again.
+        let req = FuseRequest {
+            entropy: Some(EntropyRequest::default()),
+            generated: "aB3xK9zQ7mP2wL5nR8tV".to_string(),
+            mask_layers: Some(vec!["grammar".to_string()]),
+            vocab: vocab(&["Y4", "aaaaaaaaaaaaaaaaaaaaaa"]),
+            ..Default::default()
+        };
+        assert!(
+            req.layers_active().is_empty(),
+            "entropy deselected + no grammar source"
+        );
+        let allowed = set_bits(&req.fuse().unwrap().mask);
+        assert!(
+            allowed.contains(&0) && allowed.contains(&1),
+            "no plane active → all allowed"
+        );
     }
 
     #[test]
@@ -521,6 +636,7 @@ mod tests {
             denylist: &dl,
             regex_denylist: &rdl,
             policy_planes: &pp,
+            entropy: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["5", "x", "7"])).unwrap();
         let out = f.fused_mask("");
@@ -547,6 +663,7 @@ mod tests {
             denylist: &dl,
             regex_denylist: &rdl,
             policy_planes: &pp,
+            entropy: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["a", "x", "q", "z"])).unwrap();
         let out = f.fused_mask("");
@@ -569,6 +686,7 @@ mod tests {
             denylist: &dl,
             regex_denylist: &rdl,
             policy_planes: &pp,
+            entropy: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["b", "x", "c"])).unwrap();
         let out = f.fused_mask("a");
@@ -597,6 +715,7 @@ mod tests {
             denylist: &dl,
             regex_denylist: &rdl,
             policy_planes: &planes,
+            entropy: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["a", "b", "c"])).unwrap();
         let out = f.fused_mask("");
@@ -615,6 +734,7 @@ mod tests {
             denylist: &dl,
             regex_denylist: &rdl,
             policy_planes: &pp,
+            entropy: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["a", "b"])).unwrap();
         let out = f.fused_mask("");
@@ -633,6 +753,7 @@ mod tests {
             denylist: &dl,
             regex_denylist: &rdl,
             policy_planes: &pp,
+            entropy: None,
         };
         assert!(CompiledFuse::compile(&layers, vocab(&["a"])).is_err());
     }

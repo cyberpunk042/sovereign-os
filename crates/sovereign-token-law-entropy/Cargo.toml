@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-token-law-entropy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The ENTROPY token-law plane (SDD-513, M00155 DEEPEN): a text->token safety projection that bans a running model from extending a HIGH-ENTROPY (secret-shaped) run of characters. Unlike the literal-substring deny plane, 'the token that completes a high-entropy secret' is not well-defined at a hard threshold, so this is an explicitly HEURISTIC, monotone/windowed projection: it scores the trailing window of (generated + candidate token) with the SAME sovereign-secret-scan Shannon-entropy definition + thresholds the post-hoc StreamGuard scanner uses, and drops tokens that keep the window at or above threshold. safe_token_ids returns the allow-list (all tokens minus the entropy-raising ones), the same Vec<usize> shape sovereign-token-law-mask's TokenLawPlanes consumes, so it composes with grammar/regex/denylist/policy planes. It COMPLEMENTS, never replaces, the exact post-hoc entropy scan. Composes sovereign-secret-scan."
+
+[lints]
+workspace = true
+
+[dependencies]
+sovereign-secret-scan = { path = "../sovereign-secret-scan" }

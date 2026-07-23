@@ -163,6 +163,10 @@ pub struct TokenLawSpec<'a> {
     /// Static policy planes — pre-packed per-vocabulary allow-bitsets, fixed
     /// across the generation (a route/tool/safety allow-mask).
     pub policy_planes: &'a [&'a [u64]],
+    /// Heuristic entropy plane (SDD-513) — ban tokens that keep the trailing
+    /// window at/above a Shannon-entropy threshold (a text→token secret-shape
+    /// projection). `None` ⇒ off. Complements, never replaces, the post-hoc scan.
+    pub entropy: Option<sovereign_token_law_entropy::EntropyConstraint>,
 }
 
 impl TokenLawSpec<'_> {
@@ -173,6 +177,7 @@ impl TokenLawSpec<'_> {
             && self.denylist.is_empty()
             && self.regex_denylist.is_empty()
             && self.policy_planes.is_empty()
+            && self.entropy.is_none()
     }
 }
 
@@ -935,6 +940,7 @@ impl SovereignLlm {
             denylist: spec.denylist,
             regex_denylist: spec.regex_denylist,
             policy_planes: spec.policy_planes,
+            entropy: spec.entropy,
         };
         let compiled = sovereign_token_law_fuse::CompiledFuse::compile(&layers, vocab)
             .map_err(|e| LlmError::Regex(e.0))?;

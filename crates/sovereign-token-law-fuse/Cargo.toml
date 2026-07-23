@@ -19,6 +19,7 @@ sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
 sovereign-token-grammar-mask = { path = "../sovereign-token-grammar-mask" }
 sovereign-regex-constrain = { path = "../sovereign-regex-constrain" }
 sovereign-token-law-deny = { path = "../sovereign-token-law-deny" }
+sovereign-token-law-entropy = { path = "../sovereign-token-law-entropy" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

@@ -246,8 +246,11 @@ fn scan_entropy(text: &str) -> Vec<Finding> {
     out
 }
 
-/// Shannon entropy (bits per character) of a string.
-fn shannon_entropy(s: &str) -> f64 {
+/// Shannon entropy (bits per character) of a string. Exposed so the token-law
+/// entropy plane (`sovereign-token-law-entropy`, SDD-513) projects the SAME
+/// definition of "high entropy" the post-hoc scanner uses — the plane and the
+/// StreamGuard scan can never disagree on what counts as a secret-shaped run.
+pub fn shannon_entropy(s: &str) -> f64 {
     use std::collections::HashMap;
     if s.is_empty() {
         return 0.0;
