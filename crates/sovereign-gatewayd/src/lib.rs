@@ -804,15 +804,46 @@ impl ServingTokenLaw {
 /// every plane satisfiable, so the row is all-masked and must never be sampled).
 /// The SAME `fused_mask` the `/v1/data-plane/token-law/fuse` route and
 /// `complete_with_token_law` drive, so serving and inspection never diverge.
-fn token_law_step(
-    compiled: &sovereign_token_law_fuse::CompiledFuse,
-    tokenizer: &sovereign_hf_tokenizer::HfBpeTokenizer,
-    generated: &[usize],
-) -> Option<Vec<u64>> {
-    let ids32: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
-    let text = tokenizer.decode(&ids32);
-    let fused = compiled.fused_mask(&text);
-    if fused.stop { None } else { Some(fused.mask) }
+/// A stateful adapter that drives an incremental [`FuseSession`] from the
+/// per-step `generated` ids the decode loop supplies (SDD-514). It advances the
+/// session by only the newly-committed tokens each call — removing the O(n²)
+/// whole-prefix `tokenizer.decode` + `fused_mask` re-walk the old stateless step
+/// did (SDD-512 flagged it). Behaviour is bit-for-bit identical: `FuseSession::mask`
+/// equals `CompiledFuse::fused_mask` at every prefix (the fuse crate's parity test).
+///
+/// [`FuseSession`]: sovereign_token_law_fuse::FuseSession
+struct FuseStepper<'f> {
+    session: sovereign_token_law_fuse::FuseSession<'f>,
+    consumed: usize,
+}
+
+impl<'f> FuseStepper<'f> {
+    fn new(compiled: &'f sovereign_token_law_fuse::CompiledFuse) -> Self {
+        Self {
+            session: compiled.session(),
+            consumed: 0,
+        }
+    }
+
+    /// The allow-bitset for the token after `generated`, or `None` to stop.
+    /// `generated` grows by one committed token per decode step; the session is
+    /// advanced by exactly the newly-arrived ids (the first call, with `generated`
+    /// empty, reads the mask at the empty prefix).
+    fn next(&mut self, generated: &[usize]) -> Option<Vec<u64>> {
+        let fused = if generated.len() > self.consumed {
+            let mut fused = None;
+            for &id in &generated[self.consumed..] {
+                fused = Some(self.session.advance_token(id));
+            }
+            fused.expect("len > consumed guarantees at least one advance")
+        } else {
+            // First call (empty prefix) or a no-new-token re-query: mask() reads
+            // the current committed prefix without advancing.
+            self.session.mask()
+        };
+        self.consumed = generated.len();
+        if fused.stop { None } else { Some(fused.mask) }
+    }
 }
 
 /// A loaded local generation engine: real weights + a real byte-level BPE
@@ -2557,12 +2588,13 @@ impl GatewayServer {
             // from the running prefix; the static path keeps the empty mask. The
             // output-safety redactor (StreamGuard) wraps BOTH identically.
             if let Some(cf) = &compiled_law {
+                let mut stepper = FuseStepper::new(cf);
                 model
                     .generate_dynamic_token_law_until_with(
                         &ids,
                         max_new,
                         0,
-                        |g| token_law_step(cf, tokenizer, g),
+                        |g| stepper.next(g),
                         &mut emit,
                     )
                     .map_err(|e| e.to_string())?;
@@ -2610,12 +2642,13 @@ impl GatewayServer {
             }
         };
         if let Some(cf) = &compiled_law {
+            let mut stepper = FuseStepper::new(cf);
             model
                 .generate_dynamic_token_law_until_with(
                     &ids,
                     max_new,
                     0,
-                    |g| token_law_step(cf, tokenizer, g),
+                    |g| stepper.next(g),
                     &mut emit,
                 )
                 .map_err(|e| e.to_string())?;

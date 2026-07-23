@@ -952,13 +952,26 @@ impl SovereignLlm {
             .map(|&i| i as usize)
             .collect();
         let mut model = self.model.clone();
+        // SDD-514: drive an INCREMENTAL session — advance only the newly-committed
+        // token each step instead of re-decoding + re-fusing the whole prefix
+        // (O(n²) → O(n)). `session.mask()` is bit-for-bit `fused_mask(prefix)` (the
+        // fuse crate's parity test), so behaviour is unchanged.
+        let mut session = compiled.session();
+        let mut consumed = 0usize;
         let gen_ids =
             model.generate_dynamic_token_law_until(&prompt_ids, max_new, seed, |generated| {
-                let so_far: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
-                let text = self.tokenizer.decode(&so_far).unwrap_or_default();
+                let fused = if generated.len() > consumed {
+                    let mut fused = None;
+                    for &id in &generated[consumed..] {
+                        fused = Some(session.advance_token(id));
+                    }
+                    fused.expect("len > consumed guarantees at least one advance")
+                } else {
+                    session.mask()
+                };
+                consumed = generated.len();
                 // A completed grammar, an empty plane, or an empty intersection
                 // all set `stop`; otherwise apply the fused allow-mask.
-                let fused = compiled.fused_mask(&text);
                 if fused.stop { None } else { Some(fused.mask) }
             })?;
         let out_ids: Vec<u32> = gen_ids.iter().map(|&i| i as u32).collect();

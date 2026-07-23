@@ -61,9 +61,11 @@ def test_serving_token_law_compiles_over_the_real_vocab():
     # Compiles against the model's real vocab into the checkpoint-free primitive.
     assert "CompiledFuse::compile" in src
     assert "fn is_unconstrained" in src
-    # The per-step hook decodes ids -> text and fuses (same `fused_mask`).
-    assert "fn token_law_step" in src
-    assert "compiled.fused_mask" in src
+    # The per-step hook drives the fuse engine per step. SDD-514 replaced the
+    # stateless whole-prefix token_law_step with a FuseStepper advancing a
+    # CompiledFuse::session() incrementally (bit-for-bit identical output).
+    assert "struct FuseStepper" in src
+    assert "compiled.session()" in src
 
 
 def test_serving_path_is_law_aware_and_preserves_the_safety_spine():

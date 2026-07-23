@@ -22,10 +22,12 @@
 //! caller-supplied vocab.
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeSet;
+
 use sovereign_json_schema_grammar::Schema;
 use sovereign_regex_constrain::{RegexConstraint, RegexDenyConstraint};
-use sovereign_token_grammar_mask::TokenGrammarMask;
-use sovereign_token_law_deny::DenyConstraint;
+use sovereign_token_grammar_mask::{IncrementalGrammarMask, TokenGrammarMask};
+use sovereign_token_law_deny::{AcState, DenyConstraint};
 use sovereign_token_law_entropy::EntropyConstraint;
 use sovereign_token_law_mask::TokenLawPlanes;
 
@@ -389,6 +391,19 @@ impl CompiledFuse {
             dynamics.push(ids);
         }
 
+        self.compose(dynamics, per_layer, stop)
+    }
+
+    /// AND-compose the per-plane allow-lists with the static policy planes into the
+    /// final `FusedMask`. Shared by [`fused_mask`](Self::fused_mask) and
+    /// [`FuseSession`] so the stateless and incremental paths are bit-for-bit
+    /// identical (the incremental parity invariant, SDD-514).
+    fn compose(
+        &self,
+        dynamics: Vec<Vec<usize>>,
+        per_layer: Vec<LayerCoverage>,
+        mut stop: bool,
+    ) -> FusedMask {
         let refs: Vec<&[usize]> = dynamics.iter().map(Vec::as_slice).collect();
         let mask = self.planes.combine_with_dynamics(&refs);
         // Count only REAL vocab bits: the identity mask (no planes) sets the
@@ -408,9 +423,186 @@ impl CompiledFuse {
         }
     }
 
+    /// Open a stateful [`FuseSession`] over this compiled fuse — the **incremental**
+    /// per-step decision (SDD-514). Where [`fused_mask`](Self::fused_mask) re-walks
+    /// every plane from the start of the whole prefix each call (O(n²) over a
+    /// decode), a session carries each plane's committed automaton state and
+    /// advances it by only the newly-committed token, so per-step cost is the token
+    /// not the prefix. `session.mask()` is bit-for-bit `fused_mask(prefix)`.
+    pub fn session(&self) -> FuseSession<'_> {
+        FuseSession {
+            grammar: self
+                .grammar
+                .as_ref()
+                .map(|g| IncrementalGrammarMask::new(g.grammar().clone(), self.vocab.clone())),
+            regex_live: self.regex.as_ref().map(|rc| Some(rc.start_state())),
+            deny_state: self.deny.as_ref().map(|d| d.start_state()),
+            regex_deny_states: self.regex_deny.iter().map(|rd| rd.start_state()).collect(),
+            entropy_tail: String::new(),
+            fuse: self,
+        }
+    }
+
     /// The vocabulary size the laws were compiled against.
     pub fn vocab_size(&self) -> usize {
         self.vocab_size
+    }
+}
+
+/// A **stateful, incremental** view over a [`CompiledFuse`] (SDD-514). It carries
+/// each plane's committed automaton state and advances it by only the
+/// newly-committed token each decode step, so a decode loop pays the token, not
+/// the whole prefix (removing the O(n²) re-walk of [`CompiledFuse::fused_mask`]).
+///
+/// [`mask`](Self::mask) at any point is **bit-for-bit** what `fused_mask` would
+/// return for the same committed prefix (proven by the parity test) — so a caller
+/// can swap the stateless `fused_mask(text)` per step for
+/// `session.advance_token(id)` with no behavioral change.
+///
+/// Valid only for a **char-concatenative** tokenizer (each token's surface string
+/// is appended verbatim — byte-level BPE qualifies), the same precondition
+/// `IncrementalGrammarMask` documents.
+pub struct FuseSession<'f> {
+    fuse: &'f CompiledFuse,
+    /// Committed grammar chart (present iff the grammar plane is active).
+    grammar: Option<IncrementalGrammarMask>,
+    /// Committed positive-regex live set: `Some(None)` = plane active but the
+    /// prefix went off-pattern (sticky dead — nothing viable); `Some(Some(set))` =
+    /// live; `None` = no regex plane.
+    regex_live: Option<Option<BTreeSet<usize>>>,
+    /// Committed denylist Aho-Corasick node (present iff the deny plane is active).
+    deny_state: Option<AcState>,
+    /// One committed unanchored live set per negated-regex pattern.
+    regex_deny_states: Vec<BTreeSet<usize>>,
+    /// The trailing window of committed text the entropy plane scores. Truncated
+    /// to the entropy plane's `window` after each advance — entropy only ever reads
+    /// the last `window` chars, so this keeps its per-step cost O(window·vocab),
+    /// not O(prefix·vocab) (the whole point of the session).
+    entropy_tail: String,
+}
+
+impl FuseSession<'_> {
+    /// The fused allow-mask for the token *after* the committed prefix — identical
+    /// to [`CompiledFuse::fused_mask`] at that prefix, gathered from the carried
+    /// incremental state instead of re-walking. Mirrors `fused_mask`'s plane order
+    /// and stop conditions exactly.
+    pub fn mask(&mut self) -> FusedMask {
+        let vocab_refs: Vec<&str> = self.fuse.vocab.iter().map(String::as_str).collect();
+        let mut dynamics: Vec<Vec<usize>> = Vec::new();
+        let mut per_layer: Vec<LayerCoverage> = Vec::new();
+        let mut stop = false;
+
+        if let Some(g) = &mut self.grammar {
+            let m = g.mask();
+            if m.eos {
+                stop = true;
+            }
+            let ids = m.allowed_ids();
+            if ids.is_empty() {
+                stop = true;
+            }
+            per_layer.push(LayerCoverage {
+                layer: "grammar",
+                allowed: ids.len(),
+            });
+            dynamics.push(ids);
+        }
+        if let (Some(live), Some(rc)) = (&self.regex_live, &self.fuse.regex) {
+            let ids = match live {
+                Some(base) => rc.allowed_token_ids_from(base, &vocab_refs),
+                None => Vec::new(), // off-pattern → nothing viable
+            };
+            if ids.is_empty() {
+                stop = true;
+            }
+            per_layer.push(LayerCoverage {
+                layer: "regex",
+                allowed: ids.len(),
+            });
+            dynamics.push(ids);
+        }
+        if let (Some(state), Some(deny)) = (self.deny_state, &self.fuse.deny) {
+            let ids = deny.safe_token_ids_from(state, &vocab_refs);
+            if ids.is_empty() {
+                stop = true;
+            }
+            per_layer.push(LayerCoverage {
+                layer: "denylist",
+                allowed: ids.len(),
+            });
+            dynamics.push(ids);
+        }
+        for (rd, base) in self.fuse.regex_deny.iter().zip(&self.regex_deny_states) {
+            let ids = rd.safe_token_ids_from(base, &vocab_refs);
+            if ids.is_empty() {
+                stop = true;
+            }
+            per_layer.push(LayerCoverage {
+                layer: "regex_denylist",
+                allowed: ids.len(),
+            });
+            dynamics.push(ids);
+        }
+        if let Some(entropy) = &self.fuse.entropy {
+            let ids = entropy.safe_token_ids(&self.entropy_tail, &vocab_refs);
+            if ids.is_empty() {
+                stop = true;
+            }
+            per_layer.push(LayerCoverage {
+                layer: "entropy",
+                allowed: ids.len(),
+            });
+            dynamics.push(ids);
+        }
+
+        self.fuse.compose(dynamics, per_layer, stop)
+    }
+
+    /// Commit token `id` (append its surface string to every plane's state) and
+    /// return the mask for the NEXT token. The delta is `vocab[id]` — the same
+    /// string `fused_mask` would have re-scanned.
+    pub fn advance_token(&mut self, id: usize) -> FusedMask {
+        let delta = self.fuse.vocab.get(id).cloned().unwrap_or_default();
+        self.advance_str(&delta)
+    }
+
+    /// Commit an arbitrary text `delta` (append it to every plane's committed
+    /// state) and return the mask for the next token. Prefer
+    /// [`advance_token`](Self::advance_token) in a decode loop.
+    pub fn advance_str(&mut self, delta: &str) -> FusedMask {
+        if let Some(g) = &mut self.grammar {
+            g.advance(delta);
+        }
+        if let (Some(live), Some(rc)) = (&mut self.regex_live, &self.fuse.regex) {
+            *live = match live.as_ref() {
+                Some(base) => rc.advance_state(base, delta), // None once off-pattern (sticky)
+                None => None,
+            };
+        }
+        if let (Some(state), Some(deny)) = (self.deny_state, &self.fuse.deny) {
+            self.deny_state = Some(deny.advance_state(state, delta));
+        }
+        for (rd, base) in self
+            .fuse
+            .regex_deny
+            .iter()
+            .zip(self.regex_deny_states.iter_mut())
+        {
+            *base = rd.advance_state(base, delta);
+        }
+        if let Some(entropy) = &self.fuse.entropy {
+            self.entropy_tail.push_str(delta);
+            // Keep only the trailing `window` chars: `safe_token_ids` reads no more
+            // than that (its `trailing_window`), and `tail + tok`'s trailing window
+            // equals `full + tok`'s whenever `tail` holds the last `window` chars —
+            // so this is O(window)-bounded WITHOUT changing the result (parity).
+            let w = entropy.window();
+            let n = self.entropy_tail.chars().count();
+            if n > w {
+                self.entropy_tail = self.entropy_tail.chars().skip(n - w).collect();
+            }
+        }
+        self.mask()
     }
 }
 
@@ -604,6 +796,73 @@ mod tests {
             allowed.contains(&0) && allowed.contains(&1),
             "no plane active → all allowed"
         );
+    }
+
+    #[test]
+    fn session_is_bit_for_bit_identical_to_stateless_across_all_planes() {
+        // SDD-514: the incremental session must reproduce fused_mask EXACTLY at
+        // every prefix, with all five dynamic planes + a policy plane active.
+        let v = vocab(&["ye", "s", "no", "a", "x", "q"]);
+        let policy: Vec<u64> = vec![0xFFFF]; // allow the low ids
+        let layers = FuseLayers {
+            schema: Some(&Schema::Enum(vec!["yes".into(), "no".into()])),
+            regex: Some("[a-z]+"),
+            denylist: &["xx"],
+            regex_denylist: &["[0-9][0-9]"],
+            policy_planes: &[&policy],
+            entropy: Some(EntropyConstraint::default()),
+        };
+        let fuse = CompiledFuse::compile(&layers, v.clone()).unwrap();
+
+        // Walk a token sequence; at every step session.mask() must equal
+        // fused_mask(running_text) — full FusedMask equality (mask/allowed/
+        // per_layer/stop).
+        let seq = ["ye", "s", "a", "q", "no"];
+        let mut session = fuse.session();
+        let mut running = String::new();
+        assert_eq!(
+            session.mask(),
+            fuse.fused_mask(&running),
+            "parity at the empty prefix"
+        );
+        for tok in seq {
+            running.push_str(tok);
+            let id = v.iter().position(|t| t == tok).unwrap();
+            let from_session = session.advance_token(id);
+            let from_stateless = fuse.fused_mask(&running);
+            assert_eq!(
+                from_session, from_stateless,
+                "session diverged from stateless after committing {tok:?} (prefix {running:?})"
+            );
+        }
+    }
+
+    #[test]
+    fn session_matches_stateless_off_pattern_and_at_eos() {
+        // A positive regex that the prefix walks OFF (regex_live → None) and a
+        // grammar Enum that reaches a complete match (eos) — the two trickiest
+        // states — must still match the stateless fuse bit-for-bit.
+        let v = vocab(&["9", "no", "z"]);
+        let layers = FuseLayers {
+            schema: Some(&Schema::Enum(vec!["no".into()])),
+            regex: Some("[a-z]+"),
+            denylist: &[],
+            regex_denylist: &[],
+            policy_planes: &[],
+            entropy: None,
+        };
+        let fuse = CompiledFuse::compile(&layers, v.clone()).unwrap();
+        let mut session = fuse.session();
+        let mut running = String::new();
+        for tok in ["9", "no", "z"] {
+            running.push_str(tok);
+            let id = v.iter().position(|t| t == tok).unwrap();
+            assert_eq!(
+                session.advance_token(id),
+                fuse.fused_mask(&running),
+                "off-pattern/eos parity failed at {running:?}"
+            );
+        }
     }
 
     #[test]
