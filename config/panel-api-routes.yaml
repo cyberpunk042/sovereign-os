@@ -45,4 +45,5 @@ routes:
   - {prefix: "/api/runtime-modes", port: 7713, api: sovereign-runtime-modes-api}
   - {prefix: "/api/selfdef-management", port: 8125, api: sovereign-selfdef-management-api}
   - {prefix: "/api/sessions", port: 8109, api: sovereign-sessions-api}
+  - {prefix: "/api/token-law-coverage", port: 8148, api: sovereign-token-law-coverage-api}
   - {prefix: "/api/traces", port: 8105, api: sovereign-traces-api}

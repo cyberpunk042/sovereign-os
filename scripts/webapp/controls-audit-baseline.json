@@ -406,6 +406,13 @@
     "status": "no-actions"
   },
   {
+    "slug": "token-law-coverage",
+    "exec_rail": 0,
+    "proxy_copy": false,
+    "wireable_gap": false,
+    "status": "no-actions"
+  },
+  {
     "slug": "trinity",
     "exec_rail": 0,
     "proxy_copy": false,

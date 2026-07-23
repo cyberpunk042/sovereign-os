@@ -119,13 +119,14 @@ coverage:
     [chromofold]
   avx-modes:
     [avx-mode, control-word]
+  token-law-coverage:
+    [token-law]
 
 cli_only:
   - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}
   - {verb: compat, rationale: "cross-system compatibility resolver (2026-07-19 operator directive) — validates candidate configurations against config/compatibility.yaml; the control-surface rail consuming its verdicts to grey out incompatible options is the dashboard follow-up, CLI-first this round"}
   - {verb: notifykit, rationale: "notification settings surface (2026-07-19 operator directive) — its UI home is the SHARED header-settings overlay panel in the app shell (every panel), not one dashboard slug; the overlay's Apply rail executes this verb through the control-exec-api"}
   - {verb: stepup, rationale: "step-up MFA manual escape hatch (SDD-509 §5) — its dashboard home IS the auth-tier panel's step-up config pane (enrollment / factors / recovery codes / tier curation) + the step-up modal in the shared control-surface; this CLI verb is the terminal mirror over the same step-up store, not a separate dashboard"}
-  - {verb: token-law, rationale: "token-law engine mask-layer selection + checkpoint-free fusion probe (SDD-510, M00155 F00793/4/5) — the operator-configurable layer selection (flag/env/profile) + a probe of the /v1/data-plane/token-law/fuse route; its dashboard home is the token-law mask-coverage heatmap (F00796), the NEXT Expose SDD (511), CLI-first this round"}
   - {verb: bashrc, rationale: "shell integration installer (aliases + completion) — a dotfile action, no dashboard"}
   - {verb: commands, rationale: "machine-readable CLI discovery inventory generated from the manual ownership registry; no runtime dashboard state to render"}
   - {verb: completion, rationale: "Bash/Zsh/Fish integration emitted from the command registry; a shell installation artifact, not a dashboard"}
