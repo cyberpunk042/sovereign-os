@@ -124,6 +124,7 @@ cli_only:
   - {verb: assistant, rationale: "first-login interactive guide (modal onboarding flow), not a persistent dashboard surface"}
   - {verb: compat, rationale: "cross-system compatibility resolver (2026-07-19 operator directive) — validates candidate configurations against config/compatibility.yaml; the control-surface rail consuming its verdicts to grey out incompatible options is the dashboard follow-up, CLI-first this round"}
   - {verb: notifykit, rationale: "notification settings surface (2026-07-19 operator directive) — its UI home is the SHARED header-settings overlay panel in the app shell (every panel), not one dashboard slug; the overlay's Apply rail executes this verb through the control-exec-api"}
+  - {verb: stepup, rationale: "step-up MFA manual escape hatch (SDD-509 §5) — its dashboard home IS the auth-tier panel's step-up config pane (enrollment / factors / recovery codes / tier curation) + the step-up modal in the shared control-surface; this CLI verb is the terminal mirror over the same step-up store, not a separate dashboard"}
   - {verb: bashrc, rationale: "shell integration installer (aliases + completion) — a dotfile action, no dashboard"}
   - {verb: commands, rationale: "machine-readable CLI discovery inventory generated from the manual ownership registry; no runtime dashboard state to render"}
   - {verb: completion, rationale: "Bash/Zsh/Fish integration emitted from the command registry; a shell installation artifact, not a dashboard"}

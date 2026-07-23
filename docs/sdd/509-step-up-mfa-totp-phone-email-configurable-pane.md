@@ -173,11 +173,22 @@ the ONE sanctioned write endpoint (the cockpit's single-POST doctrine).
   OTP-inert-without-notifykit, execute-path-unbroken). The full step-up family
   (Phase A+B+C) + the exec-rail contract stay green; ruff clean.
 
+- **The manual CLI escape hatch** (§5) — `sovereign-osctl stepup`
+  (`scripts/operator/stepup-cli.py`): `status` / `enroll` / `verify` /
+  `request-otp` / `tier` from the terminal, driving the SAME step-up store
+  (`$SOVEREIGN_OS_STEPUP_DIR`) the daemon reads — so a CLI `verify` elevates a
+  pending cockpit action and vice-versa. Full osctl registration chain
+  (dispatch + COMMANDS help + `feature-coverage.yaml` cli-only waiver +
+  `security` man-topic ownership with a regenerated `.SS stepup` roff section).
+  Tests: `test_stepup_cli.py` (status/enroll/verify/tier over a tmp store +
+  the dispatch pins).
+
 Still opt-in + non-breaking: the exec-rail gate engages only once a factor is
 enrolled. **Tier remapping is now in-pane** (via the `tier-overrides.json`
-overlay driven through the same `stepup` body key — no base-registry edit, no
-new osctl verb). The only remaining polish is QR-image rendering of the
-enrollment URI (the pane shows the URI + base32 secret today).
+overlay driven through the same `stepup` body key — no base-registry edit) and
+also from the CLI (`stepup tier`). The only remaining polish is QR-image
+rendering of the enrollment URI (the pane + CLI show the URI + base32 secret
+today).
 
 ### Phase-A honesty (unchanged)
 
