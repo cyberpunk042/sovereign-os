@@ -850,12 +850,24 @@ fn token_law_allowed_mask(body: &str) -> HttpReply {
 /// its allowed-token count, per-layer coverage, the active layer names, and a
 /// `stop` flag (the prefix admits no continuation under these laws).
 fn token_law_fuse(server: &GatewayServer, body: &str) -> HttpReply {
-    let req: sovereign_token_law_fuse::FuseRequest = match serde_json::from_str(body) {
+    let mut req: sovereign_token_law_fuse::FuseRequest = match serde_json::from_str(body) {
         Ok(r) => r,
         Err(e) => return err(400, format!("invalid token-law fuse request: {e}")),
     };
     if req.vocab.is_empty() {
         return err(400, "token-law fuse: `vocab` must be non-empty".into());
+    }
+    // F00793/F00794: when the request doesn't pin the mask layers itself, the
+    // operator's `SOVEREIGN_TOKEN_LAW_MASK_LAYERS` selection (else all layers)
+    // applies. The request always wins — an explicit `mask_layers` is honored
+    // verbatim.
+    if req.mask_layers.is_none() {
+        let names: Vec<String> = sovereign_token_law_fuse::MaskLayerSet::from_env_or_all()
+            .names()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        req.mask_layers = Some(names);
     }
     let layers_active = req.layers_active();
     let fused = match req.fuse() {

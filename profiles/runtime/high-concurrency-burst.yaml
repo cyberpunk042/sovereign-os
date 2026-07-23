@@ -30,6 +30,12 @@ runtime_profile:
   hardware_profile_compat:
     - sain-01
 
+  # SDD-510 (F00793): the token-law engine's active mask layers for this
+  # profile. All layers on (the default) — an operator dials this down per
+  # profile, or overrides at runtime via SOVEREIGN_TOKEN_LAW_MASK_LAYERS /
+  # --token-law-mask-layers. `safety` = denylist + regex_denylist.
+  token_law_engine_mask_layers: grammar,schema,tool,safety
+
   allocations:
     - agent_id: conductor_01
       tier: pulse

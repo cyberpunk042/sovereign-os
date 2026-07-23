@@ -40,6 +40,139 @@ impl std::fmt::Display for FuseError {
 
 impl std::error::Error for FuseError {}
 
+/// Which named mask layers are **active** (F00793/F00794/F00795 — the
+/// operator-configurable `token_law_engine_mask_layers` / `--token-law-mask-layers`
+/// / `SOVEREIGN_TOKEN_LAW_MASK_LAYERS` selection). A deselected layer is skipped
+/// even when its source is supplied, so an operator can dial the engine down to
+/// (say) `safety` only without changing the request. Unset ⇒ all layers active.
+///
+/// The canonical layer names are the engine's real planes — `grammar` (the
+/// JSON-schema→grammar plane), `regex`, `denylist`, `regex_denylist`, `policy`.
+/// The milestone's conceptual names are accepted as aliases: `schema`→`grammar`,
+/// `tool`→`regex`, and `safety`→`denylist`+`regex_denylist`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MaskLayerSet {
+    /// The JSON-schema→grammar plane (aliases: `schema`).
+    pub grammar: bool,
+    /// The positive-regex plane (aliases: `tool`).
+    pub regex: bool,
+    /// The literal-denylist plane (part of `safety`).
+    pub denylist: bool,
+    /// The negated-regex plane (part of `safety`).
+    pub regex_denylist: bool,
+    /// The static policy-bitset planes.
+    pub policy: bool,
+}
+
+impl Default for MaskLayerSet {
+    fn default() -> Self {
+        Self::all()
+    }
+}
+
+impl MaskLayerSet {
+    /// Every layer active (the default when nothing is configured).
+    pub const fn all() -> Self {
+        Self {
+            grammar: true,
+            regex: true,
+            denylist: true,
+            regex_denylist: true,
+            policy: true,
+        }
+    }
+
+    /// No layer active.
+    pub const fn none() -> Self {
+        Self {
+            grammar: false,
+            regex: false,
+            denylist: false,
+            regex_denylist: false,
+            policy: false,
+        }
+    }
+
+    fn enable(&mut self, token: &str) -> Result<(), FuseError> {
+        match token.trim().to_ascii_lowercase().as_str() {
+            "grammar" | "schema" => self.grammar = true,
+            "regex" | "tool" => self.regex = true,
+            "denylist" => self.denylist = true,
+            "regex_denylist" | "regex-denylist" => self.regex_denylist = true,
+            "safety" => {
+                self.denylist = true;
+                self.regex_denylist = true;
+            }
+            "policy" => self.policy = true,
+            other => {
+                return Err(FuseError(format!(
+                    "unknown mask layer {other:?}; valid: grammar, schema, tool, \
+                     regex, denylist, regex_denylist, safety, policy"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Parse a comma-separated selection (real names or milestone aliases). An
+    /// empty/whitespace string ⇒ [`all`](Self::all) (unset means "everything on").
+    pub fn from_csv(csv: &str) -> Result<Self, FuseError> {
+        Self::from_names(csv.split(','))
+    }
+
+    /// Parse a selection from an iterator of layer names (real or alias). Empty ⇒
+    /// [`all`](Self::all).
+    pub fn from_names<I, S>(names: I) -> Result<Self, FuseError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut set = Self::none();
+        let mut any = false;
+        for name in names {
+            let tok = name.as_ref().trim();
+            if tok.is_empty() {
+                continue;
+            }
+            any = true;
+            set.enable(tok)?;
+        }
+        Ok(if any { set } else { Self::all() })
+    }
+
+    /// Resolve the effective selection from the `SOVEREIGN_TOKEN_LAW_MASK_LAYERS`
+    /// env var, falling back to [`all`](Self::all) when unset/empty. The impure
+    /// boundary (a daemon route, a CLI) calls this; the pure `fuse` core takes an
+    /// already-resolved selection.
+    pub fn from_env_or_all() -> Self {
+        match std::env::var("SOVEREIGN_TOKEN_LAW_MASK_LAYERS") {
+            Ok(v) => Self::from_csv(&v).unwrap_or_else(|_| Self::all()),
+            Err(_) => Self::all(),
+        }
+    }
+
+    /// The active layers' canonical names, in fuse order.
+    pub fn names(&self) -> Vec<&'static str> {
+        let mut v = Vec::new();
+        if self.grammar {
+            v.push("grammar");
+        }
+        if self.regex {
+            v.push("regex");
+        }
+        if self.denylist {
+            v.push("denylist");
+        }
+        if self.regex_denylist {
+            v.push("regex_denylist");
+        }
+        if self.policy {
+            v.push("policy");
+        }
+        v
+    }
+}
+
 /// The named laws to fuse, borrowed. Mirrors `sovereign-llm`'s `TokenLawSpec`
 /// so the decode loop can hand its spec straight through — but this type carries
 /// no lifetime tie to a model, only to the caller's sources.
@@ -55,6 +188,36 @@ pub struct FuseLayers<'a> {
     pub regex_denylist: &'a [&'a str],
     /// Static policy planes — pre-packed allow-bitsets AND-ed in verbatim.
     pub policy_planes: &'a [&'a [u64]],
+}
+
+impl<'a> FuseLayers<'a> {
+    /// A copy with every **deselected** layer cleared (F00793/4/5) — a skipped
+    /// layer contributes nothing to the fuse even when its source is supplied.
+    /// No allocation: cleared slices become the empty slice, `schema`/`regex`
+    /// become `None`.
+    pub fn select(&self, sel: &MaskLayerSet) -> FuseLayers<'a> {
+        const EMPTY_STR: &[&str] = &[];
+        const EMPTY_PLANES: &[&[u64]] = &[];
+        FuseLayers {
+            schema: if sel.grammar { self.schema } else { None },
+            regex: if sel.regex { self.regex } else { None },
+            denylist: if sel.denylist {
+                self.denylist
+            } else {
+                EMPTY_STR
+            },
+            regex_denylist: if sel.regex_denylist {
+                self.regex_denylist
+            } else {
+                EMPTY_STR
+            },
+            policy_planes: if sel.policy {
+                self.policy_planes
+            } else {
+                EMPTY_PLANES
+            },
+        }
+    }
 }
 
 /// One active layer's contribution to the fused mask at the current prefix.
@@ -244,13 +407,30 @@ pub struct FuseRequest {
     /// The committed generation so far (empty = fuse at the start).
     #[serde(default)]
     pub generated: String,
+    /// Which mask layers to keep active (F00795) — real names or milestone
+    /// aliases (`grammar`/`schema`, `regex`/`tool`, `denylist`, `regex_denylist`,
+    /// `safety`, `policy`). Absent/empty ⇒ all layers active.
+    #[serde(default)]
+    pub mask_layers: Option<Vec<String>>,
     /// The vocabulary (token id → string) to mask over.
     pub vocab: Vec<String>,
 }
 
 impl FuseRequest {
-    /// Compile this request's layers against its `vocab` and fuse at `generated`.
+    /// The effective layer selection: the request's `mask_layers` if given
+    /// (empty list ⇒ all), else all. Env/flag defaults are resolved by the
+    /// caller (the daemon route / CLI) before the request reaches here.
+    pub fn selection(&self) -> Result<MaskLayerSet, FuseError> {
+        match &self.mask_layers {
+            Some(names) => MaskLayerSet::from_names(names),
+            None => Ok(MaskLayerSet::all()),
+        }
+    }
+
+    /// Compile this request's **selected** layers against its `vocab` and fuse
+    /// at `generated`.
     pub fn fuse(&self) -> Result<FusedMask, FuseError> {
+        let sel = self.selection()?;
         let denylist: Vec<&str> = self.denylist.iter().map(String::as_str).collect();
         let regex_denylist: Vec<&str> = self.regex_denylist.iter().map(String::as_str).collect();
         let policy_planes: Vec<&[u64]> = self.policy_planes.iter().map(Vec::as_slice).collect();
@@ -260,27 +440,31 @@ impl FuseRequest {
             denylist: &denylist,
             regex_denylist: &regex_denylist,
             policy_planes: &policy_planes,
-        };
+        }
+        .select(&sel);
         let compiled = CompiledFuse::compile(&layers, self.vocab.clone())?;
         Ok(compiled.fused_mask(&self.generated))
     }
 
-    /// The active layer names, in fuse order — for surfacing "which laws fired".
+    /// The active layer names, in fuse order — a layer fires only when its
+    /// source is present AND the selection keeps it. For surfacing "which laws
+    /// fired" (and the `sovereign_data_plane_token_law_mask_layers` metric).
     pub fn layers_active(&self) -> Vec<&'static str> {
+        let sel = self.selection().unwrap_or_else(|_| MaskLayerSet::all());
         let mut v = Vec::new();
-        if self.schema.is_some() {
+        if self.schema.is_some() && sel.grammar {
             v.push("grammar");
         }
-        if self.regex.is_some() {
+        if self.regex.is_some() && sel.regex {
             v.push("regex");
         }
-        if !self.denylist.is_empty() {
+        if !self.denylist.is_empty() && sel.denylist {
             v.push("denylist");
         }
-        if !self.regex_denylist.is_empty() {
+        if !self.regex_denylist.is_empty() && sel.regex_denylist {
             v.push("regex_denylist");
         }
-        if !self.policy_planes.is_empty() {
+        if !self.policy_planes.is_empty() && sel.policy {
             v.push("policy");
         }
         v
@@ -462,5 +646,53 @@ mod tests {
         assert_eq!(req.layers_active(), vec!["regex", "regex_denylist"]);
         let out = req.fuse().unwrap();
         assert_eq!(set_bits(&out.mask), vec![0, 2]);
+    }
+
+    #[test]
+    fn mask_layer_set_parses_real_names_and_aliases() {
+        // empty ⇒ all
+        assert_eq!(MaskLayerSet::from_csv("").unwrap(), MaskLayerSet::all());
+        assert_eq!(
+            MaskLayerSet::from_csv("  , ,").unwrap(),
+            MaskLayerSet::all()
+        );
+        // milestone default names map onto the real planes; `safety` ⇒ both denials
+        let s = MaskLayerSet::from_csv("grammar,schema,tool,safety").unwrap();
+        assert!(s.grammar && s.regex && s.denylist && s.regex_denylist);
+        assert!(!s.policy);
+        // real names, case-insensitive
+        let r = MaskLayerSet::from_csv("REGEX, Policy").unwrap();
+        assert_eq!(r.names(), vec!["regex", "policy"]);
+        // unknown ⇒ error
+        assert!(MaskLayerSet::from_csv("grammar,teleport").is_err());
+    }
+
+    #[test]
+    fn selection_skips_a_deselected_layer_even_when_supplied() {
+        // regex demands digits, denylist bans "5"; select ONLY safety → the regex
+        // plane is dropped, so non-digits survive and only the denylist applies.
+        let req: FuseRequest = serde_json::from_str(
+            r#"{ "regex": "[0-9]+", "denylist": ["5"], "vocab": ["5","x","7"],
+                 "mask_layers": ["safety"] }"#,
+        )
+        .unwrap();
+        // only the denylist fires (regex/tool deselected)
+        assert_eq!(req.layers_active(), vec!["denylist"]);
+        let out = req.fuse().unwrap();
+        // "5" banned by denylist; "x" and "7" survive (regex NOT applied)
+        assert_eq!(set_bits(&out.mask), vec![1, 2]);
+    }
+
+    #[test]
+    fn selecting_a_layer_that_is_absent_is_a_no_op() {
+        // select grammar only, but the request has no schema → nothing fires,
+        // everything is permitted.
+        let req: FuseRequest = serde_json::from_str(
+            r#"{ "regex": "[0-9]+", "vocab": ["5","x"], "mask_layers": ["grammar"] }"#,
+        )
+        .unwrap();
+        assert!(req.layers_active().is_empty());
+        let out = req.fuse().unwrap();
+        assert_eq!(out.allowed, 2);
     }
 }

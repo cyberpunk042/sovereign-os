@@ -219,6 +219,11 @@ COMMANDS:
                                verify a factor to mint a step-up elevation (so a pending high-privilege op proceeds),
                                and curate which controls need step-up. The cockpit pane is the primary surface; this is
                                the terminal mirror over the SAME step-up store.
+  token-law layers [--token-law-mask-layers CSV] [--json] | fuse --vocab a,b,c [--regex P] [--denylist …] [--schema-file F] [--generated S] [--json]
+                               Token-law engine mask-layer selection (SDD-510, M00155): `layers` resolves which named
+                               laws (grammar/schema/tool/safety/policy) are active — flag > SOVEREIGN_TOKEN_LAW_MASK_LAYERS
+                               env > runtime-profile knob > all. `fuse` derives the checkpoint-free vocab allow-mask at a
+                               prefix over the sanctioned /v1/data-plane/token-law/fuse route (no model needed).
 
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
@@ -6489,6 +6494,8 @@ case "${cmd}" in
     PYTHONPATH="${__REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" exec "${PYTHON3}" -m tools.notifykit.cli "$@" ;;
   stepup)  # SDD-509 §5: step-up MFA manual CLI escape hatch — enroll/verify/status/tier (the cockpit pane is the primary surface; this is the terminal mirror over the SAME step-up store).
     exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/stepup-cli.py" "$@" ;;
+  token-law)  # SDD-510 (M00155 F00793/4/5): token-law engine mask-layer selection — `layers` resolves the active selection (flag>env>profile>all); `fuse` probes the checkpoint-free /v1/data-plane/token-law/fuse route.
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/token-law-cli.py" "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;
