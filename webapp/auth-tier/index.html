@@ -2600,6 +2600,9 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 .su-secret { font-family: var(--mono,monospace); overflow-wrap:anywhere; background:rgba(255,255,255,.04); padding:.4rem; border-radius:4px; display:block; margin:.15rem 0; }
 .su-warn { border:1px solid #e0b050; border-radius:4px; padding:.5rem; margin-top:.35rem; }
 .su-codes { display:grid; grid-template-columns:repeat(auto-fill,minmax(12ch,1fr)); gap:.25rem; font-family:var(--mono,monospace); margin-top:.25rem; }
+.su-curate { display:flex; flex-direction:column; gap:.25rem; }
+.su-crow { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; font-size:.75rem; }
+.su-crow > span:first-child { font-family:var(--mono,monospace); min-width:12ch; }
 .su-out { min-height:1em; }
 .su-out.ok{color:#6fcf6f;} .su-out.warn{color:#e0b050;} .su-out.err{color:#e06a6a;} .su-out.muted{color:var(--muted,#888);}
 </style>
@@ -2643,9 +2646,29 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       + '<div class="su-row"><strong>Step-up controls:</strong> '
         + ((s.step_up_controls||[]).length ? s.step_up_controls.map(function(c){return chip(c,true);}).join("") : '<span class="muted">none</span>')
         + "</div>"
-      + '<div class="su-row muted">Phone/email codes activate once notifykit has a Twilio/Resend channel; TOTP works offline. Re-enroll + regenerate require a live step-up elevation.</div>'
+      + '<div class="su-curate"><strong>Curate which ops need step-up:</strong>'
+        + ((s.curatable_controls||[]).map(function(c){
+            var on = c.tier === "step-up";
+            return '<div class="su-crow"><span>' + esc(c.id) + '</span> ' + chip(c.tier, on)
+              + (c.overridden ? '<span class="su-chip">overridden</span>' : "")
+              + '<button type="button" class="su-tier" data-cid="' + esc(c.id) + '" data-to="'
+              + (on ? "operator-present" : "step-up") + '">' + (on ? "remove step-up" : "require step-up") + "</button></div>";
+          }).join("") || '<div class="muted">no curatable controls</div>')
+        + "</div>"
+      + '<div class="su-row muted">Phone/email codes activate once notifykit has a Twilio/Resend channel; TOTP works offline. Re-enroll, regenerate, and tier changes require a live step-up elevation.</div>'
       + '<div id="su-out" class="su-out muted"></div><div id="su-reveal"></div>';
     var out = document.getElementById("su-out");
+    Array.prototype.forEach.call(pane.querySelectorAll(".su-tier"), function(btn){
+      btn.addEventListener("click", function(){
+        setOut(out,"muted","updating tier…");
+        post({action:"set_tier", control_id:btn.getAttribute("data-cid"), tier:btn.getAttribute("data-to")}).then(function(res){
+          var b = res.body || {};
+          if(res.status===200 && b.ok){ setOut(out,"ok","tier updated"); refresh(); }
+          else if(res.status===401 && b.step_up_required) setOut(out,"warn","changing a tier requires a live step-up elevation first");
+          else setOut(out,"err", b.error || "tier update failed");
+        }).catch(function(){ setOut(out,"err","endpoint unreachable"); });
+      });
+    });
     document.getElementById("su-enroll").addEventListener("click", function(){
       setOut(out,"muted","enrolling…");
       post({action:"enroll"}).then(function(res){

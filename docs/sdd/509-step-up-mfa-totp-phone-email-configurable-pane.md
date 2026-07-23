@@ -150,15 +150,23 @@ the ONE sanctioned write endpoint (the cockpit's single-POST doctrine).
   consumes it). It rides the SAME sanctioned write endpoint under a `stepup`
   body key — the component keeps **exactly one POST verb** (drift-guarded). The
   updated component is re-inlined byte-identical into all 63 panels.
+- **Per-control tier curation** (`stepup.py` + the daemon): a small JSON overlay
+  (`tier-overrides.json`, control-id → tier) that `resolve_tier` consults ahead
+  of the declared `auth:` — the operator curates **which ops need step-up** in
+  the pane, **never** editing the base `control-systems.yaml`. selfdef/perimeter
+  are never curatable (always proxy-only). Setting a tier is itself a step-up op
+  (gated on a live elevation once enrolled). The exec-rail gate honors the
+  curated tier.
 - **The config/enrollment pane** (`webapp/auth-tier/index.html`): reads
   `GET /api/control/stepup` and renders enrollment state, offerable factors,
-  recovery codes left, the elevation window, and the step-up control set. Enroll
-  shows the TOTP secret + `otpauth://` URI + the recovery codes **once**;
-  Regenerate rotates the recovery batch. Both ride the sanctioned exec endpoint;
-  the pane degrades gracefully when served standalone (control-exec daemon
-  absent). *(QR-image rendering of the `otpauth://` URI is a polish follow-up —
-  today the pane shows the URI + the base32 secret for manual entry, which every
-  authenticator app accepts.)*
+  recovery codes left, the elevation window, the step-up control set, and a
+  **"Curate which ops need step-up"** list (each curatable control with a
+  require/remove-step-up toggle). Enroll shows the TOTP secret + `otpauth://`
+  URI + the recovery codes **once**; Regenerate rotates the recovery batch. All
+  ride the sanctioned exec endpoint; the pane degrades gracefully when served
+  standalone (control-exec daemon absent). *(QR-image rendering of the
+  `otpauth://` URI is a polish follow-up — today the pane shows the URI + the
+  base32 secret for manual entry, which every authenticator app accepts.)*
 - **Tests:** `test_stepup_break_glass.py` (6), `test_stepup_phase_c.py` (status
   helper + dispatcher + the modal/pane/daemon source pins), `test_stepup_exec_api.py`
   (spawns the daemon: status, enroll→verify flow, re-enroll-needs-elevation,
@@ -166,10 +174,10 @@ the ONE sanctioned write endpoint (the cockpit's single-POST doctrine).
   (Phase A+B+C) + the exec-rail contract stay green; ruff clean.
 
 Still opt-in + non-breaking: the exec-rail gate engages only once a factor is
-enrolled. **Tier remapping in-pane** (curating which controls need `step-up`,
-beyond os-profile/runtime-mode) is the one config-pane item deferred — it wants
-a `stepup` osctl verb + a `control-systems.yaml` writer, tracked as a follow-up;
-the pane shows the current tier set read-only today.
+enrolled. **Tier remapping is now in-pane** (via the `tier-overrides.json`
+overlay driven through the same `stepup` body key — no base-registry edit, no
+new osctl verb). The only remaining polish is QR-image rendering of the
+enrollment URI (the pane shows the URI + base32 secret today).
 
 ### Phase-A honesty (unchanged)
 

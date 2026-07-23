@@ -343,7 +343,12 @@ def _stepup_enabled() -> bool:
 
 
 def _stepup_tier(control: dict) -> str:
-    return _stepup().resolve_tier(control)
+    su = _stepup()
+    try:
+        overrides = su.tier_overrides(_stepup_dir())
+    except Exception:
+        overrides = None
+    return su.resolve_tier(control, overrides)
 
 
 def _stepup_consume(actor: str) -> bool:

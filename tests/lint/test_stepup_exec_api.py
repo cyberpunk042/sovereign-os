@@ -165,6 +165,34 @@ def test_request_otp_is_inert_without_notifykit(tmp_path):
         proc.kill()
 
 
+def test_tier_curation_is_gated_and_takes_effect(tmp_path):
+    port = _free_port()
+    proc = _spawn(port, tmp_path)
+    try:
+        # before enrollment the gate is off → curation is open (bootstrap)
+        status, body = _post(port, "/api/control/execute",
+                             {"stepup": {"action": "set_tier", "control_id": "cpu-mode",
+                                         "tier": "step-up"}})
+        assert status == 200 and body["ok"] is True, body
+        # it shows up as overridden onto step-up in the status
+        _, st = _get(port, "/api/control/stepup")
+        cur = {c["id"]: c for c in st["curatable_controls"]}
+        assert cur["cpu-mode"]["tier"] == "step-up" and cur["cpu-mode"]["overridden"] is True
+
+        # once enrolled, curation requires a live elevation
+        _post(port, "/api/control/execute", {"stepup": {"action": "enroll"}})
+        status, body = _post(port, "/api/control/execute",
+                             {"stepup": {"action": "clear_tier", "control_id": "cpu-mode"}})
+        assert status == 401 and body["step_up_required"] is True, body
+
+        # selfdef can never be curated (always proxy-only)
+        assert _post(port, "/api/control/execute",
+                     {"stepup": {"action": "set_tier", "control_id": "selfdef",
+                                 "tier": "none"}})[0] == 400
+    finally:
+        proc.kill()
+
+
 def test_execute_path_still_works_alongside_stepup(tmp_path):
     """The control-execution path is unchanged by the stepup body dispatch."""
     port = _free_port()

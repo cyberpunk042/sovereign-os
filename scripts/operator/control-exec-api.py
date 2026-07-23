@@ -354,6 +354,43 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(200 if ok else 503, {"ok": ok, "factor": factor, "detail": detail})
             return
+        if action in ("set_tier", "clear_tier"):
+            # Curating which controls need step-up is itself a step-up op — an
+            # attacker who could freely lower a control's tier via the pane
+            # defeats the gate. Requires a live elevation once enrolled.
+            cid = str(su.get("control_id") or "")
+            if not cid:
+                self._send_json(400, {"error": "set_tier/clear_tier need a control_id"})
+                return
+            # never let selfdef/perimeter be curated off proxy-only (checked
+            # before the elevation gate — it's an invariant, not a permission).
+            if cid in ("selfdef", "perimeter"):
+                self._send_json(400, {"ok": False,
+                                      "error": f"{cid} is proxy-only and not curatable"})
+                return
+            if _stepup.is_enrolled(d) and not _stepup.ElevationStore(
+                    d / "elevations.json").consume(_STEPUP_ACTOR, "step-up"):
+                self._send_json(401, {"ok": False, "step_up_required": True,
+                                      "tier": "step-up",
+                                      "error": "changing a control's tier requires a live "
+                                               "step-up elevation (verify a current factor first)",
+                                      "factors": _stepup.status(d, nc)["factors"]})
+                return
+            try:
+                if action == "clear_tier":
+                    _stepup.clear_tier_override(d, cid)
+                    ok = True
+                else:
+                    ok = _stepup.set_tier_override(d, cid, str(su.get("tier") or ""))
+            except Exception as e:  # noqa: BLE001
+                self._send_json(500, {"ok": False, "error": f"tier update failed: {e}"})
+                return
+            if not ok:
+                self._send_json(400, {"ok": False,
+                                      "error": "tier must be none|operator-present|step-up"})
+                return
+            self._send_json(200, {"ok": True, "control_id": cid})
+            return
         if action in ("enroll", "regenerate_break_glass"):
             # Bootstrap enrollment is open only on a fresh box; RE-enrolling or
             # rotating recovery codes (an attacker rotating your secret =

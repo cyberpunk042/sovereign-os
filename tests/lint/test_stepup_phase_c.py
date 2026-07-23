@@ -46,6 +46,48 @@ def test_status_starts_empty_and_fills_after_enrollment(tmp_path):
     assert st2["break_glass_remaining"] == 10
 
 
+def test_tier_overrides_curate_without_touching_the_base(tmp_path):
+    m = _load()
+    priv = {"id": "cpu-mode", "privileged": True}       # defaults to step-up
+    plain = {"id": "flex-profile", "privileged": False}  # defaults to none
+    proxy = {"id": "selfdef", "privileged": True}        # always proxy-only
+    # no overrides → declared behaviour
+    assert m.resolve_tier(priv) == "step-up"
+    assert m.resolve_tier(plain) == "none"
+    # curate: lower cpu-mode off step-up, raise flex-profile onto it
+    assert m.set_tier_override(tmp_path, "cpu-mode", "operator-present") is True
+    assert m.set_tier_override(tmp_path, "flex-profile", "step-up") is True
+    ov = m.tier_overrides(tmp_path)
+    assert m.resolve_tier(priv, ov) == "operator-present"
+    assert m.resolve_tier(plain, ov) == "step-up"
+    # selfdef can never be curated off proxy-only, even with an override present
+    assert m.resolve_tier(proxy, {"selfdef": "none"}) == "proxy-only"
+    # an invalid tier is refused
+    assert m.set_tier_override(tmp_path, "cpu-mode", "root") is False
+    # clearing reverts to the declared tier
+    m.clear_tier_override(tmp_path, "cpu-mode")
+    assert m.resolve_tier(priv, m.tier_overrides(tmp_path)) == "step-up"
+
+
+def test_status_lists_curatable_controls_with_effective_tier(tmp_path):
+    m = _load()
+    controls = [
+        {"id": "os-profile", "auth": "step-up", "privileged": True},
+        {"id": "cpu-mode", "privileged": True},
+        {"id": "flex-profile", "privileged": False},
+        {"id": "selfdef", "privileged": True},
+    ]
+    m.set_tier_override(tmp_path, "cpu-mode", "operator-present")
+    st = m.status(tmp_path, tmp_path / "n.toml", controls=controls)
+    cur = {c["id"]: c for c in st["curatable_controls"]}
+    # privileged non-proxy controls are curatable; selfdef (proxy) is not
+    assert "os-profile" in cur and "cpu-mode" in cur and "selfdef" not in cur
+    assert cur["cpu-mode"]["tier"] == "operator-present" and cur["cpu-mode"]["overridden"] is True
+    assert cur["os-profile"]["tier"] == "step-up" and cur["os-profile"]["overridden"] is False
+    # cpu-mode was curated off step-up → not in the step-up set
+    assert "cpu-mode" not in st["step_up_controls"] and "os-profile" in st["step_up_controls"]
+
+
 def test_verify_factor_dispatch_routes_each_family(tmp_path):
     m = _load()
     # totp
@@ -85,6 +127,8 @@ def test_auth_tier_carries_the_step_up_config_pane():
     packed = html.replace(" ", "")
     assert 'action:"enroll"' in packed, "the pane must drive enroll through the exec rail"
     assert 'action:"regenerate_break_glass"' in packed, "the pane must offer break-glass regen"
+    assert 'action:"set_tier"' in packed, "the pane must curate control tiers"
+    assert "curatable_controls" in html, "the pane must render the curatable control set"
     assert "/api/control/execute" in html, "the pane mutates only via the sanctioned endpoint"
 
 
@@ -94,6 +138,7 @@ def test_exec_api_serves_the_step_up_routes():
     assert "_handle_stepup(" in src and 'body.get("stepup")' in src, (
         "step-up auth sub-actions must ride the /api/control/execute body"
     )
-    # verify / request_otp / enroll / regenerate all handled
-    for action in ('"verify"', '"request_otp"', '"enroll"', '"regenerate_break_glass"'):
+    # verify / request_otp / enroll / regenerate / tier-curation all handled
+    for action in ('"verify"', '"request_otp"', '"enroll"', '"regenerate_break_glass"',
+                   '"set_tier"', '"clear_tier"'):
         assert action in src, f"stepup handler missing action {action}"
