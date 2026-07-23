@@ -33,7 +33,7 @@ DASH_PORT="${SOVEREIGN_OS_DASHBOARD_PORT:-8100}"
 SKEL="/etc/skel"
 
 # SDD-704 swappable frontend selector. FRONTEND = what the box PRESENTS at boot
-# (gnome | dashboards-kiosk | open-computer-kiosk | none); FRONTEND_INSTALL =
+# (gnome | kde-plasma | dashboards-kiosk | open-computer-kiosk | none); FRONTEND_INSTALL =
 # which stacks to STAGE so `sovereign-osctl frontend set <value>` can switch live.
 # Back-compat: if SOVEREIGN_OS_FRONTEND is unset, derive from the legacy
 # SOVEREIGN_OS_DESKTOP (none→none, else gnome) so pre-SDD-704 callers are unchanged.
@@ -78,6 +78,15 @@ install_gnome_de() {
       apt-get install -y --no-install-recommends gnome-core gdm3 firefox-esr xdg-utils
       ;;
   esac
+}
+
+install_plasma_de() {
+  # kde-plasma-desktop = a lean but complete KDE Plasma (Plasma shell + KWin +
+  # systemsettings). sddm is Plasma's display/login manager — the gdm3 analogue.
+  # Swap for kde-standard if you want the fuller Debian KDE app set. Unlike
+  # install_gnome_de this does NOT key off SOVEREIGN_OS_DESKTOP — selecting the
+  # kde-plasma frontend is itself the request for Plasma (SDD-704 decoupling).
+  apt-get install -y --no-install-recommends kde-plasma-desktop sddm firefox-esr xdg-utils
 }
 
 install_kiosk_stack() {
@@ -125,6 +134,7 @@ set_target() {
 for _f in ${FRONTEND_INSTALL//,/ }; do
   case "${_f}" in
     gnome)                             info "stage: gnome desktop"; install_gnome_de ;;
+    kde-plasma)                        info "stage: kde plasma desktop"; install_plasma_de ;;
     dashboards-kiosk|open-computer-kiosk) info "stage: kiosk stack (${_f})"; install_kiosk_stack ;;
     none)                              : ;;
     *)                                 red "unknown frontend stack '${_f}' — skipping" ;;
@@ -134,14 +144,26 @@ done
 # (1b) activate the default
 case "${FRONTEND}" in
   none)
-    info "frontend=none — headless (multi-user.target); gdm + kiosk disabled"
+    info "frontend=none — headless (multi-user.target); display managers + kiosk disabled"
     systemctl disable gdm3.service 2>/dev/null || true
+    systemctl disable sddm.service 2>/dev/null || true
     systemctl disable sovereign-frontend-kiosk.service 2>/dev/null || true
     set_target multi-user.target
     ;;
   gnome)
     info "frontend=gnome — desktop + dashboards launcher (gdm on graphical.target)"
     systemctl disable sovereign-frontend-kiosk.service 2>/dev/null || true
+    systemctl disable sddm.service 2>/dev/null || true   # only one display manager owns the seat
+    systemctl enable gdm3.service 2>/dev/null || true
+    set_target graphical.target
+    ;;
+  kde-plasma)
+    info "frontend=kde-plasma — Plasma desktop + dashboards launcher (sddm on graphical.target)"
+    systemctl disable sovereign-frontend-kiosk.service 2>/dev/null || true
+    systemctl disable gdm3.service 2>/dev/null || true   # only one display manager owns the seat
+    systemctl enable sddm.service 2>/dev/null \
+      && info "sddm ENABLED (default frontend=kde-plasma)" \
+      || info "sddm enable deferred (no running systemd / unit absent)"
     set_target graphical.target
     ;;
   dashboards-kiosk|open-computer-kiosk)
@@ -149,8 +171,9 @@ case "${FRONTEND}" in
     [ "${FRONTEND}" = open-computer-kiosk ] && \
       _url="${SOVEREIGN_OS_FRONTEND_KIOSK_URL:-http://127.0.0.1:9800/}"
     write_kiosk_env "${_url}"
-    # A kiosk owns the display — disable gdm so it doesn't contend for the seat.
+    # A kiosk owns the display — disable every login manager so none contends for the seat.
     systemctl disable gdm3.service 2>/dev/null || true
+    systemctl disable sddm.service 2>/dev/null || true
     systemctl enable sovereign-frontend-kiosk.service 2>/dev/null \
       && info "kiosk ENABLED (default frontend=${FRONTEND})" \
       || info "kiosk enable deferred (no running systemd / unit absent)"
@@ -326,6 +349,64 @@ info "desktop icon: ${SKEL}/Desktop/"
 command -v update-desktop-database >/dev/null 2>&1 \
   && update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
 
+# ── (4b) always-on appliance: disable sleep/suspend entirely ──
+# The sovereign box runs inference around the clock and NEVER suspends — on power
+# loss it does a graceful poweroff (the default battery-threshold-graceful-shutdown
+# power profile → `systemctl poweroff`), not a suspend. So we disable sleep at three
+# depths:
+#   1. Mask the sleep targets (sleep/suspend/hibernate/hybrid-sleep) — makes suspend
+#      IMPOSSIBLE for anything: logind, KDE PowerDevil, GNOME, a stray package.
+#      Masking touches ONLY sleep — poweroff.target / reboot.target are untouched, so
+#      the graceful-shutdown path is unaffected.
+#   2. systemd-logind (DE-independent): ignore idle/lid/suspend-key actions — so the
+#      DE never even attempts a (now-masked) suspend.
+#   3. KDE PowerDevil (the sain-01 default desktop): AC/battery profiles take no
+#      power action.
+# The former `ac-loss-graceful-suspend` power profile (the only `systemctl suspend`
+# in the tree) has been REMOVED from the catalog (scripts/power/profiles.py) — this
+# box poweroffs, never suspends. Masking is the belt to that braces. Unmask to
+# re-enable suspend:
+#   systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target
+step "4b/5 disable sleep/suspend (always-on appliance: mask targets + logind + KDE PowerDevil)"
+# (1) mask the sleep targets. `ln -sf /dev/null` IS what `systemctl mask` does, and
+# it works offline in the install chroot (no running systemd needed).
+install -d -m 755 /etc/systemd/system
+for _t in sleep.target suspend.target hibernate.target hybrid-sleep.target; do
+  ln -sf /dev/null "/etc/systemd/system/${_t}"
+done
+info "sleep mask  : sleep/suspend/hibernate/hybrid-sleep.target → /dev/null (poweroff/reboot untouched)"
+install -d -m 755 /etc/systemd/logind.conf.d
+cat > /etc/systemd/logind.conf.d/50-sovereign-os-no-sleep.conf <<'EOF'
+# /etc/systemd/logind.conf.d/50-sovereign-os-no-sleep.conf — SDD-704 desktop switch.
+# The sovereign-os box is an always-on inference appliance: never suspend. Idle/lid/
+# suspend-key actions are ignored so the DE never attempts the (also-masked) suspend.
+# On power loss the box poweroffs gracefully — it does not suspend.
+[Login]
+HandleLidSwitch=ignore
+HandleLidSwitchDocked=ignore
+HandleLidSwitchExternalPower=ignore
+HandleSuspendKey=ignore
+HandleHibernateKey=ignore
+IdleAction=ignore
+EOF
+info "logind      : /etc/systemd/logind.conf.d/50-sovereign-os-no-sleep.conf (no idle/lid/key auto-suspend)"
+# KDE PowerDevil system default — empty AC/Battery/LowBattery profiles take no idle
+# power action (no suspend, no screen-off). Plasma-version-sensitive; logind above
+# is the load-bearing guarantee. GNOME's equivalent (org.gnome.settings-daemon
+# sleep-inactive-*-type 'nothing') is left to the GNOME session default.
+install -d -m 755 /etc/xdg
+cat > /etc/xdg/powermanagementprofilesrc <<'EOF'
+# /etc/xdg/powermanagementprofilesrc — sovereign-os always-on default.
+# Empty profiles = PowerDevil takes no idle power action (never suspend / blank).
+# Operator can override per-user in ~/.config/powermanagementprofilesrc.
+[AC]
+
+[Battery]
+
+[LowBattery]
+EOF
+info "KDE power   : /etc/xdg/powermanagementprofilesrc (PowerDevil: no auto-suspend/screen-off)"
+
 # ── (5) done ──
 step "5/5 done"
 grn "Frontend + dashboards installed."
@@ -335,12 +416,16 @@ cat <<EOF
   Dashboards  : running on boot, loopback only
   Entry point : http://127.0.0.1:${DASH_PORT}/   ← the hub (every panel + /panels/ index)
   Find it     : "Sovereign Dashboards" in the app menu, on the desktop,
-                and auto-opened on first login (gnome frontend).
+                and auto-opened on first login (any desktop frontend — GNOME/KDE).
+  Sleep       : suspend / sleep / hibernate fully DISABLED (targets masked +
+                logind + KDE PowerDevil). Always-on appliance — power loss triggers
+                a graceful POWEROFF, never a suspend. Unmask to re-enable.
 
   Switch frontend live (no reflash):
-    sovereign-osctl frontend list                  # what's staged / active
-    sovereign-osctl frontend set dashboards-kiosk  # fullscreen kiosk → the hub
-    sovereign-osctl frontend set gnome             # back to the desktop
+    sovereign-osctl frontend list                    # what's staged / active
+    sovereign-osctl frontend set dashboards-kiosk    # fullscreen kiosk → the hub
+    sovereign-osctl frontend set kde-plasma          # KDE Plasma desktop (default)
+    sovereign-osctl frontend set gnome               # GNOME desktop (staged fallback)
 
   Expose beyond loopback (headless / LAN / tailscale) by dropping an override:
     /etc/systemd/system/sovereign-dashboards.service.d/bind.conf

@@ -401,7 +401,7 @@ operator use.
 ## power-profiles
 
 **sovereign-osctl power-profiles {list|show|simulate|active}**
-:   R293 (E1.M21): operator-pull power-management default-profile registry — composes R252/R253/R262/R265/R292 into named profiles (battery-threshold-graceful-shutdown, scheduled-graceful-poweroff, ac-loss-graceful-suspend, thermal-budget-throttle, psu-headroom-warn). Operator-named (§1b verbatim): "the PSU/APC integration with the power mangement and the scheduled shutdown when battery reach a certain point as one default profile."
+:   R293 (E1.M21): operator-pull power-management default-profile registry — composes R252/R253/R262/R265/R292 into named profiles (battery-threshold-graceful-shutdown, scheduled-graceful-poweroff, thermal-budget-throttle, psu-headroom-warn). Operator-named (§1b verbatim): "the PSU/APC integration with the power mangement and the scheduled shutdown when battery reach a certain point as one default profile."
 
 ## oc-headroom
 

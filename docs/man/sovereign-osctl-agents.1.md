@@ -192,7 +192,7 @@ operator use.
 :   SDD-704 boot-frontend selector: what's installed / default / active
 
 **sovereign-osctl frontend list [--json]**
-:   The frontends (gnome · dashboards-kiosk · open-computer-kiosk · none) + staged/active
+:   The frontends (gnome · kde-plasma · dashboards-kiosk · open-computer-kiosk · none) + staged/active
 
 **sovereign-osctl frontend set <value> [--url U]**
 :   Switch the boot frontend live, no reflash (root):

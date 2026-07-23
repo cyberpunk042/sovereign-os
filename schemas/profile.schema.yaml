@@ -409,7 +409,8 @@ properties:
       # display, independent of which AI runtimes are installed. `default` is baked
       # in; `install` lists the frontends whose stacks are staged so a later
       # `sovereign-osctl frontend set <value>` can switch live (no reflash).
-      #   gnome               = the near-stock GNOME desktop + dashboards launcher (today's behaviour)
+      #   gnome               = the near-stock GNOME desktop + dashboards launcher (gdm3)
+      #   kde-plasma           = the KDE Plasma desktop + dashboards launcher (sddm)
       #   dashboards-kiosk     = fullscreen kiosk to the :8100 dashboards hub
       #   open-computer-kiosk  = fullscreen kiosk to the open-computer sandbox UI (needs SDD-706 service)
       #   none                 = headless (multi-user.target)
@@ -419,12 +420,12 @@ properties:
         properties:
           default:
             type: string
-            enum: [gnome, dashboards-kiosk, open-computer-kiosk, none]
+            enum: [gnome, kde-plasma, dashboards-kiosk, open-computer-kiosk, none]
           install:
             type: array
             items:
               type: string
-              enum: [gnome, dashboards-kiosk, open-computer-kiosk]
+              enum: [gnome, kde-plasma, dashboards-kiosk, open-computer-kiosk]
       # Pinned NVIDIA ≥570 open-kernel driver (SDD-701). trixie ships 550, which
       # predates Blackwell GB202 — nvidia-driver-install.sh installs the pinned .run at first boot.
       nvidia:

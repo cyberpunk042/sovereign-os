@@ -179,9 +179,9 @@ COMMANDS:
   selfdef install-units        Wire selfdef's shipped systemd units into /etc/systemd/system (root)
 
   frontend status [--json]     SDD-704 boot-frontend selector: what's installed / default / active
-  frontend list [--json]       The frontends (gnome · dashboards-kiosk · open-computer-kiosk · none) + staged/active
+  frontend list [--json]       The frontends (gnome · kde-plasma · dashboards-kiosk · open-computer-kiosk · none) + staged/active
   frontend set <value> [--url U]  Switch the boot frontend live, no reflash (root):
-                               gnome | dashboards-kiosk | open-computer-kiosk | none
+                               gnome | kde-plasma | dashboards-kiosk | open-computer-kiosk | none
 
   openclaw status              SDD-705 OpenClaw gateway daemon: installed · enabled · active · config
   openclaw on | off            Enable+start / stop+disable the OpenClaw daemon (installed-off; root)
@@ -3771,7 +3771,7 @@ except Exception: print('none')
   # SOVEREIGN_OS_FRONTEND / _BAKE_OPENCLAW / _BAKE_OPEN_COMPUTER env the
   # build-configurator webapp sets; unset here inherits the profile.
   echo "  [6/6] AGENT LAYER — desktop + agent runtimes (SDD-703..709)"
-  echo "    frontend        gnome · dashboards-kiosk · open-computer-kiosk · none"
+  echo "    frontend        gnome · kde-plasma · dashboards-kiosk · open-computer-kiosk · none"
   echo "                    (Enter = profile default)"
   echo "    openclaw        bake the OpenClaw agent runtime in (installed-off)"
   echo "    open-computer   bake the open-computer QEMU AI sandbox in (installed-off)"
@@ -3786,8 +3786,8 @@ except Exception: print('none')
     [ -n "${ans}" ] && bake_open_computer="${ans}"
   fi
   case "${frontend}" in
-    ""|gnome|dashboards-kiosk|open-computer-kiosk|none) ;;
-    *) log_error "  invalid frontend: ${frontend} (valid: gnome, dashboards-kiosk, open-computer-kiosk, none)"; return 1 ;;
+    ""|gnome|kde-plasma|dashboards-kiosk|open-computer-kiosk|none) ;;
+    *) log_error "  invalid frontend: ${frontend} (valid: gnome, kde-plasma, dashboards-kiosk, open-computer-kiosk, none)"; return 1 ;;
   esac
   case "${bake_openclaw}" in yes|no) ;; *) log_error "  invalid (yes|no): ${bake_openclaw}"; return 1 ;; esac
   case "${bake_open_computer}" in yes|no) ;; *) log_error "  invalid (yes|no): ${bake_open_computer}"; return 1 ;; esac
@@ -8295,8 +8295,8 @@ PYEOF
     # R293 (E1.M21): operator-pull power-management default-profile
     # registry — composes R252/R253/R262/R265/R292 into named
     # profiles (battery-threshold-graceful-shutdown,
-    # scheduled-graceful-poweroff, ac-loss-graceful-suspend,
-    # thermal-budget-throttle, psu-headroom-warn). Operator-named
+    # scheduled-graceful-poweroff, thermal-budget-throttle,
+    # psu-headroom-warn). Operator-named
     # (§1b verbatim): "the PSU/APC integration with the power
     # mangement and the scheduled shutdown when battery reach a
     # certain point as one default profile."
@@ -8809,10 +8809,11 @@ PYEOF
   frontend)
     # SDD-704: swappable boot-frontend selector — "chose at any point to start in
     # one or another or even disable both". Flips the display between the GNOME
-    # desktop, a fullscreen kiosk to the :8100 dashboards hub, a kiosk to the
-    # open-computer sandbox UI (SDD-706), or headless — live, no reflash. Toggles
-    # gdm3 vs the kiosk unit, rewrites the kiosk target URL, sets the boot target.
-    # Verbs: status / list / set {gnome|dashboards-kiosk|open-computer-kiosk|none} [--url U] [--json].
+    # desktop (or KDE Plasma), a fullscreen kiosk to the :8100 dashboards hub, a
+    # kiosk to the open-computer sandbox UI (SDD-706), or headless — live, no
+    # reflash. Toggles the desktop display manager (gdm3/sddm) vs the kiosk unit,
+    # rewrites the kiosk target URL, sets the boot target.
+    # Verbs: status / list / set {gnome|kde-plasma|dashboards-kiosk|open-computer-kiosk|none} [--url U] [--json].
     exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/frontend.py" "$@"
     ;;
   compliance)

@@ -184,7 +184,7 @@ AFFECTED_ADVISORS: list[dict[str, Any]] = [
                                 "since R345; maps canonical mode → "
                                 "recommended profile name via "
                                 "WORKLOAD_MODE_TO_PROFILE_NAME (idle→"
-                                "ac-loss-graceful-suspend; training→"
+                                "battery-threshold-graceful-shutdown; training→"
                                 "thermal-budget-throttle; inference-ready→"
                                 "battery-threshold-graceful-shutdown; "
                                 "oc-burst→psu-headroom-warn). Operator's "

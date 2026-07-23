@@ -76,7 +76,7 @@ profile's `provisioning:` block) and runtime-switchable — no reflash. Full gui
 ```sh
 # the face — what boots on the display
 sovereign-osctl frontend list
-sudo sovereign-osctl frontend set {gnome|dashboards-kiosk|open-computer-kiosk|none}
+sudo sovereign-osctl frontend set {gnome|kde-plasma|dashboards-kiosk|open-computer-kiosk|none}
 
 # OpenClaw — Node agent gateway (installed-off; SDD-705)
 sovereign-osctl openclaw status

@@ -892,14 +892,15 @@ systems:
     scope: global
     label: "Frontend / GUI"
     description: >-
-      Boot frontend — GNOME desktop (with-GUI), the dashboards kiosk, the
-      Open-Computer kiosk, or headless (non-GUI, multi-user.target). Restore the
-      desktop after a console/tty login by copying `set gnome` (+ `systemctl
-      isolate graphical.target` to bring it up in the current session).
-    options: [gnome, dashboards-kiosk, open-computer-kiosk, none]
+      Boot frontend — GNOME desktop (with-GUI), KDE Plasma desktop (with-GUI),
+      the dashboards kiosk, the Open-Computer kiosk, or headless (non-GUI,
+      multi-user.target). Restore the desktop after a console/tty login by copying
+      `set gnome` (+ `systemctl isolate graphical.target` to bring it up in the
+      current session).
+    options: [gnome, kde-plasma, dashboards-kiosk, open-computer-kiosk, none]
     options_cli: "sovereign-osctl frontend list"
     state_cli: "sovereign-osctl frontend status --json"
-    change_cli: "sovereign-osctl frontend set {gnome|dashboards-kiosk|open-computer-kiosk|none}"
+    change_cli: "sovereign-osctl frontend set {gnome|kde-plasma|dashboards-kiosk|open-computer-kiosk|none}"
     state_path: "/etc/sovereign-os/frontend.active"
     privileged: true
     applies_to: [runtime-modes]

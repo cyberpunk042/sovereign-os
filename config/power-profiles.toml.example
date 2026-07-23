@@ -63,17 +63,11 @@ steps = [
 ]
 notes = "Same drain ordering as battery profile, operator-owned schedule."
 
-[[profiles]]
-name    = "ac-loss-graceful-suspend"
-default = false
-trigger = "UPS OnBattery + battery_runtime_minutes ≥ shutdown_threshold + 5 min."
-steps = [
-    "sovereign-osctl power-status ups --json",
-    "sovereign-osctl service-deps drain --prefix slm- --json",
-    "sovereign-osctl service-deps drain --prefix oracle- --json",
-    "systemctl suspend",
-]
-notes = "Drain inference workloads first, then suspend (RAM-resident state preserved)."
+# REMOVED: "ac-loss-graceful-suspend" — this box is an always-on inference
+# appliance where suspend/sleep/hibernate is disabled (a suspend would break the
+# machine). AC loss is handled by the default battery-threshold-graceful-shutdown
+# profile, which poweroffs gracefully at the battery threshold. No `systemctl
+# suspend` anywhere.
 
 [[profiles]]
 name    = "thermal-budget-throttle"

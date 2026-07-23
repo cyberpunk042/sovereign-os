@@ -242,7 +242,15 @@ kernel:
     require_microcode: amd
   cmdline:
     base:
-      - quiet
+      # nomodeset: Blackwell GPU workaround — disables kernel mode-setting so the
+      # box boots to a basic framebuffer picture instead of a black screen on the
+      # unsupported card. This is the "get A picture on first boot" safety fallback
+      # (degraded: no acceleration; Plasma runs X11/software, not Wayland).
+      # TODO(SDD-blackwell): replace with the real driver path — proprietary NVIDIA
+      # driver + `nvidia-drm.modeset=1` + blacklist nouveau (nvidia-driver-install.sh
+      # hook). That path is mutually exclusive with nomodeset; drop this flag when it
+      # lands. Was `quiet` prior to the Blackwell switch.
+      - nomodeset
       - splash
       - "loglevel=3"
       # serial console: systemd auto-spawns serial-getty@ttyS0, whose
@@ -357,8 +365,8 @@ provisioning:
     openclaw: true                 # SDD-705: stage the OpenClaw Node gateway daemon (installed-off; first-boot npm install + preconfig → local endpoint)
     open_computer: true            # SDD-706: stage the open-computer QEMU AI-sandbox (installed-off; first-boot QEMU/KVM + clone/build + base image + preconfig → local endpoint)
     dashboards: true               # deploy panels + enable the dashboard hub + all read-only panel APIs
-    gui: true                      # install a desktop (GNOME) on the mkosi IMAGE so it boots to the dashboards.
-                                   # NOTE: adds ~1GB+ (gnome-core + gdm3 + firefox). The root-reflash install
+    gui: true                      # install a desktop (KDE Plasma, see frontend.default) on the mkosi IMAGE so it boots to the dashboards.
+                                   # NOTE: adds ~1GB+ (kde-plasma-desktop + sddm + firefox). The root-reflash install
                                    # (install-sovereign-root.sh) always installs the GUI regardless; set this
                                    # false to keep the flash/emulate appliance image headless. Non-fatal on failure.
     livereload: true               # SDD-203: keep developing on the live /opt/sovereign-os checkout after flashing —
@@ -373,14 +381,16 @@ provisioning:
   #   scope: host                  # host (default) | container (enforce only in non-host mount namespaces)
   #   extra_allowed_binaries:      # ABSOLUTE paths appended to the base 4-binary allowlist
   #     - /usr/local/bin/ollama
-  # Swappable boot frontend (SDD-704). The box boots to GNOME by default (today's
-  # behaviour, least surprise); the dashboards-kiosk stack is ALSO staged so the
-  # operator can flip to a fullscreen :8100 kiosk at any time with
-  # `sovereign-osctl frontend set dashboards-kiosk` — no reflash. open-computer-kiosk
-  # lands with its sandbox service (SDD-706); until then, selecting it hints to install it.
+  # Swappable boot frontend (SDD-704). The box boots to KDE Plasma by default — the
+  # Blackwell GPU switch: GNOME had display issues on the card, so KDE Plasma (sddm)
+  # is the default desktop, paired with the `nomodeset` boot fallback above. GNOME is
+  # STILL staged so the operator can flip back live with `sovereign-osctl frontend set
+  # gnome` — no reflash. The dashboards-kiosk stack is ALSO staged for a fullscreen
+  # :8100 kiosk (`frontend set dashboards-kiosk`). open-computer-kiosk lands with its
+  # sandbox service (SDD-706); until then, selecting it hints to install it.
   frontend:
-    default: gnome                 # gnome | dashboards-kiosk | open-computer-kiosk | none
-    install: [gnome, dashboards-kiosk]   # stage both stacks so the live switch can pick either
+    default: kde-plasma            # gnome | kde-plasma | dashboards-kiosk | open-computer-kiosk | none
+    install: [kde-plasma, gnome, dashboards-kiosk]   # stage all three so the live switch can pick any
   # Oracle-tier inference model (SDD-702). The vLLM Oracle Core (Blackwell,
   # sovereign-oracle-core.service) serves this from /mnt/vault/models;
   # inference-model-provision.sh downloads it there at first boot and points

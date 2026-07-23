@@ -19,10 +19,11 @@ without a reflash. Four frontends on one selector:
 
 | frontend | what it shows | how it's presented |
 |---|---|---|
-| `gnome` | the near-stock GNOME desktop + the "Sovereign Dashboards" launcher | gdm3 on `graphical.target` (today's behaviour — the default) |
+| `gnome` | the near-stock GNOME desktop + the "Sovereign Dashboards" launcher | gdm3 on `graphical.target` |
+| `kde-plasma` | the KDE Plasma desktop + the "Sovereign Dashboards" launcher | sddm on `graphical.target` (only one display manager owns the seat) |
 | `dashboards-kiosk` | a fullscreen kiosk straight to the :8100 dashboards hub | `cage` + a browser via `sovereign-frontend-kiosk.service` |
 | `open-computer-kiosk` | a fullscreen kiosk to the open-computer sandbox UI | same kiosk unit, URL pointed at the sandbox (service lands in SDD-706) |
-| `none` | headless | `multi-user.target`; gdm + kiosk disabled |
+| `none` | headless | `multi-user.target`; every display manager (gdm3/sddm) + kiosk disabled |
 
 ## Provisional decision adoption (from SDD-703)
 
@@ -39,7 +40,7 @@ overridable defaults** — none is locked, each is a profile field or a live `se
 ## The seams (as implemented)
 
 1. **Profile + schema** — a new `provisioning.frontend` block:
-   `default: gnome|dashboards-kiosk|open-computer-kiosk|none` + `install: [<stageable stacks>]`.
+   `default: gnome|kde-plasma|dashboards-kiosk|open-computer-kiosk|none` + `install: [<stageable stacks>]`.
    `schemas/profile.schema.yaml` gains the block (`additionalProperties:false`, enum-constrained);
    `profiles/sain-01.yaml` sets `default: gnome`, `install: [gnome, dashboards-kiosk]` (both stacks
    staged so the live switch to the kiosk works out of the box).
@@ -48,9 +49,11 @@ overridable defaults** — none is locked, each is a profile field or a live `se
    SDD-703 identified: `gnome|minimal|none` was env-only, unreachable from the profile).
 3. **provision-bake §5b** — passes the two env vars into `install-gui-dashboards.sh`.
 4. **install-gui-dashboards.sh** — restructured from a single `SOVEREIGN_OS_DESKTOP` case into
-   *stage each frontend in `install:` → activate the `default`*. The kiosk stack install adds
-   `cage seatd firefox-esr`, stages the (disabled) kiosk unit, writes the kiosk env; the
-   default-activation step toggles gdm vs kiosk + sets the boot target. Back-compat: with
+   *stage each frontend in `install:` → activate the `default`*. A desktop stack install adds its
+   packages + display manager (`gnome-core`+`gdm3`, or `kde-plasma-desktop`+`sddm`); the kiosk
+   stack install adds `cage seatd firefox-esr`, stages the (disabled) kiosk unit, writes the kiosk
+   env; the default-activation step enables exactly one seat owner — the chosen desktop's display
+   manager (gdm3/sddm) OR the kiosk — and sets the boot target. Back-compat: with
    `SOVEREIGN_OS_FRONTEND` unset it derives from the legacy `SOVEREIGN_OS_DESKTOP` (none→none, else
    gnome), so every pre-SDD-704 caller behaves exactly as before.
 5. **The kiosk unit** — `systemd/system/sovereign-frontend-kiosk.service` runs
@@ -63,11 +66,12 @@ overridable defaults** — none is locked, each is a profile field or a live `se
    only when a kiosk frontend is selected.
 6. **The runtime switch** — `scripts/operator/frontend.py`, delegated to by a new
    `sovereign-osctl frontend {status|list|set}` verb:
-   - `set gnome` → disable the kiosk unit, (re-)enable gdm3, `graphical.target`.
-   - `set dashboards-kiosk` → write the kiosk URL (:8100), disable gdm3, enable+start the kiosk,
-     `graphical.target`.
+   - `set gnome` → disable the kiosk unit + sddm, (re-)enable gdm3, `graphical.target`.
+   - `set kde-plasma` → disable the kiosk unit + gdm3, (re-)enable sddm, `graphical.target`.
+   - `set dashboards-kiosk` → write the kiosk URL (:8100), disable every display manager
+     (gdm3/sddm), enable+start the kiosk, `graphical.target`.
    - `set open-computer-kiosk` → same, URL → the sandbox (hints if SDD-706's service is absent).
-   - `set none` → disable both, `multi-user.target`.
+   - `set none` → disable every display manager + the kiosk, `multi-user.target`.
    - `status` / `list` → what's staged / default / active (selfdef-style verdict line).
    `SOVEREIGN_OS_FRONTEND_DRYRUN=1` prints the systemctl plan instead of running it (so the tool
    rehearses on a CI box with no init and the contract lint can exercise the real code paths).

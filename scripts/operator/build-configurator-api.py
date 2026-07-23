@@ -101,7 +101,7 @@ import request_guard as _guard  # noqa: E402
 # canonical set in scripts/operator/frontend.py (FRONTENDS) — kept as a plain
 # literal so the API stays import-light; the frontend-selector contract lint
 # guards the two lists from drifting apart.
-FRONTEND_CHOICES = frozenset({"gnome", "dashboards-kiosk", "open-computer-kiosk", "none"})
+FRONTEND_CHOICES = frozenset({"gnome", "kde-plasma", "dashboards-kiosk", "open-computer-kiosk", "none"})
 WEBAPP_ROOT = REPO / "webapp"
 WEBAPP = WEBAPP_ROOT / "build-configurator" / "index.html"
 

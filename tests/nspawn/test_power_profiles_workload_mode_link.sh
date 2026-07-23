@@ -12,7 +12,8 @@ MODE="${REPO_ROOT}/scripts/intelligence/workload-mode.py"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 pass() { echo "PASS: $*"; }
 
-# ── 1. canonical=idle → recommends ac-loss-graceful-suspend ──────────
+# ── 1. canonical=idle → recommends battery-threshold-graceful-shutdown ──────────
+#      (was ac-loss-graceful-suspend — REMOVED; this box never suspends)
 wm=$(mktemp); echo 'active_mode = "idle"' > "${wm}"
 cfg=$(mktemp --suffix=.toml)
 cat > "${cfg}" <<TOML
@@ -24,10 +25,10 @@ import json, sys
 d = json.loads(sys.stdin.read())
 assert d['workload_mode_canonical'] == 'idle', d.get('workload_mode_canonical')
 assert d['workload_mode_source'] == 'R338-canonical', d.get('workload_mode_source')
-assert d['workload_mode_recommended_profile'] == 'ac-loss-graceful-suspend', d
+assert d['workload_mode_recommended_profile'] == 'battery-threshold-graceful-shutdown', d
 " || fail "idle"
 rm -f "${wm}" "${cfg}"
-pass "1. canonical=idle → recommended_profile=ac-loss-graceful-suspend"
+pass "1. canonical=idle → recommended_profile=battery-threshold-graceful-shutdown"
 
 # ── 2. canonical=training → recommends thermal-budget-throttle ───────
 wm=$(mktemp); echo 'active_mode = "training"' > "${wm}"

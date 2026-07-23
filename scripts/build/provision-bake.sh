@@ -248,7 +248,7 @@ fi
 # desktop apt hiccup must never brick the image build (it stays headless).
 if [ "${SOVEREIGN_OS_BAKE_GUI:-}" = "1" ] && [ -x "${REPO}/scripts/install/install-gui-dashboards.sh" ]; then
   # SDD-704: the profile's provisioning.frontend.default (SOVEREIGN_OS_FRONTEND) picks
-  # what the image presents (gnome | dashboards-kiosk | open-computer-kiosk | none);
+  # what the image presents (gnome | kde-plasma | dashboards-kiosk | open-computer-kiosk | none);
   # install-gui-dashboards.sh reads it and stages the matching stack. Absent → gnome.
   log "installing frontend on the image (bake.gui=1) — frontend=${SOVEREIGN_OS_FRONTEND:-gnome}, de=${SOVEREIGN_OS_DESKTOP:-gnome}"
   if SOVEREIGN_OS_SRC="${REPO}" SOVEREIGN_OS_DESKTOP="${SOVEREIGN_OS_DESKTOP:-gnome}" \

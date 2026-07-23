@@ -23,14 +23,17 @@ d = json.loads(sys.stdin.read())
 assert d['round'] == 'R293'
 assert d['schema_version'] == '1.0.0'
 assert d['sdd_vector'] == 'E1.M21'
-assert d['profile_count'] >= 5
+assert d['profile_count'] >= 4
 names = {p['name'] for p in d['profiles']}
 for must in ('battery-threshold-graceful-shutdown', 'scheduled-graceful-poweroff',
-             'ac-loss-graceful-suspend', 'thermal-budget-throttle',
-             'psu-headroom-warn'):
+             'thermal-budget-throttle', 'psu-headroom-warn'):
     assert must in names, f'missing {must}: {names}'
-" || fail "list envelope / default 5 profiles"
-pass "1. list --json envelope + 5 default profiles"
+# ac-loss-graceful-suspend REMOVED — always-on box never suspends (would break it).
+assert 'ac-loss-graceful-suspend' not in names, f'suspend profile must be gone: {names}'
+assert not any('systemctl suspend' in ' '.join(p.get('steps', [])) for p in d['profiles']), \
+    'no profile may call systemctl suspend'
+" || fail "list envelope / default 4 profiles + no suspend"
+pass "1. list --json envelope + 4 default profiles + no suspend anywhere"
 
 # ── 2. battery-threshold profile is the default ────────────────
 echo "${out}" | python3 -c "
@@ -57,11 +60,11 @@ for v in ('power-status ups', 'service-deps drain', 'power-shutdown'):
 pass "3. show <profile> renders trigger + steps + composed verbs"
 
 # ── 4. simulate <profile> emits ordered steps without applying ──
-out_sim="$(python3 "${SCRIPT}" simulate ac-loss-graceful-suspend --json)"
+out_sim="$(python3 "${SCRIPT}" simulate scheduled-graceful-poweroff --json)"
 echo "${out_sim}" | python3 -c "
 import json, sys
 d = json.loads(sys.stdin.read())
-assert d['profile_name'] == 'ac-loss-graceful-suspend'
+assert d['profile_name'] == 'scheduled-graceful-poweroff'
 assert d['simulate_mode'] is True
 assert 'SIMULATE is print-only' in d['note']
 assert isinstance(d['steps'], list) and len(d['steps']) >= 2

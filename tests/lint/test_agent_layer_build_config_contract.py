@@ -40,7 +40,7 @@ API = REPO_ROOT / "scripts" / "operator" / "build-configurator-api.py"
 WEBAPP = REPO_ROOT / "webapp" / "build-configurator" / "index.html"
 OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
 
-FRONTEND_VALUES = ("gnome", "dashboards-kiosk", "open-computer-kiosk", "none")
+FRONTEND_VALUES = ("gnome", "kde-plasma", "dashboards-kiosk", "open-computer-kiosk", "none")
 
 
 # ---------- 1. mkosi-emit env-override seam ----------

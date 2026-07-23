@@ -38,7 +38,7 @@ LAUNCHER = REPO_ROOT / "scripts" / "operator" / "frontend-kiosk.sh"
 FRONTEND_PY = REPO_ROOT / "scripts" / "operator" / "frontend.py"
 OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
 
-FRONTEND_VALUES = ("gnome", "dashboards-kiosk", "open-computer-kiosk", "none")
+FRONTEND_VALUES = ("gnome", "kde-plasma", "dashboards-kiosk", "open-computer-kiosk", "none")
 
 
 # ---------- 1. schema ----------
@@ -71,11 +71,21 @@ def test_profile_declares_frontend():
         assert v in set(FRONTEND_VALUES) - {"none"}, f"sain-01 frontend.install has invalid {v!r}"
 
 
-def test_profile_default_gnome_is_behaviour_preserving():
-    """The recommended provisional default (SDD-703 D1) is gnome — least surprise,
-    preserves today's boot behaviour. A drift here is an intentional operator call."""
+def test_profile_default_is_a_desktop_frontend():
+    """sain-01 boots to a desktop by default. The original provisional default
+    (SDD-703 D1) was gnome; the operator flipped it to kde-plasma for the Blackwell
+    GPU (KDE Plasma pairs with the nomodeset boot fallback + the eventual proprietary
+    NVIDIA driver path). GNOME stays STAGED (in `install:`) so a live `frontend set
+    gnome` still works. A drift here is an intentional operator call — keep it a
+    desktop frontend, not a kiosk/none."""
     doc = yaml.safe_load(PROFILE.read_text(encoding="utf-8"))
-    assert doc["provisioning"]["frontend"]["default"] == "gnome"
+    fe = doc["provisioning"]["frontend"]
+    assert fe["default"] == "kde-plasma", (
+        f"sain-01 frontend.default is {fe['default']!r}, expected the Blackwell "
+        "desktop default 'kde-plasma'"
+    )
+    # GNOME must remain staged so the live fallback switch is real.
+    assert "gnome" in fe["install"], "gnome must stay in install: for the live fallback"
 
 
 # ---------- 3. mkosi-emit ----------

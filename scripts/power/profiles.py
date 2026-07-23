@@ -100,25 +100,13 @@ DEFAULT_PROFILES: list[dict[str, Any]] = [
             "the UPS probe — the operator owns the trigger schedule."
         ),
     },
-    {
-        "name": "ac-loss-graceful-suspend",
-        "trigger": (
-            "UPS reports OnBattery + battery_runtime_minutes ≥ "
-            "shutdown_threshold + 5 min — there's time to suspend "
-            "RAM-active workloads before a hard shutdown."
-        ),
-        "default": False,
-        "steps": [
-            "sovereign-osctl power-status ups --json",
-            "sovereign-osctl service-deps drain --prefix slm- --json",
-            "sovereign-osctl service-deps drain --prefix oracle- --json",
-            "systemctl suspend",
-        ],
-        "notes": (
-            "Drains inference workloads first (highest VRAM cost) "
-            "before suspending. RAM-resident state preserved."
-        ),
-    },
+    # NOTE: the former "ac-loss-graceful-suspend" profile was REMOVED — this box is
+    # an always-on inference appliance where suspend/sleep/hibernate is disabled
+    # (targets masked at install; see install-gui-dashboards.sh step 4b). A suspend
+    # would break the machine. AC loss is handled by the default
+    # battery-threshold-graceful-shutdown profile above, which poweroffs gracefully
+    # at the battery threshold — never suspends. There is NO `systemctl suspend`
+    # anywhere in the power subsystem.
     {
         "name": "thermal-budget-throttle",
         "trigger": (
@@ -202,10 +190,12 @@ def load_profiles(overlay_path: Path | None) -> tuple[list[dict], dict, dict]:
 # should advise as active. Operator-readable rationale per mode.
 WORKLOAD_MODE_TO_PROFILE_NAME: dict[str, dict[str, Any]] = {
     "idle": {
-        "profile_name": "ac-loss-graceful-suspend",
-        "rationale": ("Idle: operator away; suspend-on-AC-loss "
-                       "preserves session state while drawing zero "
-                       "wall-power between events."),
+        "profile_name": "battery-threshold-graceful-shutdown",
+        "rationale": ("Idle: operator away. This box never suspends "
+                       "(suspend/sleep/hibernate disabled — always-on "
+                       "appliance), so there is no low-power idle state; "
+                       "the default battery-threshold graceful shutdown "
+                       "(poweroff, never suspend) stays the posture."),
     },
     "inference-ready": {
         "profile_name": "battery-threshold-graceful-shutdown",

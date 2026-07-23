@@ -5,18 +5,20 @@ Materializes the operator's directive (verbatim, 2026-07-14):
   "I might wanna be able to hotswap if possible? … be able to chose at any point
    to start in one or another or even disable both, is that possible?"
 
-The box PRESENTS one of four frontends on the display, independent of which AI
+The box PRESENTS one of these frontends on the display, independent of which AI
 runtimes are installed:
 
-  gnome                the near-stock GNOME desktop + dashboards launcher (default)
+  gnome                the near-stock GNOME desktop + dashboards launcher (gdm3)
+  kde-plasma           the KDE Plasma desktop + dashboards launcher (sddm)
   dashboards-kiosk     a fullscreen kiosk (cage + browser) → the :8100 dashboards hub
   open-computer-kiosk  a fullscreen kiosk → the open-computer sandbox UI (SDD-706)
   none                 headless (multi-user.target)
 
 Build-time the profile's provisioning.frontend.default picks the boot frontend and
 provisioning.frontend.install stages the stacks. This tool is the RUNTIME switch —
-`sovereign-osctl frontend set <value>` flips it live, no reflash: it toggles gdm3 vs
-the kiosk unit, rewrites the kiosk target URL, and sets the boot target. The switch is
+`sovereign-osctl frontend set <value>` flips it live, no reflash: it toggles the
+desktop display manager (gdm3/sddm) vs the kiosk unit, rewrites the kiosk target
+URL, and sets the boot target. The switch is
 only as good as what was staged (`install:`); selecting an unstaged frontend hints how
 to add it.
 
@@ -39,15 +41,23 @@ SCHEMA_VERSION = "1.0.0"
 
 KIOSK_UNIT = "sovereign-frontend-kiosk.service"
 GDM_UNIT = "gdm3.service"
+SDDM_UNIT = "sddm.service"
 
-# The four frontends + one-line descriptions. Order is the presentation order.
+# The frontends + one-line descriptions. Order is the presentation order.
 FRONTENDS: dict[str, str] = {
     "gnome": "GNOME desktop + dashboards launcher",
+    "kde-plasma": "KDE Plasma desktop + dashboards launcher",
     "dashboards-kiosk": "fullscreen kiosk → the :8100 dashboards hub",
     "open-computer-kiosk": "fullscreen kiosk → the open-computer sandbox UI (SDD-706)",
     "none": "headless (multi-user.target)",
 }
 KIOSK_FRONTENDS = {"dashboards-kiosk", "open-computer-kiosk"}
+# Desktop frontends own a login/display manager (a full session, not a kiosk seat).
+# Each maps to the DM unit that presents it + a binary that proves the stack is
+# staged. A desktop switch enables its DM and disables every other DM + the kiosk.
+DESKTOP_DMS: dict[str, str] = {"gnome": GDM_UNIT, "kde-plasma": SDDM_UNIT}
+DESKTOP_PROBES: dict[str, str] = {"gnome": "gnome-shell", "kde-plasma": "plasmashell"}
+DESKTOP_FRONTENDS = set(DESKTOP_DMS)
 # Default URL each kiosk targets (the operator can override with --url).
 DEFAULT_KIOSK_URL: dict[str, str] = {
     "dashboards-kiosk": "http://127.0.0.1:8100/",
@@ -61,9 +71,28 @@ KIOSK_ENV_FILE = Path(os.environ.get(
     "SOVEREIGN_OS_FRONTEND_KIOSK_ENV", "/etc/sovereign-os/frontend-kiosk.env"))
 # SDD-600: the command to bring the desktop back — surfaced AT THE CONSOLE (a
 # login hint), because when the GUI is off the web settings pane is unreachable.
-# `set gnome` fixes the default target (next boot); `isolate` brings it up in the
-# CURRENT session.
-RESTORE_CMD = "sudo sovereign-osctl frontend set gnome && sudo systemctl isolate graphical.target"
+# `set <desktop>` fixes the default target (next boot); `isolate` brings it up in
+# the CURRENT session.
+
+
+def _restore_frontend() -> str:
+    """Which desktop the restore hint should steer back to. Prefer a staged desktop
+    that actually works on THIS box — kde-plasma (sddm) first, because on the
+    Blackwell box GNOME had display issues, so never point the operator back at a
+    broken desktop; then gnome (gdm3). Falls back to gnome when neither DM is
+    detectable (e.g. dry-run / no systemd), preserving the historical hint."""
+    if _unit_present(SDDM_UNIT):
+        return "kde-plasma"
+    if _unit_present(GDM_UNIT):
+        return "gnome"
+    return "gnome"
+
+
+def _restore_cmd() -> str:
+    return (f"sudo sovereign-osctl frontend set {_restore_frontend()} "
+            "&& sudo systemctl isolate graphical.target")
+
+
 # A /etc/profile.d drop-in that self-gates on the boot target, so it prints ONLY
 # when the box is headless (multi-user.target) — silent under a GUI. It shows on
 # every console/tty login while GUI is off ("after a login").
@@ -116,14 +145,16 @@ def _active_frontend() -> str:
                 return v
         except OSError:
             pass
-    # Infer: kiosk active → a kiosk frontend; gdm active → gnome; else unknown.
+    # Infer: kiosk active → a kiosk frontend; a desktop DM active → that desktop;
+    # else unknown.
     if not DRYRUN and _have_systemctl():
         rc, _ = _sc(["is-active", "--quiet", KIOSK_UNIT])
         if rc == 0:
             return "kiosk (unknown target)"
-        rc, _ = _sc(["is-active", "--quiet", GDM_UNIT])
-        if rc == 0:
-            return "gnome"
+        for name, dm in DESKTOP_DMS.items():
+            rc, _ = _sc(["is-active", "--quiet", dm])
+            if rc == 0:
+                return name
     return "unknown"
 
 
@@ -160,7 +191,7 @@ def _write_login_hint() -> None:
         "# 'sovereign-osctl frontend set'; safe to delete.\n"
         'if [ \"$(systemctl get-default 2>/dev/null)\" = \"multi-user.target\" ]; then\n'
         "  printf '\\n\\033[1msovereign-os\\033[0m \\342\\200\\224 GUI is off. Bring the desktop back:\\n"
-        f"  {RESTORE_CMD}\\n\\n'\n"
+        f"  {_restore_cmd()}\\n\\n'\n"
         "fi\n"
     )
     if DRYRUN:
@@ -199,6 +230,7 @@ def status() -> dict[str, Any]:
         "active": _active_frontend(),
         "default_target": _default_target(),
         "gdm_installed": _unit_present(GDM_UNIT),
+        "sddm_installed": _unit_present(SDDM_UNIT),
         "kiosk_unit_installed": _unit_present(KIOSK_UNIT),
         "cage_installed": shutil.which("cage") is not None,
         "kiosk_url": _kiosk_url(),
@@ -210,8 +242,9 @@ def catalog() -> dict[str, Any]:
     active = _active_frontend()
     rows = []
     for name, desc in FRONTENDS.items():
-        if name == "gnome":
-            staged = _unit_present(GDM_UNIT) or shutil.which("gnome-shell") is not None
+        if name in DESKTOP_FRONTENDS:
+            staged = (_unit_present(DESKTOP_DMS[name])
+                      or shutil.which(DESKTOP_PROBES[name]) is not None)
         elif name in KIOSK_FRONTENDS:
             staged = _unit_present(KIOSK_UNIT) and shutil.which("cage") is not None
         else:  # none is always available
@@ -228,12 +261,17 @@ def set_frontend(value: str, url: str | None = None) -> dict[str, Any]:
     _require_root()
     notes: list[str] = []
 
-    if value == "gnome":
+    if value in DESKTOP_FRONTENDS:
+        dm = DESKTOP_DMS[value]
         _sc(["disable", "--now", KIOSK_UNIT])
-        if _unit_present(GDM_UNIT):
-            _sc(["enable", GDM_UNIT])
+        # only one login manager may own the seat — disable the other desktops' DMs
+        for other_dm in DESKTOP_DMS.values():
+            if other_dm != dm:
+                _sc(["disable", other_dm])
+        if _unit_present(dm):
+            _sc(["enable", dm])
         else:
-            notes.append("gdm3 not installed — install a desktop stack (frontend install: gnome)")
+            notes.append(f"{dm} not installed — install a desktop stack (frontend install: {value})")
         _sc(["set-default", "graphical.target"])
 
     elif value in KIOSK_FRONTENDS:
@@ -245,16 +283,19 @@ def set_frontend(value: str, url: str | None = None) -> dict[str, Any]:
         if value == "open-computer-kiosk":
             notes.append("open-computer sandbox service lands in SDD-706; until then the "
                          "kiosk shows whatever answers at the URL above")
-        _sc(["disable", GDM_UNIT])            # a kiosk owns the seat — no login manager
+        # a kiosk owns the seat — no login manager of any desktop
+        for dm in DESKTOP_DMS.values():
+            _sc(["disable", dm])
         _sc(["enable", "--now", KIOSK_UNIT])
         _sc(["set-default", "graphical.target"])
 
     else:  # none
         _sc(["disable", "--now", KIOSK_UNIT])
-        _sc(["disable", GDM_UNIT])
+        for dm in DESKTOP_DMS.values():
+            _sc(["disable", dm])
         _sc(["set-default", "multi-user.target"])
         # surface the restore command right when going headless AND at the console
-        notes.append(f"headless — restore the desktop with: {RESTORE_CMD}")
+        notes.append(f"headless — restore the desktop with: {_restore_cmd()}")
 
     _write_state(value)
     # the console login hint is self-gating (silent under a GUI) — keep it fresh
@@ -274,13 +315,14 @@ def _human_status(s: dict[str, Any]) -> None:
     print(f"  active:          {s['active']}")
     print(f"  default target:  {s['default_target']}")
     print(f"  gnome (gdm3):    {'installed' if s['gdm_installed'] else 'absent'}")
+    print(f"  kde (sddm):      {'installed' if s.get('sddm_installed') else 'absent'}")
     print(f"  kiosk unit:      {'installed' if s['kiosk_unit_installed'] else 'absent'}")
     print(f"  cage compositor: {'installed' if s['cage_installed'] else 'absent'}")
     print(f"  kiosk url:       {s['kiosk_url'] or '(unset)'}")
     print()
     if s.get("default_target") == "multi-user.target" or s.get("active") == "none":
-        print(f"  GUI is off — restore the desktop:  {RESTORE_CMD}")
-    print("  switch:  sovereign-osctl frontend set {gnome|dashboards-kiosk|open-computer-kiosk|none}")
+        print(f"  GUI is off — restore the desktop:  {_restore_cmd()}")
+    print("  switch:  sovereign-osctl frontend set {gnome|kde-plasma|dashboards-kiosk|open-computer-kiosk|none}")
 
 
 def _human_list(c: dict[str, Any]) -> None:
