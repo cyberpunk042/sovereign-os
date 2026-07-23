@@ -679,6 +679,130 @@ pub struct GatewayServer {
     completion_cache: Option<Mutex<sovereign_completion_cache::CompletionCache>>,
 }
 
+/// The token-law constraint sources carried on a `/v1/messages` request
+/// (SDD-512 CONNECT). The SAME law planes the `/v1/data-plane/token-law/fuse`
+/// inspection route (SDD-507) and `sovereign-osctl token-law` (SDD-510) expose,
+/// **minus** `vocab` (serving masks over the model's REAL tokenizer, not a
+/// client-supplied sample) and `generated` (the decode loop supplies the running
+/// prefix each step). Absent / all-empty ⇒ unconstrained (byte-identical to the
+/// pre-CONNECT path). Applies only to LOCAL generation — a proxy backend exposes
+/// no logits, so a request that carries laws against a proxy model is refused,
+/// never served unconstrained (the no-logit-access boundary, honored not faked).
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct ServingTokenLaw {
+    /// Grammar plane (JSON-schema → grammar).
+    #[serde(default)]
+    pub schema: Option<sovereign_json_schema_grammar::Schema>,
+    /// Positive-regex plane (tool-call allow-list).
+    #[serde(default)]
+    pub regex: Option<String>,
+    /// Literal-denylist plane.
+    #[serde(default)]
+    pub denylist: Vec<String>,
+    /// Negated-regex plane.
+    #[serde(default)]
+    pub regex_denylist: Vec<String>,
+    /// Static policy allow-bitsets.
+    #[serde(default)]
+    pub policy_planes: Vec<Vec<u64>>,
+    /// Which mask layers to keep active (SDD-510) — real names or milestone
+    /// aliases (`grammar`/`schema`, `regex`/`tool`, `safety`, `policy`). Absent ⇒
+    /// the operator's `SOVEREIGN_TOKEN_LAW_MASK_LAYERS` selection (else all).
+    #[serde(default)]
+    pub mask_layers: Option<Vec<String>>,
+}
+
+impl ServingTokenLaw {
+    /// True when no law source is present — the request is effectively
+    /// unconstrained and the serving path takes the static (empty-mask) route.
+    pub fn is_unconstrained(&self) -> bool {
+        self.schema.is_none()
+            && self.regex.is_none()
+            && self.denylist.is_empty()
+            && self.regex_denylist.is_empty()
+            && self.policy_planes.is_empty()
+    }
+
+    /// The effective layer selection: the request's `mask_layers` if given, else
+    /// the env/all default resolved the same way the fuse route does (SDD-510).
+    fn selection(&self) -> Result<sovereign_token_law_fuse::MaskLayerSet, String> {
+        match &self.mask_layers {
+            Some(names) => {
+                sovereign_token_law_fuse::MaskLayerSet::from_names(names).map_err(|e| e.0)
+            }
+            None => Ok(sovereign_token_law_fuse::MaskLayerSet::from_env_or_all()),
+        }
+    }
+
+    /// Compile the **selected** laws against the model's real `vocab` into the
+    /// checkpoint-free per-step fuse primitive (`sovereign-token-law-fuse`) — the
+    /// SAME definition the fuse route and the CLI drive, so generation and
+    /// inspection never diverge (SDD-507). The returned `CompiledFuse` owns its
+    /// parsed automata, so it drives the whole decode loop.
+    fn compile(
+        &self,
+        vocab: Vec<String>,
+    ) -> Result<sovereign_token_law_fuse::CompiledFuse, String> {
+        let sel = self.selection()?;
+        let denylist: Vec<&str> = self.denylist.iter().map(String::as_str).collect();
+        let regex_denylist: Vec<&str> = self.regex_denylist.iter().map(String::as_str).collect();
+        let policy_planes: Vec<&[u64]> = self.policy_planes.iter().map(Vec::as_slice).collect();
+        let layers = sovereign_token_law_fuse::FuseLayers {
+            schema: self.schema.as_ref(),
+            regex: self.regex.as_deref(),
+            denylist: &denylist,
+            regex_denylist: &regex_denylist,
+            policy_planes: &policy_planes,
+        }
+        .select(&sel);
+        sovereign_token_law_fuse::CompiledFuse::compile(&layers, vocab).map_err(|e| e.0)
+    }
+
+    /// The active layer names, in fuse order — a layer fires only when its source
+    /// is present AND the selection keeps it. Surfaced on the response so a caller
+    /// sees which laws actually bit (`token_law.layers_active`).
+    fn layers_active(&self) -> Vec<&'static str> {
+        let sel = self
+            .selection()
+            .ok()
+            .unwrap_or_else(sovereign_token_law_fuse::MaskLayerSet::all);
+        let mut v = Vec::new();
+        if self.schema.is_some() && sel.grammar {
+            v.push("grammar");
+        }
+        if self.regex.is_some() && sel.regex {
+            v.push("regex");
+        }
+        if !self.denylist.is_empty() && sel.denylist {
+            v.push("denylist");
+        }
+        if !self.regex_denylist.is_empty() && sel.regex_denylist {
+            v.push("regex_denylist");
+        }
+        if !self.policy_planes.is_empty() && sel.policy {
+            v.push("policy");
+        }
+        v
+    }
+}
+
+/// The SDD-512 per-decode-step token-law hook: decode the ids generated so far
+/// to text, fuse the laws at that prefix (`sovereign-token-law-fuse`), and return
+/// the allow-bitset — or `None` to STOP (grammar complete, or no token keeps
+/// every plane satisfiable, so the row is all-masked and must never be sampled).
+/// The SAME `fused_mask` the `/v1/data-plane/token-law/fuse` route and
+/// `complete_with_token_law` drive, so serving and inspection never diverge.
+fn token_law_step(
+    compiled: &sovereign_token_law_fuse::CompiledFuse,
+    tokenizer: &sovereign_hf_tokenizer::HfBpeTokenizer,
+    generated: &[usize],
+) -> Option<Vec<u64>> {
+    let ids32: Vec<u32> = generated.iter().map(|&i| i as u32).collect();
+    let text = tokenizer.decode(&ids32);
+    let fused = compiled.fused_mask(&text);
+    if fused.stop { None } else { Some(fused.mask) }
+}
+
 /// A loaded local generation engine: real weights + a real byte-level BPE
 /// tokenizer. Behind a `Mutex` because generation mutates the model's decode
 /// state (KV/position). Populated only when a model dir is configured.
@@ -2260,6 +2384,29 @@ impl GatewayServer {
         prompt: &str,
         max_new: usize,
         sampler_config: sovereign_safetensors_loader::SamplerConfig,
+        on_chunk: F,
+    ) -> Result<usize, String> {
+        self.generate_chat_with_sampler_law(model, prompt, max_new, sampler_config, None, on_chunk)
+    }
+
+    /// [`generate_chat_with_sampler`] with an optional **token-law** constraint
+    /// (SDD-512 CONNECT). When `law` is `Some(spec)` with active sources, the
+    /// per-decode-step logit mask is recomputed from the running prefix via the
+    /// checkpoint-free `sovereign-token-law-fuse` engine — the SAME laws the
+    /// `/v1/data-plane/token-law/fuse` route inspects — so live `/v1/messages`
+    /// generation is confined by grammar/regex/denylist/policy at once. `None` (or
+    /// an all-empty spec) is the static (empty-mask) path, byte-identical to
+    /// before. Applies only to the LOCAL `QuantModel`; the caller must refuse a
+    /// law-carrying request bound for a proxy backend (no logit access).
+    ///
+    /// [`generate_chat_with_sampler`]: Self::generate_chat_with_sampler
+    pub fn generate_chat_with_sampler_law<F: FnMut(&str)>(
+        &self,
+        model: Option<&str>,
+        prompt: &str,
+        max_new: usize,
+        sampler_config: sovereign_safetensors_loader::SamplerConfig,
+        law: Option<&ServingTokenLaw>,
         mut on_chunk: F,
     ) -> Result<usize, String> {
         use std::sync::atomic::Ordering;
@@ -2358,6 +2505,20 @@ impl GatewayServer {
         }
         ids.extend(tokenizer.encode(prompt).into_iter().map(|t| t as usize));
 
+        // ---- SDD-512 CONNECT: compile the request's token-laws (if any) against
+        // the model's REAL vocab, once. The per-step hook then fuses at the running
+        // decoded prefix. An absent / all-empty spec ⇒ `None` ⇒ the static
+        // empty-mask path below, byte-identical to the pre-CONNECT serving path. ---
+        let compiled_law = match law {
+            Some(spec) if !spec.is_unconstrained() => {
+                let vocab: Vec<String> = (0..tokenizer.vocab_size())
+                    .map(|id| tokenizer.decode(&[id as u32]))
+                    .collect();
+                Some(spec.compile(vocab)?)
+            }
+            _ => None,
+        };
+
         let mask = LogitMask::new();
         let mut stream = Utf8Stream::new();
         let mut count = 0usize;
@@ -2373,15 +2534,31 @@ impl GatewayServer {
             let redact_pii = self.guard.redact_pii && self.guard.enabled;
             let keep_full = self.guard.enabled && self.guard.score_toxicity;
             let mut sg = StreamGuard::new(&mut on_chunk, redact_secrets, redact_pii, keep_full);
-            model
-                .generate_masked_with(&ids, max_new, 0, &mask, |tok| {
-                    count += 1;
-                    let chunk = stream.push(&tokenizer.token_bytes(tok as u32));
-                    if !chunk.is_empty() {
-                        sg.push(&chunk);
-                    }
-                })
-                .map_err(|e| e.to_string())?;
+            let mut emit = |tok: usize| {
+                count += 1;
+                let chunk = stream.push(&tokenizer.token_bytes(tok as u32));
+                if !chunk.is_empty() {
+                    sg.push(&chunk);
+                }
+            };
+            // SDD-512 CONNECT: the constrained path recomputes the mask per step
+            // from the running prefix; the static path keeps the empty mask. The
+            // output-safety redactor (StreamGuard) wraps BOTH identically.
+            if let Some(cf) = &compiled_law {
+                model
+                    .generate_dynamic_token_law_until_with(
+                        &ids,
+                        max_new,
+                        0,
+                        |g| token_law_step(cf, tokenizer, g),
+                        &mut emit,
+                    )
+                    .map_err(|e| e.to_string())?;
+            } else {
+                model
+                    .generate_masked_with(&ids, max_new, 0, &mask, &mut emit)
+                    .map_err(|e| e.to_string())?;
+            }
             let tail = stream.finish();
             if !tail.is_empty() {
                 sg.push(&tail);
@@ -2413,15 +2590,28 @@ impl GatewayServer {
         }
 
         // Guard disabled entirely: raw passthrough (unchanged legacy path).
-        model
-            .generate_masked_with(&ids, max_new, 0, &mask, |tok| {
-                count += 1;
-                let chunk = stream.push(&tokenizer.token_bytes(tok as u32));
-                if !chunk.is_empty() {
-                    on_chunk(&chunk);
-                }
-            })
-            .map_err(|e| e.to_string())?;
+        let mut emit = |tok: usize| {
+            count += 1;
+            let chunk = stream.push(&tokenizer.token_bytes(tok as u32));
+            if !chunk.is_empty() {
+                on_chunk(&chunk);
+            }
+        };
+        if let Some(cf) = &compiled_law {
+            model
+                .generate_dynamic_token_law_until_with(
+                    &ids,
+                    max_new,
+                    0,
+                    |g| token_law_step(cf, tokenizer, g),
+                    &mut emit,
+                )
+                .map_err(|e| e.to_string())?;
+        } else {
+            model
+                .generate_masked_with(&ids, max_new, 0, &mask, &mut emit)
+                .map_err(|e| e.to_string())?;
+        }
         let tail = stream.finish();
         if !tail.is_empty() {
             on_chunk(&tail);

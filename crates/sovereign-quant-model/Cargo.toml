@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 publish.workspace = true
-description = "A complete mixed-precision decoder-only model: token embedding -> a heterogeneous LayerStack (f32 / ternary / NVFP4, single- or multi-head per layer) -> final RMSNorm -> output head -> sampler, with prompt ingestion, autoregressive and constrained generation. The quantized counterpart to the f32 decoder-stack, realizing per-layer mixed precision end to end. Composes sovereign-decoder-layer, sovereign-rmsnorm, sovereign-sampler, and sovereign-logit-mask."
+description = "A complete mixed-precision decoder-only model: token embedding -> a heterogeneous LayerStack (f32 / ternary / NVFP4, single- or multi-head per layer) -> final RMSNorm -> output head -> sampler, with prompt ingestion, autoregressive and constrained generation. The quantized counterpart to the f32 decoder-stack, realizing per-layer mixed precision end to end. Composes sovereign-decoder-layer, sovereign-rmsnorm, sovereign-sampler, sovereign-logit-mask, and sovereign-token-law-mask (per-step token-law allow-bitset masking for the M00117 CONNECT serving path)."
 
 [lints]
 workspace = true
@@ -20,6 +20,7 @@ sovereign-decoder-layer = { path = "../sovereign-decoder-layer" }
 sovereign-rmsnorm = { path = "../sovereign-rmsnorm" }
 sovereign-sampler = { path = "../sovereign-sampler" }
 sovereign-logit-mask = { path = "../sovereign-logit-mask" }
+sovereign-token-law-mask = { path = "../sovereign-token-law-mask" }
 
 [dev-dependencies]
 sovereign-transformer-block = { path = "../sovereign-transformer-block" }

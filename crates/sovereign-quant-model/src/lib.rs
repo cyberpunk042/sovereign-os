@@ -362,6 +362,79 @@ impl QuantModel {
         }
         Ok(generated)
     }
+
+    /// The M00117 CONNECT decode loop: like [`generate_masked_with`] but the mask
+    /// is **recomputed every step** from the tokens generated so far, via a
+    /// per-step hook returning a **token-law allow-bitset** (a packed `Vec<u64>`,
+    /// ⌈vocab/64⌉ words — the `sovereign-token-law-fuse` `FusedMask::mask` wire
+    /// shape). `law_fn(&generated)` returns `None` to **stop** (the grammar is
+    /// complete, or no token keeps every plane satisfiable — the caller must never
+    /// force a sample from an all-masked row) or `Some(allow)` to `-inf`-mask every
+    /// disallowed token and continue. `on_token` streams each sampled id as it is
+    /// produced. This mirrors [`DecoderStack::generate_dynamic_token_law_until`] so
+    /// the quantized serving model that gatewayd drives on `/v1/messages` is
+    /// confined by the SAME checkpoint-free engine as `sovereign-llm`'s
+    /// `complete_with_token_law` — the two decode stacks fuse identically.
+    ///
+    /// [`generate_masked_with`]: Self::generate_masked_with
+    pub fn generate_dynamic_token_law_until_with<M, F>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mut law_fn: M,
+        mut on_token: F,
+    ) -> Result<Vec<usize>, QuantModelError>
+    where
+        M: FnMut(&[usize]) -> Option<Vec<u64>>,
+        F: FnMut(usize),
+    {
+        if prompt.is_empty() {
+            return Err(QuantModelError::EmptyPrompt);
+        }
+        let mut logits = Vec::new();
+        for &t in prompt {
+            logits = self.forward(t)?;
+        }
+        let mut generated = Vec::with_capacity(max_new);
+        for _ in 0..max_new {
+            let Some(allow) = law_fn(&generated) else {
+                break;
+            };
+            sovereign_token_law_mask::mask_logits(&allow, &mut logits);
+            let pos = self.position() as u64;
+            let start = self.recent.len().saturating_sub(self.recent_window);
+            let token = self.sampler.sample_seeded(
+                &logits,
+                &self.recent[start..],
+                seed.wrapping_add(pos),
+            )?;
+            self.recent.push(token);
+            generated.push(token);
+            on_token(token);
+            logits = self.forward(token)?;
+        }
+        Ok(generated)
+    }
+
+    /// Non-streaming convenience over
+    /// [`generate_dynamic_token_law_until_with`](Self::generate_dynamic_token_law_until_with)
+    /// (mirrors the [`generate_masked`]/[`generate_masked_with`] pair).
+    ///
+    /// [`generate_masked`]: Self::generate_masked
+    /// [`generate_masked_with`]: Self::generate_masked_with
+    pub fn generate_dynamic_token_law_until<M>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        law_fn: M,
+    ) -> Result<Vec<usize>, QuantModelError>
+    where
+        M: FnMut(&[usize]) -> Option<Vec<u64>>,
+    {
+        self.generate_dynamic_token_law_until_with(prompt, max_new, seed, law_fn, |_| {})
+    }
 }
 
 #[cfg(test)]
@@ -477,6 +550,57 @@ mod tests {
         assert!(out.iter().all(|&t| t < 8));
         // 3 prompt + 6 generated = 9 positions in the stack
         assert_eq!(m.position(), 9);
+    }
+
+    #[test]
+    fn dynamic_token_law_confines_every_step_to_the_allowed_bitset() {
+        // CONNECT: the per-step allow-bitset must -inf-mask every disallowed
+        // token, so the sampled id is ALWAYS in the allowed set — the same
+        // guarantee sovereign-llm's complete_with_token_law gives DecoderStack,
+        // now on the quantized serving model gatewayd drives.
+        let mut m = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        // allow only ids {2, 5} (vocab 8 → one bitset word)
+        let allow = vec![(1u64 << 2) | (1u64 << 5)];
+        let mut streamed = Vec::new();
+        let out = m
+            .generate_dynamic_token_law_until_with(
+                &[1, 2, 3],
+                6,
+                42,
+                |_generated| Some(allow.clone()),
+                |tok| streamed.push(tok),
+            )
+            .unwrap();
+        assert_eq!(out.len(), 6);
+        assert!(
+            out.iter().all(|&t| t == 2 || t == 5),
+            "every token must be in the allowed set {{2,5}}, got {out:?}"
+        );
+        assert_eq!(
+            streamed, out,
+            "on_token must stream exactly the generated ids"
+        );
+    }
+
+    #[test]
+    fn dynamic_token_law_stops_when_the_hook_returns_none() {
+        // `None` from the hook (grammar complete / no satisfiable token) ends
+        // generation immediately — never sample from an all-masked row.
+        let mut m = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        let allow = vec![0xFFu64];
+        let mut steps = 0usize;
+        let out = m
+            .generate_dynamic_token_law_until(&[1, 2, 3], 10, 7, |generated| {
+                steps += 1;
+                if generated.len() >= 3 {
+                    None
+                } else {
+                    Some(allow.clone())
+                }
+            })
+            .unwrap();
+        assert_eq!(out.len(), 3, "stops after 3 tokens when the hook says None");
+        assert_eq!(steps, 4, "hook called 3 times to emit, once more to stop");
     }
 
     #[test]
