@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (225 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (226 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -154,6 +154,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (225 total), by number.
 - [SDD-512 — Token-law serving boundary: CONNECT the engine to live `/v1/messages` generation (M00155)](../sdd/512-token-law-serving-boundary.md)
 - [SDD-513 — The entropy token-law plane: a text→token safety projection (M00155 DEEPEN)](../sdd/513-token-law-entropy-plane.md)
 - [SDD-514 — Incremental fusion: the per-step token-law decision goes O(n²) → O(n) (M00155 DEEPEN)](../sdd/514-token-law-incremental-fusion.md)
+- [SDD-515 — The fused-mask AND-kernel goes SIMD: one AVX-512 instruction fuses 512 allow-bits (M00155 DEEPEN)](../sdd/515-token-law-simd-fuse-kernel.md)
 - [SDD-600 — Cockpit hotswap controls (frontend · provider/origin · AVX modes)](../sdd/600-cockpit-hotswap-controls.md)
 - [SDD-700 — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (F-2026-107..108)](../sdd/700-operator-sudoers-privesc-guard.md)
 - [SDD-701 — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (F-2026-109..110)](../sdd/701-nvidia-gpu-bringup.md)
