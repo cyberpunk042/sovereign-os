@@ -372,6 +372,13 @@ provisioning:
     livereload: true               # SDD-203: keep developing on the live /opt/sovereign-os checkout after flashing —
                                    # a broker offers open panels a refresh + each panel API self-re-execs in place
                                    # (no kill) on an edit to its own .py. Set false for a locked, non-dev image.
+    intelligence: true             # build the compiled Rust brain (gatewayd/cortex/chat/agent-runtime/serve +
+                                   # chromofold CLI) on the build host and stage → /usr/local/bin, and auto-enable
+                                   # gatewayd on the flashed box. Off = brain ships as SOURCE only, built post-flash
+                                   # via `make provision`. Adds host cargo build time (rustup 1.89) to the image build.
+    model: true                    # stage the small SmolLM-135M gateway model (~0.5GB) so gatewayd generates
+                                   # out-of-box on first boot. NOTE: the 60GB Oracle inference model is NOT baked —
+                                   # it stays a first-boot download (inference-model-provision.sh) into /mnt/vault/models.
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
   # Tetragon kernel-fence tuning (tetragon-policy-load.sh, Stage-2 depth).

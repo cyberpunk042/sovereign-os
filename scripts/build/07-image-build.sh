@@ -139,6 +139,26 @@ stage_intelligence_model() {
   fi
 }
 
+# Derive the intelligence/model bake toggles from the profile when the build-host
+# env does not force them — the same env-OR-profile pattern mkosi-emit uses. So a
+# profile that declares provisioning.bake.intelligence:true bakes the compiled brain
+# into the image with no manual flag, and the panel/operator can still override:
+# '1' forces on, '0' forces off, unset/empty inherits the profile. (The staging
+# functions above gate on a NON-EMPTY value, so '0' must normalise to empty.)
+_bake_from_profile() {  # $1 = env var name, $2 = provisioning.bake.<key>
+  case "${!1:-}" in
+    1) export "$1=1"; return 0 ;;
+    0) export "$1=";  return 0 ;;
+  esac
+  if [ "$(profile_field "provisioning.bake.$2")" = "True" ]; then
+    export "$1=1"
+  else
+    export "$1="
+  fi
+}
+_bake_from_profile SOVEREIGN_OS_BAKE_INTELLIGENCE intelligence
+_bake_from_profile SOVEREIGN_OS_BAKE_MODEL model
+
 case "${SOVEREIGN_OS_SUBSTRATE}" in
   mkosi)
     stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/mkosi.extra/var/cache/local-debs"

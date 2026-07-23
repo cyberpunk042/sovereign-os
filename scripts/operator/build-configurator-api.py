@@ -1093,6 +1093,23 @@ class Handler(BaseHTTPRequestHandler):
                 bake_env["SOVEREIGN_OS_BAKE_DEV_TOOLS"] = "1"
             if body.get("bake_selfdef"):
                 bake_env["SOVEREIGN_OS_BAKE_SELFDEF"] = "1"
+            # Force-on bakes: checked → force the bake ON; absent/false inherits the
+            # profile (never forces a profile bake OFF). mkosi-emit / 07-image-build
+            # honor these as env-OR-profile. Intelligence = the compiled Rust brain
+            # (built on the host, staged into the image + gatewayd auto-enabled);
+            # model = the small SmolLM-135M gateway model (Oracle stays first-boot).
+            _FORCE_ON_BAKES = {
+                "bake_intelligence": "SOVEREIGN_OS_BAKE_INTELLIGENCE",
+                "bake_model": "SOVEREIGN_OS_BAKE_MODEL",
+                "bake_dashboards": "SOVEREIGN_OS_BAKE_DASHBOARDS",
+                "bake_gui": "SOVEREIGN_OS_BAKE_GUI",
+                "bake_livereload": "SOVEREIGN_OS_BAKE_LIVERELOAD",
+                "bake_firstboot": "SOVEREIGN_OS_BAKE_FIRSTBOOT",
+                "bake_root_modules": "SOVEREIGN_OS_BAKE_GHOSTPROXY",
+            }
+            for _field, _env in _FORCE_ON_BAKES.items():
+                if body.get(_field):
+                    bake_env[_env] = "1"
             # "UPS + graceful shutdown" defaults ON; unchecking forces it off
             # for this build (mkosi-emit honors SOVEREIGN_OS_POWER_FEATURE=0).
             if body.get("graceful_shutdown") is False:

@@ -62,7 +62,6 @@ prov_operator = (prov.get("operator") or {})
 bake_dev_tools = bake_dev_tools or bool(prov_bake.get("dev_tools"))
 bake_selfdef = bake_selfdef or bool(prov_bake.get("selfdef"))
 bake_repo = bool(prov_bake.get("repo"))
-bake_ghostproxy = bool(prov_bake.get("root_modules", prov_bake.get("root_ghostproxy")))  # renamed 2026-07-19; legacy key honored
 def _env_bake(name, profile_val):
     """SDD-709: let the build configurator / operator override a bake toggle from the
     build-host env — '1' forces on, '0' forces off, unset inherits the profile. So the
@@ -77,13 +76,22 @@ def _env_bake(name, profile_val):
 
 bake_openclaw = _env_bake("SOVEREIGN_OS_BAKE_OPENCLAW", bool(prov_bake.get("openclaw")))  # SDD-705/709
 bake_open_computer = _env_bake("SOVEREIGN_OS_BAKE_OPEN_COMPUTER", bool(prov_bake.get("open_computer")))  # SDD-706/709
-bake_dashboards = bool(prov_bake.get("dashboards"))
-bake_gui = bool(prov_bake.get("gui"))  # install a desktop on the image (else headless appliance)
+# The compiled Rust brain (gatewayd/cortex/chat/… + chromofold CLI). Built + staged
+# on the BUILD HOST by 07-image-build.sh (rustup 1.89 unavailable in-chroot); this
+# flag only needs to reach the chroot so provision-bake auto-enables gatewayd when
+# the binaries are present. env-OR-profile, same as the others.
+bake_intelligence = _env_bake("SOVEREIGN_OS_BAKE_INTELLIGENCE", bool(prov_bake.get("intelligence")))
+# root-modules (renamed 2026-07-19; legacy root_ghostproxy key still honored).
+bake_ghostproxy = _env_bake("SOVEREIGN_OS_BAKE_GHOSTPROXY", bool(prov_bake.get("root_modules", prov_bake.get("root_ghostproxy"))))
+# dashboards / gui / firstboot: env-OR-profile so the build configurator's checkboxes
+# can force them on for a leaner profile (unset inherits the profile default).
+bake_dashboards = _env_bake("SOVEREIGN_OS_BAKE_DASHBOARDS", bool(prov_bake.get("dashboards")))
+bake_gui = _env_bake("SOVEREIGN_OS_BAKE_GUI", bool(prov_bake.get("gui")))  # install a desktop on the image (else headless appliance)
 # Live-reload on the installed box (SDD-203) — DEFAULT ON so the operator can keep
 # developing on the live /opt/sovereign-os checkout after flashing. A locked build
-# sets provisioning.bake.livereload:false.
-bake_livereload = bool(prov_bake.get("livereload", True))
-bake_firstboot = bool(prov.get("firstboot"))
+# sets provisioning.bake.livereload:false (or exports SOVEREIGN_OS_BAKE_LIVERELOAD=0).
+bake_livereload = _env_bake("SOVEREIGN_OS_BAKE_LIVERELOAD", bool(prov_bake.get("livereload", True)))
+bake_firstboot = _env_bake("SOVEREIGN_OS_BAKE_FIRSTBOOT", bool(prov.get("firstboot")))
 posture = prov.get("posture", "installed-off")
 # Swappable boot frontend (SDD-704). `default` picks what the image presents on
 # the display; `install` lists the frontend stacks staged so a live switch can
@@ -467,6 +475,7 @@ if run_provision:
               SOVEREIGN_OS_BAKE_OPEN_COMPUTER="{'1' if bake_open_computer else ''}" \\
               SOVEREIGN_OS_BAKE_DASHBOARDS="{'1' if bake_dashboards else ''}" \\
               SOVEREIGN_OS_BAKE_GUI="{'1' if bake_gui else ''}" \\
+              SOVEREIGN_OS_BAKE_INTELLIGENCE="{'1' if bake_intelligence else ''}" \\
               SOVEREIGN_OS_FRONTEND="{frontend_default}" \\
               SOVEREIGN_OS_FRONTEND_INSTALL="{frontend_install}" \\
               SOVEREIGN_OS_BAKE_LIVERELOAD="{'1' if bake_livereload else '0'}" \\

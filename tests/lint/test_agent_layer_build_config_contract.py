@@ -39,6 +39,7 @@ MKOSI = REPO_ROOT / "scripts" / "build" / "adapters" / "mkosi-emit.sh"
 API = REPO_ROOT / "scripts" / "operator" / "build-configurator-api.py"
 WEBAPP = REPO_ROOT / "webapp" / "build-configurator" / "index.html"
 OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
+SCHEMA = REPO_ROOT / "schemas" / "profile.schema.yaml"
 
 FRONTEND_VALUES = ("gnome", "kde-plasma", "dashboards-kiosk", "open-computer-kiosk", "none")
 
@@ -146,6 +147,58 @@ def test_webapp_previews_agent_layer_env_in_command():
     assert "SOVEREIGN_OS_BAKE_OPENCLAW=1" in body, "webapp command preview omits the openclaw bake"
     assert "SOVEREIGN_OS_BAKE_OPEN_COMPUTER=1" in body, (
         "webapp command preview omits the open-computer bake"
+    )
+
+
+# ---------- 3b. build-panel coverage: the force-on bake toggles ----------
+
+# Bakes the panel can force ON (checked → SOVEREIGN_OS_BAKE_*; unchecked inherits
+# the profile). Each must be wired panel↔POST↔API↔emit, and intelligence/model must
+# also reach the build-host staging (07-image-build.sh) + schema.
+_FORCE_ON_BAKES = {
+    "bake_intelligence": "SOVEREIGN_OS_BAKE_INTELLIGENCE",
+    "bake_model": "SOVEREIGN_OS_BAKE_MODEL",
+    "bake_dashboards": "SOVEREIGN_OS_BAKE_DASHBOARDS",
+    "bake_gui": "SOVEREIGN_OS_BAKE_GUI",
+    "bake_livereload": "SOVEREIGN_OS_BAKE_LIVERELOAD",
+    "bake_firstboot": "SOVEREIGN_OS_BAKE_FIRSTBOOT",
+    "bake_root_modules": "SOVEREIGN_OS_BAKE_GHOSTPROXY",
+}
+
+
+def test_webapp_exposes_and_posts_force_on_bakes():
+    body = WEBAPP.read_text(encoding="utf-8")
+    for field in _FORCE_ON_BAKES:
+        cid = field.replace("bake_", "bake-", 1)
+        assert f'id="{cid}"' in body, f"build panel missing the {cid!r} checkbox"
+        assert re.search(rf"{field}:\s*document\.getElementById\(.{cid}.\)\.checked", body), (
+            f"build panel POST body does not send {field}"
+        )
+
+
+def test_api_translates_force_on_bakes_to_env():
+    body = API.read_text(encoding="utf-8")
+    for field, env in _FORCE_ON_BAKES.items():
+        assert field in body, f"api never reads {field!r} from the body"
+        assert env in body, f"api never sets {env!r}"
+
+
+def test_intelligence_bake_reaches_image_build_and_schema():
+    """The compiled-brain bake is the load-bearing one: it must be wired all the way
+    to the build-host staging + the chroot env + the schema, else 'bake the brain in'
+    silently no-ops (the pre-fix state)."""
+    emit = MKOSI.read_text(encoding="utf-8")
+    assert 'SOVEREIGN_OS_BAKE_INTELLIGENCE' in emit and 'prov_bake.get("intelligence")' in emit, (
+        "mkosi-emit does not honor bake.intelligence (env-OR-profile)"
+    )
+    build07 = (REPO_ROOT / "scripts" / "build" / "07-image-build.sh").read_text(encoding="utf-8")
+    assert "SOVEREIGN_OS_BAKE_INTELLIGENCE" in build07 and "provisioning.bake" in build07, (
+        "07-image-build.sh does not derive the intelligence bake from the profile"
+    )
+    schema = yaml.safe_load(SCHEMA.read_text(encoding="utf-8"))
+    bake_props = schema["properties"]["provisioning"]["properties"]["bake"]["properties"]
+    assert "intelligence" in bake_props and "model" in bake_props, (
+        "profile schema provisioning.bake missing intelligence/model"
     )
 
 

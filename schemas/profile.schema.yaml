@@ -389,6 +389,8 @@ properties:
           dashboards: { type: boolean }
           gui: { type: boolean }   # install a desktop on the mkosi image (root-reflash always installs GUI)
           livereload: { type: boolean }   # SDD-203 live-reload on the installed box (default ON; false = locked build)
+          intelligence: { type: boolean }   # build the compiled Rust brain (gatewayd/cortex/chat/… + chromofold CLI) on the build host and stage into /usr/local/bin, and auto-enable gatewayd. Off = brain ships as source, built post-flash via `make provision`.
+          model: { type: boolean }   # stage the small SmolLM-135M gateway model (~0.5GB) so gatewayd generates out-of-box. The 60GB Oracle model stays a first-boot download.
       firstboot: { type: boolean }
       posture:
         type: string

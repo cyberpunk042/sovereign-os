@@ -2437,6 +2437,15 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-openclaw"> bake OpenClaw <span class="muted small">(agent runtime, installed-off)</span></label>
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-open_computer"> bake open-computer <span class="muted small">(QEMU AI sandbox, installed-off)</span></label>
       </div>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem; align-items:center" title="Bake more of the OS INTO the image. Force-on: checked bakes it in, unchecked inherits the profile default (these never force a profile bake OFF — edit the profile for that). The compiled brain + gateway model make a flashed box generate out-of-box instead of building post-flash via 'make provision'.">
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-intelligence"> bake intelligence <span class="muted small">(compiled brain: gatewayd/cortex/chat + chromofold CLI)</span></label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-model"> bake gateway model <span class="muted small">(SmolLM-135M ~0.5GB; Oracle stays first-boot)</span></label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-dashboards"> bake dashboards</label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-gui"> bake GUI desktop</label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-livereload"> bake live-reload</label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-firstboot"> bake first-boot setup</label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="bake-root_modules"> bake root-modules</label>
+      </div>
       <pre class="out" id="run-log" style="max-height:280px; min-height:2.2rem; margin:0">(idle — output streams here live)</pre>
       <div class="banner danger" id="run-errors" style="display:none; margin:.55rem 0 0"></div>
     </div>
@@ -3186,6 +3195,21 @@ function buildCommand(){
   var boc = document.getElementById("bake-openclaw"), bocp = document.getElementById("bake-open_computer");
   if (boc && boc.checked) lines.push("SOVEREIGN_OS_BAKE_OPENCLAW=1 \\");
   if (bocp && bocp.checked) lines.push("SOVEREIGN_OS_BAKE_OPEN_COMPUTER=1 \\");
+  // "UPS + graceful shutdown" defaults ON; unchecking forces it off for this build.
+  // (Was dropped from the copyable command — now matches the Run POST below.)
+  var bg = document.getElementById("bake-graceful");
+  if (bg && !bg.checked) lines.push("SOVEREIGN_OS_POWER_FEATURE=0 \\");
+  // Force-on bakes (unchecked inherits the profile). Each maps to a SOVEREIGN_OS_BAKE_* env.
+  [["bake-intelligence","SOVEREIGN_OS_BAKE_INTELLIGENCE"],
+   ["bake-model","SOVEREIGN_OS_BAKE_MODEL"],
+   ["bake-dashboards","SOVEREIGN_OS_BAKE_DASHBOARDS"],
+   ["bake-gui","SOVEREIGN_OS_BAKE_GUI"],
+   ["bake-livereload","SOVEREIGN_OS_BAKE_LIVERELOAD"],
+   ["bake-firstboot","SOVEREIGN_OS_BAKE_FIRSTBOOT"],
+   ["bake-root_modules","SOVEREIGN_OS_BAKE_GHOSTPROXY"]].forEach(function(pair){
+    var el = document.getElementById(pair[0]);
+    if (el && el.checked) lines.push(pair[1] + "=1 \\");
+  });
   lines.push(
     "SOVEREIGN_OS_OVERLAY_PROFILE=overlay.yaml \\",
     "SOVEREIGN_OS_OVERLAY_OPERATOR_DEPS=operator-deps.toml \\",
@@ -3511,7 +3535,14 @@ function runAction(action){
                           graceful_shutdown: document.getElementById("bake-graceful").checked,
                           frontend: document.getElementById("bake-frontend").value || "",
                           bake_openclaw: document.getElementById("bake-openclaw").checked,
-                          bake_open_computer: document.getElementById("bake-open_computer").checked}),
+                          bake_open_computer: document.getElementById("bake-open_computer").checked,
+                          bake_intelligence: document.getElementById("bake-intelligence").checked,
+                          bake_model: document.getElementById("bake-model").checked,
+                          bake_dashboards: document.getElementById("bake-dashboards").checked,
+                          bake_gui: document.getElementById("bake-gui").checked,
+                          bake_livereload: document.getElementById("bake-livereload").checked,
+                          bake_firstboot: document.getElementById("bake-firstboot").checked,
+                          bake_root_modules: document.getElementById("bake-root_modules").checked}),
   }).then(function(r){
     if (r.status === 409){ return attachRun(); }   // one already running → attach to it
     if (!r.ok) return r.text().then(function(t){
@@ -3547,6 +3578,9 @@ document.getElementById("bake-graceful").addEventListener("change", regenerate);
 document.getElementById("bake-frontend").addEventListener("change", regenerate);
 document.getElementById("bake-openclaw").addEventListener("change", regenerate);
 document.getElementById("bake-open_computer").addEventListener("change", regenerate);
+["bake-intelligence","bake-model","bake-dashboards","bake-gui","bake-livereload","bake-firstboot","bake-root_modules"].forEach(function(id){
+  document.getElementById(id).addEventListener("change", regenerate);
+});
 document.getElementById("run-dry").addEventListener("click", function(){ runAction("dry-run"); });
 document.getElementById("run-preflight").addEventListener("click", function(){ runAction("preflight"); });
 document.getElementById("run-build").addEventListener("click", function(){ runAction("build"); });
