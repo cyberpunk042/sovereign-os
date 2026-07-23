@@ -39,6 +39,11 @@ use sovereign_router_7axis::{Privacy, Safety, SrpRole};
 /// Schema version of the token-law-route surface.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
+/// The environment variable an operator sets to a JSON [`RouteProfileMap`] to
+/// override the built-in doctrine per role (SDD-518). Unset/empty ⇒ the doctrine.
+/// Mirrors the token-law engine's other env config (`SOVEREIGN_TOKEN_LAW_MASK_LAYERS`).
+pub const ROUTE_PROFILES_ENV: &str = "SOVEREIGN_TOKEN_LAW_ROUTE_PROFILES";
+
 /// The token-law profile a routing decision selects: which planes the engine
 /// **forces on** for this route, on top of whatever the request already carries.
 /// All-false is a no-op — the route contributes nothing (a local, private, safe
@@ -130,6 +135,26 @@ impl RouteProfileMap {
         self.resolve(d.role, d.privacy, d.safety)
     }
 
+    /// Parse an operator override map from JSON (SDD-518). A role omitted from the
+    /// JSON keeps the doctrine; a role present with a [`RouteProfile`] overrides it.
+    /// An empty object `{}` is the all-doctrine map (identical to
+    /// [`default`](Self::default)).
+    pub fn from_json(json: &str) -> Result<Self, String> {
+        serde_json::from_str(json).map_err(|e| e.to_string())
+    }
+
+    /// The effective map: the operator's [`ROUTE_PROFILES_ENV`] JSON if set + valid,
+    /// else the all-doctrine [`default`](Self::default) (unset, empty, or a parse
+    /// error all fall back to the doctrine — the impure boundary, like the token-law
+    /// engine's `MaskLayerSet::from_env_or_all`). The pure core takes an
+    /// already-resolved map.
+    pub fn from_env_or_default() -> Self {
+        match std::env::var(ROUTE_PROFILES_ENV) {
+            Ok(v) if !v.trim().is_empty() => Self::from_json(&v).unwrap_or_default(),
+            _ => Self::default(),
+        }
+    }
+
     fn override_for(&self, role: SrpRole) -> Option<RouteProfile> {
         match role {
             SrpRole::Conductor => self.conductor,
@@ -210,6 +235,40 @@ mod tests {
             map.resolve_directive(&d),
             map.resolve(d.role, d.privacy, d.safety)
         );
+    }
+
+    #[test]
+    fn from_json_parses_a_per_role_override() {
+        // Operator: a Cloud task forces nothing (accepts the risk); other roles
+        // omitted → keep the doctrine.
+        let map = RouteProfileMap::from_json(
+            r#"{"cloud":{"force_pii":false,"force_entropy":false,"force_safety_denylist":false}}"#,
+        )
+        .expect("valid json");
+        assert!(
+            map.resolve(SrpRole::Cloud, Privacy::Public, Safety::Risky)
+                .is_noop()
+        );
+        // A non-overridden role still follows the doctrine.
+        assert!(
+            map.resolve(SrpRole::Conductor, Privacy::Public, Safety::Safe)
+                .force_pii
+        );
+    }
+
+    #[test]
+    fn from_json_empty_object_is_the_all_doctrine_map() {
+        let map = RouteProfileMap::from_json("{}").expect("valid json");
+        assert_eq!(map, RouteProfileMap::default());
+        assert!(
+            map.resolve(SrpRole::Cloud, Privacy::Private, Safety::Safe)
+                .force_pii
+        );
+    }
+
+    #[test]
+    fn from_json_rejects_malformed_input() {
+        assert!(RouteProfileMap::from_json("{not json").is_err());
     }
 
     #[test]
