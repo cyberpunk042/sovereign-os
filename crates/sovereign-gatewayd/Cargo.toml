@@ -42,6 +42,7 @@ sovereign-memory-os = { path = "../sovereign-memory-os" }
 sovereign-coat = { path = "../sovereign-coat" }
 sovereign-gateway = { path = "../sovereign-gateway" }
 sovereign-router-7axis = { path = "../sovereign-router-7axis" }
+sovereign-token-law-route = { path = "../sovereign-token-law-route" }
 sovereign-srp-scheduler = { path = "../sovereign-srp-scheduler" }
 sovereign-value-plane = { path = "../sovereign-value-plane" }
 # Optional local generation: when SOVEREIGN_GATEWAY_MODEL names a model dir, the
