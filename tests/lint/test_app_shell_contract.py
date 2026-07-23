@@ -48,6 +48,7 @@ ADOPTED_APP_SHELL_PANELS = [
     "feature-test-lab", "d-26-friction-audit", "d-27-guardian", "d-28-perimeter", "d-29-scheduler",
     "rustdoc-panel",
     "chromofold",
+    "token-law-coverage",
 ]
 
 

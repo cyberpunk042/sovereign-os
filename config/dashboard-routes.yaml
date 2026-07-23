@@ -6,7 +6,7 @@
 # after adding/renaming a panel API or an infra upstream:
 #   python3 scripts/operator/gen-dashboard-routes.py
 #
-# 59 proxied routes (6 infra + 53 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
+# 60 proxied routes (6 infra + 54 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
 
 schema_version: "1.0.0"
 
@@ -65,6 +65,7 @@ routes:
   - {slug: runtime-modes, port: 7713, healthz_path: "/healthz", subpath: "/runtime-modes/", source_repo: sovereign-os, label: "Runtime Modes"}
   - {slug: science, port: 8134, healthz_path: "/healthz", subpath: "/science/", source_repo: sovereign-os, label: "Science Tools (NVIDIA Warp)"}
   - {slug: surface-map, port: 8101, healthz_path: "/healthz", subpath: "/surface-map/", source_repo: sovereign-os, label: "Surface Map"}
+  - {slug: token-law-coverage, port: 8148, healthz_path: "/healthz", subpath: "/token-law-coverage/", source_repo: sovereign-os, label: "Token-Law Mask Coverage"}
   - {slug: trinity, port: 8095, healthz_path: "/healthz", subpath: "/trinity/", source_repo: sovereign-os, label: "Trinity"}
   - {slug: ups, port: 8128, healthz_path: "/healthz", subpath: "/ups/", source_repo: sovereign-os, label: "UPS (APC Smart-UPS)"}
   - {slug: ux-design-audit, port: 8132, healthz_path: "/healthz", subpath: "/ux-design-audit/", source_repo: sovereign-os, label: "UX Design Audit"}

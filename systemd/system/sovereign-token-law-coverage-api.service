@@ -1,0 +1,50 @@
+[Unit]
+Description=Sovereign token-law mask-coverage heatmap read-only REST API + panel (SDD-511, F00796)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/token-law-coverage-api.py
+# Read-only observability over the M00117 token-law engine's per-layer coverage.
+# It POSTs a built-in SAMPLE scenario to the gateway's checkpoint-free fuse route
+# (/v1/data-plane/token-law/fuse) and renders per-layer coverage as a heatmap.
+# No model, no mutation; honest-degrades to offline when the gateway is down.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/token-law-coverage-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+# To expose beyond loopback, drop an override at
+# /etc/systemd/system/sovereign-token-law-coverage-api.service.d/bind.conf:
+#   [Service]
+#   Environment=TOKEN_LAW_COVERAGE_API_BIND=0.0.0.0
+Environment=TOKEN_LAW_COVERAGE_API_BIND=127.0.0.1
+Environment=TOKEN_LAW_COVERAGE_API_PORT=8148
+
+# Defense-in-depth — read-only HTTP surface; the daemon reads the webapp +
+# config and POSTs a sample scenario to the loopback gateway fuse route.
+# R171 defense-in-depth (Layer 1 lint enforced)
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+# Loopback default — capability lockdown matches.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
