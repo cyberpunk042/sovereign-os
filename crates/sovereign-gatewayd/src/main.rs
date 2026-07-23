@@ -1355,10 +1355,26 @@ fn extract_sampler_config(req: &serde_json::Value) -> sovereign_safetensors_load
         .and_then(|v| v.as_u64())
         .map(|k| if k > 0 { Some(k as usize) } else { None })
         .unwrap_or(None);
+    // OpenAI penalties (F-2026-086 residual): `frequency_penalty` and
+    // `presence_penalty` are documented over [-2.0, 2.0]; the sampler already
+    // applies both (proportional-to-count and flat-once respectively), so this
+    // only threads the request fields through. Absent ⇒ 0.0 (a no-op).
+    let frequency_penalty = req
+        .get("frequency_penalty")
+        .and_then(|v| v.as_f64())
+        .map(|p| p.clamp(-2.0, 2.0) as f32)
+        .unwrap_or(0.0);
+    let presence_penalty = req
+        .get("presence_penalty")
+        .and_then(|v| v.as_f64())
+        .map(|p| p.clamp(-2.0, 2.0) as f32)
+        .unwrap_or(0.0);
     sovereign_safetensors_loader::SamplerConfig {
         temperature,
         top_p,
         top_k,
+        frequency_penalty,
+        presence_penalty,
         ..sovereign_safetensors_loader::SamplerConfig::default()
     }
 }
@@ -1747,9 +1763,32 @@ fn agentic_chat_completion(
 mod tests {
     use super::{
         authorized, bind_is_loopback, chat_prompt, conn_timeout, constant_time_eq,
-        ndjson_authenticate, parse_stop, shape_tool_completion,
+        extract_sampler_config, ndjson_authenticate, parse_stop, shape_tool_completion,
     };
     use sovereign_tool_bridge::openai_tools_to_specs;
+
+    #[test]
+    fn extract_sampler_config_reads_the_openai_penalties() {
+        // F-2026-086 residual: `frequency_penalty` / `presence_penalty` are now
+        // parsed (documented over [-2, 2], clamped) and threaded into the sampler.
+        let cfg = extract_sampler_config(&serde_json::json!({
+            "frequency_penalty": 0.7,
+            "presence_penalty": -0.4,
+        }));
+        assert!((cfg.frequency_penalty - 0.7).abs() < 1e-6);
+        assert!((cfg.presence_penalty - (-0.4)).abs() < 1e-6);
+        // out-of-range values clamp to the OpenAI bounds.
+        let cfg = extract_sampler_config(&serde_json::json!({
+            "frequency_penalty": 9.0,
+            "presence_penalty": -9.0,
+        }));
+        assert_eq!(cfg.frequency_penalty, 2.0);
+        assert_eq!(cfg.presence_penalty, -2.0);
+        // absent ⇒ 0.0 (a no-op — generation is byte-identical to before).
+        let cfg = extract_sampler_config(&serde_json::json!({}));
+        assert_eq!(cfg.frequency_penalty, 0.0);
+        assert_eq!(cfg.presence_penalty, 0.0);
+    }
 
     #[test]
     fn parse_stop_accepts_string_array_and_absent() {

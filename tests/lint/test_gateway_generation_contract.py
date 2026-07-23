@@ -127,6 +127,11 @@ def test_gateway_openai_shim_threads_sampling_params():
         "must read top_p from request"
     assert "top_k" in main, \
         "must read top_k from request"
+    # F-2026-086 penalties residual: the OpenAI penalties are parsed + threaded.
+    assert "frequency_penalty" in main, \
+        "must read frequency_penalty from request"
+    assert "presence_penalty" in main, \
+        "must read presence_penalty from request"
     assert "SamplerConfig" in main, \
         "must construct a SamplerConfig from parsed params"
     assert "generate_chat_with_sampler" in main, \
