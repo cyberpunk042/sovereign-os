@@ -308,22 +308,88 @@ pub enum LawCombine {
 /// route), each a vocab bitset of `w` u64 words, into one allowed-token mask
 /// (F00625). `And` is the safe default: a token survives only if all laws pass.
 /// Returns a bitset the same width as the inputs.
+///
+/// Dispatches to a real AVX-512F kernel (`_mm512_and_si512` / `_mm512_or_si512`,
+/// 8×u64 = 512 allow-bits fused per instruction) when the host supports it, else
+/// the scalar reference — bit-identical results, proven by the parity test.
 #[must_use]
 pub fn token_law_combine(laws: &[&[u64]], combine: LawCombine) -> Vec<u64> {
     let width = laws.iter().map(|l| l.len()).max().unwrap_or(0);
+    if laws.is_empty() {
+        return vec![0u64; width];
+    }
+    #[cfg(target_arch = "x86_64")]
+    {
+        if crate::has_avx512f() {
+            // SAFETY: gated by runtime is_x86_feature_detected!("avx512f").
+            return unsafe { token_law_combine_avx512(laws, combine, width) };
+        }
+    }
+    token_law_combine_scalar(laws, combine, width)
+}
+
+/// Scalar reference for [`token_law_combine`] — the source of truth the AVX-512
+/// path is proven bit-identical to. A law shorter than `width` is treated as `0`
+/// in the missing high words (so `And` clears them, `Or` leaves them).
+#[must_use]
+fn token_law_combine_scalar(laws: &[&[u64]], combine: LawCombine, width: usize) -> Vec<u64> {
     let mut out = match combine {
         LawCombine::And => vec![u64::MAX; width],
         LawCombine::Or => vec![0u64; width],
     };
-    if laws.is_empty() {
-        return vec![0u64; width];
-    }
     for law in laws {
         for (i, slot) in out.iter_mut().enumerate() {
             let bits = law.get(i).copied().unwrap_or(0);
             match combine {
                 LawCombine::And => *slot &= bits,
                 LawCombine::Or => *slot |= bits,
+            }
+        }
+    }
+    out
+}
+
+/// # Safety
+/// Caller must ensure the host supports `avx512f`. Bit-identical to
+/// [`token_law_combine_scalar`] for every input.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512f")]
+unsafe fn token_law_combine_avx512(laws: &[&[u64]], combine: LawCombine, width: usize) -> Vec<u64> {
+    use std::arch::x86_64::*;
+    let mut out = match combine {
+        LawCombine::And => vec![u64::MAX; width],
+        LawCombine::Or => vec![0u64; width],
+    };
+    for law in laws {
+        let n = law.len().min(width);
+        let chunks = n / 8;
+        // SAFETY: the AVX-512F loads/stores are enabled by the fn's
+        // `#[target_feature]` + the caller's runtime `is_x86_feature_detected!`
+        // gate; each 8×u64 access reads/writes `c*8 + 8 <= chunks*8 <= n`
+        // contiguous words, in-bounds of both `out` (len `width >= n`) and `law`.
+        unsafe {
+            for c in 0..chunks {
+                let off = c * 8;
+                let vo = _mm512_loadu_si512(out.as_ptr().add(off) as *const __m512i);
+                let vl = _mm512_loadu_si512(law.as_ptr().add(off) as *const __m512i);
+                let r = match combine {
+                    LawCombine::And => _mm512_and_si512(vo, vl),
+                    LawCombine::Or => _mm512_or_si512(vo, vl),
+                };
+                _mm512_storeu_si512(out.as_mut_ptr().add(off) as *mut __m512i, r);
+            }
+        }
+        // tail of this law (n not a multiple of 8) — scalar, same op.
+        for i in (chunks * 8)..n {
+            match combine {
+                LawCombine::And => out[i] &= law[i],
+                LawCombine::Or => out[i] |= law[i],
+            }
+        }
+        // words past this law are implicitly 0: And clears them, Or is a no-op.
+        if matches!(combine, LawCombine::And) {
+            for slot in out[n..].iter_mut() {
+                *slot = 0;
             }
         }
     }
@@ -484,6 +550,60 @@ mod tests {
         assert_eq!(any, vec![0b1111_1111u64]);
         // empty law set → nothing allowed
         assert_eq!(token_law_combine(&[], LawCombine::And), Vec::<u64>::new());
+    }
+
+    #[test]
+    fn token_law_combine_handles_wide_and_ragged_masks() {
+        // Wider than one AVX-512 chunk (8 u64) with a non-8-multiple tail, plus a
+        // SHORT law: high words past a short law are 0 under And, unchanged under Or.
+        let full_a: Vec<u64> = (0..20u64)
+            .map(|i| 0xFFFF_FFFF_FFFF_FFFF ^ (1 << (i % 64)))
+            .collect();
+        let full_b: Vec<u64> = (0..20u64)
+            .map(|i| 0xFFFF_FFFF_FFFF_FFFF ^ (1 << ((i * 7) % 64)))
+            .collect();
+        let short: Vec<u64> = vec![0xF0F0_F0F0_F0F0_F0F0; 12]; // narrower than width 20
+        let laws: [&[u64]; 3] = [&full_a, &full_b, &short];
+        // Reference by hand (the scalar path is the source of truth).
+        let expect = token_law_combine_scalar(&laws, LawCombine::And, 20);
+        assert_eq!(token_law_combine(&laws, LawCombine::And), expect);
+        assert_eq!(expect.len(), 20);
+        // And past the short law's width 12 must be all-zero.
+        assert!(
+            expect[12..].iter().all(|&w| w == 0),
+            "And clears words past a short law"
+        );
+        // Or keeps the wide words.
+        let or = token_law_combine(&laws, LawCombine::Or);
+        assert_eq!(or, token_law_combine_scalar(&laws, LawCombine::Or, 20));
+    }
+
+    #[test]
+    fn token_law_combine_avx_matches_scalar() {
+        // The load-bearing parity invariant: on an AVX-512 host the vectorized
+        // kernel is bit-identical to the scalar reference across widths that span
+        // full chunks, ragged tails, and ragged law widths — for And and Or.
+        #[cfg(target_arch = "x86_64")]
+        if crate::has_avx512f() {
+            for width in [1usize, 7, 8, 9, 16, 17, 20, 33] {
+                let a: Vec<u64> = (0..width as u64)
+                    .map(|i| i.wrapping_mul(0x9E37_79B9_7F4A_7C15))
+                    .collect();
+                let b: Vec<u64> = (0..width as u64)
+                    .map(|i| !(i.wrapping_mul(0xD1B5)))
+                    .collect();
+                for cut in [width, width / 2, 0] {
+                    let short = &a[..cut];
+                    let laws: [&[u64]; 3] = [&a, &b, short];
+                    for combine in [LawCombine::And, LawCombine::Or] {
+                        let scalar = token_law_combine_scalar(&laws, combine, width);
+                        // SAFETY: guarded by `has_avx512f()` returning true.
+                        let avx = unsafe { token_law_combine_avx512(&laws, combine, width) };
+                        assert_eq!(avx, scalar, "width={width} cut={cut} combine={combine:?}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]
