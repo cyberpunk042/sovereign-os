@@ -167,6 +167,10 @@ pub struct TokenLawSpec<'a> {
     /// window at/above a Shannon-entropy threshold (a text→token secret-shape
     /// projection). `None` ⇒ off. Complements, never replaces, the post-hoc scan.
     pub entropy: Option<sovereign_token_law_entropy::EntropyConstraint>,
+    /// PII-completion plane (SDD-516) — ban the token that *completes* a
+    /// well-defined PII value (`sovereign-pii-redact` shape: email / SSN / IPv4 /
+    /// Luhn card). `None` ⇒ off. Complements, never replaces, the post-hoc redactor.
+    pub pii: Option<sovereign_token_law_pii::PiiConstraint>,
 }
 
 impl TokenLawSpec<'_> {
@@ -178,6 +182,7 @@ impl TokenLawSpec<'_> {
             && self.regex_denylist.is_empty()
             && self.policy_planes.is_empty()
             && self.entropy.is_none()
+            && self.pii.is_none()
     }
 }
 
@@ -941,6 +946,7 @@ impl SovereignLlm {
             regex_denylist: spec.regex_denylist,
             policy_planes: spec.policy_planes,
             entropy: spec.entropy,
+            pii: spec.pii,
         };
         let compiled = sovereign_token_law_fuse::CompiledFuse::compile(&layers, vocab)
             .map_err(|e| LlmError::Regex(e.0))?;

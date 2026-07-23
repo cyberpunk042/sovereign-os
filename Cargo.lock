@@ -5549,6 +5549,7 @@ dependencies = [
  "sovereign-token-law-entropy",
  "sovereign-token-law-fuse",
  "sovereign-token-law-mask",
+ "sovereign-token-law-pii",
  "sovereign-tokenizer",
  "sovereign-toxicity",
  "sovereign-transformer-block",
@@ -6727,6 +6728,7 @@ dependencies = [
  "sovereign-token-law-deny",
  "sovereign-token-law-entropy",
  "sovereign-token-law-mask",
+ "sovereign-token-law-pii",
 ]
 
 [[package]]
@@ -6735,6 +6737,13 @@ version = "0.1.0"
 dependencies = [
  "sovereign-logit-pipeline",
  "sovereign-simd",
+]
+
+[[package]]
+name = "sovereign-token-law-pii"
+version = "0.1.0"
+dependencies = [
+ "sovereign-pii-redact",
 ]
 
 [[package]]

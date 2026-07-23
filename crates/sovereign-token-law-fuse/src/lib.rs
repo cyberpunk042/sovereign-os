@@ -30,6 +30,7 @@ use sovereign_token_grammar_mask::{IncrementalGrammarMask, TokenGrammarMask};
 use sovereign_token_law_deny::{AcState, DenyConstraint};
 use sovereign_token_law_entropy::EntropyConstraint;
 use sovereign_token_law_mask::TokenLawPlanes;
+use sovereign_token_law_pii::PiiConstraint;
 
 /// A compile error for one of the regex-shaped layers (`regex` / `regex_denylist`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,6 +68,8 @@ pub struct MaskLayerSet {
     pub policy: bool,
     /// The heuristic entropy (text→token secret-shape) plane (SDD-513).
     pub entropy: bool,
+    /// The PII-completion (text→token well-defined-shape) plane (SDD-516).
+    pub pii: bool,
 }
 
 impl Default for MaskLayerSet {
@@ -85,6 +88,7 @@ impl MaskLayerSet {
             regex_denylist: true,
             policy: true,
             entropy: true,
+            pii: true,
         }
     }
 
@@ -97,6 +101,7 @@ impl MaskLayerSet {
             regex_denylist: false,
             policy: false,
             entropy: false,
+            pii: false,
         }
     }
 
@@ -115,10 +120,13 @@ impl MaskLayerSet {
             // denylist+regex_denylist so an existing `safety`-only selection is
             // unchanged; entropy is opt-in on its own (SDD-513).
             "entropy" => self.entropy = true,
+            // Also a DISTINCT name, not folded into `safety` (SDD-516): an exact
+            // shape-completion plane, opt-in on its own like entropy.
+            "pii" => self.pii = true,
             other => {
                 return Err(FuseError(format!(
                     "unknown mask layer {other:?}; valid: grammar, schema, tool, \
-                     regex, denylist, regex_denylist, safety, policy, entropy"
+                     regex, denylist, regex_denylist, safety, policy, entropy, pii"
                 )));
             }
         }
@@ -183,6 +191,9 @@ impl MaskLayerSet {
         if self.entropy {
             v.push("entropy");
         }
+        if self.pii {
+            v.push("pii");
+        }
         v
     }
 }
@@ -206,6 +217,9 @@ pub struct FuseLayers<'a> {
     /// window at/above a Shannon-entropy threshold (a text→token secret-shape
     /// projection). `None` ⇒ the plane is off.
     pub entropy: Option<EntropyConstraint>,
+    /// PII-completion plane (SDD-516) — ban the token that *completes* a
+    /// well-defined PII value (`sovereign-pii-redact` shape). `None` ⇒ off.
+    pub pii: Option<PiiConstraint>,
 }
 
 impl<'a> FuseLayers<'a> {
@@ -235,6 +249,7 @@ impl<'a> FuseLayers<'a> {
                 EMPTY_PLANES
             },
             entropy: if sel.entropy { self.entropy } else { None },
+            pii: if sel.pii { self.pii } else { None },
         }
     }
 }
@@ -276,6 +291,7 @@ pub struct CompiledFuse {
     deny: Option<DenyConstraint>,
     regex_deny: Vec<RegexDenyConstraint>,
     entropy: Option<EntropyConstraint>,
+    pii: Option<PiiConstraint>,
     planes: TokenLawPlanes,
 }
 
@@ -315,6 +331,7 @@ impl CompiledFuse {
             deny,
             regex_deny,
             entropy: layers.entropy,
+            pii: layers.pii,
             planes,
         })
     }
@@ -390,6 +407,17 @@ impl CompiledFuse {
             });
             dynamics.push(ids);
         }
+        if let Some(pii) = &self.pii {
+            let ids = pii.safe_token_ids(generated, &vocab_refs);
+            if ids.is_empty() {
+                stop = true;
+            }
+            per_layer.push(LayerCoverage {
+                layer: "pii",
+                allowed: ids.len(),
+            });
+            dynamics.push(ids);
+        }
 
         self.compose(dynamics, per_layer, stop)
     }
@@ -439,6 +467,7 @@ impl CompiledFuse {
             deny_state: self.deny.as_ref().map(|d| d.start_state()),
             regex_deny_states: self.regex_deny.iter().map(|rd| rd.start_state()).collect(),
             entropy_tail: String::new(),
+            pii_tail: String::new(),
             fuse: self,
         }
     }
@@ -479,6 +508,11 @@ pub struct FuseSession<'f> {
     /// the last `window` chars, so this keeps its per-step cost O(window·vocab),
     /// not O(prefix·vocab) (the whole point of the session).
     entropy_tail: String,
+    /// The trailing window of committed text the PII plane scans. Truncated to the
+    /// PII plane's `window` after each advance, for the same reason as
+    /// `entropy_tail` — `safe_token_ids` reads no more than that, so this is
+    /// O(window·vocab)-bounded WITHOUT changing the result (parity).
+    pii_tail: String,
 }
 
 impl FuseSession<'_> {
@@ -554,6 +588,17 @@ impl FuseSession<'_> {
             });
             dynamics.push(ids);
         }
+        if let Some(pii) = &self.fuse.pii {
+            let ids = pii.safe_token_ids(&self.pii_tail, &vocab_refs);
+            if ids.is_empty() {
+                stop = true;
+            }
+            per_layer.push(LayerCoverage {
+                layer: "pii",
+                allowed: ids.len(),
+            });
+            dynamics.push(ids);
+        }
 
         self.fuse.compose(dynamics, per_layer, stop)
     }
@@ -602,6 +647,17 @@ impl FuseSession<'_> {
                 self.entropy_tail = self.entropy_tail.chars().skip(n - w).collect();
             }
         }
+        if let Some(pii) = &self.fuse.pii {
+            self.pii_tail.push_str(delta);
+            // Same window-truncation reasoning as `entropy_tail`: `safe_token_ids`
+            // windows its input to the last `window` chars, so keeping exactly that
+            // many is O(window)-bounded and leaves the result unchanged (parity).
+            let w = pii.window();
+            let n = self.pii_tail.chars().count();
+            if n > w {
+                self.pii_tail = self.pii_tail.chars().skip(n - w).collect();
+            }
+        }
         self.mask()
     }
 }
@@ -637,6 +693,26 @@ impl EntropyRequest {
     }
 }
 
+/// The wire shape of the PII-completion plane (SDD-516). Present (even `{}`) ⇒ the
+/// plane is ON, scanning the trailing `window` characters for a completed PII
+/// value; absent ⇒ the plane is off.
+#[derive(Debug, Clone, Copy, Default, serde::Deserialize)]
+pub struct PiiRequest {
+    /// Trailing-window character count scanned (default: `DEFAULT_PII_WINDOW`).
+    #[serde(default)]
+    pub window: Option<usize>,
+}
+
+impl PiiRequest {
+    /// Resolve this wire request into a compiled [`PiiConstraint`], the unset
+    /// `window` defaulting to `DEFAULT_PII_WINDOW`. Public so a serving consumer
+    /// (gatewayd's `ServingTokenLaw`) reuses the SAME defaulting the fuse route does.
+    pub fn to_constraint(self) -> PiiConstraint {
+        let d = PiiConstraint::default();
+        PiiConstraint::new(self.window.unwrap_or_else(|| d.window()))
+    }
+}
+
 /// An owned, deserializable fusion request — the wire shape a data-plane HTTP
 /// route (F00797) or a CLI verb deserializes, then [`fuse`](FuseRequest::fuse)s.
 /// Every layer field defaults to empty, so a request may carry any subset.
@@ -668,6 +744,9 @@ pub struct FuseRequest {
     /// Heuristic entropy plane (SDD-513) — present ⇒ on. Absent ⇒ off.
     #[serde(default)]
     pub entropy: Option<EntropyRequest>,
+    /// PII-completion plane (SDD-516) — present ⇒ on. Absent ⇒ off.
+    #[serde(default)]
+    pub pii: Option<PiiRequest>,
     /// The vocabulary (token id → string) to mask over.
     pub vocab: Vec<String>,
 }
@@ -697,6 +776,7 @@ impl FuseRequest {
             regex_denylist: &regex_denylist,
             policy_planes: &policy_planes,
             entropy: self.entropy.map(EntropyRequest::to_constraint),
+            pii: self.pii.map(PiiRequest::to_constraint),
         }
         .select(&sel);
         let compiled = CompiledFuse::compile(&layers, self.vocab.clone())?;
@@ -726,6 +806,9 @@ impl FuseRequest {
         }
         if self.entropy.is_some() && sel.entropy {
             v.push("entropy");
+        }
+        if self.pii.is_some() && sel.pii {
+            v.push("pii");
         }
         v
     }
@@ -799,6 +882,76 @@ mod tests {
     }
 
     #[test]
+    fn pii_plane_fuses_through_the_request_and_bans_a_pii_completer() {
+        // SDD-516: a FuseRequest carrying `pii` (defaults) at a prefix holding the
+        // first 15 digits of a Luhn-valid card must drop the token that supplies
+        // the completing digit, keep a non-completing token, and report "pii".
+        let req = FuseRequest {
+            pii: Some(PiiRequest::default()),
+            generated: "card 4111 1111 1111 111".to_string(),
+            vocab: vocab(&["1", " done"]),
+            ..Default::default()
+        };
+        assert_eq!(req.layers_active(), vec!["pii"]);
+        let allowed = set_bits(&req.fuse().unwrap().mask);
+        assert!(
+            !allowed.contains(&0),
+            "the card-completing digit must be masked out"
+        );
+        assert!(
+            allowed.contains(&1),
+            "a non-completing token must survive the pii plane"
+        );
+    }
+
+    #[test]
+    fn pii_layer_can_be_deselected() {
+        // With `mask_layers` excluding pii, the plane is skipped even though the
+        // source is present → the completing digit is allowed again.
+        let req = FuseRequest {
+            pii: Some(PiiRequest::default()),
+            generated: "card 4111 1111 1111 111".to_string(),
+            mask_layers: Some(vec!["grammar".to_string()]),
+            vocab: vocab(&["1", " done"]),
+            ..Default::default()
+        };
+        assert!(
+            req.layers_active().is_empty(),
+            "pii deselected + no grammar source"
+        );
+        let allowed = set_bits(&req.fuse().unwrap().mask);
+        assert!(
+            allowed.contains(&0) && allowed.contains(&1),
+            "no plane active → all allowed"
+        );
+    }
+
+    #[test]
+    fn pii_session_is_bit_for_bit_identical_to_stateless() {
+        // SDD-514 parity invariant extended to the SDD-516 plane: the incremental
+        // session's pii_tail must reproduce fused_mask EXACTLY as a card is typed
+        // digit by digit (including the completing digit's ban) and past it.
+        let v = vocab(&["4111 1111 1111 111", "1", "1", " ok"]);
+        let layers = FuseLayers {
+            pii: Some(PiiConstraint::default()),
+            ..Default::default()
+        };
+        let compiled = CompiledFuse::compile(&layers, v.clone()).unwrap();
+        let mut session = compiled.session();
+        let mut running = String::new();
+        // step 0: empty prefix
+        assert_eq!(session.mask(), compiled.fused_mask(&running));
+        for &id in &[0usize, 1, 3] {
+            running.push_str(&v[id]);
+            assert_eq!(
+                session.advance_token(id),
+                compiled.fused_mask(&running),
+                "pii session diverged from stateless at {running:?}"
+            );
+        }
+    }
+
+    #[test]
     fn session_is_bit_for_bit_identical_to_stateless_across_all_planes() {
         // SDD-514: the incremental session must reproduce fused_mask EXACTLY at
         // every prefix, with all five dynamic planes + a policy plane active.
@@ -811,6 +964,7 @@ mod tests {
             regex_denylist: &["[0-9][0-9]"],
             policy_planes: &[&policy],
             entropy: Some(EntropyConstraint::default()),
+            pii: None,
         };
         let fuse = CompiledFuse::compile(&layers, v.clone()).unwrap();
 
@@ -850,6 +1004,7 @@ mod tests {
             regex_denylist: &[],
             policy_planes: &[],
             entropy: None,
+            pii: None,
         };
         let fuse = CompiledFuse::compile(&layers, v.clone()).unwrap();
         let mut session = fuse.session();
@@ -896,6 +1051,7 @@ mod tests {
             regex_denylist: &rdl,
             policy_planes: &pp,
             entropy: None,
+            pii: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["5", "x", "7"])).unwrap();
         let out = f.fused_mask("");
@@ -923,6 +1079,7 @@ mod tests {
             regex_denylist: &rdl,
             policy_planes: &pp,
             entropy: None,
+            pii: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["a", "x", "q", "z"])).unwrap();
         let out = f.fused_mask("");
@@ -946,6 +1103,7 @@ mod tests {
             regex_denylist: &rdl,
             policy_planes: &pp,
             entropy: None,
+            pii: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["b", "x", "c"])).unwrap();
         let out = f.fused_mask("a");
@@ -975,6 +1133,7 @@ mod tests {
             regex_denylist: &rdl,
             policy_planes: &planes,
             entropy: None,
+            pii: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["a", "b", "c"])).unwrap();
         let out = f.fused_mask("");
@@ -994,6 +1153,7 @@ mod tests {
             regex_denylist: &rdl,
             policy_planes: &pp,
             entropy: None,
+            pii: None,
         };
         let f = CompiledFuse::compile(&layers, vocab(&["a", "b"])).unwrap();
         let out = f.fused_mask("");
@@ -1013,6 +1173,7 @@ mod tests {
             regex_denylist: &rdl,
             policy_planes: &pp,
             entropy: None,
+            pii: None,
         };
         assert!(CompiledFuse::compile(&layers, vocab(&["a"])).is_err());
     }
