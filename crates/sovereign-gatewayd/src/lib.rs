@@ -715,6 +715,11 @@ pub struct ServingTokenLaw {
     /// secret-shape projection). Absent ⇒ off. Complements the post-hoc scan.
     #[serde(default)]
     pub entropy: Option<sovereign_token_law_fuse::EntropyRequest>,
+    /// PII-completion plane (SDD-516) — present ⇒ ban the token that *completes* a
+    /// well-defined PII value (`sovereign-pii-redact` shape). Absent ⇒ off.
+    /// Complements the post-hoc redactor.
+    #[serde(default)]
+    pub pii: Option<sovereign_token_law_fuse::PiiRequest>,
 }
 
 impl ServingTokenLaw {
@@ -727,6 +732,7 @@ impl ServingTokenLaw {
             && self.regex_denylist.is_empty()
             && self.policy_planes.is_empty()
             && self.entropy.is_none()
+            && self.pii.is_none()
     }
 
     /// The effective layer selection: the request's `mask_layers` if given, else
@@ -762,6 +768,9 @@ impl ServingTokenLaw {
             entropy: self
                 .entropy
                 .map(sovereign_token_law_fuse::EntropyRequest::to_constraint),
+            pii: self
+                .pii
+                .map(sovereign_token_law_fuse::PiiRequest::to_constraint),
         }
         .select(&sel);
         sovereign_token_law_fuse::CompiledFuse::compile(&layers, vocab).map_err(|e| e.0)
@@ -793,6 +802,9 @@ impl ServingTokenLaw {
         }
         if self.entropy.is_some() && sel.entropy {
             v.push("entropy");
+        }
+        if self.pii.is_some() && sel.pii {
+            v.push("pii");
         }
         v
     }
