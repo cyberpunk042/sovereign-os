@@ -720,12 +720,31 @@ pub struct ServingTokenLaw {
     /// Complements the post-hoc redactor.
     #[serde(default)]
     pub pii: Option<sovereign_token_law_fuse::PiiRequest>,
+    /// Route source (SDD-517) — the task's routing decision (compute role +
+    /// privacy/safety axes). Present ⇒ the built-in doctrine forces the intrinsic
+    /// egress guards (PII + entropy) on when data can leave the device (Cloud role
+    /// or Public privacy), and keeps the safety denylist selected when Risky. It
+    /// only ever forces guards ON, never off. Absent ⇒ routing contributes nothing.
+    #[serde(default)]
+    pub route: Option<sovereign_token_law_route::RouteDirective>,
 }
 
 impl ServingTokenLaw {
+    /// The token-law profile the routing decision selects (SDD-517), or a no-op
+    /// profile when no route is present. v1 uses the built-in doctrine
+    /// ([`sovereign_token_law_route::RouteProfileMap::default`]); an operator
+    /// per-role override map is a roadmap item.
+    fn route_profile(&self) -> sovereign_token_law_route::RouteProfile {
+        self.route
+            .map(|d| sovereign_token_law_route::RouteProfileMap::default().resolve_directive(&d))
+            .unwrap_or_default()
+    }
+
     /// True when no law source is present — the request is effectively
-    /// unconstrained and the serving path takes the static (empty-mask) route.
+    /// unconstrained and the serving path takes the static (empty-mask) route. A
+    /// route that forces an egress guard on (PII/entropy) is a real constraint.
     pub fn is_unconstrained(&self) -> bool {
+        let p = self.route_profile();
         self.schema.is_none()
             && self.regex.is_none()
             && self.denylist.is_empty()
@@ -733,17 +752,33 @@ impl ServingTokenLaw {
             && self.policy_planes.is_empty()
             && self.entropy.is_none()
             && self.pii.is_none()
+            && !p.force_pii
+            && !p.force_entropy
     }
 
     /// The effective layer selection: the request's `mask_layers` if given, else
-    /// the env/all default resolved the same way the fuse route does (SDD-510).
+    /// the env/all default resolved the same way the fuse route does (SDD-510),
+    /// with the route profile (SDD-517) forcing selection ON for any guard it
+    /// mandates (a request's `mask_layers` can never deselect a route-forced guard).
     fn selection(&self) -> Result<sovereign_token_law_fuse::MaskLayerSet, String> {
-        match &self.mask_layers {
+        let mut sel = match &self.mask_layers {
             Some(names) => {
-                sovereign_token_law_fuse::MaskLayerSet::from_names(names).map_err(|e| e.0)
+                sovereign_token_law_fuse::MaskLayerSet::from_names(names).map_err(|e| e.0)?
             }
-            None => Ok(sovereign_token_law_fuse::MaskLayerSet::from_env_or_all()),
+            None => sovereign_token_law_fuse::MaskLayerSet::from_env_or_all(),
+        };
+        let p = self.route_profile();
+        if p.force_entropy {
+            sel.entropy = true;
         }
+        if p.force_pii {
+            sel.pii = true;
+        }
+        if p.force_safety_denylist {
+            sel.denylist = true;
+            sel.regex_denylist = true;
+        }
+        Ok(sel)
     }
 
     /// Compile the **selected** laws against the model's real `vocab` into the
@@ -756,21 +791,35 @@ impl ServingTokenLaw {
         vocab: Vec<String>,
     ) -> Result<sovereign_token_law_fuse::CompiledFuse, String> {
         let sel = self.selection()?;
+        let p = self.route_profile();
         let denylist: Vec<&str> = self.denylist.iter().map(String::as_str).collect();
         let regex_denylist: Vec<&str> = self.regex_denylist.iter().map(String::as_str).collect();
         let policy_planes: Vec<&[u64]> = self.policy_planes.iter().map(Vec::as_slice).collect();
+        // The route (SDD-517) forces an egress guard ON when the request omits it:
+        // fall back to the plane's defaults so a routed-to-cloud request is guarded
+        // even with no explicit `entropy`/`pii`. It never turns a present one off.
+        let entropy = self
+            .entropy
+            .map(sovereign_token_law_fuse::EntropyRequest::to_constraint)
+            .or_else(|| {
+                p.force_entropy
+                    .then(|| sovereign_token_law_fuse::EntropyRequest::default().to_constraint())
+            });
+        let pii = self
+            .pii
+            .map(sovereign_token_law_fuse::PiiRequest::to_constraint)
+            .or_else(|| {
+                p.force_pii
+                    .then(|| sovereign_token_law_fuse::PiiRequest::default().to_constraint())
+            });
         let layers = sovereign_token_law_fuse::FuseLayers {
             schema: self.schema.as_ref(),
             regex: self.regex.as_deref(),
             denylist: &denylist,
             regex_denylist: &regex_denylist,
             policy_planes: &policy_planes,
-            entropy: self
-                .entropy
-                .map(sovereign_token_law_fuse::EntropyRequest::to_constraint),
-            pii: self
-                .pii
-                .map(sovereign_token_law_fuse::PiiRequest::to_constraint),
+            entropy,
+            pii,
         }
         .select(&sel);
         sovereign_token_law_fuse::CompiledFuse::compile(&layers, vocab).map_err(|e| e.0)
@@ -784,6 +833,7 @@ impl ServingTokenLaw {
             .selection()
             .ok()
             .unwrap_or_else(sovereign_token_law_fuse::MaskLayerSet::all);
+        let p = self.route_profile();
         let mut v = Vec::new();
         if self.schema.is_some() && sel.grammar {
             v.push("grammar");
@@ -800,10 +850,11 @@ impl ServingTokenLaw {
         if !self.policy_planes.is_empty() && sel.policy {
             v.push("policy");
         }
-        if self.entropy.is_some() && sel.entropy {
+        // A guard fires if the request supplied it OR the route forced it on.
+        if (self.entropy.is_some() || p.force_entropy) && sel.entropy {
             v.push("entropy");
         }
-        if self.pii.is_some() && sel.pii {
+        if (self.pii.is_some() || p.force_pii) && sel.pii {
             v.push("pii");
         }
         v
@@ -3319,6 +3370,67 @@ mod tests {
 
     fn infer_line(req: &CortexRequest) -> String {
         serde_json::json!({ "op": "infer", "request": req }).to_string()
+    }
+
+    #[test]
+    fn route_to_cloud_forces_the_egress_guards_on_an_otherwise_empty_law() {
+        // SDD-517: a request carrying only a `route` to Cloud (no explicit
+        // entropy/pii) is NOT unconstrained — the doctrine forces PII + entropy on,
+        // and both surface in layers_active.
+        use sovereign_router_7axis::{Privacy, Safety, SrpRole};
+        let law = ServingTokenLaw {
+            route: Some(sovereign_token_law_route::RouteDirective {
+                role: SrpRole::Cloud,
+                privacy: Privacy::Private,
+                safety: Safety::Safe,
+            }),
+            ..Default::default()
+        };
+        assert!(
+            !law.is_unconstrained(),
+            "a cloud route forces guards → constrained"
+        );
+        let active = law.layers_active();
+        assert!(active.contains(&"pii"), "route forces the pii guard on");
+        assert!(
+            active.contains(&"entropy"),
+            "route forces the entropy guard on"
+        );
+    }
+
+    #[test]
+    fn route_local_private_safe_leaves_the_law_unconstrained() {
+        use sovereign_router_7axis::{Privacy, Safety, SrpRole};
+        let law = ServingTokenLaw {
+            route: Some(sovereign_token_law_route::RouteDirective {
+                role: SrpRole::Logic,
+                privacy: Privacy::Private,
+                safety: Safety::Safe,
+            }),
+            ..Default::default()
+        };
+        assert!(
+            law.is_unconstrained(),
+            "a local private safe route forces nothing"
+        );
+        assert!(law.layers_active().is_empty());
+    }
+
+    #[test]
+    fn route_never_deselects_an_explicit_guard() {
+        // Even if mask_layers omits pii, a cloud route re-forces it on.
+        use sovereign_router_7axis::{Privacy, Safety, SrpRole};
+        let law = ServingTokenLaw {
+            mask_layers: Some(vec!["grammar".to_string()]),
+            route: Some(sovereign_token_law_route::RouteDirective {
+                role: SrpRole::Cloud,
+                privacy: Privacy::Public,
+                safety: Safety::Safe,
+            }),
+            ..Default::default()
+        };
+        let active = law.layers_active();
+        assert!(active.contains(&"pii") && active.contains(&"entropy"));
     }
 
     // ── F-2026-090 / F-2026-066: model-backed daemon tests on a real, loadable,

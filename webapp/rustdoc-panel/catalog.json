@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_by": "scripts/webapp/gen-rustdoc-panel-catalog.py",
-  "count": 728,
+  "count": 729,
   "crates": [
     {
       "name": "sovereign-agent-loop",
@@ -2750,6 +2750,10 @@
     {
       "name": "sovereign-token-law-pii",
       "description": "The PII-completion token-law plane (SDD-516, M00155 DEEPEN): a text->token safety projection that bans a running model from EMITTING THE TOKEN THAT COMPLETES a personally-identifiable value. Unlike the entropy plane (a statistical Shannon-entropy threshold, explicitly heuristic), a PII value has a WELL-DEFINED COMPLETION: at any prefix, appending a candidate token either creates a sovereign-pii-redact detection that ends within the candidate or it does not \u2014 deterministic per step, the exact-shape v2 the entropy plane's own scope note promised. It reuses sovereign-pii-redact::detect WHOLESALE (email / US SSN / IPv4 / Luhn-valid credit card) over a bounded trailing window, so the plane and the post-hoc redactor can never disagree on what PII is; recall is bounded by detect's four kinds, so like entropy it is opt-in per request and the post-hoc StreamGuard redactor stays the backstop. safe_token_ids returns the allow-list (all tokens minus the ones that would complete a PII value), the same Vec<usize> shape sovereign-token-law-mask's TokenLawPlanes consumes, so it composes with grammar/regex/denylist/entropy/policy planes through the M00117 token_law_combine. Composes sovereign-pii-redact."
+    },
+    {
+      "name": "sovereign-token-law-route",
+      "description": "The ROUTE token-law source (SDD-517, M00155 DEEPEN): bind a 7-axis routing decision to a token-law PROFILE so the router's placement of a task drives which constraint planes the engine forces on. An SrpRole is a COMPUTE TIER (Conductor/Logic/Oracle/Cloud), not a vocabulary subset \u2014 so there is no honest role->allow-bitset table; the meaningful levers are the router's privacy/safety axes plus whether data leaves the device. The built-in doctrine: when a task is routed to Cloud OR its privacy is Public (data egress is possible), FORCE the intrinsic egress guards on \u2014 the PII-completion plane (SDD-516) and the entropy plane (SDD-513) \u2014 regardless of what the request asked for; when safety is Risky, keep the safety denylist selected. RouteProfileMap lets an operator override the profile per role. RouteProfile carries only FLAGS (force_pii / force_entropy / force_safety_denylist), so this crate stays dependency-light (sovereign-router-7axis + serde only); the serving boundary (sovereign-gatewayd) applies the flags using the constraint types it already holds. It COMPLEMENTS, never replaces, an explicit per-request token_law: a request may still add planes; the route only ever forces the egress guards ON, never off."
     },
     {
       "name": "sovereign-token-meter",

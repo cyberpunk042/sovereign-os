@@ -4958,6 +4958,7 @@ dependencies = [
  "sovereign-stop-sequence",
  "sovereign-stream-decode",
  "sovereign-token-law-fuse",
+ "sovereign-token-law-route",
  "sovereign-tool-bridge",
  "sovereign-tool-dispatch",
  "sovereign-toxicity",
@@ -6744,6 +6745,14 @@ name = "sovereign-token-law-pii"
 version = "0.1.0"
 dependencies = [
  "sovereign-pii-redact",
+]
+
+[[package]]
+name = "sovereign-token-law-route"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sovereign-router-7axis",
 ]
 
 [[package]]
