@@ -4940,6 +4940,7 @@ dependencies = [
  "sovereign-gateway",
  "sovereign-hf-tokenizer",
  "sovereign-injection-detect",
+ "sovereign-json-schema-grammar",
  "sovereign-logit-mask",
  "sovereign-memory-os",
  "sovereign-network-zerotrust",
@@ -6076,6 +6077,7 @@ dependencies = [
  "sovereign-quant-block",
  "sovereign-rmsnorm",
  "sovereign-sampler",
+ "sovereign-token-law-mask",
  "sovereign-transformer-block",
  "thiserror",
 ]

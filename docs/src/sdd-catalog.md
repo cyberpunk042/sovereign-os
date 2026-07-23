@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (222 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (223 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -151,6 +151,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (222 total), by number.
 - [SDD-509 — Step-up MFA for high-privilege cockpit operations: TOTP + phone + email code, configurable via a pane (corrects SDD-508)](../sdd/509-step-up-mfa-totp-phone-email-configurable-pane.md)
 - [SDD-510 — Token-law mask-layer selection: the operator-configurable layer knob (profile + env + CLI)](../sdd/510-token-law-mask-layer-selection.md)
 - [SDD-511 — Token-law mask-coverage heatmap: the cockpit dashboard (F00796)](../sdd/511-token-law-mask-coverage-heatmap.md)
+- [SDD-512 — Token-law serving boundary: CONNECT the engine to live `/v1/messages` generation (M00155)](../sdd/512-token-law-serving-boundary.md)
 - [SDD-600 — Cockpit hotswap controls (frontend · provider/origin · AVX modes)](../sdd/600-cockpit-hotswap-controls.md)
 - [SDD-700 — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (F-2026-107..108)](../sdd/700-operator-sudoers-privesc-guard.md)
 - [SDD-701 — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (F-2026-109..110)](../sdd/701-nvidia-gpu-bringup.md)

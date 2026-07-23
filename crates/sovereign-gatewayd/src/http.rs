@@ -1376,6 +1376,24 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
             );
         }
     };
+    // SDD-512 CONNECT: an optional `token_law` object constrains live decoding by
+    // the M00117 laws (grammar/regex/denylist/regex_denylist/policy + mask_layers)
+    // — the SAME planes the `/v1/data-plane/token-law/fuse` route inspects. Absent
+    // ⇒ unconstrained, byte-identical to the pre-CONNECT path.
+    let token_law: Option<crate::ServingTokenLaw> = match req.get("token_law") {
+        Some(v) => match serde_json::from_value::<crate::ServingTokenLaw>(v.clone()) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                return anthropic_err(
+                    400,
+                    "invalid_request_error",
+                    format!("invalid token_law constraint: {e}"),
+                );
+            }
+        },
+        None => None,
+    };
+    let law_active = token_law.as_ref().filter(|s| !s.is_unconstrained());
     let requested = req
         .get("model")
         .and_then(|m| m.as_str())
@@ -1391,6 +1409,22 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     // `/v1/chat/completions` and its reply translated back to the Anthropic shape; an
     // `anthropic` backend (another sovereign-gatewayd) is forwarded verbatim.
     if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
+        // SDD-512: token-law can only bite where the box holds the logits. A
+        // proxy backend generates OUT-OF-PROCESS (no logit access), so a
+        // law-carrying request against it is REFUSED — never forwarded and
+        // silently served unconstrained. The no-logit-access boundary honored,
+        // not faked: constrain a local model, or drop `token_law`.
+        if law_active.is_some() {
+            return anthropic_err(
+                422,
+                "invalid_request_error",
+                format!(
+                    "token_law constraints cannot be enforced on proxy-backed model \
+                     `{model}` (generates out-of-process — no logit access); route to a \
+                     local model or omit token_law"
+                ),
+            );
+        }
         let t0 = std::time::Instant::now();
         let mut reply = proxy_message(&endpoint, &dialect, &model, &req, body);
         // Close the redaction bypass: proxy-relayed output never passes through
@@ -1424,17 +1458,20 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     let prompt = server.rag_augment(&anthropic_prompt(&req));
     let max_new = anthropic_max_tokens(&req);
     let mut out = String::new();
-    let generated = server.generate_chat_with_sampler(
+    // SDD-512: drive the constrained decode when `token_law` carries active laws
+    // (local model only — the proxy path already refused above); else the static
+    // empty-mask path, unchanged.
+    let generated = server.generate_chat_with_sampler_law(
         Some(&model),
         &prompt,
         max_new,
         sovereign_safetensors_loader::SamplerConfig::greedy(),
+        law_active,
         |c| out.push_str(c),
     );
     match generated {
-        Ok(n) => json_reply(
-            200,
-            &serde_json::json!({
+        Ok(n) => {
+            let mut msg = serde_json::json!({
                 "id": "msg_sovereign",
                 "type": "message",
                 "role": "assistant",
@@ -1443,8 +1480,17 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
                 "stop_reason": "end_turn",
                 "stop_sequence": serde_json::Value::Null,
                 "usage": { "input_tokens": approx_tokens(&prompt), "output_tokens": n },
-            }),
-        ),
+            });
+            // Surface which laws actually bit, so a caller can confirm the mask
+            // was enforced (parallels the fuse route's `layers_active`).
+            if let Some(spec) = law_active {
+                msg["token_law"] = serde_json::json!({
+                    "enforced": true,
+                    "layers_active": spec.layers_active(),
+                });
+            }
+            json_reply(200, &msg)
+        }
         Err(e) => anthropic_err(500, "api_error", format!("generation error: {e}")),
     }
 }
@@ -1506,6 +1552,102 @@ mod tests {
             r#"{ "regex": "[unterminated", "vocab": ["a"] }"#,
         );
         assert_eq!(bad.status, 400);
+    }
+
+    // ── SDD-512 CONNECT: /v1/messages token-law serving boundary ──
+
+    #[test]
+    fn messages_rejects_a_malformed_token_law_constraint() {
+        // A `token_law` present but ill-typed (regex must be a string) is a 400,
+        // never silently dropped — the constraint is load-bearing.
+        let s = srv();
+        let r = respond(
+            &s,
+            "POST",
+            "/v1/messages",
+            r#"{ "messages": [{"role":"user","content":"hi"}], "token_law": { "regex": 123 } }"#,
+        );
+        assert_eq!(r.status, 400);
+        assert!(
+            body_of(&r)["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("token_law")
+        );
+    }
+
+    #[test]
+    fn messages_refuses_token_law_on_a_proxy_backend_no_logit_access() {
+        // The honesty boundary: a proxy model generates out-of-process (no logit
+        // access), so a law-carrying request against it is REFUSED (422) — never
+        // forwarded and silently served unconstrained.
+        let s = srv();
+        s.register_proxy("gpu-x", "127.0.0.1:9", "logic", 18.0, "openai")
+            .unwrap();
+        let r = respond(
+            &s,
+            "POST",
+            "/v1/messages",
+            r#"{ "model": "gpu-x", "messages": [{"role":"user","content":"hi"}],
+                 "token_law": { "regex": "[a-z]+" } }"#,
+        );
+        assert_eq!(r.status, 422);
+        let msg = body_of(&r)["error"]["message"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(msg.contains("proxy") && msg.contains("logit"), "{msg}");
+    }
+
+    #[test]
+    fn messages_enforces_token_law_on_a_local_model_and_reports_layers() {
+        // End-to-end on a REAL loaded model: the request's regex law compiles
+        // against the model's own vocab and confines every decoded token, and the
+        // response reports which laws bit. (Per-step confinement is proven
+        // rigorously at the QuantModel primitive; this proves the serving wiring:
+        // parse → compile → constrained decode → report.)
+        let dir = crate::model_fixture::TinyModelDir::new().expect("materialize fixture");
+        let mut s = srv();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("fixture must load");
+        let r = respond(
+            &s,
+            "POST",
+            "/v1/messages",
+            r#"{ "model": "primary", "messages": [{"role":"user","content":"hi"}], "max_tokens": 8, "token_law": { "regex": "[a-z]+" } }"#,
+        );
+        assert_eq!(r.status, 200);
+        let v = body_of(&r);
+        assert_eq!(v["token_law"]["enforced"], true);
+        assert_eq!(
+            v["token_law"]["layers_active"],
+            serde_json::json!(["regex"])
+        );
+        // Every emitted character is confined to the [a-z] law (empty is vacuously
+        // fine — an all-masked row stops rather than escaping the constraint).
+        let out = v["content"][0]["text"].as_str().unwrap();
+        assert!(
+            out.chars().all(|c| c.is_ascii_lowercase()),
+            "regex [a-z]+ law must confine the live output, got {out:?}"
+        );
+    }
+
+    #[test]
+    fn messages_without_token_law_is_unchanged_on_a_local_model() {
+        // Absent token_law ⇒ the static path, no `token_law` field in the reply
+        // (byte-identical contract to the pre-CONNECT serving path).
+        let dir = crate::model_fixture::TinyModelDir::new().expect("materialize fixture");
+        let mut s = srv();
+        s.inject_worker_from_dir(&dir.path_str())
+            .expect("fixture must load");
+        let r = respond(
+            &s,
+            "POST",
+            "/v1/messages",
+            r#"{ "model": "primary", "messages": [{"role":"user","content":"hi"}], "max_tokens": 6 }"#,
+        );
+        assert_eq!(r.status, 200);
+        assert!(body_of(&r).get("token_law").is_none());
     }
 
     #[test]

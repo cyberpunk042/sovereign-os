@@ -33,6 +33,10 @@ sovereign-simd = { path = "../sovereign-simd" }
 # the `/v1/data-plane/token-law/fuse` route. A LIGHT dep — the constraint sources
 # only, no transformer — so /metrics + the data plane can fuse without a model.
 sovereign-token-law-fuse = { path = "../sovereign-token-law-fuse" }
+# SDD-512 (M00155 CONNECT): the `Schema` grammar type carried on a /v1/messages
+# `token_law` constraint — so the serving decode loop can confine live generation
+# by the SAME laws the fuse route inspects. Deserialize-only here.
+sovereign-json-schema-grammar = { path = "../sovereign-json-schema-grammar" }
 # The durable-memory store type, for corruption-safe load + a capacity bound.
 sovereign-memory-os = { path = "../sovereign-memory-os" }
 sovereign-coat = { path = "../sovereign-coat" }
