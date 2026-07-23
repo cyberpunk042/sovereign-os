@@ -214,6 +214,11 @@ COMMANDS:
                                Notification settings (2026-07-19): the whole settings range — channels, priority×urgency
                                gates, static pins, global default override, trigger frontmatter props (important:true …).
                                Writes the JSON overlay; the operator's base notifykit.toml is never rewritten.
+  stepup status [--json] | enroll [--account N] | verify --factor F --code C | request-otp --factor sms|email | tier [--list] | tier <control> <tier>
+                               Step-up MFA manual escape hatch (SDD-509 §5): enroll a TOTP factor + break-glass codes,
+                               verify a factor to mint a step-up elevation (so a pending high-privilege op proceeds),
+                               and curate which controls need step-up. The cockpit pane is the primary surface; this is
+                               the terminal mirror over the SAME step-up store.
 
   models docs [--check|--stdout]  Regenerate docs/src/model-catalog.md (R206, SDD-028 pattern)
   models query [--class C] [--tier T] [--purpose P] [--size-class S] [--quantization Q] [--status S] [--max-vram N] [--min-context N] [--engine E] [--base-model B] [--json]
@@ -6482,6 +6487,8 @@ case "${cmd}" in
     exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/compat.py" "$@" ;;
   notifykit)  # 2026-07-19: notification settings — channels/gates/static pins/global override/trigger frontmatter props (JSON overlay; base TOML never rewritten).
     PYTHONPATH="${__REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" exec "${PYTHON3}" -m tools.notifykit.cli "$@" ;;
+  stepup)  # SDD-509 §5: step-up MFA manual CLI escape hatch — enroll/verify/status/tier (the cockpit pane is the primary surface; this is the terminal mirror over the SAME step-up store).
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/stepup-cli.py" "$@" ;;
   models)        cmd_models "$@" ;;
   audit)         cmd_audit "$@" ;;
   hooks)         cmd_hooks "$@" ;;

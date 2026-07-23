@@ -39,18 +39,30 @@ VALID_TIERS = (TIER_NONE, TIER_PRESENT, TIER_STEP_UP, TIER_PROXY_ONLY)
 _PROXY_ONLY_IDS = frozenset({"selfdef", "perimeter"})
 
 
-def resolve_tier(control: dict) -> str:
+# tiers the operator may curate a control into via the pane. selfdef/perimeter
+# are NEVER overridable (always proxy-only); a control can only move among the
+# local-auth tiers.
+_OVERRIDABLE_TIERS = (TIER_NONE, TIER_PRESENT, TIER_STEP_UP)
+
+
+def resolve_tier(control: dict, overrides: dict | None = None) -> str:
     """The auth tier a control requires.
 
-    An explicit ``auth:`` field wins; otherwise it derives from ``privileged``
-    (backward-compatible: privileged → step-up, else none). selfdef/perimeter
-    are always proxy-only.
+    An operator ``overrides`` map (control-id → tier, curated in the pane) wins
+    for a non-proxy control; else an explicit ``auth:`` field; else it derives
+    from ``privileged`` (backward-compatible: privileged → step-up, else none).
+    selfdef/perimeter are ALWAYS proxy-only — never overridable.
     """
+    cid = control.get("id")
+    if cid in _PROXY_ONLY_IDS:
+        return TIER_PROXY_ONLY
+    if overrides:
+        ov = overrides.get(cid)
+        if ov in _OVERRIDABLE_TIERS:
+            return ov
     explicit = control.get("auth")
     if explicit in VALID_TIERS:
         return explicit
-    if control.get("id") in _PROXY_ONLY_IDS:
-        return TIER_PROXY_ONLY
     return TIER_STEP_UP if control.get("privileged") else TIER_NONE
 
 
@@ -461,3 +473,224 @@ def verify_otp_and_elevate(
         return False
     ElevationStore(Path(stepup_dir) / "elevations.json").mint(actor, tier, ttl, now)
     return True
+
+
+# ── Phase C: break-glass recovery codes (lost-phone path) ───────────────────
+# The honest recovery path every MFA system needs. A batch of one-time codes is
+# generated at enrollment, shown ONCE, and stored offline by the operator. Each
+# is a single-use fallback factor. Stored as salted hashes (never plaintext at
+# rest); a used code is marked, never re-usable. Human-transcribable format
+# (no ambiguous chars) so it survives being written on paper.
+BREAK_GLASS_COUNT = 10
+_BREAK_GLASS_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"  # no 0/O/1/I/L/U
+
+
+def break_glass_path(stepup_dir: Path | str) -> Path:
+    return Path(stepup_dir) / "break-glass.json"
+
+
+def _norm_break_glass(code: str) -> str:
+    """Normalize for comparison: strip everything but the alphabet, uppercase
+    (so ``a1b2-c3d4`` and ``A1B2 C3D4`` compare equal)."""
+    return "".join(c for c in (code or "").upper() if c in _BREAK_GLASS_ALPHABET)
+
+
+def _new_break_glass_code() -> str:
+    """One readable recovery code: three groups of four (``XXXX-XXXX-XXXX``)."""
+    groups = [
+        "".join(secrets.choice(_BREAK_GLASS_ALPHABET) for _ in range(4)) for _ in range(3)
+    ]
+    return "-".join(groups)
+
+
+def generate_break_glass(
+    stepup_dir: Path | str, count: int = BREAK_GLASS_COUNT
+) -> list[str]:
+    """Generate ``count`` one-time recovery codes; persist their salted hashes;
+    return the PLAINTEXT codes ONCE (the operator stores them offline). Replaces
+    any prior batch (re-generating invalidates old codes)."""
+    codes: list[str] = []
+    records: list[dict] = []
+    for _ in range(count):
+        code = _new_break_glass_code()
+        salt = secrets.token_hex(8)
+        codes.append(code)
+        records.append(
+            {"salt": salt, "hash": _hash_otp(_norm_break_glass(code), salt), "used": False}
+        )
+    p = break_glass_path(stepup_dir)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(records), encoding="utf-8")
+    tmp.replace(p)
+    try:
+        os.chmod(p, 0o600)
+    except OSError:
+        pass
+    return codes
+
+
+def break_glass_remaining(stepup_dir: Path | str) -> int:
+    """How many unused recovery codes remain (0 if none were generated)."""
+    try:
+        recs = json.loads(break_glass_path(stepup_dir).read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError, OSError):
+        return 0
+    return sum(1 for r in recs if isinstance(r, dict) and not r.get("used"))
+
+
+def verify_break_glass_and_elevate(
+    stepup_dir: Path | str,
+    actor: str,
+    code: str,
+    *,
+    tier: str = TIER_STEP_UP,
+    ttl: float = 300.0,
+    now: float | None = None,
+) -> bool | None:
+    """Verify a one-time recovery code (case/format-insensitive), burn it, and
+    mint an elevation. Returns True (ok + elevated), False (no match / already
+    used), or None (no break-glass batch generated — nothing to verify)."""
+    p = break_glass_path(stepup_dir)
+    try:
+        recs = json.loads(p.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError, OSError):
+        return None
+    norm = _norm_break_glass(code)
+    if not norm:
+        return False
+    matched = None
+    for r in recs:
+        if not isinstance(r, dict) or r.get("used"):
+            continue
+        if hmac.compare_digest(r.get("hash", ""), _hash_otp(norm, r.get("salt", ""))):
+            matched = r
+            break
+    if matched is None:
+        return False
+    matched["used"] = True
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(recs), encoding="utf-8")
+    tmp.replace(p)
+    ElevationStore(Path(stepup_dir) / "elevations.json").mint(actor, tier, ttl, now)
+    return True
+
+
+# ── Phase C: the operator-facing surface (config pane + step-up modal) ───────
+# One dispatcher over the three factor families, and one read-only status
+# payload the pane/modal prefill from. The cockpit calls these through the
+# loopback control-exec daemon (never touching the stores directly).
+def verify_factor_and_elevate(
+    stepup_dir: Path | str,
+    notify_config_path: Path | str,
+    actor: str,
+    factor: str,
+    code: str,
+    *,
+    tier: str = TIER_STEP_UP,
+    ttl: float = 300.0,
+    now: float | None = None,
+) -> bool | None:
+    """Verify ``code`` against ``factor`` (``totp`` / ``sms`` / ``email`` /
+    ``breakglass``) and, on success, mint an elevation for ``(actor, tier)``.
+    Returns True (verified + elevated), False (bad code), or None (that factor
+    isn't set up — nothing to verify against). ``notify_config_path`` is unused
+    here (the OTP was already delivered) but kept for a uniform signature."""
+    if factor == "totp":
+        return verify_and_elevate(stepup_dir, actor, code, tier=tier, ttl=ttl, now=now)
+    if factor in ("sms", "email"):
+        return verify_otp_and_elevate(stepup_dir, actor, code, tier=tier, ttl=ttl, now=now)
+    if factor == "breakglass":
+        return verify_break_glass_and_elevate(
+            stepup_dir, actor, code, tier=tier, ttl=ttl, now=now
+        )
+    return None
+
+
+# ── operator-curated per-control tier overrides (pane §4: "which ops need
+#    step-up — you curate in the pane"). A small JSON overlay control-id → tier;
+#    NEVER the base control-systems.yaml (that stays the declared default).
+#    Setting one is itself a step-up op (gated at the daemon). ──────────────────
+def tier_overrides_path(stepup_dir: Path | str) -> Path:
+    return Path(stepup_dir) / "tier-overrides.json"
+
+
+def tier_overrides(stepup_dir: Path | str) -> dict:
+    """The operator's curated control-id → tier map (empty if none set)."""
+    try:
+        raw = json.loads(tier_overrides_path(stepup_dir).read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError, OSError):
+        return {}
+    return {k: v for k, v in raw.items() if v in _OVERRIDABLE_TIERS} if isinstance(raw, dict) else {}
+
+
+def set_tier_override(stepup_dir: Path | str, control_id: str, tier: str) -> bool:
+    """Curate ``control_id`` into ``tier`` (one of none/operator-present/step-up).
+    Returns False for an invalid tier. Persisted to the overlay (never the base
+    registry)."""
+    if tier not in _OVERRIDABLE_TIERS:
+        return False
+    ov = tier_overrides(stepup_dir)
+    ov[control_id] = tier
+    p = tier_overrides_path(stepup_dir)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(ov), encoding="utf-8")
+    tmp.replace(p)
+    return True
+
+
+def clear_tier_override(stepup_dir: Path | str, control_id: str) -> None:
+    """Drop ``control_id``'s override — the control reverts to its declared tier."""
+    ov = tier_overrides(stepup_dir)
+    if control_id in ov:
+        del ov[control_id]
+        p = tier_overrides_path(stepup_dir)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(ov), encoding="utf-8")
+        tmp.replace(p)
+
+
+def status(
+    stepup_dir: Path | str,
+    notify_config_path: Path | str,
+    *,
+    controls: list[dict] | None = None,
+    elevation_ttl: float = 300.0,
+) -> dict:
+    """The read-only step-up status the config pane + modal prefill from:
+    enrollment state, the factors currently offerable, break-glass codes left,
+    the elevation window, which control ids sit at the ``step-up`` tier (after
+    operator overrides), and the curatable control inventory (privileged, non-
+    proxy) with each one's effective tier + whether it's overridden. No secret
+    ever appears here."""
+    enrolled = is_enrolled(stepup_dir)
+    factors = (["totp"] if enrolled else []) + available_otp_channels(notify_config_path)
+    remaining = break_glass_remaining(stepup_dir)
+    if remaining:
+        factors.append("breakglass")
+    overrides = tier_overrides(stepup_dir)
+    ctl = [c for c in (controls or []) if isinstance(c, dict) and c.get("id")]
+    step_up_controls = sorted(c["id"] for c in ctl if resolve_tier(c, overrides) == TIER_STEP_UP)
+    # the controls the operator may curate: privileged + not proxy-only
+    curatable = sorted(
+        (
+            {
+                "id": c["id"],
+                "tier": resolve_tier(c, overrides),
+                "overridden": c["id"] in overrides,
+            }
+            for c in ctl
+            if c.get("id") not in _PROXY_ONLY_IDS
+            and (c.get("privileged") or resolve_tier(c, overrides) != TIER_NONE)
+        ),
+        key=lambda r: r["id"],
+    )
+    return {
+        "enrolled": enrolled,
+        "factors": factors,
+        "break_glass_remaining": remaining,
+        "elevation_window_seconds": int(elevation_ttl),
+        "step_up_controls": step_up_controls,
+        "curatable_controls": curatable,
+    }

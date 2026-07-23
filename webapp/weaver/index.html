@@ -2061,6 +2061,17 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 .cs-confirm-msg code { color: var(--fg, #e6e6e6); }
 .cs-confirm-in { max-width: 14ch; }
 .cs-confirm-cancel { flex: 0 0 auto; }
+/* SDD-509 step-up gate — one factor mints an elevation, then the action re-runs */
+.cs-stepup {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-stepup-msg { flex: 1 0 100%; font-size: .72rem; color: var(--muted, #888); }
+.cs-stepup-msg code { color: var(--fg, #e6e6e6); }
+.cs-stepup-factors { flex: 0 0 auto; }
+.cs-stepup-code { max-width: 12ch; }
+.cs-stepup-out { flex: 1 0 100%; }
 .cs-empty { color: var(--muted, #888); }
 </style>
 <script>
@@ -2178,16 +2189,31 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     catch (e) { return null; }
   }
 
-  function execute(url, controlId, args, confirmed) {
+  // The ONE mutating request the component issues (single-POST doctrine, drift-
+  // guarded by tests/lint/test_control_surface_component.py): the sanctioned
+  // same-origin control-exec-api. `execute` and the SDD-509 step-up sub-actions
+  // both ride it, so there is exactly one POST verb in this component.
+  function postJson(url, payload) {
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ control_id: controlId, args: args, confirm: !!confirmed })
+      body: JSON.stringify(payload)
     }).then(function (r) {
       return r.json().then(
         function (j) { return { status: r.status, body: j || {} }; },
         function () { return { status: r.status, body: {} }; });
     });
+  }
+
+  function execute(url, controlId, args, confirmed) {
+    return postJson(url, { control_id: controlId, args: args, confirm: !!confirmed });
+  }
+
+  // SDD-509 Phase C: a step-up auth sub-action (verify a factor / request an
+  // out-of-band code) rides the SAME sanctioned write endpoint under a `stepup`
+  // body key — no second POST, no new endpoint.
+  function stepupPost(url, stepup) {
+    return postJson(url, { stepup: stepup });
   }
 
   // Inline type-to-confirm gate for privileged controls (replaces window.prompt
@@ -2217,6 +2243,77 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
     host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
     inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
+  }
+
+  // SDD-509 Phase C — the step-up modal. A `step-up`-tier control returns 401
+  // {step_up_required, factors} from the exec rail; this inline gate lets the
+  // operator verify a factor (TOTP / phone / email / recovery code), which mints
+  // a single-use elevation, then RE-runs the action (which consumes it). Mirrors
+  // askConfirm's inline, on-palette, accessible shape (no window.prompt).
+  var STEPUP_LABEL = {
+    totp: "Authenticator", sms: "Phone code", email: "Email code",
+    breakglass: "Recovery code"
+  };
+  function askStepUp(card, sys, opts, factors, confirmed) {
+    var result = card.querySelector(".cs-result");
+    var url = (opts && opts.executeUrl) || EXECUTE_URL;
+    var fs = (factors && factors.length) ? factors : ["totp"];
+    var chosen = fs[0];
+    var host = card.querySelector(".cs-stepup");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "cs-stepup";
+      card.insertBefore(host, result);
+    }
+    function draw() {
+      var needsSend = (chosen === "sms" || chosen === "email");
+      host.innerHTML =
+        '<div class="cs-stepup-msg">🔐 step-up required — verify a factor to elevate <code>' + esc(sys.id) + "</code></div>"
+        + '<div class="cs-verbs cs-stepup-factors" role="group" aria-label="step-up factor">'
+        + fs.map(function (f) {
+            return '<button type="button" class="cs-verb cs-stepup-f" data-f="' + esc(f)
+              + '" aria-pressed="' + (f === chosen ? "true" : "false") + '">' + esc(STEPUP_LABEL[f] || f) + "</button>";
+          }).join("")
+        + "</div>"
+        + (needsSend ? '<button type="button" class="cs-cmd cs-stepup-send">Send code</button>' : "")
+        + '<input class="cs-arg cs-stepup-code" placeholder="code" aria-label="step-up code"'
+        + ' autocomplete="one-time-code" inputmode="' + (chosen === "breakglass" ? "text" : "numeric") + '">'
+        + '<button type="button" class="cs-exec cs-stepup-ok">Verify &amp; run</button>'
+        + '<button type="button" class="cs-cmd cs-stepup-cancel">Cancel</button>'
+        + '<div class="cs-stepup-out cs-result muted"></div>';
+      var out = host.querySelector(".cs-stepup-out");
+      var codeEl = host.querySelector(".cs-stepup-code");
+      if (codeEl.focus) codeEl.focus();
+      Array.prototype.forEach.call(host.querySelectorAll(".cs-stepup-f"), function (b) {
+        b.addEventListener("click", function () { chosen = b.getAttribute("data-f"); draw(); });
+      });
+      var send = host.querySelector(".cs-stepup-send");
+      if (send) send.addEventListener("click", function () {
+        setResult(out, "muted", "sending…");
+        stepupPost(url, { action: "request_otp", factor: chosen }).then(function (res) {
+          var b = res.body || {};
+          setResult(out, b.ok ? "ok" : "warn",
+            b.ok ? "code sent — check your " + chosen : (b.detail || b.error || "could not send a code"));
+        }).catch(function () { setResult(out, "err", "send endpoint unreachable"); });
+      });
+      function cleanup() { if (host.parentNode) host.parentNode.removeChild(host); }
+      host.querySelector(".cs-stepup-cancel").addEventListener("click", function () {
+        cleanup(); setResult(result, "warn", "step-up cancelled — not executed");
+      });
+      function verify() {
+        var c = (codeEl.value || "").trim();
+        if (!c) { setResult(out, "warn", "enter the code from your " + (STEPUP_LABEL[chosen] || chosen)); return; }
+        setResult(out, "muted", "verifying…");
+        stepupPost(url, { action: "verify", factor: chosen, code: c }).then(function (res) {
+          var b = res.body || {};
+          if (res.status === 200 && b.elevated) { cleanup(); execAction(card, sys, opts, confirmed); }
+          else setResult(out, "err", b.error || "invalid code — try again");
+        }).catch(function () { setResult(out, "err", "verify endpoint unreachable"); });
+      }
+      host.querySelector(".cs-stepup-ok").addEventListener("click", verify);
+      codeEl.addEventListener("keydown", function (e) { if (e.key === "Enter") verify(); });
+    }
+    draw();
   }
 
   function execAction(card, sys, opts, confirmed) {
@@ -2262,6 +2359,10 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
           // the remaining 409: single-flight lock (another action running)
           setResult(result, "warn", b.error || "another cockpit action is already running");
         }
+      } else if (res.status === 401 && b.step_up_required) {
+        // SDD-509: high-privilege control — open the inline step-up gate; a
+        // verified factor mints an elevation and the action re-runs.
+        askStepUp(card, sys, opts, b.factors || [], confirmed);
       } else if (res.status === 400) {
         setResult(result, "warn", b.error || "invalid arguments — pick a value");
       } else if (res.status === 404) {

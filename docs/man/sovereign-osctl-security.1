@@ -177,6 +177,35 @@ Upgrade matrix \[em] current → recommended
 .TP
 \f[B]sovereign-osctl auth-tier set \f[R]
 Triple-gated tier mutation (requires
+.SS stepup
+.PP
+SDD-509 section 5 \[em] the step-up MFA manual escape hatch. The cockpit
+auth-tier pane is the primary surface; this is the terminal mirror over
+the SAME step-up store (\f[CR]$SOVEREIGN_OS_STEPUP_DIR\f[R], default
+\f[CR]/run/sovereign-os/stepup\f[R]), so a CLI verify elevates a pending
+cockpit action and vice-versa.
+.TP
+\f[B]sovereign-osctl stepup status [--json]\f[R]
+Enrollment state, offerable factors, break-glass codes left, the
+elevation window, and the step-up control set.
+.TP
+\f[B]sovereign-osctl stepup enroll [--account NAME]\f[R]
+Mint a TOTP secret + a batch of single-use break-glass recovery codes,
+shown ONCE.
+.TP
+\f[B]sovereign-osctl stepup verify --factor F --code C\f[R]
+Verify a factor (totp / sms / email / breakglass) and, on success, mint
+a short-TTL single-use step-up elevation so a pending high-privilege
+operation proceeds.
+.TP
+\f[B]sovereign-osctl stepup request-otp --factor sms|email\f[R]
+Deliver a one-time code over a single configured notifykit channel;
+inert until that channel is configured.
+.TP
+\f[B]sovereign-osctl stepup tier [--list] | tier <control> <tier>\f[R]
+Show or curate which controls require step-up (none / operator-present /
+step-up), written to an overlay \[em] the base control-systems registry
+is never rewritten; selfdef/perimeter stay proxy-only.
 .SS grants-mirror
 .TP
 \f[B]sovereign-osctl grants-mirror [arguments]\f[R]

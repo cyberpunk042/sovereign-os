@@ -343,7 +343,12 @@ def _stepup_enabled() -> bool:
 
 
 def _stepup_tier(control: dict) -> str:
-    return _stepup().resolve_tier(control)
+    su = _stepup()
+    try:
+        overrides = su.tier_overrides(_stepup_dir())
+    except Exception:
+        overrides = None
+    return su.resolve_tier(control, overrides)
 
 
 def _stepup_consume(actor: str) -> bool:
@@ -359,11 +364,17 @@ def _stepup_notify_config() -> Path:
 
 def _stepup_factors() -> list[str]:
     """The factors currently available to satisfy a step-up (for the 401
-    challenge): TOTP once enrolled (Phase A), plus any configured + enabled
-    notifykit out-of-band channels — ``sms`` / ``email`` (Phase B)."""
+    challenge): TOTP once enrolled (Phase A), any configured + enabled notifykit
+    out-of-band channels — ``sms`` / ``email`` (Phase B) — and ``breakglass``
+    while unused recovery codes remain (Phase C lost-phone path)."""
     factors = ["totp"] if _stepup_enabled() else []
     try:
         factors += _stepup().available_otp_channels(_stepup_notify_config())
+    except Exception:
+        pass
+    try:
+        if _stepup().break_glass_remaining(_stepup_dir()):
+            factors.append("breakglass")
     except Exception:
         pass
     return factors

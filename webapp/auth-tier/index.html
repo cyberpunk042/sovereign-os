@@ -2035,6 +2035,17 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 .cs-confirm-msg code { color: var(--fg, #e6e6e6); }
 .cs-confirm-in { max-width: 14ch; }
 .cs-confirm-cancel { flex: 0 0 auto; }
+/* SDD-509 step-up gate — one factor mints an elevation, then the action re-runs */
+.cs-stepup {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .35rem .4rem; margin-top: .1rem;
+  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+}
+.cs-stepup-msg { flex: 1 0 100%; font-size: .72rem; color: var(--muted, #888); }
+.cs-stepup-msg code { color: var(--fg, #e6e6e6); }
+.cs-stepup-factors { flex: 0 0 auto; }
+.cs-stepup-code { max-width: 12ch; }
+.cs-stepup-out { flex: 1 0 100%; }
 .cs-empty { color: var(--muted, #888); }
 </style>
 <script>
@@ -2152,16 +2163,31 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     catch (e) { return null; }
   }
 
-  function execute(url, controlId, args, confirmed) {
+  // The ONE mutating request the component issues (single-POST doctrine, drift-
+  // guarded by tests/lint/test_control_surface_component.py): the sanctioned
+  // same-origin control-exec-api. `execute` and the SDD-509 step-up sub-actions
+  // both ride it, so there is exactly one POST verb in this component.
+  function postJson(url, payload) {
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ control_id: controlId, args: args, confirm: !!confirmed })
+      body: JSON.stringify(payload)
     }).then(function (r) {
       return r.json().then(
         function (j) { return { status: r.status, body: j || {} }; },
         function () { return { status: r.status, body: {} }; });
     });
+  }
+
+  function execute(url, controlId, args, confirmed) {
+    return postJson(url, { control_id: controlId, args: args, confirm: !!confirmed });
+  }
+
+  // SDD-509 Phase C: a step-up auth sub-action (verify a factor / request an
+  // out-of-band code) rides the SAME sanctioned write endpoint under a `stepup`
+  // body key — no second POST, no new endpoint.
+  function stepupPost(url, stepup) {
+    return postJson(url, { stepup: stepup });
   }
 
   // Inline type-to-confirm gate for privileged controls (replaces window.prompt
@@ -2191,6 +2217,77 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     host.querySelector(".cs-confirm-ok").addEventListener("click", function () { done(true); });
     host.querySelector(".cs-confirm-cancel").addEventListener("click", function () { done(false); });
     inp.addEventListener("keydown", function (e) { if (e.key === "Enter") done(true); });
+  }
+
+  // SDD-509 Phase C — the step-up modal. A `step-up`-tier control returns 401
+  // {step_up_required, factors} from the exec rail; this inline gate lets the
+  // operator verify a factor (TOTP / phone / email / recovery code), which mints
+  // a single-use elevation, then RE-runs the action (which consumes it). Mirrors
+  // askConfirm's inline, on-palette, accessible shape (no window.prompt).
+  var STEPUP_LABEL = {
+    totp: "Authenticator", sms: "Phone code", email: "Email code",
+    breakglass: "Recovery code"
+  };
+  function askStepUp(card, sys, opts, factors, confirmed) {
+    var result = card.querySelector(".cs-result");
+    var url = (opts && opts.executeUrl) || EXECUTE_URL;
+    var fs = (factors && factors.length) ? factors : ["totp"];
+    var chosen = fs[0];
+    var host = card.querySelector(".cs-stepup");
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "cs-stepup";
+      card.insertBefore(host, result);
+    }
+    function draw() {
+      var needsSend = (chosen === "sms" || chosen === "email");
+      host.innerHTML =
+        '<div class="cs-stepup-msg">🔐 step-up required — verify a factor to elevate <code>' + esc(sys.id) + "</code></div>"
+        + '<div class="cs-verbs cs-stepup-factors" role="group" aria-label="step-up factor">'
+        + fs.map(function (f) {
+            return '<button type="button" class="cs-verb cs-stepup-f" data-f="' + esc(f)
+              + '" aria-pressed="' + (f === chosen ? "true" : "false") + '">' + esc(STEPUP_LABEL[f] || f) + "</button>";
+          }).join("")
+        + "</div>"
+        + (needsSend ? '<button type="button" class="cs-cmd cs-stepup-send">Send code</button>' : "")
+        + '<input class="cs-arg cs-stepup-code" placeholder="code" aria-label="step-up code"'
+        + ' autocomplete="one-time-code" inputmode="' + (chosen === "breakglass" ? "text" : "numeric") + '">'
+        + '<button type="button" class="cs-exec cs-stepup-ok">Verify &amp; run</button>'
+        + '<button type="button" class="cs-cmd cs-stepup-cancel">Cancel</button>'
+        + '<div class="cs-stepup-out cs-result muted"></div>';
+      var out = host.querySelector(".cs-stepup-out");
+      var codeEl = host.querySelector(".cs-stepup-code");
+      if (codeEl.focus) codeEl.focus();
+      Array.prototype.forEach.call(host.querySelectorAll(".cs-stepup-f"), function (b) {
+        b.addEventListener("click", function () { chosen = b.getAttribute("data-f"); draw(); });
+      });
+      var send = host.querySelector(".cs-stepup-send");
+      if (send) send.addEventListener("click", function () {
+        setResult(out, "muted", "sending…");
+        stepupPost(url, { action: "request_otp", factor: chosen }).then(function (res) {
+          var b = res.body || {};
+          setResult(out, b.ok ? "ok" : "warn",
+            b.ok ? "code sent — check your " + chosen : (b.detail || b.error || "could not send a code"));
+        }).catch(function () { setResult(out, "err", "send endpoint unreachable"); });
+      });
+      function cleanup() { if (host.parentNode) host.parentNode.removeChild(host); }
+      host.querySelector(".cs-stepup-cancel").addEventListener("click", function () {
+        cleanup(); setResult(result, "warn", "step-up cancelled — not executed");
+      });
+      function verify() {
+        var c = (codeEl.value || "").trim();
+        if (!c) { setResult(out, "warn", "enter the code from your " + (STEPUP_LABEL[chosen] || chosen)); return; }
+        setResult(out, "muted", "verifying…");
+        stepupPost(url, { action: "verify", factor: chosen, code: c }).then(function (res) {
+          var b = res.body || {};
+          if (res.status === 200 && b.elevated) { cleanup(); execAction(card, sys, opts, confirmed); }
+          else setResult(out, "err", b.error || "invalid code — try again");
+        }).catch(function () { setResult(out, "err", "verify endpoint unreachable"); });
+      }
+      host.querySelector(".cs-stepup-ok").addEventListener("click", verify);
+      codeEl.addEventListener("keydown", function (e) { if (e.key === "Enter") verify(); });
+    }
+    draw();
   }
 
   function execAction(card, sys, opts, confirmed) {
@@ -2236,6 +2333,10 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
           // the remaining 409: single-flight lock (another action running)
           setResult(result, "warn", b.error || "another cockpit action is already running");
         }
+      } else if (res.status === 401 && b.step_up_required) {
+        // SDD-509: high-privilege control — open the inline step-up gate; a
+        // verified factor mints an elevation and the action re-runs.
+        askStepUp(card, sys, opts, b.factors || [], confirmed);
       } else if (res.status === 400) {
         setResult(result, "warn", b.error || "invalid arguments — pick a value");
       } else if (res.status === 404) {
@@ -2482,6 +2583,121 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 })(window);
 </script>
 <script>SovereignControlSurface.load(document.getElementById('control-surface'),{filterSlug:'auth-tier'});</script>
+
+<!-- SDD-509 Phase C — step-up MFA config pane (enrollment + factors + break-glass).
+     Reads GET /api/control/stepup (status) and drives enrollment / recovery-code
+     regeneration through the ONE sanctioned write endpoint (/api/control/execute,
+     a `stepup` body key) — never a bespoke mutation route. Same-origin only;
+     degrades gracefully when served standalone (the control-exec daemon absent).
+     The step-up MODAL that satisfies a 401 lives in the shared control-surface. -->
+<h2>step-up MFA — high-privilege gate</h2>
+<div id="stepup-pane" class="su-pane"><div class="muted">loading step-up status…</div></div>
+<style>
+.su-pane { display:flex; flex-direction:column; gap:.5rem; font-size:.8rem; }
+.su-row { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
+.su-chip { padding:.1rem .45rem; border:1px solid var(--border,#262626); border-radius:999px; font-size:.72rem; }
+.su-chip.on { border-color: var(--accent,#9bd1ff); color: var(--accent,#9bd1ff); }
+.su-secret { font-family: var(--mono,monospace); overflow-wrap:anywhere; background:rgba(255,255,255,.04); padding:.4rem; border-radius:4px; display:block; margin:.15rem 0; }
+.su-warn { border:1px solid #e0b050; border-radius:4px; padding:.5rem; margin-top:.35rem; }
+.su-codes { display:grid; grid-template-columns:repeat(auto-fill,minmax(12ch,1fr)); gap:.25rem; font-family:var(--mono,monospace); margin-top:.25rem; }
+.su-curate { display:flex; flex-direction:column; gap:.25rem; }
+.su-crow { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; font-size:.75rem; }
+.su-crow > span:first-child { font-family:var(--mono,monospace); min-width:12ch; }
+.su-out { min-height:1em; }
+.su-out.ok{color:#6fcf6f;} .su-out.warn{color:#e0b050;} .su-out.err{color:#e06a6a;} .su-out.muted{color:var(--muted,#888);}
+</style>
+<script>
+(function(){
+  "use strict";
+  var pane = document.getElementById("stepup-pane");
+  if (!pane) return;
+  var EXEC = "/api/control/execute";
+  var FACT = {totp:"Authenticator", sms:"Phone (SMS)", email:"Email", breakglass:"Recovery codes"};
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  function post(stepup){
+    return fetch(EXEC, {method:"POST", headers:{"Content-Type":"application/json", Accept:"application/json"},
+      body:JSON.stringify({stepup:stepup})})
+      .then(function(r){ return r.json().then(function(j){return {status:r.status, body:j||{}};},
+                                             function(){return {status:r.status, body:{}};}); });
+  }
+  function setOut(el,cls,msg){ el.className="su-out "+cls; el.textContent=msg; }
+  function chip(label,on){ return '<span class="su-chip'+(on?" on":"")+'">'+esc(label)+"</span>"; }
+  function reveal(b){
+    var parts = ['<div class="su-warn"><strong>⚠ Shown once — save these now.</strong>'];
+    if(b.secret) parts.push('<div>TOTP secret (enter in your authenticator app): <span class="su-secret">'+esc(b.secret)+"</span></div>");
+    if(b.provisioning_uri) parts.push('<div>otpauth URI (scan or paste): <span class="su-secret">'+esc(b.provisioning_uri)+"</span></div>");
+    if(b.recovery_codes && b.recovery_codes.length)
+      parts.push('<div>Recovery codes (each single-use, for a lost phone):</div><div class="su-codes">'
+        + b.recovery_codes.map(function(c){return "<span>"+esc(c)+"</span>";}).join("") + "</div>");
+    parts.push("</div>");
+    document.getElementById("su-reveal").innerHTML = parts.join("");
+  }
+  function render(s){
+    var factors = s.factors || [];
+    pane.innerHTML =
+      '<div class="su-row"><strong>Enrollment:</strong> '
+        + (s.enrolled ? chip("TOTP enrolled", true) : chip("not enrolled", false))
+        + ' <button type="button" id="su-enroll">' + (s.enrolled ? "Re-enroll" : "Enroll TOTP") + "</button></div>"
+      + '<div class="su-row"><strong>Factors:</strong> '
+        + ["totp","sms","email","breakglass"].map(function(f){ return chip(FACT[f], factors.indexOf(f)>=0); }).join("") + "</div>"
+      + '<div class="su-row"><strong>Recovery codes left:</strong> ' + esc(s.break_glass_remaining)
+        + ' <button type="button" id="su-regen">Regenerate</button></div>'
+      + '<div class="su-row"><strong>Elevation window:</strong> ' + esc(s.elevation_window_seconds) + "s</div>"
+      + '<div class="su-row"><strong>Step-up controls:</strong> '
+        + ((s.step_up_controls||[]).length ? s.step_up_controls.map(function(c){return chip(c,true);}).join("") : '<span class="muted">none</span>')
+        + "</div>"
+      + '<div class="su-curate"><strong>Curate which ops need step-up:</strong>'
+        + ((s.curatable_controls||[]).map(function(c){
+            var on = c.tier === "step-up";
+            return '<div class="su-crow"><span>' + esc(c.id) + '</span> ' + chip(c.tier, on)
+              + (c.overridden ? '<span class="su-chip">overridden</span>' : "")
+              + '<button type="button" class="su-tier" data-cid="' + esc(c.id) + '" data-to="'
+              + (on ? "operator-present" : "step-up") + '">' + (on ? "remove step-up" : "require step-up") + "</button></div>";
+          }).join("") || '<div class="muted">no curatable controls</div>')
+        + "</div>"
+      + '<div class="su-row muted">Phone/email codes activate once notifykit has a Twilio/Resend channel; TOTP works offline. Re-enroll, regenerate, and tier changes require a live step-up elevation.</div>'
+      + '<div id="su-out" class="su-out muted"></div><div id="su-reveal"></div>';
+    var out = document.getElementById("su-out");
+    Array.prototype.forEach.call(pane.querySelectorAll(".su-tier"), function(btn){
+      btn.addEventListener("click", function(){
+        setOut(out,"muted","updating tier…");
+        post({action:"set_tier", control_id:btn.getAttribute("data-cid"), tier:btn.getAttribute("data-to")}).then(function(res){
+          var b = res.body || {};
+          if(res.status===200 && b.ok){ setOut(out,"ok","tier updated"); refresh(); }
+          else if(res.status===401 && b.step_up_required) setOut(out,"warn","changing a tier requires a live step-up elevation first");
+          else setOut(out,"err", b.error || "tier update failed");
+        }).catch(function(){ setOut(out,"err","endpoint unreachable"); });
+      });
+    });
+    document.getElementById("su-enroll").addEventListener("click", function(){
+      setOut(out,"muted","enrolling…");
+      post({action:"enroll"}).then(function(res){
+        var b = res.body || {};
+        if(res.status===200 && b.ok){ reveal(b); refresh(); }
+        else if(res.status===401 && b.step_up_required) setOut(out,"warn","re-enrolling requires step-up — run a step-up control and verify a current factor first");
+        else setOut(out,"err", b.error || "enroll failed");
+      }).catch(function(){ setOut(out,"err","enroll endpoint unreachable (needs the control-exec daemon)"); });
+    });
+    document.getElementById("su-regen").addEventListener("click", function(){
+      setOut(out,"muted","regenerating…");
+      post({action:"regenerate_break_glass"}).then(function(res){
+        var b = res.body || {};
+        if(res.status===200 && b.ok){ reveal({recovery_codes:b.recovery_codes}); refresh(); }
+        else if(res.status===401 && b.step_up_required) setOut(out,"warn","regenerating requires a live step-up elevation first");
+        else setOut(out,"err", b.error || "regenerate failed");
+      }).catch(function(){ setOut(out,"err","endpoint unreachable"); });
+    });
+  }
+  function refresh(){
+    fetch("/api/control/stepup", {headers:{Accept:"application/json"}})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(s){ if(s && !s.error) render(s);
+        else pane.innerHTML = '<div class="muted">step-up config available when the panel is fronted by the control-exec daemon.</div>'; })
+      .catch(function(){ pane.innerHTML = '<div class="muted">step-up config available when the panel is fronted by the control-exec daemon.</div>'; });
+  }
+  refresh();
+})();
+</script>
 
 <footer>
   <div>shipped in <code>R503 (E11.M7++)</code> · serves the <code>/webapp/</code> path of the R501 auth-tier-api daemon (<code>scripts/operator/auth-tier-api.py</code>) · backing CLI <code>sovereign-osctl auth-tier</code> · MCP via <code>scripts/interop/mcp-aggregate.py</code> (R502)</div>

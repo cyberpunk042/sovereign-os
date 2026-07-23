@@ -76,7 +76,7 @@ The manual `sovereign-osctl <verb>` stays the escape hatch; for a `step-up` op i
 |---|---|---|
 | **A** | The step-up core (`auth:` tiering + **TOTP** verifier + single-use elevation) + the opt-in exec-rail gate + enrollment | **shipped 2026-07-22** |
 | **B** | The **phone (SMS) + email** OTP layer (mint / verify / rate-limit / replay-burn) over notifykit | **shipped 2026-07-22** (see below) |
-| **C** | The **config pane** + the step-up modal in `control-surface.js` + break-glass | TODO |
+| **C** | The **config pane** + the step-up modal in `control-surface.js` + break-glass | **shipped 2026-07-22** (see below) |
 
 ## What shipped — Phase A (2026-07-22)
 
@@ -115,6 +115,80 @@ The `_action_exec` challenge now lists `totp` **+** any configured out-of-band
 factor (`sms`/`email`). Verification: 21 step-up tests (Phase A + B) + the exec-rail
 families green; ruff clean. Phone/email delivery **activates when notifykit is
 configured** (a go-live item); TOTP works offline today.
+
+## What shipped — Phase C (2026-07-22)
+
+The operator-facing half: the step-up **modal** (satisfies a 401 inline) + the
+**config/enrollment pane** + **break-glass** recovery codes. All mutation rides
+the ONE sanctioned write endpoint (the cockpit's single-POST doctrine).
+
+- **Break-glass** (`scripts/operator/lib/stepup.py`): `generate_break_glass`
+  (a batch of readable, single-use recovery codes — human-transcribable
+  alphabet, no ambiguous chars — persisted as salted hashes, returned once),
+  `break_glass_remaining`, `verify_break_glass_and_elevate` (format-insensitive,
+  single-use burn, mints an elevation). Re-generating invalidates the prior
+  batch. `_stepup_factors()` now offers `breakglass` while codes remain.
+- **The dispatcher + status** (`stepup.py`): `verify_factor_and_elevate` routes
+  a factor (`totp`/`sms`/`email`/`breakglass`) to the right verifier; `status()`
+  returns the read-only pane/modal payload (enrolled?, offerable factors,
+  recovery codes left, elevation window, which controls sit at the step-up
+  tier) — no secret ever appears.
+- **The exec daemon** (`scripts/operator/control-exec-api.py`): a read-only
+  `GET /api/control/stepup` (status prefill), and the auth sub-actions carried
+  on the ONE write endpoint under a `stepup` body key
+  (`POST /api/control/execute {"stepup": {...}}`) — `verify`, `request_otp`,
+  `enroll`, `regenerate_break_glass`. **Re-enrolling or rotating recovery codes
+  requires a live elevation** (changing a step-up setting is itself a step-up
+  op); first enrollment is open on a fresh box. Loopback-only; each action is
+  gated by possession of a valid factor, so an attacker without a code gets
+  nothing.
+- **The step-up modal** (`webapp/_shared/control-surface.js`): a `step-up`-tier
+  control's `401 {step_up_required, factors}` now opens an inline, on-palette
+  gate (mirrors the type-to-confirm gate — no `window.prompt`). The operator
+  picks a factor, enters a code (phone/email offer a "Send code" button), and a
+  successful verify mints an elevation and **re-runs the action** (which
+  consumes it). It rides the SAME sanctioned write endpoint under a `stepup`
+  body key — the component keeps **exactly one POST verb** (drift-guarded). The
+  updated component is re-inlined byte-identical into all 63 panels.
+- **Per-control tier curation** (`stepup.py` + the daemon): a small JSON overlay
+  (`tier-overrides.json`, control-id → tier) that `resolve_tier` consults ahead
+  of the declared `auth:` — the operator curates **which ops need step-up** in
+  the pane, **never** editing the base `control-systems.yaml`. selfdef/perimeter
+  are never curatable (always proxy-only). Setting a tier is itself a step-up op
+  (gated on a live elevation once enrolled). The exec-rail gate honors the
+  curated tier.
+- **The config/enrollment pane** (`webapp/auth-tier/index.html`): reads
+  `GET /api/control/stepup` and renders enrollment state, offerable factors,
+  recovery codes left, the elevation window, the step-up control set, and a
+  **"Curate which ops need step-up"** list (each curatable control with a
+  require/remove-step-up toggle). Enroll shows the TOTP secret + `otpauth://`
+  URI + the recovery codes **once**; Regenerate rotates the recovery batch. All
+  ride the sanctioned exec endpoint; the pane degrades gracefully when served
+  standalone (control-exec daemon absent). *(QR-image rendering of the
+  `otpauth://` URI is a polish follow-up — today the pane shows the URI + the
+  base32 secret for manual entry, which every authenticator app accepts.)*
+- **Tests:** `test_stepup_break_glass.py` (6), `test_stepup_phase_c.py` (status
+  helper + dispatcher + the modal/pane/daemon source pins), `test_stepup_exec_api.py`
+  (spawns the daemon: status, enroll→verify flow, re-enroll-needs-elevation,
+  OTP-inert-without-notifykit, execute-path-unbroken). The full step-up family
+  (Phase A+B+C) + the exec-rail contract stay green; ruff clean.
+
+- **The manual CLI escape hatch** (§5) — `sovereign-osctl stepup`
+  (`scripts/operator/stepup-cli.py`): `status` / `enroll` / `verify` /
+  `request-otp` / `tier` from the terminal, driving the SAME step-up store
+  (`$SOVEREIGN_OS_STEPUP_DIR`) the daemon reads — so a CLI `verify` elevates a
+  pending cockpit action and vice-versa. Full osctl registration chain
+  (dispatch + COMMANDS help + `feature-coverage.yaml` cli-only waiver +
+  `security` man-topic ownership with a regenerated `.SS stepup` roff section).
+  Tests: `test_stepup_cli.py` (status/enroll/verify/tier over a tmp store +
+  the dispatch pins).
+
+Still opt-in + non-breaking: the exec-rail gate engages only once a factor is
+enrolled. **Tier remapping is now in-pane** (via the `tier-overrides.json`
+overlay driven through the same `stepup` body key — no base-registry edit) and
+also from the CLI (`stepup tier`). The only remaining polish is QR-image
+rendering of the enrollment URI (the pane + CLI show the URI + base32 secret
+today).
 
 ### Phase-A honesty (unchanged)
 

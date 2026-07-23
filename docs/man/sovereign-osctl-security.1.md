@@ -156,6 +156,38 @@ operator use.
 **sovereign-osctl auth-tier set <dashboard>**
 :   Triple-gated tier mutation (requires
 
+## stepup
+
+SDD-509 §5 — the step-up MFA manual escape hatch. The cockpit auth-tier pane is
+the primary surface; this is the terminal mirror over the SAME step-up store
+(`$SOVEREIGN_OS_STEPUP_DIR`, default `/run/sovereign-os/stepup`), so a CLI
+verify elevates a pending cockpit action and vice-versa. Software MFA (TOTP /
+phone / email) stops a browser attacker and adds a signed audit trail; it is
+not a hardware guarantee against an existing shell.
+
+**sovereign-osctl stepup status [--json]**
+:   Enrollment state, offerable factors, break-glass codes left, the elevation
+    window, and the step-up control set.
+
+**sovereign-osctl stepup enroll [--account NAME]**
+:   Mint a TOTP secret + a batch of single-use break-glass recovery codes,
+    shown ONCE (the secret + `otpauth://` URI go into your authenticator).
+
+**sovereign-osctl stepup verify --factor F --code C**
+:   Verify a factor (`totp` / `sms` / `email` / `breakglass`) and, on success,
+    mint a short-TTL single-use step-up elevation so a pending high-privilege
+    operation proceeds.
+
+**sovereign-osctl stepup request-otp --factor sms|email**
+:   Deliver a one-time code over a single configured notifykit channel
+    (Twilio / Resend); inert until that channel is configured.
+
+**sovereign-osctl stepup tier [--list] | tier <control> <tier>**
+:   Show or curate which controls require step-up (`none` /
+    `operator-present` / `step-up`), written to an overlay — the base
+    control-systems registry is never rewritten; selfdef/perimeter stay
+    proxy-only.
+
 ## grants-mirror
 
 **sovereign-osctl grants-mirror [arguments]**
