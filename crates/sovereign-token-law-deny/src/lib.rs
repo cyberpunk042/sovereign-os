@@ -34,6 +34,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub use sovereign_aho_corasick::AcState;
 use sovereign_aho_corasick::AhoCorasick;
 
 /// Schema version of the token-law-deny surface.
@@ -79,11 +80,34 @@ impl DenyConstraint {
     /// plus, per token, a walk over its bytes — proportional to the token, not the
     /// whole vocabulary's history.
     pub fn safe_token_ids(&self, generated: &str, vocab: &[&str]) -> Vec<usize> {
-        // Walk to the committed scan state for the text generated so far.
-        let mut base = self.ac.start();
-        for &b in generated.as_bytes() {
-            base = self.ac.advance(base, b);
+        // Walk to the committed scan state for the text generated so far, then
+        // probe each candidate from there (the incremental primitives below).
+        let base = self.advance_state(self.start_state(), generated);
+        self.safe_token_ids_from(base, vocab)
+    }
+
+    /// The initial scan state (before any committed text) — the entry point for
+    /// the **incremental** API (SDD-514): keep this state across decode steps and
+    /// [`advance_state`](Self::advance_state) it by only the newly-committed token,
+    /// so the per-step cost is the token, NOT the whole prefix (removes the O(n²)
+    /// re-walk `safe_token_ids` does).
+    pub fn start_state(&self) -> AcState {
+        self.ac.start()
+    }
+
+    /// Advance a committed scan `state` by `text`'s bytes.
+    pub fn advance_state(&self, mut state: AcState, text: &str) -> AcState {
+        for &b in text.as_bytes() {
+            state = self.ac.advance(state, b);
         }
+        state
+    }
+
+    /// The safe token ids from an already-committed `base` state — probes each
+    /// candidate token from `base` without re-walking the prefix. Identical result
+    /// to [`safe_token_ids`](Self::safe_token_ids) when `base` is the state reached
+    /// by walking the same `generated`.
+    pub fn safe_token_ids_from(&self, base: AcState, vocab: &[&str]) -> Vec<usize> {
         let mut safe = Vec::with_capacity(vocab.len());
         for (id, tok) in vocab.iter().enumerate() {
             let mut state = base;

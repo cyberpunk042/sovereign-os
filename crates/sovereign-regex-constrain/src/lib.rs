@@ -21,6 +21,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use std::collections::BTreeSet;
+
 use sovereign_logit_mask::LogitMask;
 use sovereign_regex_nfa::Regex;
 
@@ -74,14 +76,39 @@ impl RegexConstraint {
     /// The indices into `vocab` of tokens that keep the pattern viable after
     /// `generated`. `vocab[i]` is the surface string of token id `i`.
     pub fn allowed_token_ids(&self, generated: &str, vocab: &[&str]) -> Vec<usize> {
-        // advance over the prefix once.
-        let mut base = self.re.start();
-        for c in generated.chars() {
-            base = self.re.step(&base, c);
-            if base.is_empty() {
-                return Vec::new(); // off-pattern: nothing is viable
+        match self.advance_state(&self.start_state(), generated) {
+            Some(base) => self.allowed_token_ids_from(&base, vocab),
+            None => Vec::new(), // off-pattern: nothing is viable
+        }
+    }
+
+    /// The initial live-state set (before any committed text) — the entry point
+    /// for the **incremental** API (SDD-514): keep this set across decode steps and
+    /// [`advance_state`](Self::advance_state) it by only the newly-committed token,
+    /// so the per-step cost is the token, NOT the whole prefix.
+    pub fn start_state(&self) -> BTreeSet<usize> {
+        self.re.start()
+    }
+
+    /// Advance a live-state `base` by `text`'s characters. Returns `None` once the
+    /// prefix goes **off-pattern** (the live set empties — a sticky dead state: no
+    /// token can ever make it viable again), matching the early-return in
+    /// [`allowed_token_ids`](Self::allowed_token_ids).
+    pub fn advance_state(&self, base: &BTreeSet<usize>, text: &str) -> Option<BTreeSet<usize>> {
+        let mut set = base.clone();
+        for c in text.chars() {
+            set = self.re.step(&set, c);
+            if set.is_empty() {
+                return None;
             }
         }
+        Some(set)
+    }
+
+    /// The viable token ids from an already-advanced live-state `base` — probes
+    /// each candidate from `base` without re-advancing the prefix. Identical result
+    /// to [`allowed_token_ids`](Self::allowed_token_ids) for the matching prefix.
+    pub fn allowed_token_ids_from(&self, base: &BTreeSet<usize>, vocab: &[&str]) -> Vec<usize> {
         let mut allowed = Vec::new();
         for (id, tok) in vocab.iter().enumerate() {
             let mut set = base.clone();
@@ -170,11 +197,32 @@ impl RegexDenyConstraint {
     /// `i`. Mirrors [`RegexConstraint::allowed_token_ids`]: the returned
     /// `Vec<usize>` is the allow-list a token-law plane consumes.
     pub fn safe_token_ids(&self, generated: &str, vocab: &[&str]) -> Vec<usize> {
-        // Advance the unanchored search over the committed prefix once.
-        let mut base = self.re.start_unanchored();
-        for c in generated.chars() {
-            base = self.re.step_unanchored(&base, c);
+        let base = self.advance_state(&self.start_state(), generated);
+        self.safe_token_ids_from(&base, vocab)
+    }
+
+    /// The initial unanchored live-state set — the entry point for the
+    /// **incremental** API (SDD-514): keep it across decode steps and
+    /// [`advance_state`](Self::advance_state) it by only the newly-committed token.
+    /// (Unanchored search is never a dead state — the start position is always
+    /// live — so this returns the set directly, no `Option`.)
+    pub fn start_state(&self) -> BTreeSet<usize> {
+        self.re.start_unanchored()
+    }
+
+    /// Advance an unanchored live-state `base` by `text`'s characters.
+    pub fn advance_state(&self, base: &BTreeSet<usize>, text: &str) -> BTreeSet<usize> {
+        let mut set = base.clone();
+        for c in text.chars() {
+            set = self.re.step_unanchored(&set, c);
         }
+        set
+    }
+
+    /// The safe token ids from an already-advanced unanchored live-state `base` —
+    /// probes each candidate from `base` without re-advancing the prefix. Identical
+    /// result to [`safe_token_ids`](Self::safe_token_ids) for the matching prefix.
+    pub fn safe_token_ids_from(&self, base: &BTreeSet<usize>, vocab: &[&str]) -> Vec<usize> {
         let mut safe = Vec::with_capacity(vocab.len());
         for (id, tok) in vocab.iter().enumerate() {
             let mut set = base.clone();
