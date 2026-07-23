@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -87,6 +88,15 @@ try:
     from tools.notifykit import cli as _notifykit_cli  # noqa: E402
 except Exception:  # noqa: BLE001 — optional; the overlay degrades to blanks
     _notifykit_cli = None
+
+# scripts/operator/setup.py — the integration credential/config collector. The
+# READ payload (per-integration configured-vs-not + first_setup_done) for the Setup
+# panel — SAME truth as `sovereign-osctl setup status --json`. Never returns a
+# secret value (setup.status masks them).
+try:
+    import setup as _setup  # noqa: E402  (scripts/operator is on sys.path via _action_exec)
+except Exception:  # noqa: BLE001 — optional; the panel degrades to unavailable
+    _setup = None
 
 # scripts/hardware/avx-mode.py — the M002 AVX-mode inventory (active mode +
 # built-state + submodes), the SAME truth as `sovereign-osctl avx-mode
@@ -237,6 +247,19 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001 — read path must not crash the daemon
                 self._send_json(500, {"error": f"notifykit state unreadable: {e}"})
             return
+        if path == "/api/control/setup":
+            # The integration setup payload the Setup panel prefills from — which
+            # credentials/config each integration needs + configured-vs-not +
+            # first_setup_done. Read-only; SAME truth as `sovereign-osctl setup
+            # status --json`. No secret VALUE is ever returned (only set/unset).
+            if _setup is None:
+                self._send_json(503, {"error": "setup module unavailable"})
+                return
+            try:
+                self._send_json(200, _setup.status())
+            except Exception as e:  # noqa: BLE001 — read path must not crash the daemon
+                self._send_json(500, {"error": f"setup state unreadable: {e}"})
+            return
         if path == "/api/control/avx-mode":
             # The M002 AVX-mode inventory: which mode is ACTIVE on the box +
             # whether the bit-machine (custom/hybrid) is engaged + the mode
@@ -275,7 +298,7 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
             "error": f"unknown endpoint: {path!r}",
             "available": ["/api/control/registry", "/api/control/compat",
                           "/api/control/notifykit", "/api/control/avx-mode",
-                          "/api/control/stepup",
+                          "/api/control/stepup", "/api/control/setup",
                           "/api/control/execute (POST; step-up auth rides a "
                           "'stepup' body key)",
                           "/version", "/healthz"],
@@ -427,12 +450,67 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
                               "actions": ["verify", "request_otp", "enroll",
                                           "regenerate_break_glass"]})
 
+    def _handle_setup_write(self) -> None:
+        """Write an integration value from the Setup pane. DELIBERATE, DOCUMENTED
+        exception to the 'all mutation via _action_exec.execute()' doctrine: that
+        rail validates args against option ENUMS (a secret has none) and LOGS the
+        argv (a secret must never hit a log). So this dedicated path (a) validates
+        NAME against the registry, (b) passes VALUE as a discrete argv element to
+        `sovereign-osctl setup set` under `sudo -n` (no shell), and (c) NEVER logs,
+        echoes, or returns the value. Only NAME + ok/err leave this method."""
+        if _setup is None:
+            self._send_json(503, {"ok": False, "error": "setup module unavailable"})
+            return
+        body, err = self._read_json_body()
+        if err:
+            return
+        action = str(body.get("action") or "")
+        if action not in ("set", "unset", "complete"):
+            self._send_json(400, {"ok": False, "error": "action must be set|unset|complete"})
+            return
+        name = ""
+        if action in ("set", "unset"):
+            name = str(body.get("name") or "")
+            idx = _setup._field_index()
+            if name not in idx:
+                self._send_json(400, {"ok": False, "error": f"unknown variable {name!r}"})
+                return
+            it, field = idx[name]
+            if field.get("readonly") or it.get("managed_by"):
+                self._send_json(400, {"ok": False, "error": f"{name} is managed elsewhere",
+                                      "hint": it.get("managed_by", "")})
+                return
+        osctl = os.environ.get("SOVEREIGN_OS_OSCTL", "sovereign-osctl")
+        if action == "set":
+            argv = [osctl, "setup", "set", name, str(body.get("value", ""))]
+        elif action == "unset":
+            argv = [osctl, "setup", "unset", name]
+        else:
+            argv = [osctl, "setup", "complete"]
+        argv = _action_exec._privileged_argv(argv, True)
+        try:
+            p = subprocess.run(argv, capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError) as e:
+            self._send_json(500, {"ok": False, "error": f"setup write failed: {e}"})
+            return
+        ok = p.returncode == 0
+        resp: dict = {"ok": ok, "action": action}
+        if name:
+            resp["name"] = name
+        if not ok:
+            # setup.py never prints the value; stderr is safe to surface (redacted by design).
+            resp["error"] = (p.stderr or p.stdout or "setup write failed").strip()[:300]
+        self._send_json(200 if ok else 500, resp)
+
     def do_POST(self) -> None:  # noqa: N802
         path = urllib.parse.urlsplit(self.path).path.rstrip("/") or "/"
+        if path == "/api/control/setup":
+            self._handle_setup_write()
+            return
         if path != "/api/control/execute":
             self._send_json(404, {
                 "error": f"unknown write endpoint: {path!r}",
-                "available": ["/api/control/execute"],
+                "available": ["/api/control/execute", "/api/control/setup"],
             })
             return
         body, err = self._read_json_body()

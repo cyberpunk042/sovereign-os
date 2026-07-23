@@ -90,7 +90,10 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl avx-mode set *, \
     /usr/local/bin/sovereign-osctl notifykit set *, \
     /usr/local/bin/sovereign-osctl notifykit global-override *, \
-    /usr/local/bin/sovereign-osctl notifykit trigger *
+    /usr/local/bin/sovereign-osctl notifykit trigger *, \
+    /usr/local/bin/sovereign-osctl setup set *, \
+    /usr/local/bin/sovereign-osctl setup unset *, \
+    /usr/local/bin/sovereign-osctl setup complete
 
 # Granted to the OPERATOR USER (the account the panel APIs + agent run as), per
 # operator-sudoers.sh's model — NOT a dedicated service account. `%operator` is

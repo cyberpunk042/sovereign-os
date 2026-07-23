@@ -176,6 +176,33 @@ operator use.
 **sovereign-osctl env show <NAME>**
 :   Detail one env var (default · all consumers · currently-set value)
 
+## setup
+
+Integration credential/config collector + first-run flag, driven by
+`config/integrations.yaml`. The one place that COLLECTS the env vars every
+integration needs (ntfy · Resend · Twilio · webhook · HuggingFace · dashboard-auth
+· jobs · OPNsense) into `0600 /etc/sovereign-os/*.env`, and tracks
+`first_setup_done` for the CLI and the Setup panel. Secrets are never printed —
+status shows set/unset only.
+
+**sovereign-osctl setup status [--json]**
+:   Per-integration configured-vs-not + the first_setup_done flag
+
+**sovereign-osctl setup list**
+:   The integrations and their variable names (secret vs config, required vs optional)
+
+**sovereign-osctl setup set <NAME> <VALUE>**
+:   Write a value to its 0600 /etc/sovereign-os/*.env (root)
+
+**sovereign-osctl setup unset <NAME>**
+:   Blank a value (root)
+
+**sovereign-osctl setup wizard**
+:   Walk the required-but-unset values interactively (root; secrets not echoed)
+
+**sovereign-osctl setup complete**
+:   Mark first-run setup done (root)
+
 ## metrics
 
 **sovereign-osctl metrics list**

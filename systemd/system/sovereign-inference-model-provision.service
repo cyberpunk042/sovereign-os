@@ -13,6 +13,9 @@ PartOf=sovereign-firstboot.target
 Type=oneshot
 RemainAfterExit=yes
 EnvironmentFile=-/etc/sovereign-os/active-profile.env
+# SOVEREIGN_OS_HF_TOKEN for GATED HuggingFace pulls (written by `sovereign-osctl
+# setup set` / the Setup pane; config/integrations.yaml → model.env). Optional.
+EnvironmentFile=-/etc/sovereign-os/model.env
 # Downloads the profile's provisioning.model to tank/models. Best-effort +
 # resumable: a gated repo needs SOVEREIGN_OS_HF_TOKEN and the huggingface CLI
 # (operator-deps [pip]); when either is absent it skips cleanly (never bricks

@@ -117,21 +117,31 @@ SANCTIONED_COMPAT_PANE_FETCH = "/api/control/compat"
 # prefills to the mode ACTUALLY active on the box instead of always defaulting
 # to the first option. Fixed loopback path, zero egress.
 SANCTIONED_AVX_MODE_FETCH = "/api/control/avx-mode"
+# Setup / Integrations pane: GET is the read-only status (registry + configured-vs-
+# not + first_setup_done); POST is the DELIBERATE secret-safe write path (operator
+# decision) — the argv-logging /api/control/execute rail cannot carry a free-form
+# secret without leaking it into the audit log, so setup writes go through a
+# dedicated /api/control/setup handler that validates NAME against the registry,
+# runs `sovereign-osctl setup set` under sudo -n, and REDACTS the value from all
+# logs. A third sanctioned same-origin loopback mutation, alongside chat + execute.
+SANCTIONED_SETUP_FETCH = "/api/control/setup"
 SANCTIONED_FETCHES = {
     SANCTIONED_CHAT_FETCH, SANCTIONED_EXEC_FETCH, SANCTIONED_COMPAT_FETCH,
     SANCTIONED_NOTIFYKIT_FETCH, SANCTIONED_COMPAT_PANE_FETCH,
-    SANCTIONED_AVX_MODE_FETCH,
+    SANCTIONED_AVX_MODE_FETCH, SANCTIONED_SETUP_FETCH,
 }
 
 
 def test_app_shell_chrome_is_non_mutating():
     """Per the design grammar the chrome navigates + explains; server-side
-    mutation is limited to two sanctioned same-origin loopback paths (R10212 +
+    mutation is limited to sanctioned same-origin loopback paths (R10212 +
     SDD-600): the Assistant "Ask" footer POST to the chat
-    (/api/code-console/chat), and the settings-pane hotswap POST to the
+    (/api/code-console/chat), the settings-pane hotswap POST to the
     control-exec-api (/api/control/execute — the sanctioned write daemon that
-    gates on sudoers + the live flag). No XHR / sendBeacon / form-POST, and no
-    other or external fetch, is permitted."""
+    gates on sudoers + the live flag), and the Setup pane's secret-safe write
+    (/api/control/setup — a dedicated redacted handler for integration credentials
+    that the argv-logging execute rail can't carry without leaking the value).
+    No XHR / sendBeacon / form-POST, and no other or external fetch, is permitted."""
     block = _canonical_block()
     low = block.lower()
     for forbidden in ("xmlhttprequest", "navigator.sendbeacon", 'method="post"', "method='post'"):

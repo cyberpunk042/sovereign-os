@@ -18,6 +18,10 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/usr/local/lib/sovereign-os
+# SOVEREIGN_OS_DASHBOARD_AUTH_TOKEN gates the hub when exposed beyond loopback
+# (written by `sovereign-osctl setup set` / the Setup pane; integrations.yaml →
+# dashboard-auth.env). Optional — unset means no bearer gate (loopback default).
+EnvironmentFile=-/etc/sovereign-os/dashboard-auth.env
 ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/build-configurator-api.py
 Restart=on-failure
 RestartSec=3

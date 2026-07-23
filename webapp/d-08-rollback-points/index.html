@@ -1038,6 +1038,9 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
           '<button class="so-set-mini so-apply" id="so-avx-apply" type="button" title="Apply the AVX mode">Apply</button></div>'+
           '<div class="so-set-sub" id="so-avx-backing" style="margin-top:.35rem;line-height:1.5;"></div>'+
           '<div class="so-exec-result" id="so-avx-result"></div></div>'+
+        '<div class="so-set-row"><div class="so-set-lbl"><b>Setup / Integrations</b>'+
+          '<span class="so-set-sub">The credentials &amp; config every integration needs (ntfy · Resend · Twilio · webhook · HuggingFace · dashboard-auth · jobs · OPNsense) — written to 0600 /etc/sovereign-os/*.env. Shows configured-vs-not + first-run status. Secrets are masked (set/unset only).</span></div>'+
+          '<div class="so-set-ctl"><button class="so-set-mini" id="so-setup-open" type="button" title="Set integration credentials">Configure…</button></div></div>'+
         '<div class="so-set-row"><div class="so-set-lbl"><b>Notifications</b>'+
           '<span class="so-set-sub">The whole settings range — channels (ntfy · Resend email · Twilio SMS · file), priority×urgency gates, static pins, global default override, trigger frontmatter props (important:true …).</span></div>'+
           '<div class="so-set-ctl"><button class="so-set-mini" id="so-notif-open" type="button" title="Configure notifications">Configure…</button></div></div>'+
@@ -1373,6 +1376,99 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
           res=notifModal.querySelector('[data-notifresult="trigger"]');
       if(!name||!prop||!val){ soExecMsg(res,'warn','trigger, prop and value are all required'); return; }
       soExec('notify-trigger',{name:name, prop:prop, value:val}, res);
+    });
+    // ── Setup / Integrations SHARED OVERLAY — the credential/config collector.
+    //    Driven ENTIRELY by GET /api/control/setup (= `sovereign-osctl setup
+    //    status --json`, the config/integrations.yaml registry): the modal body
+    //    renders per-integration from that payload, so a new integration in the
+    //    registry appears here with no HTML change. Secrets are password fields
+    //    (never prefilled, never returned — status shows set/unset); config
+    //    fields prefill their value. Apply → POST /api/control/setup, which runs
+    //    `sovereign-osctl setup set` under sudo -n and REDACTS the value from all
+    //    logs (dedicated secret-safe write path, not the argv-logging exec rail).
+    //    Silent-degrades to "unavailable" when the control API is absent. ──
+    document.body.appendChild(el(
+      '<div id="so-setup-modal" role="dialog" aria-modal="true" aria-label="Setup / Integrations" hidden>'+
+        '<style>#so-setup-modal{position:fixed;inset:0;z-index:9600;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}'+
+        '#so-setup-modal[hidden]{display:none}'+
+        '#so-setup-modal .so-prov-card{width:760px;max-width:94vw;max-height:86vh;overflow:auto;background:#151515;border:1px solid #2e2e2e;border-radius:12px;color:#e6e6e6;box-shadow:0 18px 50px rgba(0,0,0,.5)}'+
+        '#so-setup-modal .so-prov-h{display:flex;align-items:center;justify-content:space-between;font-weight:600;padding:.6rem .9rem;border-bottom:1px solid #2e2e2e;color:#f2f2f2}'+
+        '#so-setup-modal .so-prov-row{display:flex;align-items:flex-start;gap:.6rem;padding:.55rem .9rem;border-bottom:1px solid #232323}'+
+        '#so-setup-modal .so-prov-grp{padding:.5rem .9rem .2rem;font-weight:600;color:#c9e3ff;border-bottom:1px solid #232323}'+
+        '#so-setup-modal .so-prov-lbl{flex:1;min-width:0} #so-setup-modal .so-prov-lbl b{display:block;color:#f2f2f2} #so-setup-modal .so-prov-lbl small{color:#9a9a9a;font-size:.72rem}'+
+        '#so-setup-modal .so-set-ctl{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;max-width:380px;justify-content:flex-end}'+
+        '#so-setup-modal .so-set-mini{background:#1e1e1e;color:#e6e6e6;border:1px solid #333;border-radius:6px;padding:.15rem .35rem} #so-setup-modal input.so-set-mini{width:190px}'+
+        '#so-setup-modal .so-prov-foot{color:#9a9a9a;font-size:.72rem;padding:.5rem .9rem .7rem} #so-setup-modal .so-prov-foot code{color:#c9e3ff}'+
+        'html[data-theme="light"] #so-setup-modal .so-prov-card{background:#fff;color:#1c1c1c;border-color:#d5d5d5}'+
+        'html[data-theme="light"] #so-setup-modal .so-set-mini{background:#f4f4f4;color:#1c1c1c;border-color:#c9c9c9}</style>'+
+        '<div class="so-prov-card">'+
+          '<div class="so-prov-h"><span>🔑 Setup / Integrations</span>'+
+            '<button class="so-set-mini" id="so-setup-close" type="button">Close ✕</button></div>'+
+          '<div class="so-prov-row"><div class="so-prov-lbl"><b id="so-setup-flag">first-run setup: …</b>'+
+            '<small>values write to 0600 /etc/sovereign-os/*.env · secrets are never shown</small>'+
+            '<div class="so-exec-result" id="so-setup-flagres"></div></div>'+
+            '<div class="so-set-ctl"><button class="so-set-mini so-apply" id="so-setup-complete" type="button">Mark setup done</button></div></div>'+
+          '<div id="so-setup-body"><div class="so-prov-row"><div class="so-prov-lbl"><small>loading…</small></div></div></div>'+
+          '<div class="so-prov-foot">Apply writes to the named <code>/etc/sovereign-os/*.env</code> via <code>sovereign-osctl setup set</code> (sudo -n; the value is redacted from all logs). Managed elsewhere = set it with the integration’s own command. Mirrors <code>sovereign-osctl setup status</code>.</div>'+
+        '</div></div>'));
+    var setupModal=document.getElementById('so-setup-modal'), setupOpen=document.getElementById('so-setup-open'), setupClose=document.getElementById('so-setup-close');
+    function setupSet(open){ setupModal.hidden=!open; }
+    function soSetupApply(name, inputEl, resEl){
+      var value=inputEl.value;
+      soExecMsg(resEl,'muted','applying…');
+      fetch('/api/control/setup',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
+        body:JSON.stringify({action:'set', name:name, value:value})})
+        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+        .then(function(o){
+          if(o.ok && o.j && o.j.ok){ soExecMsg(resEl,'ok','saved ✓'); inputEl.value=''; soSetupLive(); }
+          else { soExecMsg(resEl,'err', (o.j&&o.j.error)||'write failed'); }
+        }, function(){ soExecMsg(resEl,'err','control API unreachable'); })
+        .catch(function(){ soExecMsg(resEl,'err','control API unreachable'); });
+    }
+    function soSetupLive(){
+      fetch('/api/control/setup',{headers:{Accept:'application/json'}})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(p){
+          var body=document.getElementById('so-setup-body'), flag=document.getElementById('so-setup-flag');
+          if(!p || !p.integrations){ if(flag) flag.textContent='first-run setup: (control API unavailable — use the CLI: sovereign-osctl setup wizard)'; return; }
+          if(flag) flag.textContent='first-run setup: '+(p.first_setup_done?('done ✓'+(p.completed_at?(' · '+p.completed_at):'')):'not done yet')+
+            '  ·  '+p.configured_count+'/'+p.integration_count+' integrations configured';
+          var html='';
+          p.integrations.forEach(function(it){
+            var badge=it.configured?'✓':(it.managed_by?'·':'✗');
+            html+='<div class="so-prov-grp">'+badge+' '+it.label+'  <small style="font-weight:400;color:#9a9a9a">['+it.feature+']'+
+              (it.managed_by?(' · managed: <code>'+it.managed_by+'</code>'):'')+'</small></div>';
+            it.fields.forEach(function(f){
+              var mid='so-su-'+f.name;
+              var input;
+              if(f.readonly){ input='<span class="so-set-sub" style="color:#9a9a9a">managed elsewhere</span>'; }
+              else if(f.kind==='secret'){ input='<input class="so-set-mini" id="'+mid+'" type="password" autocomplete="off" placeholder="'+(f.set?'set — enter to replace':'unset')+'">'+
+                '<button class="so-set-mini so-apply so-su-apply" data-su="'+f.name+'" type="button">Save</button>'; }
+              else { input='<input class="so-set-mini" id="'+mid+'" type="text" value="'+(f.value||'').replace(/"/g,'&quot;')+'" placeholder="'+(f.required?'required':'optional')+'">'+
+                '<button class="so-set-mini so-apply so-su-apply" data-su="'+f.name+'" type="button">Save</button>'; }
+              html+='<div class="so-prov-row"><div class="so-prov-lbl"><b>'+f.label+'</b><small>'+f.name+' · '+f.kind+(f.required?' · required':'')+'</small>'+
+                '<div class="so-exec-result" data-sures="'+f.name+'"></div></div><div class="so-set-ctl">'+input+'</div></div>';
+            });
+          });
+          body.innerHTML=html;
+          Array.prototype.forEach.call(setupModal.querySelectorAll('.so-su-apply'),function(btn){
+            btn.addEventListener('click',function(){ var nm=btn.getAttribute('data-su');
+              soSetupApply(nm, document.getElementById('so-su-'+nm), setupModal.querySelector('[data-sures="'+nm+'"]')); });
+          });
+        },function(){}).catch(function(){});
+    }
+    if(setupOpen) setupOpen.addEventListener('click',function(){ setPaneOpen(false); setupSet(true); soSetupLive(); });
+    if(setupClose) setupClose.addEventListener('click',function(){ setupSet(false); });
+    setupModal.addEventListener('click',function(e){ if(e.target===setupModal) setupSet(false); });
+    document.addEventListener('keydown',function(e){ if(setupModal && !setupModal.hidden && e.key==='Escape') setupSet(false); });
+    var setupCompleteBtn=document.getElementById('so-setup-complete');
+    if(setupCompleteBtn) setupCompleteBtn.addEventListener('click',function(){
+      var res=document.getElementById('so-setup-flagres'); soExecMsg(res,'muted','marking…');
+      fetch('/api/control/setup',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
+        body:JSON.stringify({action:'complete'})})
+        .then(function(r){ return r.json(); })
+        .then(function(j){ if(j&&j.ok){ soExecMsg(res,'ok','first_setup_done ✓'); soSetupLive(); } else { soExecMsg(res,'err',(j&&j.error)||'failed'); } },
+          function(){ soExecMsg(res,'err','control API unreachable'); });
     });
     // ── Compatibility SHARED OVERLAY (⚖ pane, 2026-07-20) — the compat
     //    module's operator surface in the shared component: what the box's

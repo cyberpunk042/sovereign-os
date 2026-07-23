@@ -167,7 +167,8 @@
       "m060-doctor",
       "commands",
       "completion",
-      "notifykit"
+      "notifykit",
+      "setup"
     ],
     "governance": [
       "operator-rules",

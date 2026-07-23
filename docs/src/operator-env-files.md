@@ -39,11 +39,36 @@
 | `inference-oracle-core.env` | sovereign-oracle-core | `ORACLE_MODEL` + quantization overrides | `inference-model-provision.sh` hook + `models/load.py` |
 | `frontend-kiosk.env` | kiosk frontend unit | kiosk URL/display settings | `frontend.py` / `install-gui-dashboards.sh` |
 | `ups.env` | sovereign-ups-setup | UPS host / slave-id / thresholds (APC SmartConnect) | `provision-bake.sh` |
-| `notify.env` | sovereign-notify-dispatch | **all notification secrets** — ntfy base/topic/token, webhook URL, `RESEND_*`, `TWILIO_*`, operator email/SMS | operator, from [`config/notify.env.example`](https://github.com/cyberpunk042/sovereign-os/blob/main/config/notify.env.example) |
+| `notify.env` | sovereign-notify-dispatch | **all notification secrets** — ntfy base/topic/token, webhook URL, `RESEND_*`, `TWILIO_*`, operator email/SMS | `sovereign-osctl setup` / operator, from [`config/notify.env.example`](https://github.com/cyberpunk042/sovereign-os/blob/main/config/notify.env.example) |
+| `model.env` | sovereign-inference-model-provision | `SOVEREIGN_OS_HF_TOKEN` — HuggingFace read token for GATED model pulls | `sovereign-osctl setup set` |
+| `dashboard-auth.env` | sovereign-dashboards | `SOVEREIGN_OS_DASHBOARD_AUTH_TOKEN` — bearer gate when the hub is exposed beyond loopback | `sovereign-osctl setup set` |
+| `jobs.env` | sovereign-jobs-api | `SOVEREIGN_OS_JOBS_TOKEN` — jobs API bearer token | `sovereign-osctl setup set` |
+| `opnsense.env` | `sovereign-osctl network-topology` (CLI; `set -a; . …; set +a`) | `SOVEREIGN_OS_OPNSENSE_API_KEY` / `_API_SECRET` | `sovereign-osctl setup set` |
 
 `notify.env` is the only one with a committed example file because it is the
 only one whose values are ALL external-service secrets the operator must
 supply by hand; the others are written by hooks/tools from operator choices.
+
+## The unified way: `sovereign-osctl setup` (the integration collector)
+
+Rather than hand-copying an example and `sudoedit`-ing, the **integration
+registry** [`config/integrations.yaml`](https://github.com/cyberpunk042/sovereign-os/blob/main/config/integrations.yaml)
+and the `setup` verb collect every credential above into the right `0600`
+`*.env` — from the CLI **or** the Setup pane in the header settings overlay:
+
+```sh
+sovereign-osctl setup status          # which integrations are configured + first_setup_done
+sovereign-osctl setup wizard          # walk the required-but-unset values (secrets not echoed)
+sudo sovereign-osctl setup set RESEND_API_KEY re_…   # write one value to its 0600 env file
+sovereign-osctl setup complete        # mark first-run setup done
+```
+
+`setup` NEVER prints a secret (status shows set/unset), validates the variable
+against the registry, and writes the file the matching service loads via
+`EnvironmentFile=-`. The Setup pane writes through the redacted
+`POST /api/control/setup` (the value is kept out of every log). Integrations
+with their own setter (Anthropic key, step-up TOTP) are shown for visibility but
+set via their dedicated command.
 
 ## Setting up `notify.env` (the 2026-07-19 notification stack)
 

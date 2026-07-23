@@ -193,6 +193,31 @@ List every SOVEREIGN_OS_* env var with its default
 .TP
 \f[B]sovereign-osctl env show \f[R]
 Detail one env var (default · all consumers · currently-set value)
+.SS setup
+Integration credential/config collector + first-run flag, driven by
+config/integrations.yaml. Collects the env vars every integration needs
+(ntfy · Resend · Twilio · webhook · HuggingFace · dashboard-auth · jobs ·
+OPNsense) into 0600 /etc/sovereign-os/*.env and tracks first_setup_done for
+the CLI and the Setup panel. Secrets are never printed \[en] status shows
+set/unset only.
+.TP
+\f[B]sovereign-osctl setup status [\[en]json]\f[R]
+Per-integration configured-vs-not + the first_setup_done flag
+.TP
+\f[B]sovereign-osctl setup list\f[R]
+The integrations and their variable names (secret vs config, required vs optional)
+.TP
+\f[B]sovereign-osctl setup set \f[R]
+Write a value to its 0600 /etc/sovereign-os/*.env (root)
+.TP
+\f[B]sovereign-osctl setup unset \f[R]
+Blank a value (root)
+.TP
+\f[B]sovereign-osctl setup wizard\f[R]
+Walk the required-but-unset values interactively (root; secrets not echoed)
+.TP
+\f[B]sovereign-osctl setup complete\f[R]
+Mark first-run setup done (root)
 .SS metrics
 .TP
 \f[B]sovereign-osctl metrics list\f[R]

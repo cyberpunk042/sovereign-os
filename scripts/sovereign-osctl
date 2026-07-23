@@ -183,6 +183,12 @@ COMMANDS:
   frontend set <value> [--url U]  Switch the boot frontend live, no reflash (root):
                                gnome | kde-plasma | dashboards-kiosk | open-computer-kiosk | none
 
+  setup status [--json]        Integration setup: which credentials/config are set + first_setup_done
+  setup list                   The integrations + their env-var names (ntfy · Resend · Twilio · HF · …)
+  setup set <NAME> <VALUE>     Write an integration value to its 0600 /etc/sovereign-os/*.env (root)
+  setup wizard                 Walk the required-but-unset integration values interactively (root)
+  setup complete               Mark first-run setup done (root)
+
   openclaw status              SDD-705 OpenClaw gateway daemon: installed · enabled · active · config
   openclaw on | off            Enable+start / stop+disable the OpenClaw daemon (installed-off; root)
   openclaw install             Run the first-boot installer now (Node + npm + preconfig → local endpoint; root)
@@ -8815,6 +8821,15 @@ PYEOF
     # rewrites the kiosk target URL, sets the boot target.
     # Verbs: status / list / set {gnome|kde-plasma|dashboards-kiosk|open-computer-kiosk|none} [--url U] [--json].
     exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/frontend.py" "$@"
+    ;;
+  setup)
+    # Integration credential/config collector + first-run flag. Driven by
+    # config/integrations.yaml — the ONE place that COLLECTS and EDITS the env
+    # vars every integration needs (ntfy / Resend / Twilio / webhook / HF /
+    # dashboard-auth / jobs / OPNsense), writing 0600 /etc/sovereign-os/*.env,
+    # and tracks first_setup_done for the CLI + the Setup panel (/api/control/setup).
+    # Verbs: status [--json] / list / set <NAME> <VALUE> / unset <NAME> / wizard / complete.
+    exec "${PYTHON3}" "${__REPO_ROOT}/scripts/operator/setup.py" "$@"
     ;;
   compliance)
     # R458: §1g/§1h compliance dashboard aggregator. Consolidates the

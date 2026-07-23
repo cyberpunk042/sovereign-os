@@ -1,0 +1,121 @@
+# config/integrations.yaml — the integration credential/config registry.
+#
+# Single source of truth for `sovereign-osctl setup` (the collector), the
+# /api/control/setup endpoint, and the Setup / Integrations panel. It answers the
+# operator's question "we have so many needed env vars now and nothing asks for
+# them" — every integration that needs a credential or config value is listed here
+# ONCE, with which 0600 /etc/sovereign-os/<env_file> its values live in.
+#
+# DOCTRINE (docs/src/operator-env-files.md): this registry carries only variable
+# NAMES + metadata — NEVER values. Values live root-owned 0600 in the named env
+# file; `sovereign-osctl setup set <NAME> <VALUE>` writes them there. Configs
+# reference the name as "env:<NAME>"; systemd loads the file via EnvironmentFile=-.
+#
+# field.kind:
+#   secret  — a token / key / password. Masked everywhere; status shows set/unset,
+#             never the value. In the panel it is a password field.
+#   config  — a non-secret URL / email / number / topic. Shown in the clear.
+# field.required — the integration is not "configured" until every required field
+#             of an ENABLED integration resolves to a non-empty value.
+# integration.gates_setup — if true, this integration must be configured (or
+#             explicitly skipped) before first_setup_done can flip true. Keep this
+#             empty for optional integrations; a box runs fine with no notifications.
+schema_version: "1.0.0"
+
+integrations:
+  # ── Notifications (notifykit channels; secrets → /etc/sovereign-os/notify.env) ──
+  - id: ntfy
+    label: "ntfy push"
+    feature: notifications
+    env_file: notify.env
+    doc: "https://docs.ntfy.sh/"
+    summary: "Push notifications via ntfy.sh or a self-hosted ntfy server."
+    fields:
+      - {name: SOVEREIGN_OS_NOTIFY_NTFY_BASE_URL, label: "ntfy server URL", kind: config, required: false, default: "https://ntfy.sh", example: "https://ntfy.sh"}
+      - {name: SOVEREIGN_OS_NOTIFY_NTFY_TOPIC,    label: "ntfy topic",      kind: config, required: true,  example: "sovereign-os-alerts"}
+      - {name: SOVEREIGN_OS_NOTIFY_NTFY_TOKEN,    label: "ntfy bearer token (self-hosted / authed only)", kind: secret, required: false}
+
+  - id: resend
+    label: "Resend email"
+    feature: notifications
+    env_file: notify.env
+    doc: "https://resend.com/docs"
+    summary: "Transactional email alerts via the Resend API."
+    fields:
+      - {name: RESEND_API_KEY,               label: "Resend API key",      kind: secret, required: true, example: "re_xxxxxxxx"}
+      - {name: RESEND_FROM_EMAIL,            label: "From address",        kind: config, required: true, example: "alerts@your-domain.tld"}
+      - {name: SOVEREIGN_OS_OPERATOR_EMAIL,  label: "Operator email (recipient)", kind: config, required: true, example: "you@your-domain.tld"}
+
+  - id: twilio
+    label: "Twilio SMS"
+    feature: notifications
+    env_file: notify.env
+    doc: "https://www.twilio.com/docs"
+    summary: "SMS alerts via Twilio. Numbers are E.164 (+15551234567)."
+    fields:
+      - {name: TWILIO_ACCOUNT_SID,        label: "Account SID",   kind: secret, required: true, example: "ACxxxxxxxx"}
+      - {name: TWILIO_AUTH_TOKEN,         label: "Auth token",    kind: secret, required: true}
+      - {name: TWILIO_FROM_NUMBER,        label: "From number (E.164)",   kind: config, required: true, example: "+15551234567"}
+      - {name: SOVEREIGN_OS_OPERATOR_SMS, label: "Operator number (E.164, recipient)", kind: config, required: true, example: "+15559876543"}
+
+  - id: webhook
+    label: "Generic webhook (Slack / Discord / Teams)"
+    feature: notifications
+    env_file: notify.env
+    doc: "docs/src/operator-env-files.md"
+    summary: "POST alerts to any incoming-webhook URL (Slack / Discord / Teams)."
+    fields:
+      - {name: SOVEREIGN_OS_NOTIFY_WEBHOOK_URL, label: "Webhook URL", kind: secret, required: true, example: "https://hooks.slack.com/services/…"}
+
+  # ── Model / inference credentials ──
+  - id: huggingface
+    label: "HuggingFace token"
+    feature: models
+    env_file: model.env
+    doc: "https://huggingface.co/settings/tokens"
+    summary: "Read token for pulling GATED models (Llama, etc). Ungated pulls need none."
+    fields:
+      - {name: SOVEREIGN_OS_HF_TOKEN, label: "HuggingFace read token", kind: secret, required: false, example: "hf_xxxxxxxx"}
+
+  # ── Local surfaces that ship with a token knob (self-minted; openssl rand) ──
+  - id: dashboard-auth
+    label: "Dashboard auth token"
+    feature: dashboards
+    env_file: dashboard-auth.env
+    doc: "config/dashboard-auth.toml.example"
+    summary: "Optional bearer token gating the dashboard hub when exposed beyond loopback. Self-minted: `openssl rand -hex 32`."
+    fields:
+      - {name: SOVEREIGN_OS_DASHBOARD_AUTH_TOKEN, label: "Dashboard bearer token", kind: secret, required: false, generate: "openssl rand -hex 32"}
+
+  - id: jobs
+    label: "Jobs API token"
+    feature: code-console
+    env_file: jobs.env
+    doc: "scripts/operator/jobs-api.py"
+    summary: "Bearer token for the jobs API when provisioned. Self-minted: `openssl rand -hex 32`."
+    fields:
+      - {name: SOVEREIGN_OS_JOBS_TOKEN, label: "Jobs API token", kind: secret, required: false, generate: "openssl rand -hex 32"}
+
+  # ── External infrastructure ──
+  - id: opnsense
+    label: "OPNsense firewall API"
+    feature: networking
+    env_file: opnsense.env
+    doc: "scripts/operator/network-topology.py"
+    summary: "API key/secret for reading the OPNsense edge firewall topology."
+    fields:
+      - {name: SOVEREIGN_OS_OPNSENSE_API_KEY,    label: "OPNsense API key",    kind: secret, required: true}
+      - {name: SOVEREIGN_OS_OPNSENSE_API_SECRET, label: "OPNsense API secret", kind: secret, required: true}
+
+  # ── Already has a dedicated setter — listed for VISIBILITY (configured-vs-not),
+  #    but set it via its own idempotent verb, not `setup set`. ──
+  - id: anthropic
+    label: "Anthropic (hosted Claude)"
+    feature: agent-runtimes
+    env_file: anthropic-key.env
+    doc: "scripts/operator/agent-backend.py"
+    summary: "Hosted-Claude API key. Set with `sovereign-osctl claude-code backend anthropic --key <k>` (dedicated setter)."
+    managed_by: "sovereign-osctl claude-code backend anthropic --key <KEY>"
+    fields:
+      - {name: ANTHROPIC_API_KEY,  label: "Anthropic API key", kind: secret, required: false, readonly: true}
+      - {name: ANTHROPIC_BASE_URL, label: "Anthropic base URL (self-host override)", kind: config, required: false, readonly: true}

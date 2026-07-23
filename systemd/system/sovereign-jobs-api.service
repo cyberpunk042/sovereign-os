@@ -13,6 +13,9 @@ Wants=sovereign-gatewayd.service
 [Service]
 Type=simple
 WorkingDirectory=/usr/local/lib/sovereign-os
+# SOVEREIGN_OS_JOBS_TOKEN gates the jobs API when provisioned (written by
+# `sovereign-osctl setup set` / the Setup pane; integrations.yaml → jobs.env).
+EnvironmentFile=-/etc/sovereign-os/jobs.env
 ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/jobs-api.py
 Restart=on-failure
 RestartSec=3
