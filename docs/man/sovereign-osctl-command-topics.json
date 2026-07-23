@@ -22,7 +22,8 @@
       "cost-policy",
       "adapters",
       "evals",
-      "super-model"
+      "super-model",
+      "token-law"
     ],
     "agents": [
       "goal",

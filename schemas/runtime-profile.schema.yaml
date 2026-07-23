@@ -119,6 +119,20 @@ properties:
       thinking_policy:
         $ref: "#/$defs/thinking-policy"
 
+      token_law_engine_mask_layers:
+        description: |
+          SDD-510 (F00793) — the token-law engine's mask-layer selection for
+          this profile: which named laws (grammar / schema / tool / safety /
+          policy) the M00117 fusion keeps active. A CSV string or a list of
+          layer names (real names or the milestone aliases schema→grammar,
+          tool→regex, safety→denylist+regex_denylist). Overridden at runtime by
+          SOVEREIGN_TOKEN_LAW_MASK_LAYERS and the --token-law-mask-layers flag.
+          Omit ⇒ all layers active.
+        oneOf:
+          - type: string
+          - type: array
+            items: {type: string}
+
 $defs:
   thinking-policy:
     description: |

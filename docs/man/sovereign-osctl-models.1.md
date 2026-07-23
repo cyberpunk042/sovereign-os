@@ -285,6 +285,16 @@ The default resident-model directory is `/mnt/vault/models`; override it with `S
 **sovereign-osctl super-model [arguments]**
 :   M060 D-19 (R10124-R10125): super-model manifest — sovereign-os-native version + module-version table computed LIVE from git HEAD + the milestone catalog (M001..M080 ids/titles/R-row counts) + config/super-model- manifest.toml editorial overlay (M053 11 build-phases + per-milestone family/status). Read-only; the sovereign-super-model-api daemon serves the D-19 cockpit dashboard from this same core. Verbs: snapshot / version / milestones (+ --json).
 
+## token-law
+
+SDD-510 (M00155 F00793/4/5) — the operator handle on the M00117 token-law engine's mask-layer selection: which named laws (grammar / schema / tool / safety / policy) are active, and — over a live gateway — the checkpoint-free vocab allow-mask they fuse to at a prefix.
+
+**sovereign-osctl token-law layers [--token-law-mask-layers CSV] [--json]**
+:   Resolve + print the active mask-layer selection. Precedence: `--token-law-mask-layers` flag > `SOVEREIGN_TOKEN_LAW_MASK_LAYERS` env > the runtime profile's `token_law_engine_mask_layers` knob > all layers. Needs no daemon.
+
+**sovereign-osctl token-law fuse --vocab a,b,c [--regex P] [--denylist …] [--regex-denylist …] [--schema-file F] [--generated S] [--token-law-mask-layers CSV] [--json]**
+:   Derive the fused allow-mask at a prefix over the sanctioned `POST /v1/data-plane/token-law/fuse` route (checkpoint-free — no model). Prints the active layers, the allowed-token count, per-layer coverage, and the stop flag.
+
 # FILES
 
 **/etc/sovereign-os/**

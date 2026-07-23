@@ -366,6 +366,26 @@ build-phases + per-milestone family/status).
 Read-only; the sovereign-super-model-api daemon serves the D-19 cockpit
 dashboard from this same core.
 Verbs: snapshot / version / milestones (+ \[en]json).
+.SS token-law
+.PP
+SDD-510 (M00155 F00793/4/5) \[em] the operator handle on the M00117
+token-law engine\[cq]s mask-layer selection: which named laws (grammar /
+schema / tool / safety / policy) are active, and \[em] over a live gateway
+\[em] the checkpoint-free vocab allow-mask they fuse to at a prefix.
+.TP
+\f[B]sovereign-osctl token-law layers [\[en]token-law-mask-layers CSV] [\[en]json]\f[R]
+Resolve + print the active mask-layer selection.
+Precedence: the \f[CR]--token-law-mask-layers\f[R] flag > the
+\f[CR]SOVEREIGN_TOKEN_LAW_MASK_LAYERS\f[R] env > the runtime profile\[cq]s
+\f[CR]token_law_engine_mask_layers\f[R] knob > all layers.
+Needs no daemon.
+.TP
+\f[B]sovereign-osctl token-law fuse \[en]vocab a,b,c [\[en]regex P] [\[en]denylist \&...] [\[en]schema-file F] [\[en]generated S] [\[en]json]\f[R]
+Derive the fused allow-mask at a prefix over the sanctioned
+\f[CR]POST /v1/data-plane/token-law/fuse\f[R] route (checkpoint-free \[em]
+no model).
+Prints the active layers, the allowed-token count, per-layer coverage,
+and the stop flag.
 .SH FILES
 .TP
 \f[B]/etc/sovereign-os/\f[R]
