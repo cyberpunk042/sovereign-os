@@ -731,12 +731,16 @@ pub struct ServingTokenLaw {
 
 impl ServingTokenLaw {
     /// The token-law profile the routing decision selects (SDD-517), or a no-op
-    /// profile when no route is present. v1 uses the built-in doctrine
-    /// ([`sovereign_token_law_route::RouteProfileMap::default`]); an operator
-    /// per-role override map is a roadmap item.
+    /// profile when no route is present. The profile map is the operator's
+    /// `SOVEREIGN_TOKEN_LAW_ROUTE_PROFILES` override if set (SDD-518), else the
+    /// built-in doctrine — resolved the same impure-boundary way the engine's
+    /// `MaskLayerSet::from_env_or_all` is.
     fn route_profile(&self) -> sovereign_token_law_route::RouteProfile {
         self.route
-            .map(|d| sovereign_token_law_route::RouteProfileMap::default().resolve_directive(&d))
+            .map(|d| {
+                sovereign_token_law_route::RouteProfileMap::from_env_or_default()
+                    .resolve_directive(&d)
+            })
             .unwrap_or_default()
     }
 

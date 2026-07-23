@@ -6752,6 +6752,7 @@ name = "sovereign-token-law-route"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "sovereign-router-7axis",
 ]
 
