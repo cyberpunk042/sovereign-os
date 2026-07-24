@@ -62,6 +62,13 @@ pub enum Schema {
     /// boolean | null` grammar. Used for OpenAI `response_format: json_object`
     /// (SDD-519): enforce *valid JSON* without pinning a shape.
     Any,
+    /// A value conforming to **any one** of the listed alternatives — the union
+    /// grammar (SDD-522). Maps a JSON-Schema `anyOf` / `oneOf` or a `type` array
+    /// (e.g. `["string","null"]`, the nullable-field idiom). Compiled as plain
+    /// alternation (one grammar rule per alternative). `oneOf`'s *exactly-one*
+    /// semantics can't be enforced by a context-free grammar, so it is treated as
+    /// `anyOf` (accept any alternative) — an honest under-constraint.
+    OneOf(Vec<Schema>),
 }
 
 impl Schema {
@@ -97,25 +104,51 @@ impl Schema {
 /// - `{"type":"object","properties":{…},"required":[…]}` → [`Schema::Object`] **iff**
 ///   `required` is exactly the property-key set (the subset's object is
 ///   all-required, fixed key order, no extras); key order follows `required`;
-/// - a bare `{"enum":[strings…]}` (no `type`) → [`Schema::Enum`].
+/// - a bare `{"enum":[strings…]}` (no `type`) → [`Schema::Enum`];
+/// - `{"anyOf":[…]}` / `{"oneOf":[…]}` and a **`type` array** (`["string","null"]`,
+///   the nullable-field idiom) → [`Schema::OneOf`] over the translated alternatives
+///   (SDD-522). `oneOf`'s *exactly-one* semantics can't be enforced by a CFG, so it
+///   is treated as `anyOf`. A union whose members include an unrepresentable one
+///   collapses to [`Schema::Any`] (`Any` subsumes the union); a one-member union is
+///   that member; an empty union degrades to [`Schema::Any`].
 ///
 /// Degraded to [`Schema::Any`]:
-/// - a `type` that is an array (union / nullable) or absent / unknown;
+/// - a `type` that is absent / unknown, or a `type` array containing a structural
+///   type (`object`/`array`) with no accompanying `properties`/`items`;
 /// - an object with optional properties, duplicated `required`, a `required` entry
 ///   with no matching property, or a non-object `properties`;
-/// - `$ref`, `anyOf` / `allOf` / `oneOf`, tuple `items` (an array), a boolean
-///   sub-schema, or a non-string `enum`.
+/// - `$ref`, `allOf` (intersection — not expressible), tuple `items` (an array), a
+///   boolean sub-schema, or a non-string `enum`.
 pub fn from_json_schema(value: &serde_json::Value) -> Schema {
     use serde_json::Value;
     let obj = match value.as_object() {
         Some(o) => o,
         None => return Schema::Any, // not a schema object (a bare bool / scalar)
     };
+    // Union keywords (SDD-522): `anyOf` / `oneOf` → a `OneOf` over the alternatives.
+    // (A co-present `type` would mean an intersection — not expressible — so the
+    // union takes precedence, an honest under-constraint. `allOf` is intersection
+    // and is left to degrade to `Any`.)
+    for key in ["anyOf", "oneOf"] {
+        if let Some(arr) = obj.get(key).and_then(Value::as_array) {
+            return union_of(arr.iter().map(from_json_schema).collect());
+        }
+    }
     // A bare `enum` with no explicit `type` — a closed set of string literals.
     if !obj.contains_key("type") {
         return string_enum(obj).unwrap_or(Schema::Any);
     }
-    // `type` must be a single string; an array-typed union isn't expressible.
+    // A `type` ARRAY is a union of types (SDD-522), e.g. `["string","null"]`.
+    if let Some(types) = obj.get("type").and_then(Value::as_array) {
+        return union_of(
+            types
+                .iter()
+                .filter_map(Value::as_str)
+                .map(type_name_to_schema)
+                .collect(),
+        );
+    }
+    // Otherwise `type` must be a single string.
     let ty = match obj.get("type").and_then(Value::as_str) {
         Some(t) => t,
         None => return Schema::Any,
@@ -136,6 +169,37 @@ pub fn from_json_schema(value: &serde_json::Value) -> Schema {
             Some(_) => Schema::array(Schema::Any),
         },
         "object" => object_from_json_schema(obj),
+        _ => Schema::Any,
+    }
+}
+
+/// Build a union [`Schema`] from already-translated alternatives (SDD-522), with
+/// the simplifications: a union that contains [`Schema::Any`] **is** `Any` (`Any`
+/// accepts every JSON value, so it subsumes the union — keeping a `OneOf` would be
+/// redundant and would over-list); a single alternative is that alternative
+/// (no wrapper); an empty set degrades to `Any`.
+fn union_of(alts: Vec<Schema>) -> Schema {
+    if alts.is_empty() || alts.contains(&Schema::Any) {
+        return Schema::Any;
+    }
+    if alts.len() == 1 {
+        return alts.into_iter().next().unwrap();
+    }
+    Schema::OneOf(alts)
+}
+
+/// Map a bare JSON-Schema `type` **name** (as it appears inside a `type` array) to
+/// a [`Schema`]. The scalar names map exactly; a structural type (`object` /
+/// `array`) or an unknown name maps to [`Schema::Any`] — inside a `type` array
+/// there is no accompanying `properties` / `items` to constrain it, and an `Any`
+/// member collapses the whole union to `Any` (see [`union_of`]).
+fn type_name_to_schema(name: &str) -> Schema {
+    match name {
+        "string" => Schema::StringType,
+        "integer" => Schema::Integer,
+        "number" => Schema::Number,
+        "boolean" => Schema::Boolean,
+        "null" => Schema::Null,
         _ => Schema::Any,
     }
 }
@@ -447,6 +511,18 @@ impl Compiler {
                 }
                 // an empty enum derives nothing (no rule) — an unsatisfiable schema.
                 e
+            }
+            Schema::OneOf(alts) => {
+                // A union: one alternation rule per alternative (SDD-522). Each
+                // alternative compiles to its own non-terminal; the union derives
+                // any of them. An empty set derives nothing (unsatisfiable), but
+                // `union_of` never builds an empty `OneOf`.
+                let u = self.b.nonterminal();
+                for a in alts {
+                    let a_nt = self.compile(a);
+                    self.b.rule(u, vec![Symbol::nt(a_nt)]);
+                }
+                u
             }
             Schema::Array(item) => {
                 let item_nt = self.compile(item);
@@ -825,22 +901,77 @@ mod tests {
             })),
             Schema::Any
         );
-        // a union / nullable type → Any.
+        // a `type` array with a STRUCTURAL member (object/array, no properties/items
+        // to constrain) collapses the union to Any (SDD-522 `union_of`).
         assert_eq!(
-            from_json_schema(&json!({"type": ["string", "null"]})),
+            from_json_schema(&json!({"type": ["string", "object"]})),
             Schema::Any
         );
-        // composition keywords + $ref aren't expressible → Any.
+        // `allOf` is intersection — not expressible by a CFG → Any.
         assert_eq!(
-            from_json_schema(&json!({"anyOf": [{"type": "string"}, {"type": "integer"}]})),
+            from_json_schema(&json!({"allOf": [{"type": "string"}, {"type": "integer"}]})),
             Schema::Any
         );
+        // a union whose members include an unrepresentable one collapses to Any.
+        assert_eq!(
+            from_json_schema(&json!({"anyOf": [{"type": "string"}, {"allOf": []}]})),
+            Schema::Any
+        );
+        // $ref isn't expressible → Any.
         assert_eq!(from_json_schema(&json!({"$ref": "#/defs/X"})), Schema::Any);
         // a non-string enum → Any (bare) / the type default is unreachable here.
         assert_eq!(from_json_schema(&json!({"enum": [1, 2, 3]})), Schema::Any);
         // a bare scalar / non-object schema → Any.
         assert_eq!(from_json_schema(&json!(true)), Schema::Any);
         assert_eq!(from_json_schema(&json!({})), Schema::Any);
+    }
+
+    #[test]
+    fn from_json_schema_maps_unions() {
+        use serde_json::json;
+        // a nullable-field `type` array → a OneOf (SDD-522); the grammar enforces it.
+        let s = from_json_schema(&json!({"type": ["string", "null"]}));
+        assert_eq!(s, Schema::OneOf(vec![Schema::StringType, Schema::Null]));
+        let g = compile(&s);
+        assert!(g.accepts("\"hi\"") && g.accepts("null"));
+        assert!(!g.accepts("42"));
+        // anyOf → OneOf over the translated alternatives.
+        assert_eq!(
+            from_json_schema(&json!({"anyOf": [{"type": "integer"}, {"type": "string"}]})),
+            Schema::OneOf(vec![Schema::Integer, Schema::StringType])
+        );
+        // oneOf is treated as anyOf (a CFG can't enforce exactly-one).
+        assert_eq!(
+            from_json_schema(&json!({"oneOf": [{"type": "boolean"}, {"type": "null"}]})),
+            Schema::OneOf(vec![Schema::Boolean, Schema::Null])
+        );
+        // a single-alternative union is just that alternative (no wrapper).
+        assert_eq!(
+            from_json_schema(&json!({"anyOf": [{"type": "integer"}]})),
+            Schema::Integer
+        );
+        assert_eq!(
+            from_json_schema(&json!({"type": ["number"]})),
+            Schema::Number
+        );
+        // an empty union degrades to Any.
+        assert_eq!(from_json_schema(&json!({"anyOf": []})), Schema::Any);
+        // a union nested as an object property is enforced too.
+        let s = from_json_schema(&json!({
+            "type": "object",
+            "properties": {"v": {"type": ["integer", "null"]}},
+            "required": ["v"],
+        }));
+        assert_eq!(
+            s,
+            Schema::object([(
+                "v".to_string(),
+                Schema::OneOf(vec![Schema::Integer, Schema::Null]),
+            )])
+        );
+        let g = compile(&s);
+        assert!(g.accepts(r#"{"v":7}"#) && g.accepts(r#"{"v":null}"#));
+        assert!(!g.accepts(r#"{"v":"x"}"#));
     }
 
     #[test]
