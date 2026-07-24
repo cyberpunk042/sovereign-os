@@ -194,3 +194,36 @@ def test_gateway_openai_shim_supports_multiple_completions():
     # streaming with n>1 is refused honestly, not silently downgraded to one
     assert "n_choices > 1" in main, \
         "streaming with n>1 must be an honest 400, not a silent single choice"
+
+
+def test_anthropic_messages_honors_sampling_and_stop_sequences():
+    """F-2026-086 / F-2026-088 parity: the Anthropic /v1/messages surface must
+    parse temperature/top_p/top_k + stop_sequences (Anthropic dialect) and thread
+    them into BOTH decode sites — not the prior hardcoded greedy. The streaming
+    path adds only the sampler (law stays None — the token-law-on-streaming gap is
+    SDD-512's separate deferral)."""
+    http = _read("crates/sovereign-gatewayd/src/http.rs")
+    main = _read("crates/sovereign-gatewayd/src/main.rs")
+    # the Anthropic-dialect parse helpers exist (temp 0..1, native top_k, stop_sequences)
+    assert "pub fn extract_anthropic_sampler(" in http, \
+        "the Anthropic sampler parser must exist"
+    assert ".clamp(0.0, 1.0)" in http, \
+        "Anthropic temperature is the 0..1 dialect (not OpenAI's 0..2)"
+    assert "pub fn anthropic_stop_sequences(" in http and "stop_sequences" in http, \
+        "the Anthropic stop_sequences parser must exist"
+    assert "pub fn anthropic_stop_outcome(" in http, \
+        "the Anthropic stop_reason/stop_sequence outcome reporter must exist"
+    # non-streaming handler: no longer hardcoded greedy; threads the sampler + stops
+    assert "extract_anthropic_sampler(&req)" in http, \
+        "anthropic_message must use the parsed sampler"
+    assert "SamplerConfig::greedy(),\n            law_active," not in http, \
+        "anthropic_message must no longer pass hardcoded greedy to the generator"
+    assert "stops.cut(&out)" in http, \
+        "anthropic_message must truncate at the earliest stop sequence"
+    # streaming handler: adds only the sampler (law None), ends at the stop
+    assert "http::extract_anthropic_sampler(&req)" in main, \
+        "stream_anthropic_messages must parse the sampler"
+    assert "server.generate_chat(Some(model.as_str())" not in main, \
+        "the streaming Anthropic path must use the sampler-aware generate, not plain generate_chat"
+    assert "http::anthropic_stop_outcome(" in main, \
+        "the streaming path must report the Anthropic stop_reason"
