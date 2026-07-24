@@ -146,6 +146,16 @@ def test_gateway_openai_shim_threads_sampling_params():
     grammar = _read("crates/sovereign-json-schema-grammar/src/lib.rs")
     assert "Any," in grammar and "fn any(" in grammar, \
         "the grammar crate must provide the recursive any-JSON Schema::Any"
+    # SDD-520 json_schema translator: the standard JSON-Schema dialect the client
+    # sends is translated into the token-law Schema subset (not the internal repr).
+    assert "pub fn from_json_schema(" in grammar, \
+        "the grammar crate must expose the standard-dialect from_json_schema translator"
+    assert "fn object_from_json_schema(" in grammar and "fn string_enum(" in grammar, \
+        "the translator must handle object + string-enum shapes"
+    assert "from_json_schema" in main, \
+        "parse_response_format must translate the client's json_schema via from_json_schema"
+    assert "serde_json::from_value::<Schema>" not in main, \
+        "json_schema must translate the standard dialect, not deserialize the internal Schema repr"
     assert "SamplerConfig" in main, \
         "must construct a SamplerConfig from parsed params"
     assert "generate_chat_with_sampler" in main, \

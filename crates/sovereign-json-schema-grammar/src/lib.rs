@@ -78,6 +78,118 @@ impl Schema {
     }
 }
 
+/// Translate a value from the **standard JSON-Schema dialect** (the shape OpenAI
+/// clients send in `response_format.json_schema.schema`, SDD-520) into the
+/// token-law [`Schema`] subset.
+///
+/// The mapping is **total**: any construct the subset cannot faithfully express
+/// degrades to [`Schema::Any`] (enforce *valid JSON*, shape unconstrained) rather
+/// than failing. Under-constraining is the safe direction — the output is still
+/// valid JSON the client can parse; over-constraining (e.g. dropping a schema's
+/// optional keys) would risk masking output the client's own schema permits.
+///
+/// Mapped faithfully:
+/// - `{"type":"string"}` → [`Schema::StringType`]; with a string `enum` → [`Schema::Enum`];
+/// - `{"type":"integer"}` → [`Schema::Integer`]; `{"type":"number"}` → [`Schema::Number`];
+/// - `{"type":"boolean"}` → [`Schema::Boolean`]; `{"type":"null"}` → [`Schema::Null`];
+/// - `{"type":"array","items":S}` → [`Schema::Array`] of the translated item
+///   (absent `items` → array of [`Schema::Any`]);
+/// - `{"type":"object","properties":{…},"required":[…]}` → [`Schema::Object`] **iff**
+///   `required` is exactly the property-key set (the subset's object is
+///   all-required, fixed key order, no extras); key order follows `required`;
+/// - a bare `{"enum":[strings…]}` (no `type`) → [`Schema::Enum`].
+///
+/// Degraded to [`Schema::Any`]:
+/// - a `type` that is an array (union / nullable) or absent / unknown;
+/// - an object with optional properties, duplicated `required`, a `required` entry
+///   with no matching property, or a non-object `properties`;
+/// - `$ref`, `anyOf` / `allOf` / `oneOf`, tuple `items` (an array), a boolean
+///   sub-schema, or a non-string `enum`.
+pub fn from_json_schema(value: &serde_json::Value) -> Schema {
+    use serde_json::Value;
+    let obj = match value.as_object() {
+        Some(o) => o,
+        None => return Schema::Any, // not a schema object (a bare bool / scalar)
+    };
+    // A bare `enum` with no explicit `type` — a closed set of string literals.
+    if !obj.contains_key("type") {
+        return string_enum(obj).unwrap_or(Schema::Any);
+    }
+    // `type` must be a single string; an array-typed union isn't expressible.
+    let ty = match obj.get("type").and_then(Value::as_str) {
+        Some(t) => t,
+        None => return Schema::Any,
+    };
+    match ty {
+        "boolean" => Schema::Boolean,
+        "null" => Schema::Null,
+        "integer" => Schema::Integer,
+        "number" => Schema::Number,
+        // a string `enum` narrows to the closed set; else any string.
+        "string" => string_enum(obj).unwrap_or(Schema::StringType),
+        "array" => match obj.get("items") {
+            // a single item sub-schema → a typed array;
+            Some(Value::Object(_)) => Schema::array(from_json_schema(&obj["items"])),
+            // absent `items` → an array of any value;
+            None => Schema::array(Schema::Any),
+            // a tuple (array of schemas) or bool schema isn't expressible.
+            Some(_) => Schema::array(Schema::Any),
+        },
+        "object" => object_from_json_schema(obj),
+        _ => Schema::Any,
+    }
+}
+
+/// `{"enum":[strings…]}` → `Schema::Enum` when non-empty and every value is a
+/// string; otherwise `None` (an empty or non-string enum isn't expressible, so
+/// the caller falls back to its type default or `Schema::Any`).
+fn string_enum(obj: &serde_json::Map<String, serde_json::Value>) -> Option<Schema> {
+    let arr = obj.get("enum")?.as_array()?;
+    if arr.is_empty() {
+        return None;
+    }
+    let mut vals = Vec::with_capacity(arr.len());
+    for v in arr {
+        vals.push(v.as_str()?.to_string()); // any non-string collapses the whole enum
+    }
+    Some(Schema::Enum(vals))
+}
+
+/// Translate a JSON-Schema `object` node. The subset's [`Schema::Object`] is
+/// *all-required, fixed key order, no extras*, so this maps faithfully only when
+/// `required` is exactly the declared property set (no optionals, no duplicates,
+/// no dangling names); otherwise it degrades to [`Schema::Any`] rather than
+/// over-constraining by dropping the optional keys. Key order follows `required`.
+fn object_from_json_schema(obj: &serde_json::Map<String, serde_json::Value>) -> Schema {
+    use serde_json::Value;
+    use std::collections::BTreeSet;
+    let props = match obj.get("properties") {
+        Some(Value::Object(p)) => p,
+        None => return Schema::Object(Vec::new()), // no properties → empty object
+        Some(_) => return Schema::Any,             // malformed `properties`
+    };
+    if props.is_empty() {
+        return Schema::Object(Vec::new());
+    }
+    let required: Vec<&str> = obj
+        .get("required")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    let req_set: BTreeSet<&str> = required.iter().copied().collect();
+    let prop_set: BTreeSet<&str> = props.keys().map(String::as_str).collect();
+    // faithful only when `required` is a duplicate-free bijection with the keys.
+    if required.len() != req_set.len() || req_set != prop_set {
+        return Schema::Any;
+    }
+    // key order follows the client's `required` array; each maps recursively.
+    let fields = required
+        .iter()
+        .map(|k| (k.to_string(), from_json_schema(&props[*k])))
+        .collect();
+    Schema::Object(fields)
+}
+
 /// Builds the grammar, allocating non-terminals and caching shared primitives so
 /// the produced grammar stays small.
 struct Compiler {
@@ -613,5 +725,155 @@ mod tests {
     #[test]
     fn schema_version_is_set() {
         assert_eq!(SCHEMA_VERSION, "1.0.0");
+    }
+
+    // ── SDD-520: standard JSON-Schema dialect → Schema translation ──────────
+
+    #[test]
+    fn from_json_schema_maps_scalars_and_enums() {
+        use serde_json::json;
+        assert_eq!(
+            from_json_schema(&json!({"type": "boolean"})),
+            Schema::Boolean
+        );
+        assert_eq!(from_json_schema(&json!({"type": "null"})), Schema::Null);
+        assert_eq!(
+            from_json_schema(&json!({"type": "integer"})),
+            Schema::Integer
+        );
+        assert_eq!(from_json_schema(&json!({"type": "number"})), Schema::Number);
+        assert_eq!(
+            from_json_schema(&json!({"type": "string"})),
+            Schema::StringType
+        );
+        // a string enum (typed or bare) narrows to the closed set.
+        assert_eq!(
+            from_json_schema(&json!({"type": "string", "enum": ["a", "b"]})),
+            Schema::Enum(vec!["a".into(), "b".into()])
+        );
+        assert_eq!(
+            from_json_schema(&json!({"enum": ["x", "y", "z"]})),
+            Schema::Enum(vec!["x".into(), "y".into(), "z".into()])
+        );
+    }
+
+    #[test]
+    fn from_json_schema_maps_arrays() {
+        use serde_json::json;
+        assert_eq!(
+            from_json_schema(&json!({"type": "array", "items": {"type": "integer"}})),
+            Schema::array(Schema::Integer)
+        );
+        // absent items → an array of any value.
+        assert_eq!(
+            from_json_schema(&json!({"type": "array"})),
+            Schema::array(Schema::Any)
+        );
+        // tuple items (an array of schemas) isn't expressible → any items.
+        assert_eq!(
+            from_json_schema(&json!({"type": "array", "items": [{"type": "integer"}]})),
+            Schema::array(Schema::Any)
+        );
+    }
+
+    #[test]
+    fn from_json_schema_maps_all_required_objects_in_required_order() {
+        use serde_json::json;
+        // all-required object → a fixed-order Object; key order follows `required`.
+        let s = from_json_schema(&json!({
+            "type": "object",
+            "properties": {"age": {"type": "integer"}, "name": {"type": "string"}},
+            "required": ["name", "age"],
+        }));
+        assert_eq!(
+            s,
+            Schema::object([
+                ("name".to_string(), Schema::StringType),
+                ("age".to_string(), Schema::Integer),
+            ])
+        );
+        // and the compiled grammar enforces exactly that shape + order.
+        let g = compile(&s);
+        assert!(g.accepts(r#"{"name":"alice","age":30}"#));
+        assert!(!g.accepts(r#"{"age":30,"name":"alice"}"#)); // required order pinned
+        // an object with no properties → the empty object.
+        assert_eq!(
+            from_json_schema(&json!({"type": "object"})),
+            Schema::Object(Vec::new())
+        );
+    }
+
+    #[test]
+    fn from_json_schema_degrades_unrepresentable_to_any() {
+        use serde_json::json;
+        // an object with an OPTIONAL property (required ⊊ properties) → Any, so the
+        // client's optional key is never masked out (under-constrain, don't reject).
+        assert_eq!(
+            from_json_schema(&json!({
+                "type": "object",
+                "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+                "required": ["a"],
+            })),
+            Schema::Any
+        );
+        // a required name with no matching property → Any.
+        assert_eq!(
+            from_json_schema(&json!({
+                "type": "object",
+                "properties": {"a": {"type": "integer"}},
+                "required": ["a", "ghost"],
+            })),
+            Schema::Any
+        );
+        // a union / nullable type → Any.
+        assert_eq!(
+            from_json_schema(&json!({"type": ["string", "null"]})),
+            Schema::Any
+        );
+        // composition keywords + $ref aren't expressible → Any.
+        assert_eq!(
+            from_json_schema(&json!({"anyOf": [{"type": "string"}, {"type": "integer"}]})),
+            Schema::Any
+        );
+        assert_eq!(from_json_schema(&json!({"$ref": "#/defs/X"})), Schema::Any);
+        // a non-string enum → Any (bare) / the type default is unreachable here.
+        assert_eq!(from_json_schema(&json!({"enum": [1, 2, 3]})), Schema::Any);
+        // a bare scalar / non-object schema → Any.
+        assert_eq!(from_json_schema(&json!(true)), Schema::Any);
+        assert_eq!(from_json_schema(&json!({})), Schema::Any);
+    }
+
+    #[test]
+    fn from_json_schema_recurses_into_nested_shapes() {
+        use serde_json::json;
+        // nested all-required object with an array-of-strings + a sub-object; an
+        // unrepresentable leaf (optional sub-object) localizes to Any at that node.
+        let s = from_json_schema(&json!({
+            "type": "object",
+            "properties": {
+                "id": {"type": "integer"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "meta": {
+                    "type": "object",
+                    "properties": {"ok": {"type": "boolean"}},
+                    "required": ["ok"],
+                },
+            },
+            "required": ["id", "tags", "meta"],
+        }));
+        assert_eq!(
+            s,
+            Schema::object([
+                ("id".to_string(), Schema::Integer),
+                ("tags".to_string(), Schema::array(Schema::StringType)),
+                (
+                    "meta".to_string(),
+                    Schema::object([("ok".to_string(), Schema::Boolean)]),
+                ),
+            ])
+        );
+        let g = compile(&s);
+        assert!(g.accepts(r#"{"id":1,"tags":["a","b"],"meta":{"ok":true}}"#));
+        assert!(!g.accepts(r#"{"id":1,"tags":[1],"meta":{"ok":true}}"#)); // tag not string
     }
 }

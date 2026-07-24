@@ -1413,21 +1413,24 @@ fn parse_n(req: &serde_json::Value) -> usize {
 }
 
 /// Parse the OpenAI `response_format` into a token-law grammar [`Schema`]
-/// (SDD-519). `{"type":"json_object"}` ⇒ `Schema::Any` (enforce *valid JSON* of
-/// any shape); `{"type":"json_schema","json_schema":{"schema":S}}` ⇒ `S` when it
-/// deserializes into the token-law `Schema` subset, else `Schema::Any` (still
-/// enforce valid JSON); `{"type":"text"}` / absent ⇒ `None` (unconstrained). The
-/// returned schema drives the M00117 grammar plane so the local decode is
-/// confined to conforming JSON per step — enforced, not merely prompted.
+/// (SDD-519, extended by SDD-520). `{"type":"json_object"}` ⇒ `Schema::Any`
+/// (enforce *valid JSON* of any shape); `{"type":"json_schema","json_schema":
+/// {"schema":S}}` ⇒ `from_json_schema(S)` — the standard JSON-Schema dialect the
+/// client actually sends is translated into the token-law `Schema` subset
+/// (SDD-520), with any construct the subset can't faithfully express degrading to
+/// `Schema::Any` (still enforce valid JSON) rather than erroring; a `json_schema`
+/// with no `schema` field ⇒ `Schema::Any`. `{"type":"text"}` / absent ⇒ `None`
+/// (unconstrained). The returned schema drives the M00117 grammar plane so the
+/// local decode is confined to conforming JSON per step — enforced, not prompted.
 fn parse_response_format(req: &serde_json::Value) -> Option<sovereign_json_schema_grammar::Schema> {
-    use sovereign_json_schema_grammar::Schema;
+    use sovereign_json_schema_grammar::{Schema, from_json_schema};
     let rf = req.get("response_format")?;
     match rf.get("type").and_then(|t| t.as_str()) {
         Some("json_object") => Some(Schema::Any),
         Some("json_schema") => Some(
             rf.get("json_schema")
                 .and_then(|js| js.get("schema"))
-                .and_then(|s| serde_json::from_value::<Schema>(s.clone()).ok())
+                .map(from_json_schema)
                 .unwrap_or(Schema::Any),
         ),
         _ => None,
@@ -1902,20 +1905,33 @@ mod tests {
             parse_response_format(&serde_json::json!({"response_format": {"type": "json_object"}})),
             Some(Schema::Any)
         );
-        // json_schema with a token-law-shaped schema ⇒ that schema.
+        // json_schema with a STANDARD JSON-Schema (SDD-520) ⇒ the translated schema.
         let rf = serde_json::json!({
-            "response_format": {"type": "json_schema",
-                "json_schema": {"schema": {"Object": [["ok", "Boolean"]]}}}
+            "response_format": {"type": "json_schema", "json_schema": {"schema": {
+                "type": "object",
+                "properties": {"ok": {"type": "boolean"}},
+                "required": ["ok"],
+            }}}
         });
         assert_eq!(
             parse_response_format(&rf),
             Some(Schema::object([("ok".to_string(), Schema::Boolean)]))
         );
-        // json_schema with an unmappable schema ⇒ still enforce valid JSON.
+        // json_schema with a schema the subset can't express (an optional prop) ⇒
+        // still enforce valid JSON (Schema::Any), never over-constrain.
         let rf2 = serde_json::json!({
-            "response_format": {"type": "json_schema", "json_schema": {"schema": {"weird": 1}}}
+            "response_format": {"type": "json_schema", "json_schema": {"schema": {
+                "type": "object",
+                "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+                "required": ["a"],
+            }}}
         });
         assert_eq!(parse_response_format(&rf2), Some(Schema::Any));
+        // json_schema with no `schema` field ⇒ Schema::Any.
+        let rf3 = serde_json::json!({
+            "response_format": {"type": "json_schema", "json_schema": {"name": "x"}}
+        });
+        assert_eq!(parse_response_format(&rf3), Some(Schema::Any));
         // text / absent ⇒ unconstrained.
         assert_eq!(
             parse_response_format(&serde_json::json!({"response_format": {"type": "text"}})),
