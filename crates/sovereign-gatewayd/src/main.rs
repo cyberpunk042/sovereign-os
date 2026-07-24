@@ -1355,12 +1355,81 @@ fn extract_sampler_config(req: &serde_json::Value) -> sovereign_safetensors_load
         .and_then(|v| v.as_u64())
         .map(|k| if k > 0 { Some(k as usize) } else { None })
         .unwrap_or(None);
+    // OpenAI penalties (F-2026-086 residual): `frequency_penalty` and
+    // `presence_penalty` are documented over [-2.0, 2.0]; the sampler already
+    // applies both (proportional-to-count and flat-once respectively), so this
+    // only threads the request fields through. Absent ⇒ 0.0 (a no-op).
+    let frequency_penalty = req
+        .get("frequency_penalty")
+        .and_then(|v| v.as_f64())
+        .map(|p| p.clamp(-2.0, 2.0) as f32)
+        .unwrap_or(0.0);
+    let presence_penalty = req
+        .get("presence_penalty")
+        .and_then(|v| v.as_f64())
+        .map(|p| p.clamp(-2.0, 2.0) as f32)
+        .unwrap_or(0.0);
     sovereign_safetensors_loader::SamplerConfig {
         temperature,
         top_p,
         top_k,
+        frequency_penalty,
+        presence_penalty,
         ..sovereign_safetensors_loader::SamplerConfig::default()
     }
+}
+
+/// Parse the OpenAI `logit_bias` parameter into `(token_id, bias)` pairs
+/// (F-2026-086 residual). OpenAI's shape is an object of `"<token_id>": <bias>`
+/// with the bias documented over `[-100, 100]` (`-100` ≈ ban, `+100` ≈ force);
+/// values are clamped, non-numeric keys/values are skipped. Absent / empty ⇒ no
+/// pairs (an identity mask — generation is byte-identical to before, and the
+/// completion cache stays in play; a non-empty bias bypasses the cache).
+fn parse_logit_bias(req: &serde_json::Value) -> Vec<(usize, f32)> {
+    req.get("logit_bias")
+        .and_then(|v| v.as_object())
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| {
+                    let id = k.parse::<usize>().ok()?;
+                    let bias = v.as_f64()?.clamp(-100.0, 100.0) as f32;
+                    Some((id, bias))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Parse the OpenAI `response_format` into a token-law grammar [`Schema`]
+/// (SDD-519). `{"type":"json_object"}` ⇒ `Schema::Any` (enforce *valid JSON* of
+/// any shape); `{"type":"json_schema","json_schema":{"schema":S}}` ⇒ `S` when it
+/// deserializes into the token-law `Schema` subset, else `Schema::Any` (still
+/// enforce valid JSON); `{"type":"text"}` / absent ⇒ `None` (unconstrained). The
+/// returned schema drives the M00117 grammar plane so the local decode is
+/// confined to conforming JSON per step — enforced, not merely prompted.
+fn parse_response_format(req: &serde_json::Value) -> Option<sovereign_json_schema_grammar::Schema> {
+    use sovereign_json_schema_grammar::Schema;
+    let rf = req.get("response_format")?;
+    match rf.get("type").and_then(|t| t.as_str()) {
+        Some("json_object") => Some(Schema::Any),
+        Some("json_schema") => Some(
+            rf.get("json_schema")
+                .and_then(|js| js.get("schema"))
+                .and_then(|s| serde_json::from_value::<Schema>(s.clone()).ok())
+                .unwrap_or(Schema::Any),
+        ),
+        _ => None,
+    }
+}
+
+/// Build a [`ServingTokenLaw`](sovereign_gatewayd::ServingTokenLaw) carrying only
+/// a `response_format` grammar (SDD-519), or `None` when the request is
+/// unconstrained.
+fn response_format_law(req: &serde_json::Value) -> Option<sovereign_gatewayd::ServingTokenLaw> {
+    parse_response_format(req).map(|schema| sovereign_gatewayd::ServingTokenLaw {
+        schema: Some(schema),
+        ..Default::default()
+    })
 }
 
 /// Parse the OpenAI `stop` parameter into a [`StopSequences`]. Accepts a single
@@ -1445,6 +1514,10 @@ fn stream_chat_completions(
         .unwrap_or(96)
         .clamp(1, 1024) as usize;
     let sampler_cfg = extract_sampler_config(&req);
+    let logit_bias = parse_logit_bias(&req);
+    // response_format (SDD-519): a grammar law that confines the local decode to
+    // valid JSON per step. `None` ⇒ unconstrained (byte-identical to before).
+    let rf_law = response_format_law(&req);
     let stops = parse_stop(&req);
     let stream = req.get("stream").and_then(|v| v.as_bool()).unwrap_or(true);
 
@@ -1483,6 +1556,7 @@ fn stream_chat_completions(
             max_new,
             &tool_specs,
             sampler_cfg,
+            &logit_bias,
         );
     }
 
@@ -1510,6 +1584,8 @@ fn stream_chat_completions(
             &prompt,
             max_new,
             sampler_cfg,
+            &logit_bias,
+            rf_law.as_ref(),
             |chunk| {
                 if io_err.is_some() || scan.is_stopped() {
                     return;
@@ -1565,6 +1641,8 @@ fn stream_chat_completions(
             &prompt,
             max_new,
             sampler_cfg,
+            &logit_bias,
+            rf_law.as_ref(),
             |chunk| buf.push_str(chunk),
         );
         // Honor `stop`: truncate the completion at the earliest stop sequence
@@ -1654,6 +1732,7 @@ fn shape_tool_completion(
 /// [`shape_tool_completion`]. Reuses `generate_chat` (safety spine intact); no
 /// multi-step agent loop and no model-sharing change — the client executes the
 /// tool and calls back, per the standard OpenAI tool loop.
+#[allow(clippy::too_many_arguments)]
 fn tool_aware_chat_completion(
     server: &GatewayServer,
     writer: &mut TcpStream,
@@ -1662,6 +1741,7 @@ fn tool_aware_chat_completion(
     max_new: usize,
     specs: &[sovereign_tool_bridge::ToolSpec],
     sampler_cfg: sovereign_safetensors_loader::SamplerConfig,
+    logit_bias: &[(usize, f32)],
 ) -> std::io::Result<()> {
     let preamble = sovereign_tool_bridge::tool_specs_to_prompt(specs);
     let prompt = format!("{preamble}\n{base_prompt}");
@@ -1674,10 +1754,15 @@ fn tool_aware_chat_completion(
 
     let id = chat_completion_id();
     let mut buf = String::new();
-    let gen_res =
-        server.generate_chat_with_sampler(Some(model), &prompt, max_new, sampler_cfg, |chunk| {
-            buf.push_str(chunk)
-        });
+    let gen_res = server.generate_chat_with_sampler_law(
+        Some(model),
+        &prompt,
+        max_new,
+        sampler_cfg,
+        None,
+        logit_bias,
+        |chunk| buf.push_str(chunk),
+    );
     let (delta, final_obj) = match gen_res {
         Ok(n) => shape_tool_completion(&buf, specs, &id, n),
         Err(e) => {
@@ -1747,9 +1832,76 @@ fn agentic_chat_completion(
 mod tests {
     use super::{
         authorized, bind_is_loopback, chat_prompt, conn_timeout, constant_time_eq,
-        ndjson_authenticate, parse_stop, shape_tool_completion,
+        extract_sampler_config, ndjson_authenticate, parse_logit_bias, parse_response_format,
+        parse_stop, shape_tool_completion,
     };
     use sovereign_tool_bridge::openai_tools_to_specs;
+
+    #[test]
+    fn parse_response_format_maps_json_modes_to_a_grammar() {
+        use sovereign_json_schema_grammar::Schema;
+        // json_object ⇒ any-JSON grammar.
+        assert_eq!(
+            parse_response_format(&serde_json::json!({"response_format": {"type": "json_object"}})),
+            Some(Schema::Any)
+        );
+        // json_schema with a token-law-shaped schema ⇒ that schema.
+        let rf = serde_json::json!({
+            "response_format": {"type": "json_schema",
+                "json_schema": {"schema": {"Object": [["ok", "Boolean"]]}}}
+        });
+        assert_eq!(
+            parse_response_format(&rf),
+            Some(Schema::object([("ok".to_string(), Schema::Boolean)]))
+        );
+        // json_schema with an unmappable schema ⇒ still enforce valid JSON.
+        let rf2 = serde_json::json!({
+            "response_format": {"type": "json_schema", "json_schema": {"schema": {"weird": 1}}}
+        });
+        assert_eq!(parse_response_format(&rf2), Some(Schema::Any));
+        // text / absent ⇒ unconstrained.
+        assert_eq!(
+            parse_response_format(&serde_json::json!({"response_format": {"type": "text"}})),
+            None
+        );
+        assert_eq!(parse_response_format(&serde_json::json!({})), None);
+    }
+
+    #[test]
+    fn parse_logit_bias_reads_clamps_and_defaults_empty() {
+        // F-2026-086 residual: `logit_bias` maps "<token_id>": bias, clamped to
+        // [-100, 100]; non-numeric keys/values skipped; absent ⇒ empty (no-op).
+        let mut b = parse_logit_bias(&serde_json::json!({
+            "logit_bias": {"5": 3.0, "42": -100.0, "9": 250.0, "bad": 1.0, "7": "nope"}
+        }));
+        b.sort_by_key(|&(id, _)| id);
+        assert_eq!(b, vec![(5, 3.0), (9, 100.0), (42, -100.0)]);
+        assert!(parse_logit_bias(&serde_json::json!({})).is_empty());
+        assert!(parse_logit_bias(&serde_json::json!({"logit_bias": null})).is_empty());
+    }
+
+    #[test]
+    fn extract_sampler_config_reads_the_openai_penalties() {
+        // F-2026-086 residual: `frequency_penalty` / `presence_penalty` are now
+        // parsed (documented over [-2, 2], clamped) and threaded into the sampler.
+        let cfg = extract_sampler_config(&serde_json::json!({
+            "frequency_penalty": 0.7,
+            "presence_penalty": -0.4,
+        }));
+        assert!((cfg.frequency_penalty - 0.7).abs() < 1e-6);
+        assert!((cfg.presence_penalty - (-0.4)).abs() < 1e-6);
+        // out-of-range values clamp to the OpenAI bounds.
+        let cfg = extract_sampler_config(&serde_json::json!({
+            "frequency_penalty": 9.0,
+            "presence_penalty": -9.0,
+        }));
+        assert_eq!(cfg.frequency_penalty, 2.0);
+        assert_eq!(cfg.presence_penalty, -2.0);
+        // absent ⇒ 0.0 (a no-op — generation is byte-identical to before).
+        let cfg = extract_sampler_config(&serde_json::json!({}));
+        assert_eq!(cfg.frequency_penalty, 0.0);
+        assert_eq!(cfg.presence_penalty, 0.0);
+    }
 
     #[test]
     fn parse_stop_accepts_string_array_and_absent() {

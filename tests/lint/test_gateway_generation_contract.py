@@ -127,6 +127,25 @@ def test_gateway_openai_shim_threads_sampling_params():
         "must read top_p from request"
     assert "top_k" in main, \
         "must read top_k from request"
+    # F-2026-086 penalties residual: the OpenAI penalties are parsed + threaded.
+    assert "frequency_penalty" in main, \
+        "must read frequency_penalty from request"
+    assert "presence_penalty" in main, \
+        "must read presence_penalty from request"
+    # F-2026-086 logit_bias residual: parsed into (id, bias) pairs + threaded; a
+    # biased request bypasses the completion cache (biased output is not cacheable).
+    assert "parse_logit_bias" in main, \
+        "must parse logit_bias from request"
+    assert "logit_bias.is_empty()" in lib, \
+        "a biased request must bypass the unbiased completion cache"
+    # SDD-519 response_format: JSON mode enforced by the token-law grammar plane.
+    assert "parse_response_format" in main, \
+        "must parse response_format into a grammar schema"
+    assert "Schema::Any" in main, \
+        "json_object mode must map to the any-JSON grammar"
+    grammar = _read("crates/sovereign-json-schema-grammar/src/lib.rs")
+    assert "Any," in grammar and "fn any(" in grammar, \
+        "the grammar crate must provide the recursive any-JSON Schema::Any"
     assert "SamplerConfig" in main, \
         "must construct a SamplerConfig from parsed params"
     assert "generate_chat_with_sampler" in main, \

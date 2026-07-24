@@ -8,8 +8,9 @@ baseline can neither rot nor be quietly weakened:
   1. the root `[workspace.lints.rust]` still declares `unsafe_code = "forbid"`
      and `missing_docs = "warn"` (the two load-bearing bans);
   2. every member crate manifest declares a `description`;
-  3. every crate carries tests, except the one sanctioned exception
-     (`sovereign-feature-selftest`, a marker crate by design);
+  3. every crate carries tests (the former `sovereign-feature-selftest`
+     exception was closed 2026-07-24 when it gained `every_feature_self_test_passes`
+     — the Layer-4 feature-conformance payload, per F-2026-052);
   4. crate `.rs` sources are marker-free (`todo!()` / `unimplemented!()` /
      `FIXME` / `TODO`) — real work is tracked in SDDs/backlog, not code tombstones;
   5. crate `.rs` sources hardcode no `/home` `/Users` `/root` absolute paths;
@@ -41,8 +42,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ROOT_CARGO = REPO_ROOT / "Cargo.toml"
 CRATES = REPO_ROOT / "crates"
 
-# Crates allowed to have no tests (marker / selftest crates, by design).
-NO_TEST_ALLOWLIST = {"sovereign-feature-selftest"}
+# Crates allowed to have no tests (none — every crate now carries tests; the
+# former `sovereign-feature-selftest` marker-crate exception was closed 2026-07-24).
+NO_TEST_ALLOWLIST: set[str] = set()
 # The sanctioned `unsafe` carve-outs (operator decisions): `sovereign-simd` for
 # AVX-512 intrinsics, `sovereign-chromofold-sys` for the ChromoFold C-ABI FFI
 # (SDD-400 — the `extern "C"` block + `unsafe {}` call sites, quarantined here).

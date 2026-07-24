@@ -58,6 +58,10 @@ pub enum Schema {
     Object(Vec<(String, Schema)>),
     /// An array of zero or more items, each conforming to the inner schema.
     Array(Box<Schema>),
+    /// **Any** JSON value — the recursive `object | array | string | number |
+    /// boolean | null` grammar. Used for OpenAI `response_format: json_object`
+    /// (SDD-519): enforce *valid JSON* without pinning a shape.
+    Any,
 }
 
 impl Schema {
@@ -85,6 +89,7 @@ struct Compiler {
     string: Option<usize>,
     boolean: Option<usize>,
     null: Option<usize>,
+    any: Option<usize>,
 }
 
 /// The character classes inside a JSON string: printable ASCII minus `"` and `\`.
@@ -105,6 +110,7 @@ impl Compiler {
             string: None,
             boolean: None,
             null: None,
+            any: None,
         }
     }
 
@@ -220,6 +226,99 @@ impl Compiler {
         n
     }
 
+    /// `VALUE -> OBJECT | ARRAY | STRING | NUMBER | BOOL | NULL` — the recursive
+    /// any-JSON grammar. The `value` non-terminal is allocated and cached BEFORE
+    /// its rules are defined so the self-recursion (value → object → member →
+    /// value) resolves. Strings are the printable-char subset the `string()`
+    /// primitive already accepts; numbers cover integers + fractions.
+    fn any(&mut self) -> usize {
+        if let Some(id) = self.any {
+            return id;
+        }
+        let value = self.b.nonterminal();
+        self.any = Some(value); // cache first so recursive references resolve
+        let string = self.string();
+        let number = self.number();
+        let boolean = self.boolean();
+        let null = self.null();
+        let ws = self.ws();
+
+        // MEMBER -> STRING WS ':' WS VALUE ; MEMBERS -> MEMBER | MEMBER WS ',' WS MEMBERS
+        let member = self.b.nonterminal();
+        self.b.rule(
+            member,
+            vec![
+                Symbol::nt(string),
+                Symbol::nt(ws),
+                Symbol::ch(':'),
+                Symbol::nt(ws),
+                Symbol::nt(value),
+            ],
+        );
+        let members = self.b.nonterminal();
+        self.b.rule(members, vec![Symbol::nt(member)]);
+        self.b.rule(
+            members,
+            vec![
+                Symbol::nt(member),
+                Symbol::nt(ws),
+                Symbol::ch(','),
+                Symbol::nt(ws),
+                Symbol::nt(members),
+            ],
+        );
+        // OBJECT -> '{' WS '}' | '{' WS MEMBERS WS '}'
+        let object = self.b.nonterminal();
+        self.b.rule(
+            object,
+            vec![Symbol::ch('{'), Symbol::nt(ws), Symbol::ch('}')],
+        );
+        self.b.rule(
+            object,
+            vec![
+                Symbol::ch('{'),
+                Symbol::nt(ws),
+                Symbol::nt(members),
+                Symbol::nt(ws),
+                Symbol::ch('}'),
+            ],
+        );
+
+        // ELEMS -> VALUE | VALUE WS ',' WS ELEMS ; ARRAY -> '[' WS ']' | '[' WS ELEMS WS ']'
+        let elems = self.b.nonterminal();
+        self.b.rule(elems, vec![Symbol::nt(value)]);
+        self.b.rule(
+            elems,
+            vec![
+                Symbol::nt(value),
+                Symbol::nt(ws),
+                Symbol::ch(','),
+                Symbol::nt(ws),
+                Symbol::nt(elems),
+            ],
+        );
+        let array = self.b.nonterminal();
+        self.b.rule(
+            array,
+            vec![Symbol::ch('['), Symbol::nt(ws), Symbol::ch(']')],
+        );
+        self.b.rule(
+            array,
+            vec![
+                Symbol::ch('['),
+                Symbol::nt(ws),
+                Symbol::nt(elems),
+                Symbol::nt(ws),
+                Symbol::ch(']'),
+            ],
+        );
+
+        for alt in [object, array, string, number, boolean, null] {
+            self.b.rule(value, vec![Symbol::nt(alt)]);
+        }
+        value
+    }
+
     /// Compile `schema` into a non-terminal that derives exactly its JSON values.
     fn compile(&mut self, schema: &Schema) -> usize {
         match schema {
@@ -228,6 +327,7 @@ impl Compiler {
             Schema::Integer => self.integer(),
             Schema::Number => self.number(),
             Schema::StringType => self.string(),
+            Schema::Any => self.any(),
             Schema::Enum(values) => {
                 let e = self.b.nonterminal();
                 for v in values {
@@ -356,6 +456,38 @@ mod tests {
         let gn = compile(&Schema::Null);
         assert!(gn.accepts("null"));
         assert!(!gn.accepts("nil") && !gn.accepts("none"));
+    }
+
+    #[test]
+    fn any_accepts_valid_json_and_rejects_invalid() {
+        let g = compile(&Schema::Any);
+        for ok in [
+            "true",
+            "null",
+            "42",
+            "-3.5",
+            "\"hi\"",
+            "{}",
+            "[]",
+            "[1, 2, 3]",
+            "{\"a\": 1, \"b\": [true, null]}",
+            "{\"nested\": {\"x\": [1, {\"y\": \"z\"}]}}",
+            " { \"k\" : \"v\" } ",
+        ] {
+            assert!(g.accepts(ok), "accept {ok}");
+        }
+        for bad in [
+            "",
+            "{",
+            "[1,]",
+            "{\"a\": }",
+            "{a: 1}", // unquoted key
+            "nope",
+            "{\"a\": 1,}",
+            "[1 2]", // missing comma
+        ] {
+            assert!(!g.accepts(bad), "reject {bad}");
+        }
     }
 
     #[test]

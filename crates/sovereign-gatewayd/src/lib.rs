@@ -2399,21 +2399,30 @@ impl GatewayServer {
     ///
     /// A cache hit returns an approximate token count (the exact count isn't
     /// re-derived — no tokenizer pass runs on a hit); a miss returns the real one.
+    #[allow(clippy::too_many_arguments)]
     pub fn generate_chat_cached<F: FnMut(&str)>(
         &self,
         model: Option<&str>,
         prompt: &str,
         max_new: usize,
         sampler_config: sovereign_safetensors_loader::SamplerConfig,
+        logit_bias: &[(usize, f32)],
+        law: Option<&ServingTokenLaw>,
         mut on_chunk: F,
     ) -> Result<usize, String> {
         let greedy = sampler_config.temperature == 0.0
             && sampler_config.top_p.is_none()
             && sampler_config.top_k.is_none();
+        // A `logit_bias` (F-2026-086) or a token-law constraint (a `response_format`
+        // grammar, SDD-519) changes the output vs an unconstrained decode, so such a
+        // request must NEVER read or write the unbiased/unconstrained completion
+        // cache — treat it as non-cacheable, the same way a non-greedy sampler is.
+        let law_active = law.is_some_and(|l| !l.is_unconstrained());
+        let cacheable = greedy && logit_bias.is_empty() && !law_active;
         // Model-scoped key so a secondary model never serves a primary's entry.
         let keyed = format!("{}\u{0}{prompt}", model.unwrap_or(""));
 
-        if greedy {
+        if cacheable {
             if let Some(cache) = &self.completion_cache {
                 let hit = cache
                     .lock()
@@ -2428,14 +2437,23 @@ impl GatewayServer {
             }
         }
 
-        // Miss (or non-greedy / disabled): generate, forwarding chunks to the
-        // caller while accumulating the full text so a greedy result can be stored.
+        // Miss (or non-greedy / biased / disabled): generate, forwarding chunks to
+        // the caller while accumulating the full text so a cacheable result can be
+        // stored. The bias (if any) is applied via the static logit mask.
         let mut acc = String::new();
-        let n = self.generate_chat_with_sampler(model, prompt, max_new, sampler_config, |c| {
-            acc.push_str(c);
-            on_chunk(c);
-        })?;
-        if greedy {
+        let n = self.generate_chat_with_sampler_law(
+            model,
+            prompt,
+            max_new,
+            sampler_config,
+            law,
+            logit_bias,
+            |c| {
+                acc.push_str(c);
+                on_chunk(c);
+            },
+        )?;
+        if cacheable {
             if let Some(cache) = &self.completion_cache {
                 if let Ok(mut c) = cache.lock() {
                     c.put_request(&keyed, max_new, 0, acc);
@@ -2496,7 +2514,15 @@ impl GatewayServer {
         sampler_config: sovereign_safetensors_loader::SamplerConfig,
         on_chunk: F,
     ) -> Result<usize, String> {
-        self.generate_chat_with_sampler_law(model, prompt, max_new, sampler_config, None, on_chunk)
+        self.generate_chat_with_sampler_law(
+            model,
+            prompt,
+            max_new,
+            sampler_config,
+            None,
+            &[],
+            on_chunk,
+        )
     }
 
     /// [`generate_chat_with_sampler`] with an optional **token-law** constraint
@@ -2510,6 +2536,10 @@ impl GatewayServer {
     /// law-carrying request bound for a proxy backend (no logit access).
     ///
     /// [`generate_chat_with_sampler`]: Self::generate_chat_with_sampler
+    // The decode primitive threads several orthogonal per-request controls
+    // (sampler, token-law, logit-bias) straight through to generation; bundling
+    // them into a struct would only move the arity to the call sites.
+    #[allow(clippy::too_many_arguments)]
     pub fn generate_chat_with_sampler_law<F: FnMut(&str)>(
         &self,
         model: Option<&str>,
@@ -2517,6 +2547,7 @@ impl GatewayServer {
         max_new: usize,
         sampler_config: sovereign_safetensors_loader::SamplerConfig,
         law: Option<&ServingTokenLaw>,
+        logit_bias: &[(usize, f32)],
         mut on_chunk: F,
     ) -> Result<usize, String> {
         use std::sync::atomic::Ordering;
@@ -2629,7 +2660,14 @@ impl GatewayServer {
             _ => None,
         };
 
-        let mask = LogitMask::new();
+        // The static logit mask, seeded with the caller's OpenAI `logit_bias`
+        // (F-2026-086 residual): an additive per-token offset (`-100` effectively
+        // bans, `+100` strongly favors). Empty ⇒ the identity mask, byte-identical
+        // to before. Applied on the static (non-token-law) decode path below;
+        // composing bias into an active token-law fuse is a follow-up.
+        let mask = logit_bias
+            .iter()
+            .fold(LogitMask::new(), |m, &(id, delta)| m.bias(id, delta));
         let mut stream = Utf8Stream::new();
         let mut count = 0usize;
 
@@ -3640,7 +3678,7 @@ mod tests {
 
         let run_once = |s: &GatewayServer| {
             let mut out = String::new();
-            s.generate_chat_cached(None, "hello", 6, greedy, |c| out.push_str(c))
+            s.generate_chat_cached(None, "hello", 6, greedy, &[], None, |c| out.push_str(c))
                 .expect("gen");
             out
         };
@@ -3667,9 +3705,9 @@ mod tests {
         s.enable_cache_for_test(8);
         let greedy = sovereign_safetensors_loader::SamplerConfig::greedy();
         // miss then hit → 1 hit, 1 miss, 1 entry
-        s.generate_chat_cached(None, "hello", 6, greedy, |_| {})
+        s.generate_chat_cached(None, "hello", 6, greedy, &[], None, |_| {})
             .expect("gen");
-        s.generate_chat_cached(None, "hello", 6, greedy, |_| {})
+        s.generate_chat_cached(None, "hello", 6, greedy, &[], None, |_| {})
             .expect("gen");
         let m = s.metrics_prometheus();
         assert!(m.contains("sovereign_gateway_cache_hits_total 1"), "{m}");
@@ -3687,7 +3725,7 @@ mod tests {
         // Disabled cache ⇒ passthrough, stats stay zero.
         let greedy = sovereign_safetensors_loader::SamplerConfig::greedy();
         let mut out = String::new();
-        s.generate_chat_cached(None, "hi", 4, greedy, |c| out.push_str(c))
+        s.generate_chat_cached(None, "hi", 4, greedy, &[], None, |c| out.push_str(c))
             .expect("gen");
         assert_eq!(
             s.cache_stats(),
@@ -3702,7 +3740,7 @@ mod tests {
             ..sovereign_safetensors_loader::SamplerConfig::default()
         };
         let mut o = String::new();
-        s.generate_chat_cached(None, "hi", 4, hot, |c| o.push_str(c))
+        s.generate_chat_cached(None, "hi", 4, hot, &[], None, |c| o.push_str(c))
             .expect("gen");
         assert_eq!(
             s.cache_stats(),
@@ -3721,7 +3759,7 @@ mod tests {
             .expect("load fixture");
         s.enable_cache_for_test(8);
         let greedy = sovereign_safetensors_loader::SamplerConfig::greedy();
-        s.generate_chat_cached(None, "hello", 6, greedy, |_| {})
+        s.generate_chat_cached(None, "hello", 6, greedy, &[], None, |_| {})
             .expect("gen");
         assert_eq!(s.cache_stats().2, 1, "one entry cached");
         // unloading a (non-existent) id is a no-op that must not clear; loading a

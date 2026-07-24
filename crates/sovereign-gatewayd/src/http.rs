@@ -1467,6 +1467,7 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
         max_new,
         sovereign_safetensors_loader::SamplerConfig::greedy(),
         law_active,
+        &[],
         |c| out.push_str(c),
     );
     match generated {
