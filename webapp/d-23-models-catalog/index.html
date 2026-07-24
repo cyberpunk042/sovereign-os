@@ -556,7 +556,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   #so-compat-badge.so-compat-warn{background:color-mix(in srgb,#e2b93b 22%,transparent); border-color:color-mix(in srgb,#e2b93b 55%,transparent);}
   #so-compat-badge.so-compat-force{background:color-mix(in srgb,#e05252 24%,transparent); border-color:color-mix(in srgb,#e05252 60%,transparent);}
   /* Settings popover — non-invasive: anchored under the header on the right, does not block the page. */
-  #so-settings-pane{position:fixed; top:calc(var(--so-header-h) + 6px); right:8px; z-index:9500; width:300px; max-width:94vw;
+  #so-settings-pane{position:fixed; top:calc(var(--so-header-h) + 6px); right:8px; z-index:9500; width:340px; max-width:94vw;
+    max-height:calc(100vh - var(--so-header-h) - 18px); overflow-y:auto; overscroll-behavior:contain;
     background:var(--card,#151515); color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:9px;
     box-shadow:0 10px 34px rgba(0,0,0,.45); padding:.5rem .2rem .3rem; font-size:.82rem;}
   #so-settings-pane[hidden]{display:none;}
