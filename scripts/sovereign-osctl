@@ -5808,7 +5808,7 @@ cmd_install() {
 
       if [ "${plan_only}" -eq 1 ]; then
         echo "  --plan mode: would run:"
-        echo "    sudo dd if='${image}' of='${device}' bs=4M status=progress conv=fsync"
+        echo "    sudo dd if='${image}' of='${device}' bs=4M status=progress oflag=direct conv=fsync"
         echo "  no byte was written. drop --plan to execute (gates: SOVEREIGN_OS_CONFIRM_DESTROY=YES + interactive)."
         return 0
       fi
@@ -5836,13 +5836,34 @@ cmd_install() {
       # All gates passed — execute
       log_info "writing ${image} → ${device} (this will take several minutes)"
       if command -v dd >/dev/null 2>&1; then
+        # oflag=direct writes STRAIGHT to the device (bypassing the page cache),
+        # so `status=progress` reflects the REAL, steady device throughput for
+        # the whole write. WITHOUT it, dd races the entire image into RAM at
+        # "GB/s" in ~1s, prints its final line, then blocks SILENTLY in the
+        # trailing fsync for minutes — the console looks frozen even though the
+        # flush is progressing (a recurring "is it stuck?"). Wall-clock is
+        # identical (the target device is the bottleneck); O_DIRECT only makes
+        # the wait visible. It needs block-aligned writes; disk images are
+        # ≥512-aligned so the final partial block is fine (verified on a loop
+        # device). A few exotic targets reject O_DIRECT (EINVAL) — fall back to
+        # a buffered write so the flash still completes (just opaque again).
+        #
         # Guard dd explicitly. Under set -e a failed write (I/O error, device
         # yanked mid-write, write-protect, sudo denied) would abort the CLI with
         # only dd's raw stderr — leaving the operator without the one fact that
         # matters at THE most destructive moment: the target is now PARTIALLY
         # WRITTEN and must NOT be booted. Surface that explicitly, and don't
         # claim "complete" on a failed dump.
-        if ! sudo dd if="${image}" of="${device}" bs=4M status=progress conv=fsync; then
+        dd_ok=0
+        if sudo dd if="${image}" of="${device}" bs=4M status=progress oflag=direct conv=fsync; then
+          dd_ok=1
+        else
+          log_warn "direct-write dd failed (device may reject O_DIRECT) — retrying buffered…"
+          if sudo dd if="${image}" of="${device}" bs=4M status=progress conv=fsync; then
+            dd_ok=1
+          fi
+        fi
+        if [ "${dd_ok}" -ne 1 ]; then
           log_error "dd FAILED writing ${image} → ${device}"
           log_error "  ${device} is now PARTIALLY WRITTEN / UNBOOTABLE — do NOT boot from it."
           log_error "  resolve the dd error (I/O, write-protect, device present?) and re-run the install."
