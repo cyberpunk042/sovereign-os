@@ -10,7 +10,7 @@
 |---|---|---|---|
 | **Physical / hardware-gated** | first-run §A (notifications channel test), §B (exec-rail sudoers flip), §C (big-MoE oracle benches), §D (compat-gate calibration on the box), §F (wikiops registry from example); register #3 (Layer-4/5 conformance — KVM/hardware), #5 (TPM2 PCR binding) | Operator, on the SAIN-01 box | No — needs the physical machine |
 | **Operator decision (no hardware)** | first-run §E (AGENTS.md/CLAUDE.md v2 promotion) | Operator, a review call | No — a judgment/sign-off |
-| **Software-only, agent-buildable** | register #1 (telemetry sink + Grafana dashboards), #2 (SDD-016 Layer-B Prometheus emission — *verify: may be substantially built already*), #4 (SDD-019 apt-snapshot + `SOURCE_DATE_EPOCH` + in-toto provenance) | An agent session | **Yes** — these are the real autonomous frontier |
+| **Software-only, agent-buildable** | ~~register #1 (telemetry sink + Grafana dashboards), #2 (SDD-016 Layer-B Prometheus emission), #4 (SDD-019 apt-snapshot + `SOURCE_DATE_EPOCH` + in-toto provenance)~~ **— all three reconciled CLOSED 2026-07-24 (already built by the July arc; the register was stale, not the code — see deferred-work-register rows 1/2/4)** | An agent session | **Done** — this frontier is exhausted; the audit that verified it *was* the P1 agent work |
 | **Cross-repo (selfdef)** | register #7 (MS043 mirror-crate impls), #8 (selfdef CLI/TUI mirror + SG7/SG8) | Needs the selfdef tree in scope | Partially — cross-repo |
 | **Question backlogs** | register #9 (SDD-046 Q-046-*, root Q-A..D, Q4..Q25), #10 (Q-067-A..F — partially overtaken) | Operator answers; agent can draft | Draft-only |
 
@@ -18,10 +18,12 @@
 
 The physical + decision items (§A–F, register #3/#5) are the true go-live gates but **cannot** be closed from an agent session — they wait on the box or an operator call. So the highest-leverage *agent* work between now and then is the **software-only foundation** (register #1/#2/#4), which hardens observability + reproducibility so that when the box is available, go-live is a clean flip rather than a scramble.
 
-**P1 — software-only foundation (agent-buildable now):**
-1. **register #2 first** — but *verify before scoping*: the scout notes `scripts/build/lib/observability.sh` + `emit_metric` are already wired into many hooks, so SDD-016 Layer-B may be substantially done. A read-only audit closes it or resizes it cheaply.
-2. **register #1** — pick the telemetry sink + ship the Grafana dashboard JSONs (the observability foundation §A's channel test will lean on).
-3. **register #4** — reproducibility: apt-snapshot enforcement + `SOURCE_DATE_EPOCH` in step-04 + in-toto provenance (a security/trust gate independent of hardware).
+**P1 — software-only foundation — ✅ RECONCILED CLOSED (2026-07-24).** The read-only audit this section recommended was run and found all three already built:
+1. ~~register #2~~ — **closed**: `emit_metric`/`emit_metric_set` wired into 19 recurrent hooks + `guardian-core.py` + `warp-runner.py`; pinned by `test_hook_layer_b_coverage` + `test_metric_inventory_lockstep` + `test_metric_observability_coverage` + `test_prom_read_write_binding` (all green).
+2. ~~register #1~~ — **closed**: sink = `prometheus-local`; 61 Grafana dashboard JSONs shipped under `docs/observability/dashboards/`, held in lockstep by `test_dashboard_metrics_lockstep`.
+3. ~~register #4~~ — **substantially closed**: `SOURCE_DATE_EPOCH` honored+propagated in step-04 + 4 more build scripts; apt-snapshot pin (`DEBIAN_SNAPSHOT`) in `mkosi-emit`; in-toto `Statement/v1`+SLSA provenance in the release-metadata generator; pinned by `test_release_contract` + `test_provenance_manifest_shape`. Residual (same-inputs→same-bytes rebuild proof) is build-host-gated, like item 3's KVM gate.
+
+**Net: the agent-buildable software frontier for go-live is exhausted.** What remains is genuinely hardware-gated (§A–F, register #3/#5), an operator decision (§E), cross-repo selfdef (#7/#8), or draft-only question backlogs (#9/#10).
 
 **P2 — operator decision that unblocks the agent layer:**
 4. **first-run §E** — promote (or strike) the AGENTS.md/CLAUDE.md v2. Low effort, and it's the doc the agent sessions run on; leaving it in DRAFT is a standing minor drag.
@@ -32,7 +34,7 @@ The physical + decision items (§A–F, register #3/#5) are the true go-live gat
 
 ## What I'd take next, autonomously
 
-If the direction is "keep the agent productive toward go-live without the box," the cleanest next pick is **register #2's read-only audit** (confirm what SDD-016 Layer-B already emits) → then **register #1** (telemetry sink + Grafana JSONs). Both are software-only, self-contained, and directly de-risk the §A notifications go-live. I will **not** start any of these without your nod — this doc is the decision surface, and the sequence above is a recommendation, not an action.
+**Update 2026-07-24:** the recommended next pick (register #2's read-only audit) was run, and it cascaded — #2, #1, and #4 are all already built (register rows 1/2/4 reconciled closed). With the P1 software frontier exhausted, the remaining agent-buildable candidates are the **cross-repo selfdef** items (#7/#8 — selfdef is in repo scope; verify the 9 MS043 mirror-crate impls against the M060 completion claim) and **draft-only** work on the question backlogs (#9/#10). Everything else waits on the SAIN-01 box (§A–F, register #3/#5) or an operator sign-off (§E). This doc remains the decision surface; the sequence is a recommendation, not an action.
 
 ## Cross-references
 
