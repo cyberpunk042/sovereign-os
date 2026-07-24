@@ -61,6 +61,18 @@ emit_sign_metric() {
     "posture=\"${secure_boot}\",result=\"$1\""
 }
 
+# Auto-discover operator signing keys at the SDD-015 documented default location
+# when no env override is set — the same path 05-substrate-prepare's mkosi-emit
+# honours. Keys generated once at /etc/sovereign-os/keys/mok.{key,crt} then work
+# without threading SOVEREIGN_OS_MOK_{KEY,CERT} through sudo's env_reset on every
+# build. Env overrides (PK or an alternate MOK path) still win.
+if [ -z "${SOVEREIGN_OS_PK_KEY:-}" ] && [ -z "${SOVEREIGN_OS_MOK_KEY:-}" ] \
+   && [ -f /etc/sovereign-os/keys/mok.key ] && [ -f /etc/sovereign-os/keys/mok.crt ]; then
+  export SOVEREIGN_OS_MOK_KEY=/etc/sovereign-os/keys/mok.key
+  export SOVEREIGN_OS_MOK_CERT=/etc/sovereign-os/keys/mok.crt
+  log_info "using operator MOK keys at /etc/sovereign-os/keys (SDD-015 default location)"
+fi
+
 case "${secure_boot}" in
   none)
     log_info "secure_boot=none; skipping signing (per SDD-015 posture=none)"

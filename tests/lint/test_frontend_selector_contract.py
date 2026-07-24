@@ -22,6 +22,7 @@ present.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -206,14 +207,25 @@ def test_frontend_rejects_unknown(tmp_path: Path):
 # SDD-600: when the GUI goes off, the restore command must reach the CONSOLE
 # (the web settings pane is unreachable headless).
 
-RESTORE = "sovereign-osctl frontend set gnome && sudo systemctl isolate graphical.target"
+# SDD-600 contract: going headless must surface, at the CONSOLE, a restore command
+# that steers back to graphical.target. WHICH desktop it names is _restore_frontend()'s
+# host-dependent job (kde-plasma when sddm is present, gnome otherwise, and gnome in
+# DRYRUN where live units aren't probed) — pinning the exact desktop here made the
+# test fail on sddm/KDE hosts and in the DRYRUN CLI path. Assert the stable structure
+# instead: `sovereign-osctl frontend set <frontend> && sudo systemctl isolate graphical.target`.
+_RESTORE_RE = re.compile(
+    r"sovereign-osctl frontend set \S+ && sudo systemctl isolate graphical\.target")
+
+
+def _has_restore(text: str) -> bool:
+    return bool(_RESTORE_RE.search(text))
 
 
 def test_set_none_surfaces_restore_at_the_cli(tmp_path: Path):
     r = _run_frontend(["set", "none"], tmp_path)
     assert r.returncode == 0, r.stderr
     out = r.stdout + r.stderr
-    assert RESTORE in out, "going headless must print the restore command at the CLI"
+    assert _has_restore(out), "going headless must print the restore command at the CLI"
     assert "hint.sh" in r.stderr, "set none must (re)write the console login hint"
 
 
@@ -235,7 +247,7 @@ def test_login_hint_self_gates_on_headless_target(tmp_path: Path):
     # only speaks when the boot target is headless (silent under a GUI)
     assert 'systemctl get-default' in hint and 'multi-user.target' in hint, (
         "login hint must self-gate on the headless boot target")
-    assert RESTORE in hint, "login hint must carry the restore command"
+    assert _has_restore(hint), "login hint must carry the restore command"
     # valid shell
     import subprocess as _sp
     assert _sp.run(["bash", "-n", str(tmp_path / "hint.sh")]).returncode == 0, (

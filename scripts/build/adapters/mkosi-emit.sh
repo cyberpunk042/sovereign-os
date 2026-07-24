@@ -175,6 +175,17 @@ _kernel = p.get("kernel") or {}
 secure_boot = (_kernel.get("cmdline") or {}).get("secure_boot") or _kernel.get("secure_boot") or "none"
 sb_key = os.environ.get("SOVEREIGN_OS_PK_KEY") or os.environ.get("SOVEREIGN_OS_MOK_KEY") or ""
 sb_cert = os.environ.get("SOVEREIGN_OS_PK_CERT") or os.environ.get("SOVEREIGN_OS_MOK_CERT") or ""
+# Auto-discover keys at the SDD-015 documented default location when no env
+# override is set. The error below tells the operator to generate keys at
+# /etc/sovereign-os/keys/mok.{key,crt} — so honour that same path here instead
+# of ALSO requiring SOVEREIGN_OS_MOK_KEY=/etc/sovereign-os/keys/mok.key to be
+# threaded through sudo's env_reset on every build (the recurring "keys not set"
+# failure: a build that generated keys at the documented path still failed 05).
+if not sb_key and not sb_cert:
+    _dk = pathlib.Path("/etc/sovereign-os/keys/mok.key")
+    _dc = pathlib.Path("/etc/sovereign-os/keys/mok.crt")
+    if _dk.is_file() and _dc.is_file():
+        sb_key, sb_cert = str(_dk), str(_dc)
 
 validation_block = ""
 if secure_boot not in ("none", "disabled"):
