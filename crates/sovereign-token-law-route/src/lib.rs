@@ -44,6 +44,14 @@ pub const SCHEMA_VERSION: &str = "1.0.0";
 /// Mirrors the token-law engine's other env config (`SOVEREIGN_TOKEN_LAW_MASK_LAYERS`).
 pub const ROUTE_PROFILES_ENV: &str = "SOVEREIGN_TOKEN_LAW_ROUTE_PROFILES";
 
+/// The environment variable naming a JSON **file** that holds the operator
+/// [`RouteProfileMap`] (SDD-521) — the config-file surface, for a multi-role map
+/// too unwieldy to inline in [`ROUTE_PROFILES_ENV`]. The file's contents are the
+/// same shape [`from_json`](RouteProfileMap::from_json) parses. The inline env
+/// JSON takes precedence over the file; an unset/empty/unreadable/invalid file
+/// falls back to the doctrine (the same forgiving impure boundary as the env).
+pub const ROUTE_PROFILES_FILE_ENV: &str = "SOVEREIGN_TOKEN_LAW_ROUTE_PROFILES_FILE";
+
 /// The token-law profile a routing decision selects: which planes the engine
 /// **forces on** for this route, on top of whatever the request already carries.
 /// All-false is a no-op — the route contributes nothing (a local, private, safe
@@ -143,16 +151,48 @@ impl RouteProfileMap {
         serde_json::from_str(json).map_err(|e| e.to_string())
     }
 
-    /// The effective map: the operator's [`ROUTE_PROFILES_ENV`] JSON if set + valid,
-    /// else the all-doctrine [`default`](Self::default) (unset, empty, or a parse
-    /// error all fall back to the doctrine — the impure boundary, like the token-law
-    /// engine's `MaskLayerSet::from_env_or_all`). The pure core takes an
-    /// already-resolved map.
+    /// Parse the operator override map from a JSON **file** (SDD-521). Reads
+    /// `path` and parses its contents via [`from_json`](Self::from_json). An
+    /// unreadable file or invalid JSON is an `Err`; the forgiving fallback to the
+    /// doctrine lives in [`from_env_or_default`](Self::from_env_or_default).
+    pub fn from_file(path: &str) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+        Self::from_json(&text)
+    }
+
+    /// The effective map from the operator's two config surfaces, resolved with a
+    /// fixed precedence: the **inline** [`ROUTE_PROFILES_ENV`] JSON wins (the most
+    /// explicit, per-run override), then the [`ROUTE_PROFILES_FILE_ENV`] JSON
+    /// **file** (SDD-521, the persistent config), then the all-doctrine
+    /// [`default`](Self::default). Unset / empty / unreadable / parse-error at any
+    /// surface falls through to the next — the impure boundary, like the token-law
+    /// engine's `MaskLayerSet::from_env_or_all`. The pure core
+    /// ([`resolve`](Self::resolve)) takes an already-resolved map.
     pub fn from_env_or_default() -> Self {
-        match std::env::var(ROUTE_PROFILES_ENV) {
-            Ok(v) if !v.trim().is_empty() => Self::from_json(&v).unwrap_or_default(),
-            _ => Self::default(),
+        Self::resolve_env(
+            std::env::var(ROUTE_PROFILES_ENV).ok().as_deref(),
+            std::env::var(ROUTE_PROFILES_FILE_ENV).ok().as_deref(),
+        )
+    }
+
+    /// Pure precedence resolution over the two env values (inline JSON, file
+    /// path) — split out so the ordering is unit-testable without mutating the
+    /// process environment. Inline non-empty JSON wins; else a non-empty file
+    /// path is read; else the doctrine. Any parse/read failure falls to the
+    /// doctrine (via `unwrap_or_default`), matching SDD-518's forgiving boundary.
+    fn resolve_env(inline: Option<&str>, file: Option<&str>) -> Self {
+        if let Some(v) = inline {
+            if !v.trim().is_empty() {
+                return Self::from_json(v).unwrap_or_default();
+            }
         }
+        if let Some(p) = file {
+            let p = p.trim();
+            if !p.is_empty() {
+                return Self::from_file(p).unwrap_or_default();
+            }
+        }
+        Self::default()
     }
 
     fn override_for(&self, role: SrpRole) -> Option<RouteProfile> {
@@ -269,6 +309,100 @@ mod tests {
     #[test]
     fn from_json_rejects_malformed_input() {
         assert!(RouteProfileMap::from_json("{not json").is_err());
+    }
+
+    // ── SDD-521: the config-FILE surface ────────────────────────────────────
+
+    /// A per-test unique temp path (no external deps; the process id keeps
+    /// concurrent test binaries from colliding).
+    fn temp_json_path(tag: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("sovereign-route-{}-{tag}.json", std::process::id()))
+    }
+
+    #[test]
+    fn from_file_parses_a_json_file() {
+        let path = temp_json_path("parse");
+        std::fs::write(
+            &path,
+            r#"{"cloud":{"force_pii":false,"force_entropy":false,"force_safety_denylist":false}}"#,
+        )
+        .unwrap();
+        let map = RouteProfileMap::from_file(path.to_str().unwrap()).expect("valid file");
+        // the file's per-role override applies …
+        assert!(
+            map.resolve(SrpRole::Cloud, Privacy::Public, Safety::Risky)
+                .is_noop()
+        );
+        // … while an omitted role still follows the doctrine.
+        assert!(
+            map.resolve(SrpRole::Conductor, Privacy::Public, Safety::Safe)
+                .force_pii
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn from_file_errors_on_a_missing_or_malformed_file() {
+        // a path that does not exist is an Err (read failure)
+        assert!(RouteProfileMap::from_file("/no/such/route-profiles.json").is_err());
+        // a file with invalid JSON is an Err (parse failure)
+        let path = temp_json_path("malformed");
+        std::fs::write(&path, "{not json").unwrap();
+        assert!(RouteProfileMap::from_file(path.to_str().unwrap()).is_err());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn resolve_env_precedence_inline_over_file_over_doctrine() {
+        let cloud_noop =
+            r#"{"cloud":{"force_pii":false,"force_entropy":false,"force_safety_denylist":false}}"#;
+        // write a DIFFERENT map to a file (conductor overridden to a no-op) so we
+        // can tell which surface won.
+        let path = temp_json_path("precedence");
+        std::fs::write(
+            &path,
+            r#"{"conductor":{"force_pii":false,"force_entropy":false,"force_safety_denylist":false}}"#,
+        )
+        .unwrap();
+        let file = path.to_str().unwrap();
+
+        // 1. inline JSON wins over the file: the cloud override applies, and the
+        //    file's conductor override does NOT (conductor keeps the doctrine).
+        let m = RouteProfileMap::resolve_env(Some(cloud_noop), Some(file));
+        assert!(
+            m.resolve(SrpRole::Cloud, Privacy::Public, Safety::Risky)
+                .is_noop()
+        );
+        assert!(
+            m.resolve(SrpRole::Conductor, Privacy::Public, Safety::Safe)
+                .force_pii
+        );
+
+        // 2. no inline (None / empty / whitespace) ⇒ the file is used: the
+        //    conductor override makes a Public task a no-op, which the doctrine
+        //    would have forced PII on — so this only holds if the file applied.
+        for inline in [None, Some(""), Some("   ")] {
+            let m = RouteProfileMap::resolve_env(inline, Some(file));
+            assert!(
+                m.resolve(SrpRole::Conductor, Privacy::Public, Safety::Safe)
+                    .is_noop(),
+                "the file's conductor override must apply when inline is empty/absent"
+            );
+        }
+
+        // 3. neither surface set ⇒ the doctrine (cloud forces PII on).
+        let m = RouteProfileMap::resolve_env(None, None);
+        assert_eq!(m, RouteProfileMap::default());
+        assert!(
+            m.resolve(SrpRole::Cloud, Privacy::Private, Safety::Safe)
+                .force_pii
+        );
+
+        // 4. an unreadable file path falls through to the doctrine.
+        let m = RouteProfileMap::resolve_env(None, Some("/no/such/file.json"));
+        assert_eq!(m, RouteProfileMap::default());
+
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
