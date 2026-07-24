@@ -769,6 +769,13 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   html[data-theme="light"] #so-notif-modal .so-exec-dry, html[data-theme="light"] #so-compat-modal .so-exec-dry{color:#1d4ed8;}
   html[data-theme="light"] #so-notif-modal label{color:#3a3a3a;}
   html[data-theme="light"] #so-notif-modal .so-exec-result{color:#1d4ed8;}
+  /* --card is the popover/card surface. It was never defined in the palette, so
+     every var(--card,#151515) user (the ⚙ Settings pane, the provider modal)
+     fell back to the DARK #151515 in BOTH themes — the Settings pane read as a
+     dark box in light mode. Define it for light so the pane flips with the
+     theme (the modals also set an explicit #fff, which still wins). */
+  html[data-theme="light"]{--card:#ffffff;}
+  html[data-theme="light"] #so-settings-pane{box-shadow:0 10px 34px rgba(0,0,0,.18);}
   .so-brand{display:flex; align-items:center; gap:.4rem; font-weight:600; letter-spacing:.02em;}
   .so-brand .mark{color:var(--accent,#9bd1ff);}
   .so-crumb{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40vw;}
