@@ -166,3 +166,21 @@ def test_gateway_openai_shim_supports_non_streaming_json():
         "non-streaming response must contain a message object"
     assert "choices" in main, \
         "non-streaming response must contain choices array"
+
+
+def test_gateway_openai_shim_supports_multiple_completions():
+    """F-2026-086 (final residual, closes the finding): the OpenAI shim parses
+    `n` (number of completions), clamps it, and — non-streaming — returns N
+    indexed choices with summed usage. `n>1` + streaming is an honest 400 (a
+    single SSE frame carries one choice index)."""
+    main = _read("crates/sovereign-gatewayd/src/main.rs")
+    assert "fn parse_n(" in main, "must parse the OpenAI `n` parameter"
+    assert ".clamp(1, 8)" in main, \
+        "`n` must be clamped to bound the per-request generation fan-out"
+    assert "n_choices" in main, "must bind the parsed completion count"
+    # non-streaming loops N decodes into N indexed choices
+    assert "for index in 0..n_choices" in main, \
+        "non-streaming must loop N decodes into N indexed choices"
+    # streaming with n>1 is refused honestly, not silently downgraded to one
+    assert "n_choices > 1" in main, \
+        "streaming with n>1 must be an honest 400, not a silent single choice"
