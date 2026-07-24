@@ -132,6 +132,12 @@ def test_gateway_openai_shim_threads_sampling_params():
         "must read frequency_penalty from request"
     assert "presence_penalty" in main, \
         "must read presence_penalty from request"
+    # F-2026-086 logit_bias residual: parsed into (id, bias) pairs + threaded; a
+    # biased request bypasses the completion cache (biased output is not cacheable).
+    assert "parse_logit_bias" in main, \
+        "must parse logit_bias from request"
+    assert "logit_bias.is_empty()" in lib, \
+        "a biased request must bypass the unbiased completion cache"
     assert "SamplerConfig" in main, \
         "must construct a SamplerConfig from parsed params"
     assert "generate_chat_with_sampler" in main, \

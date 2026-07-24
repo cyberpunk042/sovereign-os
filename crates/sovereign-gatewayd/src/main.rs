@@ -1379,6 +1379,27 @@ fn extract_sampler_config(req: &serde_json::Value) -> sovereign_safetensors_load
     }
 }
 
+/// Parse the OpenAI `logit_bias` parameter into `(token_id, bias)` pairs
+/// (F-2026-086 residual). OpenAI's shape is an object of `"<token_id>": <bias>`
+/// with the bias documented over `[-100, 100]` (`-100` ≈ ban, `+100` ≈ force);
+/// values are clamped, non-numeric keys/values are skipped. Absent / empty ⇒ no
+/// pairs (an identity mask — generation is byte-identical to before, and the
+/// completion cache stays in play; a non-empty bias bypasses the cache).
+fn parse_logit_bias(req: &serde_json::Value) -> Vec<(usize, f32)> {
+    req.get("logit_bias")
+        .and_then(|v| v.as_object())
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| {
+                    let id = k.parse::<usize>().ok()?;
+                    let bias = v.as_f64()?.clamp(-100.0, 100.0) as f32;
+                    Some((id, bias))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// Parse the OpenAI `stop` parameter into a [`StopSequences`]. Accepts a single
 /// string or an array of strings (OpenAI allows up to 4; extras are harmless).
 /// Absent / null / empty ⇒ an empty set, which is a no-op (generation is
@@ -1461,6 +1482,7 @@ fn stream_chat_completions(
         .unwrap_or(96)
         .clamp(1, 1024) as usize;
     let sampler_cfg = extract_sampler_config(&req);
+    let logit_bias = parse_logit_bias(&req);
     let stops = parse_stop(&req);
     let stream = req.get("stream").and_then(|v| v.as_bool()).unwrap_or(true);
 
@@ -1499,6 +1521,7 @@ fn stream_chat_completions(
             max_new,
             &tool_specs,
             sampler_cfg,
+            &logit_bias,
         );
     }
 
@@ -1526,6 +1549,7 @@ fn stream_chat_completions(
             &prompt,
             max_new,
             sampler_cfg,
+            &logit_bias,
             |chunk| {
                 if io_err.is_some() || scan.is_stopped() {
                     return;
@@ -1581,6 +1605,7 @@ fn stream_chat_completions(
             &prompt,
             max_new,
             sampler_cfg,
+            &logit_bias,
             |chunk| buf.push_str(chunk),
         );
         // Honor `stop`: truncate the completion at the earliest stop sequence
@@ -1670,6 +1695,7 @@ fn shape_tool_completion(
 /// [`shape_tool_completion`]. Reuses `generate_chat` (safety spine intact); no
 /// multi-step agent loop and no model-sharing change — the client executes the
 /// tool and calls back, per the standard OpenAI tool loop.
+#[allow(clippy::too_many_arguments)]
 fn tool_aware_chat_completion(
     server: &GatewayServer,
     writer: &mut TcpStream,
@@ -1678,6 +1704,7 @@ fn tool_aware_chat_completion(
     max_new: usize,
     specs: &[sovereign_tool_bridge::ToolSpec],
     sampler_cfg: sovereign_safetensors_loader::SamplerConfig,
+    logit_bias: &[(usize, f32)],
 ) -> std::io::Result<()> {
     let preamble = sovereign_tool_bridge::tool_specs_to_prompt(specs);
     let prompt = format!("{preamble}\n{base_prompt}");
@@ -1690,10 +1717,15 @@ fn tool_aware_chat_completion(
 
     let id = chat_completion_id();
     let mut buf = String::new();
-    let gen_res =
-        server.generate_chat_with_sampler(Some(model), &prompt, max_new, sampler_cfg, |chunk| {
-            buf.push_str(chunk)
-        });
+    let gen_res = server.generate_chat_with_sampler_law(
+        Some(model),
+        &prompt,
+        max_new,
+        sampler_cfg,
+        None,
+        logit_bias,
+        |chunk| buf.push_str(chunk),
+    );
     let (delta, final_obj) = match gen_res {
         Ok(n) => shape_tool_completion(&buf, specs, &id, n),
         Err(e) => {
@@ -1763,9 +1795,23 @@ fn agentic_chat_completion(
 mod tests {
     use super::{
         authorized, bind_is_loopback, chat_prompt, conn_timeout, constant_time_eq,
-        extract_sampler_config, ndjson_authenticate, parse_stop, shape_tool_completion,
+        extract_sampler_config, ndjson_authenticate, parse_logit_bias, parse_stop,
+        shape_tool_completion,
     };
     use sovereign_tool_bridge::openai_tools_to_specs;
+
+    #[test]
+    fn parse_logit_bias_reads_clamps_and_defaults_empty() {
+        // F-2026-086 residual: `logit_bias` maps "<token_id>": bias, clamped to
+        // [-100, 100]; non-numeric keys/values skipped; absent ⇒ empty (no-op).
+        let mut b = parse_logit_bias(&serde_json::json!({
+            "logit_bias": {"5": 3.0, "42": -100.0, "9": 250.0, "bad": 1.0, "7": "nope"}
+        }));
+        b.sort_by_key(|&(id, _)| id);
+        assert_eq!(b, vec![(5, 3.0), (9, 100.0), (42, -100.0)]);
+        assert!(parse_logit_bias(&serde_json::json!({})).is_empty());
+        assert!(parse_logit_bias(&serde_json::json!({"logit_bias": null})).is_empty());
+    }
 
     #[test]
     fn extract_sampler_config_reads_the_openai_penalties() {
