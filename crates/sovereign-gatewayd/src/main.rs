@@ -1400,6 +1400,38 @@ fn parse_logit_bias(req: &serde_json::Value) -> Vec<(usize, f32)> {
         .unwrap_or_default()
 }
 
+/// Parse the OpenAI `response_format` into a token-law grammar [`Schema`]
+/// (SDD-519). `{"type":"json_object"}` ⇒ `Schema::Any` (enforce *valid JSON* of
+/// any shape); `{"type":"json_schema","json_schema":{"schema":S}}` ⇒ `S` when it
+/// deserializes into the token-law `Schema` subset, else `Schema::Any` (still
+/// enforce valid JSON); `{"type":"text"}` / absent ⇒ `None` (unconstrained). The
+/// returned schema drives the M00117 grammar plane so the local decode is
+/// confined to conforming JSON per step — enforced, not merely prompted.
+fn parse_response_format(req: &serde_json::Value) -> Option<sovereign_json_schema_grammar::Schema> {
+    use sovereign_json_schema_grammar::Schema;
+    let rf = req.get("response_format")?;
+    match rf.get("type").and_then(|t| t.as_str()) {
+        Some("json_object") => Some(Schema::Any),
+        Some("json_schema") => Some(
+            rf.get("json_schema")
+                .and_then(|js| js.get("schema"))
+                .and_then(|s| serde_json::from_value::<Schema>(s.clone()).ok())
+                .unwrap_or(Schema::Any),
+        ),
+        _ => None,
+    }
+}
+
+/// Build a [`ServingTokenLaw`](sovereign_gatewayd::ServingTokenLaw) carrying only
+/// a `response_format` grammar (SDD-519), or `None` when the request is
+/// unconstrained.
+fn response_format_law(req: &serde_json::Value) -> Option<sovereign_gatewayd::ServingTokenLaw> {
+    parse_response_format(req).map(|schema| sovereign_gatewayd::ServingTokenLaw {
+        schema: Some(schema),
+        ..Default::default()
+    })
+}
+
 /// Parse the OpenAI `stop` parameter into a [`StopSequences`]. Accepts a single
 /// string or an array of strings (OpenAI allows up to 4; extras are harmless).
 /// Absent / null / empty ⇒ an empty set, which is a no-op (generation is
@@ -1483,6 +1515,9 @@ fn stream_chat_completions(
         .clamp(1, 1024) as usize;
     let sampler_cfg = extract_sampler_config(&req);
     let logit_bias = parse_logit_bias(&req);
+    // response_format (SDD-519): a grammar law that confines the local decode to
+    // valid JSON per step. `None` ⇒ unconstrained (byte-identical to before).
+    let rf_law = response_format_law(&req);
     let stops = parse_stop(&req);
     let stream = req.get("stream").and_then(|v| v.as_bool()).unwrap_or(true);
 
@@ -1550,6 +1585,7 @@ fn stream_chat_completions(
             max_new,
             sampler_cfg,
             &logit_bias,
+            rf_law.as_ref(),
             |chunk| {
                 if io_err.is_some() || scan.is_stopped() {
                     return;
@@ -1606,6 +1642,7 @@ fn stream_chat_completions(
             max_new,
             sampler_cfg,
             &logit_bias,
+            rf_law.as_ref(),
             |chunk| buf.push_str(chunk),
         );
         // Honor `stop`: truncate the completion at the earliest stop sequence
@@ -1795,10 +1832,40 @@ fn agentic_chat_completion(
 mod tests {
     use super::{
         authorized, bind_is_loopback, chat_prompt, conn_timeout, constant_time_eq,
-        extract_sampler_config, ndjson_authenticate, parse_logit_bias, parse_stop,
-        shape_tool_completion,
+        extract_sampler_config, ndjson_authenticate, parse_logit_bias, parse_response_format,
+        parse_stop, shape_tool_completion,
     };
     use sovereign_tool_bridge::openai_tools_to_specs;
+
+    #[test]
+    fn parse_response_format_maps_json_modes_to_a_grammar() {
+        use sovereign_json_schema_grammar::Schema;
+        // json_object ⇒ any-JSON grammar.
+        assert_eq!(
+            parse_response_format(&serde_json::json!({"response_format": {"type": "json_object"}})),
+            Some(Schema::Any)
+        );
+        // json_schema with a token-law-shaped schema ⇒ that schema.
+        let rf = serde_json::json!({
+            "response_format": {"type": "json_schema",
+                "json_schema": {"schema": {"Object": [["ok", "Boolean"]]}}}
+        });
+        assert_eq!(
+            parse_response_format(&rf),
+            Some(Schema::object([("ok".to_string(), Schema::Boolean)]))
+        );
+        // json_schema with an unmappable schema ⇒ still enforce valid JSON.
+        let rf2 = serde_json::json!({
+            "response_format": {"type": "json_schema", "json_schema": {"schema": {"weird": 1}}}
+        });
+        assert_eq!(parse_response_format(&rf2), Some(Schema::Any));
+        // text / absent ⇒ unconstrained.
+        assert_eq!(
+            parse_response_format(&serde_json::json!({"response_format": {"type": "text"}})),
+            None
+        );
+        assert_eq!(parse_response_format(&serde_json::json!({})), None);
+    }
 
     #[test]
     fn parse_logit_bias_reads_clamps_and_defaults_empty() {

@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (229 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (230 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -158,6 +158,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (229 total), by number.
 - [SDD-516 — The PII-completion token-law plane: ban the token that *completes* a personal identifier (M00155 DEEPEN)](../sdd/516-token-law-pii-plane.md)
 - [SDD-517 — The route token-law source: bind a routing decision to a constraint profile (M00155 DEEPEN)](../sdd/517-token-law-route-source.md)
 - [SDD-518 — Operator-configurable route profiles: the route doctrine becomes tunable per role (M00155 DEEPEN)](../sdd/518-token-law-route-profile-config.md)
+- [SDD-519 — OpenAI `response_format` JSON mode, enforced by the token-law grammar plane](../sdd/519-openai-shim-response-format-json-mode.md)
 - [SDD-600 — Cockpit hotswap controls (frontend · provider/origin · AVX modes)](../sdd/600-cockpit-hotswap-controls.md)
 - [SDD-700 — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (F-2026-107..108)](../sdd/700-operator-sudoers-privesc-guard.md)
 - [SDD-701 — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (F-2026-109..110)](../sdd/701-nvidia-gpu-bringup.md)
