@@ -1400,6 +1400,18 @@ fn parse_logit_bias(req: &serde_json::Value) -> Vec<(usize, f32)> {
         .unwrap_or_default()
 }
 
+/// Parse the OpenAI `n` (number of chat completions to generate) into a choice
+/// count, clamped to `1..=8` and defaulting to `1`. Absent / null / non-integer
+/// ⇒ `1` (byte-identical to the single-completion path). The upper bound caps
+/// the per-request generation fan-out (each choice is a full decode) so a large
+/// `n` can't turn one request into an unbounded compute burst.
+fn parse_n(req: &serde_json::Value) -> usize {
+    req.get("n")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(1)
+        .clamp(1, 8) as usize
+}
+
 /// Parse the OpenAI `response_format` into a token-law grammar [`Schema`]
 /// (SDD-519). `{"type":"json_object"}` ⇒ `Schema::Any` (enforce *valid JSON* of
 /// any shape); `{"type":"json_schema","json_schema":{"schema":S}}` ⇒ `S` when it
@@ -1520,6 +1532,11 @@ fn stream_chat_completions(
     let rf_law = response_format_law(&req);
     let stops = parse_stop(&req);
     let stream = req.get("stream").and_then(|v| v.as_bool()).unwrap_or(true);
+    // `n` (multiple completions, F-2026-086): the number of independent choices
+    // to return. Non-streaming loops N decodes into N indexed choices; streaming
+    // with n>1 is an honest 400 (the SSE frame carries a single choice index — a
+    // multiplexed stream would need a wire-format this shim doesn't define).
+    let n_choices = parse_n(&req);
 
     // SDD-712 (F-2026-088): server-side agentic tool use. When the request opts
     // in (`sovereign_agentic: true`) AND the daemon enables the capability
@@ -1561,6 +1578,22 @@ fn stream_chat_completions(
     }
 
     if stream {
+        // `n>1` + streaming is unsupported (F-2026-086): each SSE frame carries a
+        // single `choices[0]`, and multiplexing N parallel completions onto one
+        // event stream needs a wire-format this shim doesn't define. Refuse
+        // honestly rather than silently returning one choice — the client asked
+        // for N and streaming, and only one of those can be honored.
+        if n_choices > 1 {
+            return write_http(
+                writer,
+                &http::err(
+                    400,
+                    "n>1 is not supported with stream=true — request stream=false \
+                     for multiple completions, or n=1 to stream"
+                        .to_string(),
+                ),
+            );
+        }
         // SSE response head, then stream.
         writer.write_all(
             b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\
@@ -1633,33 +1666,57 @@ fn stream_chat_completions(
         let _ = writer.flush();
         Ok(())
     } else {
-        // Non-streaming JSON shape (F-2026-086).
-        let mut buf = String::new();
+        // Non-streaming JSON shape (F-2026-086). `n` (multiple completions): run
+        // `n_choices` independent decodes and return them as N indexed choices
+        // with summed token usage. `n_choices == 1` is byte-identical to the
+        // single-completion path (one decode, one `choices[0]`). On the first
+        // generation error we return the honest error shape (a partial mixed
+        // success/error array would misreport `finish_reason` per choice).
         let id = chat_completion_id();
-        let gen_res = server.generate_chat_cached(
-            Some(model.as_str()),
-            &prompt,
-            max_new,
-            sampler_cfg,
-            &logit_bias,
-            rf_law.as_ref(),
-            |chunk| buf.push_str(chunk),
-        );
-        // Honor `stop`: truncate the completion at the earliest stop sequence
-        // (no-op when none configured).
-        let content = stops.cut(&buf).to_string();
-        let body = match gen_res {
-            Ok(n) => serde_json::json!({
+        let mut choices: Vec<serde_json::Value> = Vec::with_capacity(n_choices);
+        let mut total_completion: usize = 0;
+        let mut gen_err: Option<String> = None;
+        for index in 0..n_choices {
+            let mut buf = String::new();
+            let gen_res = server.generate_chat_cached(
+                Some(model.as_str()),
+                &prompt,
+                max_new,
+                sampler_cfg,
+                &logit_bias,
+                rf_law.as_ref(),
+                |chunk| buf.push_str(chunk),
+            );
+            match gen_res {
+                Ok(n) => {
+                    // Honor `stop`: truncate at the earliest stop sequence
+                    // (no-op when none configured).
+                    let content = stops.cut(&buf).to_string();
+                    total_completion += n;
+                    choices.push(serde_json::json!({
+                        "index": index,
+                        "message": {"role": "assistant", "content": content},
+                        "finish_reason": "stop"
+                    }));
+                }
+                Err(e) => {
+                    gen_err = Some(e.to_string());
+                    break;
+                }
+            }
+        }
+        let body = match gen_err {
+            None => serde_json::json!({
                 "id": &id,
                 "object": "chat.completion",
-                "choices": [{
-                    "index": 0,
-                    "message": {"role": "assistant", "content": content},
-                    "finish_reason": "stop"
-                }],
-                "usage": {"prompt_tokens": 0, "completion_tokens": n, "total_tokens": n},
+                "choices": choices,
+                "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": total_completion,
+                    "total_tokens": total_completion,
+                },
             }),
-            Err(e) => serde_json::json!({
+            Some(e) => serde_json::json!({
                 "id": &id,
                 "object": "chat.completion",
                 "choices": [{
@@ -1832,8 +1889,8 @@ fn agentic_chat_completion(
 mod tests {
     use super::{
         authorized, bind_is_loopback, chat_prompt, conn_timeout, constant_time_eq,
-        extract_sampler_config, ndjson_authenticate, parse_logit_bias, parse_response_format,
-        parse_stop, shape_tool_completion,
+        extract_sampler_config, ndjson_authenticate, parse_logit_bias, parse_n,
+        parse_response_format, parse_stop, shape_tool_completion,
     };
     use sovereign_tool_bridge::openai_tools_to_specs;
 
@@ -1901,6 +1958,20 @@ mod tests {
         let cfg = extract_sampler_config(&serde_json::json!({}));
         assert_eq!(cfg.frequency_penalty, 0.0);
         assert_eq!(cfg.presence_penalty, 0.0);
+    }
+
+    #[test]
+    fn parse_n_clamps_to_one_through_eight_and_defaults_one() {
+        // F-2026-086 residual: `n` (number of completions), clamped to [1, 8].
+        assert_eq!(parse_n(&serde_json::json!({"n": 3})), 3);
+        // upper-bound clamp caps the per-request fan-out.
+        assert_eq!(parse_n(&serde_json::json!({"n": 100})), 8);
+        // n=0 clamps up to 1 (always at least one completion).
+        assert_eq!(parse_n(&serde_json::json!({"n": 0})), 1);
+        // absent / null / non-integer ⇒ 1 (byte-identical single-completion path).
+        assert_eq!(parse_n(&serde_json::json!({})), 1);
+        assert_eq!(parse_n(&serde_json::json!({"n": null})), 1);
+        assert_eq!(parse_n(&serde_json::json!({"n": "two"})), 1);
     }
 
     #[test]
