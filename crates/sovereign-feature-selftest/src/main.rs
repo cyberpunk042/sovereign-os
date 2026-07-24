@@ -427,3 +427,20 @@ fn main() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{FEATURES, run};
+
+    /// The Layer-4 *payload*: every registered feature self-test runs its real
+    /// feature and reports `ok`. This is the exact `--self-check` assertion the
+    /// QEMU boot-conformance harness makes IN-GUEST, verified here on the host so
+    /// the payload is covered even where the QEMU boot transport can't run.
+    #[test]
+    fn every_feature_self_test_passes() {
+        for (id, _label) in FEATURES {
+            let r = run(id).unwrap_or_else(|| panic!("feature {id} must be runnable"));
+            assert!(r.ok, "feature self-test {id} must pass");
+        }
+    }
+}
