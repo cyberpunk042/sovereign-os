@@ -825,21 +825,58 @@ fn stream_anthropic_messages(
         }),
     )?;
 
+    // Anthropic sampling parity (F-2026-086 / F-2026-088): honor temperature /
+    // top_p / top_k (absent ⇒ greedy, byte-identical to the prior plain
+    // generate_chat). The token-law stays OFF on this streaming path (law = None)
+    // — streaming-constrained /v1/messages is SDD-512's deferred item. `stop_sequences`
+    // ends the stream at the earliest match via a StreamStop scanner (as the
+    // OpenAI SSE path does) and drives the final message_delta stop_reason.
+    let sampler = http::extract_anthropic_sampler(&req);
+    let stop_seqs = http::anthropic_stop_sequences(&req);
+    let mut scan = sovereign_stop_sequence::StreamStop::new(
+        sovereign_stop_sequence::StopSequences::from(stop_seqs.iter().cloned()),
+    );
+    let mut raw = String::new(); // full text (incl. the stop) for the stop_reason
     let mut io_err: Option<std::io::Error> = None;
-    let gen_res = server.generate_chat(Some(model.as_str()), &prompt, max_new, |chunk| {
-        if io_err.is_some() {
-            return;
-        }
-        let obj = serde_json::json!({
-            "type": "content_block_delta", "index": 0,
-            "delta": { "type": "text_delta", "text": chunk },
-        });
-        if let Err(e) = write_sse_event(writer, "content_block_delta", &obj) {
-            io_err = Some(e);
-        }
-    });
+    let gen_res = server.generate_chat_with_sampler_law(
+        Some(model.as_str()),
+        &prompt,
+        max_new,
+        sampler,
+        None,
+        &[],
+        |chunk| {
+            if io_err.is_some() || scan.is_stopped() {
+                return;
+            }
+            raw.push_str(chunk);
+            let out = scan.push(chunk);
+            if out.text.is_empty() {
+                return;
+            }
+            let obj = serde_json::json!({
+                "type": "content_block_delta", "index": 0,
+                "delta": { "type": "text_delta", "text": out.text },
+            });
+            if let Err(e) = write_sse_event(writer, "content_block_delta", &obj) {
+                io_err = Some(e);
+            }
+        },
+    );
     if let Some(e) = io_err {
         return Err(e); // client hung up mid-stream
+    }
+    // Flush any held-back tail (generation ended without hitting a stop).
+    let tail = scan.finish();
+    if !tail.is_empty() {
+        write_sse_event(
+            writer,
+            "content_block_delta",
+            &serde_json::json!({
+                "type": "content_block_delta", "index": 0,
+                "delta": { "type": "text_delta", "text": tail },
+            }),
+        )?;
     }
 
     // A generation error is surfaced honestly as a final text delta.
@@ -858,6 +895,11 @@ fn stream_anthropic_messages(
         }
     };
 
+    // Anthropic stop reporting: "stop_sequence" (+ which) when a stop fired, else
+    // "end_turn".
+    let stops_out = sovereign_stop_sequence::StopSequences::from(stop_seqs.iter().cloned());
+    let (stop_reason, stop_sequence) = http::anthropic_stop_outcome(&raw, &stops_out, &stop_seqs);
+
     write_sse_event(
         writer,
         "content_block_stop",
@@ -870,7 +912,7 @@ fn stream_anthropic_messages(
         "message_delta",
         &serde_json::json!({
             "type": "message_delta",
-            "delta": { "stop_reason": "end_turn", "stop_sequence": serde_json::Value::Null },
+            "delta": { "stop_reason": stop_reason, "stop_sequence": stop_sequence },
             "usage": { "output_tokens": output_tokens },
         }),
     )?;

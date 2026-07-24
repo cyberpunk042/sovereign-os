@@ -35,10 +35,14 @@ def test_messages_endpoint_is_the_anthropic_api():
         "/v1/messages must route to the Anthropic generator"
     assert "fn anthropic_prompt" in http and "fn anthropic_message" in http, \
         "the Anthropic prompt flattener + message handler must exist"
-    # the Anthropic non-stream response shape
-    for tok in ('"type": "message"', '"role": "assistant"', '"stop_reason": "end_turn"',
+    # the Anthropic non-stream response shape. `stop_reason` is now DYNAMIC
+    # (F-2026-086/088 parity): "end_turn" on a natural end, "stop_sequence" when a
+    # `stop_sequences` match fired — populated by anthropic_stop_outcome, not a
+    # hardcoded literal.
+    for tok in ('"type": "message"', '"role": "assistant"', '"stop_reason": stop_reason',
                 '"input_tokens"', '"output_tokens"'):
         assert tok in http, f"Anthropic message shape missing: {tok!r}"
+    assert '"end_turn"' in http, "the end_turn stop_reason must still be produced (natural end)"
     # honest error envelope + loopback (no fabricated output)
     assert "fn anthropic_err" in http and '"type": "error"' in http, "Anthropic error envelope required"
     assert "has_generator()" in http, "no model → an honest error, never fabricated"

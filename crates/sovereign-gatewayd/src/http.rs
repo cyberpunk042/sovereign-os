@@ -393,6 +393,86 @@ pub fn anthropic_max_tokens(req: &serde_json::Value) -> usize {
         .clamp(1, 4096) as usize
 }
 
+/// Parse the Anthropic Messages sampling params (`temperature` / `top_p` /
+/// `top_k`) into a [`SamplerConfig`], mirroring the OpenAI shim's
+/// `extract_sampler_config` but in the Anthropic dialect: `temperature` is
+/// documented over **0.0..1.0** (OpenAI is 0..2) and `top_k` is a first-class
+/// Messages field. Absent params leave their sampler defaults — in particular an
+/// absent `temperature` is `0.0` (greedy), so a request that sets no sampling
+/// param decodes byte-identically to the prior hardcoded greedy path. There are
+/// no `frequency_penalty` / `presence_penalty` on the Messages API, so those keep
+/// the sampler default (`0.0`).
+pub fn extract_anthropic_sampler(
+    req: &serde_json::Value,
+) -> sovereign_safetensors_loader::SamplerConfig {
+    let temperature = req
+        .get("temperature")
+        .and_then(serde_json::Value::as_f64)
+        .map(|t| t.clamp(0.0, 1.0) as f32)
+        .unwrap_or(0.0);
+    let top_p = req
+        .get("top_p")
+        .and_then(serde_json::Value::as_f64)
+        .and_then(|p| {
+            let c = p.clamp(0.0, 1.0) as f32;
+            (c > 0.0 && c <= 1.0).then_some(c)
+        });
+    let top_k = req
+        .get("top_k")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|k| (k > 0).then_some(k as usize));
+    sovereign_safetensors_loader::SamplerConfig {
+        temperature,
+        top_p,
+        top_k,
+        ..sovereign_safetensors_loader::SamplerConfig::default()
+    }
+}
+
+/// Parse the Anthropic `stop_sequences` (an array of strings, up to 4) into a
+/// `Vec<String>`. Absent / null / non-array ⇒ empty (a no-op — generation is
+/// byte-identical to before). Non-string elements are ignored. The `Vec` is
+/// returned (not a `StopSequences`) so the caller can both build a `StopSequences`
+/// AND, when a stop fires, report *which* sequence matched for the Anthropic
+/// `stop_reason` / `stop_sequence` response fields.
+pub fn anthropic_stop_sequences(req: &serde_json::Value) -> Vec<String> {
+    req.get("stop_sequences")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Given the full generated text and the configured stop sequences, return the
+/// Anthropic `(stop_reason, stop_sequence)` pair: `("stop_sequence", Some(seq))`
+/// when the earliest stop fired (and which one), else `("end_turn", None)`. Pure
+/// + model-free so it is unit-testable. `stops` must be built from `seqs`.
+pub fn anthropic_stop_outcome(
+    generated: &str,
+    stops: &sovereign_stop_sequence::StopSequences,
+    seqs: &[String],
+) -> (&'static str, Option<String>) {
+    match stops.first_stop(generated) {
+        Some(idx) => {
+            let matched = seqs
+                .iter()
+                .find(|s| generated[idx..].starts_with(s.as_str()))
+                .cloned();
+            match matched {
+                Some(s) => ("stop_sequence", Some(s)),
+                // first_stop fired but no seq is a prefix at idx (shouldn't
+                // happen when `stops` was built from `seqs`) — report the stop
+                // honestly without naming a sequence.
+                None => ("stop_sequence", None),
+            }
+        }
+        None => ("end_turn", None),
+    }
+}
+
 /// `GET /v1/models` — the Anthropic models-list shape, listing the LOADED local
 /// models (the primary + any secondaries loaded via `/v1/models/load`). Tools
 /// (VS Code) query this to populate a model picker.
@@ -1457,6 +1537,13 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
     // generation, so the model answers from retrieved facts, not just the prompt.
     let prompt = server.rag_augment(&anthropic_prompt(&req));
     let max_new = anthropic_max_tokens(&req);
+    // Anthropic sampling parity (F-2026-086 / F-2026-088): honor temperature /
+    // top_p / top_k instead of the prior hardcoded greedy (absent ⇒ greedy, so a
+    // no-sampling-param request is byte-identical). `stop_sequences` truncates the
+    // reply at the earliest match and drives the Anthropic stop_reason.
+    let sampler = extract_anthropic_sampler(&req);
+    let stop_seqs = anthropic_stop_sequences(&req);
+    let stops = sovereign_stop_sequence::StopSequences::from(stop_seqs.iter().cloned());
     let mut out = String::new();
     // SDD-512: drive the constrained decode when `token_law` carries active laws
     // (local model only — the proxy path already refused above); else the static
@@ -1465,21 +1552,25 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
         Some(&model),
         &prompt,
         max_new,
-        sovereign_safetensors_loader::SamplerConfig::greedy(),
+        sampler,
         law_active,
         &[],
         |c| out.push_str(c),
     );
     match generated {
         Ok(n) => {
+            // Honor `stop_sequences`: truncate at the earliest stop, and report
+            // the Anthropic stop_reason / stop_sequence (no-op when none configured).
+            let content = stops.cut(&out).to_string();
+            let (stop_reason, stop_sequence) = anthropic_stop_outcome(&out, &stops, &stop_seqs);
             let mut msg = serde_json::json!({
                 "id": "msg_sovereign",
                 "type": "message",
                 "role": "assistant",
                 "model": model,
-                "content": [{ "type": "text", "text": out }],
-                "stop_reason": "end_turn",
-                "stop_sequence": serde_json::Value::Null,
+                "content": [{ "type": "text", "text": content }],
+                "stop_reason": stop_reason,
+                "stop_sequence": stop_sequence,
                 "usage": { "input_tokens": approx_tokens(&prompt), "output_tokens": n },
             });
             // Surface which laws actually bit, so a caller can confirm the mask
@@ -2138,6 +2229,64 @@ mod tests {
             anthropic_max_tokens(&serde_json::json!({"max_tokens": 5})),
             5
         );
+    }
+
+    #[test]
+    fn extract_anthropic_sampler_reads_the_messages_dialect() {
+        // temperature is the Anthropic 0..1 range (clamped), top_k is native.
+        let cfg = extract_anthropic_sampler(&serde_json::json!({
+            "temperature": 0.7, "top_p": 0.9, "top_k": 40,
+        }));
+        assert!((cfg.temperature - 0.7).abs() < 1e-6);
+        assert_eq!(cfg.top_p, Some(0.9));
+        assert_eq!(cfg.top_k, Some(40));
+        // out-of-range temperature clamps to 1.0 (NOT 2.0 like OpenAI).
+        let cfg = extract_anthropic_sampler(&serde_json::json!({"temperature": 5.0}));
+        assert_eq!(cfg.temperature, 1.0);
+        // absent ⇒ greedy (temperature 0.0, no top_p/top_k) — byte-identical to
+        // the prior hardcoded SamplerConfig::greedy() path.
+        let cfg = extract_anthropic_sampler(&serde_json::json!({}));
+        assert_eq!(cfg.temperature, 0.0);
+        assert_eq!(cfg.top_p, None);
+        assert_eq!(cfg.top_k, None);
+    }
+
+    #[test]
+    fn anthropic_stop_sequences_reads_the_array() {
+        assert_eq!(
+            anthropic_stop_sequences(&serde_json::json!({"stop_sequences": ["\n\nHuman:", "END"]})),
+            vec!["\n\nHuman:".to_string(), "END".to_string()]
+        );
+        // absent / null / non-array / non-string elements ⇒ empty or filtered.
+        assert!(anthropic_stop_sequences(&serde_json::json!({})).is_empty());
+        assert!(anthropic_stop_sequences(&serde_json::json!({"stop_sequences": null})).is_empty());
+        assert_eq!(
+            anthropic_stop_sequences(&serde_json::json!({"stop_sequences": ["ok", 42]})),
+            vec!["ok".to_string()]
+        );
+    }
+
+    #[test]
+    fn anthropic_stop_outcome_reports_the_matched_sequence() {
+        let seqs = vec!["END".to_string(), "\n\nHuman:".to_string()];
+        let stops = sovereign_stop_sequence::StopSequences::from(seqs.iter().cloned());
+        // a stop fired: report stop_sequence + WHICH one (the earliest match).
+        let (reason, seq) = anthropic_stop_outcome("hello END world", &stops, &seqs);
+        assert_eq!(reason, "stop_sequence");
+        assert_eq!(seq, Some("END".to_string()));
+        // the earliest of several wins.
+        let (reason, seq) = anthropic_stop_outcome("a\n\nHuman: b END", &stops, &seqs);
+        assert_eq!(reason, "stop_sequence");
+        assert_eq!(seq, Some("\n\nHuman:".to_string()));
+        // no stop present ⇒ end_turn / none.
+        let (reason, seq) = anthropic_stop_outcome("all done naturally", &stops, &seqs);
+        assert_eq!(reason, "end_turn");
+        assert_eq!(seq, None);
+        // an empty stop set never fires.
+        let empty = sovereign_stop_sequence::StopSequences::new();
+        let (reason, seq) = anthropic_stop_outcome("END anywhere", &empty, &[]);
+        assert_eq!(reason, "end_turn");
+        assert_eq!(seq, None);
     }
 
     #[test]
