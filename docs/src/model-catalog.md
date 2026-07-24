@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 77 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 79 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -11,7 +11,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | Tier | Count | Verified-real | Aspirational |
 |------|-------|---------------|--------------|
 | pulse | 29 | 9 | 14 |
-| logic | 23 | 6 | 7 |
+| logic | 25 | 6 | 7 |
 | oracle | 20 | 8 | 5 |
 | router | 5 | 4 | 0 |
 
@@ -24,7 +24,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 3 |
 | `mixture` — Mixture-of-Experts | 8 |
-| `multimodal` — Multimodal | 5 |
+| `multimodal` — Multimodal | 7 |
 | `reranker` — Reranker (cross-encoder) | 1 |
 | `rlm` — RLM (reasoning) | 9 |
 | `slm` — SLM (small) | 6 |
@@ -36,19 +36,19 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 23 |
+| `agent` | 25 |
 | `audio` | 3 |
-| `chat` | 39 |
+| `chat` | 41 |
 | `code` | 25 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
-| `function-calling` | 7 |
-| `multimodal` | 6 |
+| `function-calling` | 9 |
+| `multimodal` | 8 |
 | `rag` | 3 |
-| `reasoning` | 30 |
+| `reasoning` | 32 |
 | `reranking` | 1 |
 | `speculation` | 2 |
-| `vision` | 6 |
+| `vision` | 7 |
 
 ## Pulse tier (master spec § 17)
 
@@ -657,6 +657,57 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 > R212 — vision-language model for image + screenshot reasoning
 > in operator workflows.
+
+### Qwythos-9B-Claude-Mythos-5-1M
+
+- **Status:** ? operator-must-confirm
+- **Class:** `multimodal` — Multimodal
+- **Quantization:** `bf16`
+- **Size class:** `m`
+- **Purpose:** `reasoning`, `agent`, `function-calling`, `chat`, `multimodal`
+- **Engine:** `transformers`
+- **License:** apache-2.0
+- **Parameters:** 9409.8 M
+- **VRAM minimum (GiB):** 20
+- **Context window (tokens):** 1,000,000
+- **Master spec:** operator addition 2026-07-24 — long-context agentic multimodal candidate to trial
+
+**Operator note:**
+
+> Operator addition 2026-07-24 — "sounds like a model I want to try
+> eventually." Qwen3.5-9B full-fine-tune (qwen3_5 arch) with a 1M-token
+> context; uncensored, reasoning + agentic + function-calling, and
+> image-text-to-text multimodal. status=operator-must-confirm: the HF
+> repo is real (211K downloads) so it is pullable via
+> `scripts/models/pull.sh --allow-candidate`, but it is not yet trialed
+> on the sovereign stack. engine=transformers pending vLLM support for
+> the qwen3_5 arch; bf16 / ~20 GiB is a weights-only floor — the 1M
+> context KV cache needs far more.
+
+### Qwythos-9B-Claude-Mythos-5-1M-GGUF
+
+- **Status:** ? operator-must-confirm
+- **Class:** `multimodal` — Multimodal
+- **Quantization:** `gguf-q4_k_m`
+- **Size class:** `m`
+- **Purpose:** `reasoning`, `agent`, `function-calling`, `chat`, `multimodal`, `vision`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **Parameters:** 9409.8 M
+- **VRAM minimum (GiB):** 7
+- **Context window (tokens):** 1,000,000
+- **Master spec:** operator addition 2026-07-24 — GGUF (llama.cpp) variant of the Qwythos trial candidate
+
+**Operator note:**
+
+> Operator addition 2026-07-24 — the GGUF (llama.cpp) build of the
+> Qwythos open-weights entry above, quantized from
+> empero-ai/Qwythos-9B-Claude-Mythos-5-1M. Same 1M-context qwen3.5
+> agentic/multimodal model, but Q4_K_M so it runs on the local
+> sovereignty path (llama.cpp) rather than needing transformers/vLLM —
+> ~7 GiB weights floor at Q4_K_M. status=operator-must-confirm: real HF
+> repo (2.2M downloads), pull via `scripts/models/pull.sh
+> --allow-candidate`, not yet trialed on the stack.
 
 ### deepseek-coder-loras-rust-systems
 

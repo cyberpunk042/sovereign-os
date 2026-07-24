@@ -459,6 +459,57 @@ catalog:
         R212 — vision-language model for image + screenshot reasoning
         in operator workflows.
 
+    - id: Qwythos-9B-Claude-Mythos-5-1M
+      tier: logic
+      engine: transformers
+      class: multimodal
+      quantization: bf16
+      size_class: m
+      purpose: [reasoning, agent, function-calling, chat, multimodal]
+      status: operator-must-confirm
+      license: apache-2.0
+      hf_repo_id: empero-ai/Qwythos-9B-Claude-Mythos-5-1M
+      parameters_millions: 9409.8
+      vram_gib_min: 20
+      context_window_tokens: 1000000
+      master_spec_section: "operator addition 2026-07-24 — long-context agentic multimodal candidate to trial"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator addition 2026-07-24 — "sounds like a model I want to try
+        eventually." Qwen3.5-9B full-fine-tune (qwen3_5 arch) with a 1M-token
+        context; uncensored, reasoning + agentic + function-calling, and
+        image-text-to-text multimodal. status=operator-must-confirm: the HF
+        repo is real (211K downloads) so it is pullable via
+        `scripts/models/pull.sh --allow-candidate`, but it is not yet trialed
+        on the sovereign stack. engine=transformers pending vLLM support for
+        the qwen3_5 arch; bf16 / ~20 GiB is a weights-only floor — the 1M
+        context KV cache needs far more.
+
+    - id: Qwythos-9B-Claude-Mythos-5-1M-GGUF
+      tier: logic
+      engine: llama.cpp
+      class: multimodal
+      quantization: gguf-q4_k_m
+      size_class: m
+      purpose: [reasoning, agent, function-calling, chat, multimodal, vision]
+      status: operator-must-confirm
+      license: apache-2.0
+      hf_repo_id: empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF
+      parameters_millions: 9409.8
+      vram_gib_min: 7
+      context_window_tokens: 1000000
+      master_spec_section: "operator addition 2026-07-24 — GGUF (llama.cpp) variant of the Qwythos trial candidate"
+      runtime_profile_bindings: []
+      operator_note: |
+        Operator addition 2026-07-24 — the GGUF (llama.cpp) build of the
+        Qwythos open-weights entry above, quantized from
+        empero-ai/Qwythos-9B-Claude-Mythos-5-1M. Same 1M-context qwen3.5
+        agentic/multimodal model, but Q4_K_M so it runs on the local
+        sovereignty path (llama.cpp) rather than needing transformers/vLLM —
+        ~7 GiB weights floor at Q4_K_M. status=operator-must-confirm: real HF
+        repo (2.2M downloads), pull via `scripts/models/pull.sh
+        --allow-candidate`, not yet trialed on the stack.
+
     # ============================================================
     # R212 — LoRA adapter examples (class=lora-adapter MUST carry base_model)
     # ============================================================
