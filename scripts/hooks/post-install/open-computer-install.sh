@@ -75,6 +75,17 @@ if [ -x "${OC_APP}/open-computer" ] && [ -s "${OC_BASE}/base.qcow2" ]; then
   exit 0
 fi
 
+# Offline-boot guard: open-computer needs apt (QEMU/OVMF), a git clone, npm, and a
+# multi-GB base-image pull. In a no-NIC boot — the QEMU smoke/emulate VM, or an
+# operator who booted before the uplink came up — SKIP CLEANLY (exit 0) rather
+# than a red FAILED unit that also cascades into sovereign-firstboot. Every step
+# is resumable on demand online. A missing default route is the no-network signal.
+if ! ip route show default 2>/dev/null | grep -q .; then
+  log_warn "no default route (offline boot) — open-computer install deferred; re-run online: sovereign-osctl open-computer install"
+  emit_oc_metric no-network
+  exit 0
+fi
+
 # ---- (1) system QEMU/KVM + OVMF + git ----
 export DEBIAN_FRONTEND=noninteractive
 if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then

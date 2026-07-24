@@ -96,6 +96,17 @@ if command -v openclaw >/dev/null 2>&1 && [ -s "${OC_CFG_DIR}/openclaw.json" ] &
   exit 0
 fi
 
+# Offline-boot guard: OpenClaw needs NodeSource + the npm registry. In a no-NIC
+# boot — the QEMU smoke/emulate VM, or an operator who booted before the uplink
+# came up — SKIP CLEANLY (exit 0) rather than hang on curl/npm into a red FAILED
+# unit that also cascades into sovereign-firstboot. Re-runnable on demand online.
+# A missing default route is the fast, reliable no-network signal.
+if ! ip route show default 2>/dev/null | grep -q .; then
+  log_warn "no default route (offline boot) — OpenClaw install deferred; re-run online: sovereign-osctl openclaw install"
+  emit_oc_metric no-network
+  exit 0
+fi
+
 if ! ensure_node; then
   log_warn "node prerequisite unmet — OpenClaw install deferred (re-run: sovereign-osctl openclaw install)"
   emit_oc_metric no-node

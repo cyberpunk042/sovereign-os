@@ -336,12 +336,18 @@ def test_step_09_skip_qemu_still_emits_provenance():
     )
 
 
-def test_step_09_qemu_timeout_exit_124():
-    """When QEMU hits the timeout, exit code is 124 (operator-verbatim
-    GNU coreutils 'timeout' convention). Drift breaks the per-rc
-    classification (timeout-vs-panic-vs-success)."""
+def test_step_09_qemu_bounded_and_classifies_crash():
+    """The QEMU smoke boot is bounded by SOVEREIGN_OS_QEMU_TIMEOUT and STOPS
+    the instant userspace is reached (the login/systemd marker) instead of
+    idling the full ceiling — the old `timeout … qemu | tee` sat at the serial
+    login prompt for the whole 300s every run. The per-outcome classification
+    is preserved: a real QEMU crash (non-zero exit BEFORE userspace) is a FAIL,
+    distinct from merely hitting the timeout ceiling (a warning)."""
     body = _read(STEP_09)
-    assert "124" in body, (
-        "09-image-verify.sh missing 124 (GNU 'timeout' exit code) "
-        "in rc classification (drift conflates timeout with actual fail)"
+    assert "SOVEREIGN_OS_QEMU_TIMEOUT" in body, (
+        "09-image-verify.sh must bound the QEMU boot by SOVEREIGN_OS_QEMU_TIMEOUT"
+    )
+    assert "qemu-failed-" in body and "state_step_fail" in body, (
+        "09-image-verify.sh must classify a QEMU crash (non-zero exit before "
+        "userspace) as a FAIL, distinct from hitting the timeout ceiling"
     )

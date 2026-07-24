@@ -53,6 +53,17 @@ if python3 -c 'import warp' 2>/dev/null; then
   exit 0
 fi
 
+# Offline-boot guard: warp-lang comes from PyPI, unreachable without a network.
+# In a no-NIC boot — the QEMU smoke/emulate VM, or an operator who booted before
+# the uplink came up — SKIP CLEANLY (exit 0) rather than a red FAILED unit that
+# also cascades into sovereign-firstboot. The pip pull re-runs on demand online.
+# A missing default route is the fast, reliable no-network signal.
+if ! ip route show default 2>/dev/null | grep -q .; then
+  log_warn "no default route (offline boot) — warp-lang install deferred; re-run online"
+  emit_warp_metric no-network
+  exit 0
+fi
+
 if ! python3 -m pip --version >/dev/null 2>&1; then
   log_error "python3 -m pip unavailable; cannot install warp-lang (install python3-pip)"
   emit_warp_metric fail
@@ -79,6 +90,9 @@ if python3 -m pip install "${pip_args[@]}" 2>&1 | sed 's/^/  /'; then
   exit 1
 fi
 
-log_error "pip install warp-lang failed"
-emit_warp_metric fail
-exit 1
+# Best-effort by design: warp-runner.py is exit-0-clean when warp is absent, so a
+# failed install (e.g. no PyPI wheel for this Python, or a flaky uplink) must NOT
+# FAIL the boot. Log it, record it, and skip — re-runnable on demand.
+log_warn "pip install warp-lang failed (no wheel / flaky uplink?) — deferred, re-run online"
+emit_warp_metric deferred
+exit 0

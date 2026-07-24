@@ -856,6 +856,25 @@ def _route_for(path: str) -> int | None:
         if path == prefix or path.startswith(prefix + "/"):
             return port
     return None
+
+
+def _route_and_path(path: str) -> tuple[int | None, str]:
+    """Resolve (backing port, path-to-forward) for a proxied request. Handles a
+    panel webapp served here at /<slug>/ whose RELATIVE lifecycle fetches
+    ('./api/<slug>/start', …) arrive prefixed as /<slug>/api/<slug>/start — the
+    bare _route_for misses those, so a hub-served panel's buttons returned 'not
+    found' while working on the panel's own port. Fall back to routing on the
+    /api/… tail so the panel behaves identically via the hub."""
+    hit = _route_for(path)
+    if hit is not None:
+        return hit, path
+    i = path.find("/api/")
+    if i > 0:
+        tail = path[i:]
+        hit = _route_for(tail)
+        if hit is not None:
+            return hit, tail
+    return None, path
 # Exact paths the master-dashboard expects on ITS origin (it is designed
 # to be served by master-dashboard-api at :8090). NOTE: this deliberately
 # shadows this server's own /version — the cockpit's registry identity
@@ -925,9 +944,9 @@ class Handler(BaseHTTPRequestHandler):
         # Gateway routes come BEFORE this server's own /version — the
         # cockpit's registry identity deliberately shadows it (use
         # /healthz for this server's liveness).
-        hit = _route_for(path)
+        hit, ppath = _route_and_path(path)
         if hit is not None:
-            return self._proxy(hit, path)
+            return self._proxy(hit, ppath)
         if path in DEV_GATEWAY_EXACT:
             return self._proxy(DEV_GATEWAY_EXACT[path], path)
         if path == "/version":
@@ -965,6 +984,19 @@ class Handler(BaseHTTPRequestHandler):
             if WEBAPP.exists():
                 return self._send(200, WEBAPP.read_bytes(), "text/html; charset=utf-8")
             return self._send(404, json.dumps({"error": "webapp not found"}))
+        # Panel DATA endpoints (hub-routing): a sibling panel served here at
+        # /<slug>/ fetches its data from the RELATIVE path /<slug>.json, but that
+        # data lives on the panel's OWN backing service — the hub otherwise only
+        # proxies /api/<slug>/*, so a hub-served panel (e.g. /emulate/) loaded
+        # fine yet its /emulate.json fetch 404'd → "no data / no built image".
+        # Map /<slug>.json → the /api/<slug> route's port and proxy it, so a
+        # panel behaves identically whether opened on its own port or via the
+        # hub. (This server's OWN json endpoints are all handled above, so they
+        # win and are never shadowed by this fallthrough.)
+        if path.endswith(".json"):
+            _dport = DEV_GATEWAY_ROUTES.get("/api/" + path[1:-len(".json")])
+            if _dport is not None:
+                return self._proxy(_dport, path)
         # Static sibling panels: /<panel>/ → webapp/<panel>/index.html.
         # resolve() + relative_to guard keeps every read inside webapp/.
         try:
@@ -986,31 +1018,58 @@ class Handler(BaseHTTPRequestHandler):
         is the one path-rewrite: /api/node-exporter/X → /X). GET has no body;
         POST forwards the raw body + Content-Type so /api/control/execute +
         /api/code-console/chat reach their daemon."""
-        import urllib.error
-        import urllib.request
+        import http.client
         if path == "/api/node-exporter" or path.startswith("/api/node-exporter/"):
             path = path[len("/api/node-exporter"):] or "/"
-        url = f"http://127.0.0.1:{port}{path}"
         headers = {"Content-Type": ctype} if (method == "POST" and ctype) else {}
-        req = urllib.request.Request(
-            url, data=body if method == "POST" else None, method=method,
-            headers=headers)
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
         try:
-            with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 loopback
-                self._send(r.status, r.read(),
-                           r.headers.get("Content-Type", "application/json"))
-        except urllib.error.HTTPError as e:
-            # a real error RESPONSE from the backing API (4xx/5xx) — relay it,
-            # don't mask it as a 502 (the panel needs the actual message).
-            self._send(e.code, e.read(),
-                       e.headers.get("Content-Type", "application/json"))
-        except (urllib.error.URLError, OSError) as e:
-            self._send(502, json.dumps({
+            conn.request(method, path,
+                         body=body if method == "POST" else None, headers=headers)
+            r = conn.getresponse()
+        except (OSError, http.client.HTTPException) as e:
+            conn.close()
+            return self._send(502, json.dumps({
                 "error": f"backing API on :{port} not reachable",
                 "detail": str(e),
                 "hint": "make panel starts the dashboard tile APIs; "
                         "panels fall back to baked snapshots on 502",
             }))
+        rtype = r.getheader("Content-Type", "application/json")
+        if r.getheader("Content-Length") is not None:
+            # Finite response — buffer + send (relays 4xx/5xx bodies verbatim,
+            # so the panel sees the backing API's real error message).
+            try:
+                data = r.read()
+            finally:
+                conn.close()
+            return self._send(r.status, data, rtype)
+        # Streaming response (no Content-Length) — e.g. the emulate serial-console
+        # live-follow. Forward chunks as they arrive so it works THROUGH the hub;
+        # buffering it with r.read() would hang until the 30s ceiling ('backing
+        # API not reachable, timed out'). No read timeout: an idle console sitting
+        # at a login prompt must not trip a cutoff. Runs in its own thread
+        # (ThreadingHTTPServer), so it never blocks other hub requests.
+        try:
+            conn.sock.settimeout(None)
+        except (AttributeError, OSError):
+            pass
+        self.send_response(r.status)
+        self.send_header("Content-Type", rtype)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        try:
+            while True:
+                chunk = r.read(4096)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass  # client disconnected — normal end of a live stream
+        finally:
+            conn.close()
 
     def _read_json_body(self) -> dict | None:
         try:
@@ -1052,7 +1111,7 @@ class Handler(BaseHTTPRequestHandler):
         # loopback callers are refused here (the same CSRF defense as /api/run)
         # so a browser page can't drive a panel action through the hub; the
         # backing daemon enforces its own action gate on top.
-        hit = _route_for(path)
+        hit, ppath = _route_and_path(path)
         if hit is not None:
             reject = _guard.guard(self.headers, self.client_address[0],
                                   require_json=False)
@@ -1063,7 +1122,7 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 n = 0
             raw = self.rfile.read(n) if n else b""
-            return self._proxy(hit, path, "POST", raw,
+            return self._proxy(hit, ppath, "POST", raw,
                                self.headers.get("Content-Type"))
         return self._send(404, json.dumps({"error": "not found", "path": path}))
 

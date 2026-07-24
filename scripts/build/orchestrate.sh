@@ -67,6 +67,20 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ${SOVEREIGN_OS_PROFILE} reference (caught by the first real build, 2026-06-10).
 export SOVEREIGN_OS_PROFILE SOVEREIGN_OS_SUBSTRATE
 
+# Operator build secrets (secrets doctrine: VALUES live in /etc/sovereign-os/*.env,
+# never the repo). Source them so a PANEL- or sudoers-driven build — which cannot
+# thread env through the UI — still gets SOVEREIGN_OS_ROOT_PASSWORD (and any other
+# build secret) without the operator re-typing it every run, exactly like the
+# operator MOK keys auto-inject from /etc/sovereign-os/keys. Root-owned, 600.
+# Only sourced when the value ISN'T already in the environment, so an explicit
+# CLI `SOVEREIGN_OS_ROOT_PASSWORD=… orchestrate.sh run` still wins.
+if [ -z "${SOVEREIGN_OS_ROOT_PASSWORD:-}" ] && [ -r /etc/sovereign-os/build.env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . /etc/sovereign-os/build.env
+  set +a
+fi
+
 # Ordered list of steps. Each is a sibling script that sources the
 # common lib and registers under its step-id.
 STEPS=(

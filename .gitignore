@@ -90,3 +90,6 @@ TODO.local.md
 # Built on demand by cockpit-wasm/build.sh (make cockpit-wasm) — never commit the multi-MB full bridge.
 webapp/_shared/cockpit-wasm/cockpit_wasm_full.js
 webapp/_shared/cockpit-wasm/cockpit_wasm_full_bg.wasm
+
+# operator build secrets live in /etc/sovereign-os/build.env, NEVER the repo (secrets doctrine)
+build.env

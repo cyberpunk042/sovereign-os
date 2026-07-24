@@ -143,26 +143,52 @@ else
     log_warn "  checksums + provenance still emitted; boot test falls to real hardware"
     : > "${SOVEREIGN_OS_LOG_DIR}/qemu-boot-${SOVEREIGN_OS_BUILD_ID}.log"
   else
-  timeout "${SOVEREIGN_OS_QEMU_TIMEOUT}" \
-    qemu-system-x86_64 \
+  # Boot in the BACKGROUND and stop the instant userspace is reached (the login
+  # prompt / systemd / whitelabel banner) rather than idling the full ceiling. A
+  # -nographic serial boot has NO auto-login and NO shutdown, so the old
+  # `timeout "${SOVEREIGN_OS_QEMU_TIMEOUT}" qemu … | tee` sat at 'localhost
+  # login:' for the WHOLE 300s on every run — an apparent interactive hang, with
+  # the serial console spamming the operator's build log. Poll the serial log
+  # for the success marker; terminate on match, on QEMU's own exit, or at the
+  # ${SOVEREIGN_OS_QEMU_TIMEOUT} ceiling (still the operator's 300s / 5-min cap).
+  qemu_log="${SOVEREIGN_OS_LOG_DIR}/qemu-boot-${SOVEREIGN_OS_BUILD_ID}.log"
+  : > "${qemu_log}"
+  qemu-system-x86_64 \
       -m "${SOVEREIGN_OS_QEMU_MEM}" \
       -smp 2 \
       -nographic \
       -no-reboot \
       -drive "file=${image_file},format=raw,if=virtio,readonly=on" \
       "${qemu_boot_args[@]}" \
-      2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/qemu-boot-${SOVEREIGN_OS_BUILD_ID}.log" || {
-      rc=$?
-      if [ $rc -eq 124 ]; then
-        log_warn "QEMU boot reached timeout (${SOVEREIGN_OS_QEMU_TIMEOUT}s); reviewing log…"
-      else
-        log_error "QEMU exited with status ${rc}"
-        emit_metric sovereign_os_build_step_image_verify_total 1 \
-          "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
-        state_step_fail "${STEP_ID}" "qemu-failed-${rc}"
-        exit 1
-      fi
-    }
+      > "${qemu_log}" 2>&1 &
+  qemu_pid=$!
+  boot_reached=""; qemu_rc=""; waited=0
+  while [ "${waited}" -lt "${SOVEREIGN_OS_QEMU_TIMEOUT}" ]; do
+    if grep -qiE "welcome to|systemd\[1\]|sovereign|login:" "${qemu_log}" 2>/dev/null; then
+      boot_reached=1
+      break
+    fi
+    if ! kill -0 "${qemu_pid}" 2>/dev/null; then
+      wait "${qemu_pid}"; qemu_rc=$?   # QEMU died on its own — reap its status
+      break
+    fi
+    sleep 1; waited=$(( waited + 1 ))
+  done
+  if kill -0 "${qemu_pid}" 2>/dev/null; then
+    kill "${qemu_pid}" 2>/dev/null || true
+    wait "${qemu_pid}" 2>/dev/null || true
+  fi
+  if [ -n "${boot_reached}" ]; then
+    log_info "userspace reached after ~${waited}s — boot smoke PASS (QEMU stopped early)"
+  elif [ -n "${qemu_rc}" ] && [ "${qemu_rc}" -ne 0 ]; then
+    log_error "QEMU exited with status ${qemu_rc} before reaching userspace"
+    emit_metric sovereign_os_build_step_image_verify_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+    state_step_fail "${STEP_ID}" "qemu-failed-${qemu_rc}"
+    exit 1
+  else
+    log_warn "QEMU boot reached timeout (${SOVEREIGN_OS_QEMU_TIMEOUT}s) without a userspace marker; reviewing log…"
+  fi
 
   # Basic check: did the boot reach userspace? Look for systemd or
   # /etc/os-release in the boot log.

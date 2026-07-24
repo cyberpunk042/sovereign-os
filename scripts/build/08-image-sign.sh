@@ -170,6 +170,16 @@ if [ -n "${raw_image}" ]; then
   }
   trap cleanup_loop EXIT
 
+  # --partscan creates the partition device nodes ASYNCHRONOUSLY via udev, so the
+  # glob below can run before /dev/loopNp1 exists — yielding a spurious 'no vfat
+  # ESP partition found' on a perfectly good image (race, reproduced 2026-07-24:
+  # the nodes + vfat ESP appear a beat later). Wait for them to materialise.
+  udevadm settle 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    [ -b "${loopdev}p1" ] && break
+    sleep 0.25
+  done
+
   # Find the vfat (ESP) partition rather than assuming an index.
   esp_part=""
   for part in "${loopdev}"p*; do
