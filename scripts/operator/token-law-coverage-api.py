@@ -98,19 +98,26 @@ def _total_fusions(timeout: float = 2.0) -> int | None:
     return None
 
 
-def compute_coverage() -> dict:
-    """Derive per-layer coverage over the sample scenario by POSTing to the fuse
-    route. Honest-degrades to {up:false, error} when the gateway is unreachable."""
-    n = len(SAMPLE_VOCAB)
+def compute_coverage(vocab=None, layer_specs=None) -> dict:
+    """Derive per-layer coverage by POSTing to the fuse route. Defaults to the
+    built-in SAMPLE scenario (the GET feed); a custom `(vocab, layer_specs)` drives
+    an operator-supplied scenario (SDD-525, the POST read-compute). `layer_specs`
+    is a list of `(name, source_dict)`. Honest-degrades to `{up:false, error}` when
+    the gateway is unreachable. It is a READ-COMPUTE: the fuse route computes
+    allowed-token counts and mutates no server state."""
+    is_custom = vocab is not None or layer_specs is not None
+    vocab = vocab if vocab is not None else SAMPLE_VOCAB
+    specs = layer_specs if layer_specs is not None else SAMPLE_LAYERS
+    n = len(vocab)
     layers = []
     try:
-        for name, source in SAMPLE_LAYERS:
-            req = {"vocab": SAMPLE_VOCAB, "generated": "", "mask_layers": [name], **source}
+        for name, source in specs:
+            req = {"vocab": vocab, "generated": "", "mask_layers": [name], **source}
             out = _fuse(req)
             layers.append({"layer": name, "allowed": int(out.get("allowed_tokens", 0)), "total": n})
         # the fused intersection of every layer (all sources, all layers active)
-        combined = {"vocab": SAMPLE_VOCAB, "generated": ""}
-        for _name, source in SAMPLE_LAYERS:
+        combined = {"vocab": vocab, "generated": ""}
+        for _name, source in specs:
             combined.update(source)
         fused = _fuse(combined)
     except (urllib.error.URLError, OSError, ValueError) as e:
@@ -118,7 +125,7 @@ def compute_coverage() -> dict:
     return {
         "up": True,
         "error": None,
-        "scenario": "sample",
+        "scenario": "custom" if is_custom else "sample",
         "vocab_size": n,
         "layers": layers,
         "fused_allowed": int(fused.get("allowed_tokens", 0)),
@@ -177,12 +184,34 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, json.dumps({"error": "not found", "path": path}))
 
     def do_POST(self):
-        # read-only: coverage is derived server-side from a built-in sample; the
-        # panel never drives a fuse from the browser. Fail closed.
-        return self._send(405, json.dumps({
-            "error": "token-law-coverage-api is read-only",
-            "hint": "coverage is computed from a built-in sample scenario; drive "
-                    "custom fuses from the CLI (sovereign-osctl token-law fuse)"}))
+        # SDD-525: a custom-scenario coverage READ-COMPUTE. The browser POSTs its
+        # own {vocab, layers}, the daemon derives coverage via the SAME non-mutating
+        # fuse route the GET sample uses — no server state is written (R10212: a
+        # read-compute, not a mutation). Only the coverage endpoint accepts POST.
+        path = self.path.split("?", 1)[0].rstrip("/") or "/"
+        if path != "/api/token-law-coverage/coverage":
+            return self._send(404, json.dumps({"error": "not found", "path": path}))
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            body = json.loads(raw.decode("utf-8", "replace"))
+        except (ValueError, OSError):
+            return self._send(400, json.dumps({"error": "invalid JSON body"}))
+        vocab = body.get("vocab")
+        layers_in = body.get("layers")
+        if not isinstance(vocab, list) or not vocab or not all(isinstance(v, str) for v in vocab):
+            return self._send(400, json.dumps(
+                {"error": "`vocab` must be a non-empty list of strings"}))
+        if not isinstance(layers_in, list) or not layers_in:
+            return self._send(400, json.dumps(
+                {"error": "`layers` must be a non-empty list of {name, source}"}))
+        specs = []
+        for lyr in layers_in:
+            if not isinstance(lyr, dict) or "name" not in lyr:
+                return self._send(400, json.dumps({"error": "each layer needs a `name`"}))
+            src = lyr.get("source")
+            specs.append((str(lyr["name"]), src if isinstance(src, dict) else {}))
+        return self._send(200, json.dumps(compute_coverage(vocab, specs), indent=2))
 
 
 def main():

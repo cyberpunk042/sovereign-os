@@ -235,3 +235,30 @@ def test_anthropic_messages_honors_sampling_and_stop_sequences():
         "the streaming Anthropic path must use the sampler-aware generate, not plain generate_chat"
     assert "http::anthropic_stop_outcome(" in main, \
         "the streaming path must report the Anthropic stop_reason"
+
+
+def test_anthropic_messages_agentic_parity_and_streaming_law():
+    """SDD-524 + F-2026-088 parity: /v1/messages gains (a) server-side agentic
+    tool use (SDD-712 parity), (b) the token-law applied on the STREAMED decode
+    (SDD-512's deferred item), and (c) a daemon config-default RouteDirective
+    (SDD-517's deferred auto-supply)."""
+    main = _read("crates/sovereign-gatewayd/src/main.rs")
+    lib = _read("crates/sovereign-gatewayd/src/lib.rs")
+    # (a) agentic parity on /v1/messages
+    assert "fn agentic_anthropic_message(" in main, \
+        "the Anthropic agentic handler must exist"
+    assert "agentic::run_agent(server, Some(&model)" in main, \
+        "the Anthropic agentic path must run the SAME run_agent loop"
+    assert 'req\n                .get("sovereign_agentic")' in main or "sovereign_agentic" in main, \
+        "the /v1/messages dispatch must intercept sovereign_agentic"
+    # (b) streaming-constrained /v1/messages: the streaming handler passes the law
+    # (not None) and refuses law on a proxy backend.
+    assert "law_active = token_law.as_ref().filter(|s| !s.is_unconstrained())" in main, \
+        "the streaming path must resolve the request's token_law"
+    assert "token-law stays OFF on this streaming path" not in main, \
+        "the streaming path no longer skips the token-law (SDD-524)"
+    # (c) the daemon config-default route directive
+    assert 'ROUTE_DIRECTIVE_ENV: &str = "SOVEREIGN_GATEWAY_ROUTE_DIRECTIVE"' in lib, \
+        "the daemon default route directive env const must exist"
+    assert "fn effective_route(" in lib and "fn parse_route_directive(" in lib, \
+        "effective_route must fall back to the env default via a pure parser"

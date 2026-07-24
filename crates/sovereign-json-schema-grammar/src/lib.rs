@@ -69,6 +69,13 @@ pub enum Schema {
     /// semantics can't be enforced by a context-free grammar, so it is treated as
     /// `anyOf` (accept any alternative) — an honest under-constraint.
     OneOf(Vec<Schema>),
+    /// An object with **optional** properties (SDD-523): `(key, schema, required)`
+    /// in a fixed key order. A required key must appear; an optional key may be
+    /// present or absent. Any subset of the optionals is accepted, in the pinned
+    /// order, with correct comma separation and no extras. Extends [`Object`]
+    /// (which is all-required) to the common schema with a mix of required +
+    /// optional fields.
+    ObjectOpt(Vec<(String, Schema, bool)>),
 }
 
 impl Schema {
@@ -221,9 +228,12 @@ fn string_enum(obj: &serde_json::Map<String, serde_json::Value>) -> Option<Schem
 
 /// Translate a JSON-Schema `object` node. The subset's [`Schema::Object`] is
 /// *all-required, fixed key order, no extras*, so this maps faithfully only when
-/// `required` is exactly the declared property set (no optionals, no duplicates,
-/// no dangling names); otherwise it degrades to [`Schema::Any`] rather than
-/// over-constraining by dropping the optional keys. Key order follows `required`.
+/// `required` is a duplicate-free subset of the declared property keys. When
+/// `required` is *exactly* the key set, it maps to the all-required
+/// [`Schema::Object`] (key order follows `required`). When some properties are
+/// **optional** (SDD-523), it maps to [`Schema::ObjectOpt`] carrying a per-key
+/// required flag (key order follows the `properties` map). A duplicated
+/// `required` or a `required` name with no matching property → [`Schema::Any`].
 fn object_from_json_schema(obj: &serde_json::Map<String, serde_json::Value>) -> Schema {
     use serde_json::Value;
     use std::collections::BTreeSet;
@@ -242,16 +252,27 @@ fn object_from_json_schema(obj: &serde_json::Map<String, serde_json::Value>) -> 
         .unwrap_or_default();
     let req_set: BTreeSet<&str> = required.iter().copied().collect();
     let prop_set: BTreeSet<&str> = props.keys().map(String::as_str).collect();
-    // faithful only when `required` is a duplicate-free bijection with the keys.
-    if required.len() != req_set.len() || req_set != prop_set {
+    // `required` must be duplicate-free and a subset of the property keys (a
+    // dangling required name can't be constrained).
+    if required.len() != req_set.len() || !req_set.is_subset(&prop_set) {
         return Schema::Any;
     }
-    // key order follows the client's `required` array; each maps recursively.
-    let fields = required
+    if req_set == prop_set {
+        // all-required: the fixed-order Object; key order follows `required`.
+        let fields = required
+            .iter()
+            .map(|k| (k.to_string(), from_json_schema(&props[*k])))
+            .collect();
+        return Schema::Object(fields);
+    }
+    // some optional properties (SDD-523): an ObjectOpt with a per-key required
+    // flag. Key order follows the `properties` map (a fixed, deterministic order);
+    // the grammar accepts any subset of the optionals in that order.
+    let fields = props
         .iter()
-        .map(|k| (k.to_string(), from_json_schema(&props[*k])))
+        .map(|(k, v)| (k.clone(), from_json_schema(v), req_set.contains(k.as_str())))
         .collect();
-    Schema::Object(fields)
+    Schema::ObjectOpt(fields)
 }
 
 /// Builds the grammar, allocating non-terminals and caching shared primitives so
@@ -589,6 +610,65 @@ impl Compiler {
                 self.b.rule(obj, rhs);
                 obj
             }
+            Schema::ObjectOpt(fields) => {
+                let ws = self.ws();
+                // Compile each property's value non-terminal up front.
+                let vals: Vec<usize> = fields.iter().map(|(_, s, _)| self.compile(s)).collect();
+                let n = fields.len();
+                // Two tail non-terminals per key position (SDD-523): `first[i]` is
+                // the tail from key i with NOTHING emitted yet (an emitted member
+                // carries no leading comma); `rest[i]` is the tail with something
+                // ALREADY emitted (an emitted member is preceded by a comma). This
+                // threads "have we emitted a member" through the grammar so commas
+                // separate present members with no leading/trailing comma. Base:
+                // first[n] = rest[n] = ε.
+                let first: Vec<usize> = (0..=n).map(|_| self.b.nonterminal()).collect();
+                let rest: Vec<usize> = (0..=n).map(|_| self.b.nonterminal()).collect();
+                self.b.rule(first[n], vec![]);
+                self.b.rule(rest[n], vec![]);
+                for i in (0..n).rev() {
+                    let (key, _s, required) = &fields[i];
+                    let val = vals[i];
+                    // emit as the FIRST member (no leading comma):
+                    //   "key" WS ':' WS val  rest[i+1]
+                    let mut as_first: Vec<Symbol> = Self::quoted(key);
+                    as_first.push(Symbol::nt(ws));
+                    as_first.push(Symbol::ch(':'));
+                    as_first.push(Symbol::nt(ws));
+                    as_first.push(Symbol::nt(val));
+                    as_first.push(Symbol::nt(rest[i + 1]));
+                    self.b.rule(first[i], as_first);
+                    // emit as a LATER member (leading WS ',' WS):
+                    //   WS ',' WS "key" WS ':' WS val  rest[i+1]
+                    let mut as_rest: Vec<Symbol> =
+                        vec![Symbol::nt(ws), Symbol::ch(','), Symbol::nt(ws)];
+                    as_rest.extend(Self::quoted(key));
+                    as_rest.push(Symbol::nt(ws));
+                    as_rest.push(Symbol::ch(':'));
+                    as_rest.push(Symbol::nt(ws));
+                    as_rest.push(Symbol::nt(val));
+                    as_rest.push(Symbol::nt(rest[i + 1]));
+                    self.b.rule(rest[i], as_rest);
+                    // an OPTIONAL key may be SKIPPED (stay in the same emitted-state).
+                    if !*required {
+                        self.b.rule(first[i], vec![Symbol::nt(first[i + 1])]);
+                        self.b.rule(rest[i], vec![Symbol::nt(rest[i + 1])]);
+                    }
+                }
+                // OBJ -> '{' WS first[0] WS '}'
+                let obj = self.b.nonterminal();
+                self.b.rule(
+                    obj,
+                    vec![
+                        Symbol::ch('{'),
+                        Symbol::nt(ws),
+                        Symbol::nt(first[0]),
+                        Symbol::nt(ws),
+                        Symbol::ch('}'),
+                    ],
+                );
+                obj
+            }
         }
     }
 
@@ -882,16 +962,8 @@ mod tests {
     #[test]
     fn from_json_schema_degrades_unrepresentable_to_any() {
         use serde_json::json;
-        // an object with an OPTIONAL property (required ⊊ properties) → Any, so the
-        // client's optional key is never masked out (under-constrain, don't reject).
-        assert_eq!(
-            from_json_schema(&json!({
-                "type": "object",
-                "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
-                "required": ["a"],
-            })),
-            Schema::Any
-        );
+        // (Optional-property objects now map to `ObjectOpt`, SDD-523 — see
+        // `from_json_schema_maps_optional_property_objects`; no longer `Any`.)
         // a required name with no matching property → Any.
         assert_eq!(
             from_json_schema(&json!({
@@ -972,6 +1044,90 @@ mod tests {
         let g = compile(&s);
         assert!(g.accepts(r#"{"v":7}"#) && g.accepts(r#"{"v":null}"#));
         assert!(!g.accepts(r#"{"v":"x"}"#));
+    }
+
+    #[test]
+    fn from_json_schema_maps_optional_property_objects() {
+        use serde_json::json;
+        // a mix of required + optional properties → ObjectOpt (SDD-523), key order
+        // follows the `properties` map, each flagged required-or-not.
+        let s = from_json_schema(&json!({
+            "type": "object",
+            "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+            "required": ["a"],
+        }));
+        assert_eq!(
+            s,
+            Schema::ObjectOpt(vec![
+                ("a".to_string(), Schema::Integer, true),
+                ("b".to_string(), Schema::StringType, false),
+            ])
+        );
+        // an all-required object is still the plain Object (unchanged path).
+        assert!(matches!(
+            from_json_schema(&json!({
+                "type": "object",
+                "properties": {"a": {"type": "integer"}},
+                "required": ["a"],
+            })),
+            Schema::Object(_)
+        ));
+        // a dangling required name (no such property) still degrades to Any.
+        assert_eq!(
+            from_json_schema(&json!({
+                "type": "object",
+                "properties": {"a": {"type": "integer"}},
+                "required": ["a", "ghost"],
+            })),
+            Schema::Any
+        );
+    }
+
+    #[test]
+    fn object_opt_grammar_accepts_any_subset_in_order_with_correct_commas() {
+        // a: required int; b: optional string; c: optional bool — pinned order a,b,c.
+        let s = Schema::ObjectOpt(vec![
+            ("a".to_string(), Schema::Integer, true),
+            ("b".to_string(), Schema::StringType, false),
+            ("c".to_string(), Schema::Boolean, false),
+        ]);
+        let g = compile(&s);
+        // the required key alone (both optionals absent).
+        assert!(g.accepts(r#"{"a":1}"#));
+        // any subset of the optionals, in order.
+        assert!(g.accepts(r#"{"a":1,"b":"x"}"#));
+        assert!(g.accepts(r#"{"a":1,"c":true}"#));
+        assert!(g.accepts(r#"{"a":1,"b":"x","c":false}"#));
+        // whitespace is insignificant, incl. before/after commas + colons.
+        assert!(g.accepts(r#"{ "a" : 1 , "c" : true }"#));
+        // the required key MUST appear.
+        assert!(!g.accepts(r#"{"b":"x"}"#));
+        assert!(!g.accepts("{}"));
+        // order is pinned (b before c; a first).
+        assert!(!g.accepts(r#"{"a":1,"c":true,"b":"x"}"#));
+        assert!(!g.accepts(r#"{"b":"x","a":1}"#));
+        // no trailing / leading / doubled comma; no extras.
+        assert!(!g.accepts(r#"{"a":1,}"#));
+        assert!(!g.accepts(r#"{,"a":1}"#));
+        assert!(!g.accepts(r#"{"a":1,,"c":true}"#));
+        assert!(!g.accepts(r#"{"a":1,"z":9}"#)); // unknown key
+        // a value type is still enforced (b must be a string).
+        assert!(!g.accepts(r#"{"a":1,"b":2}"#));
+    }
+
+    #[test]
+    fn object_opt_all_optional_accepts_empty() {
+        // all-optional object: the empty object AND any subset are accepted.
+        let s = Schema::ObjectOpt(vec![
+            ("x".to_string(), Schema::Integer, false),
+            ("y".to_string(), Schema::Null, false),
+        ]);
+        let g = compile(&s);
+        assert!(g.accepts("{}"));
+        assert!(g.accepts(r#"{"x":1}"#));
+        assert!(g.accepts(r#"{"y":null}"#));
+        assert!(g.accepts(r#"{"x":1,"y":null}"#));
+        assert!(!g.accepts(r#"{"y":null,"x":1}"#)); // order still pinned
     }
 
     #[test]

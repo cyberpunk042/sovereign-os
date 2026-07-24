@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (233 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (236 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -162,6 +162,9 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (233 total), by number.
 - [SDD-520 — Full JSON-Schema → token-law `Schema` translation (`response_format` json_schema v2)](../sdd/520-openai-response-format-json-schema-translation.md)
 - [SDD-521 — Route-profile config-file surface (the persistent v2 of the env override)](../sdd/521-token-law-route-profile-config-file.md)
 - [SDD-522 — Union types in the JSON-Schema→`Schema` translator (`anyOf` / `oneOf` / nullable)](../sdd/522-json-schema-union-types.md)
+- [SDD-523 — Optional-property objects in the JSON-Schema→`Schema` translator](../sdd/523-json-schema-optional-property-objects.md)
+- [SDD-524 — `/v1/messages` serving-boundary deepening: streaming-constrained decode + config-default route directive](../sdd/524-v1-messages-streaming-constrained-and-config-route.md)
+- [SDD-525 — Token-law coverage: operator custom-scenario read-compute](../sdd/525-token-law-coverage-custom-scenario.md)
 - [SDD-600 — Cockpit hotswap controls (frontend · provider/origin · AVX modes)](../sdd/600-cockpit-hotswap-controls.md)
 - [SDD-700 — operator sudoers: risk-tier the OPS grants + lock them against privilege-escalation drift (F-2026-107..108)](../sdd/700-operator-sudoers-privesc-guard.md)
 - [SDD-701 — NVIDIA GPU bring-up: install the pinned ≥570 driver + apply the power caps at boot (F-2026-109..110)](../sdd/701-nvidia-gpu-bringup.md)

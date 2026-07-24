@@ -729,14 +729,52 @@ pub struct ServingTokenLaw {
     pub route: Option<sovereign_token_law_route::RouteDirective>,
 }
 
+/// The env var naming the daemon's default [`RouteDirective`] (SDD-524) as a JSON
+/// `{"role":…,"privacy":…,"safety":…}`. Applied to a token-law-carrying request
+/// that omits an explicit `route`, so a daemon in a known egress posture forces
+/// the egress guards without every request supplying a route. Unset/empty/invalid
+/// ⇒ no default.
+pub const ROUTE_DIRECTIVE_ENV: &str = "SOVEREIGN_GATEWAY_ROUTE_DIRECTIVE";
+
+/// Parse a default [`RouteDirective`] from a JSON string (SDD-524). Empty or
+/// invalid ⇒ `None` — the forgiving impure boundary (a bad env var never breaks
+/// serving, it just supplies no default). Split from the env read so the parse is
+/// unit-testable without mutating the process environment.
+fn parse_route_directive(s: &str) -> Option<sovereign_token_law_route::RouteDirective> {
+    if s.trim().is_empty() {
+        return None;
+    }
+    serde_json::from_str(s).ok()
+}
+
+/// The daemon's default [`RouteDirective`] from [`ROUTE_DIRECTIVE_ENV`], or `None`.
+fn default_route_directive_from_env() -> Option<sovereign_token_law_route::RouteDirective> {
+    std::env::var(ROUTE_DIRECTIVE_ENV)
+        .ok()
+        .as_deref()
+        .and_then(parse_route_directive)
+}
+
 impl ServingTokenLaw {
+    /// The effective route directive: the request's explicit `route` (SDD-517), or
+    /// the daemon's env-configured default (`SOVEREIGN_GATEWAY_ROUTE_DIRECTIVE`,
+    /// SDD-524) when the request omits one. This is the config-driven auto-supply:
+    /// an operator running the daemon in a known egress posture (a box that serves
+    /// Cloud/Public traffic) forces the egress guards on for local generation
+    /// without every request carrying a `route`. The per-request route always
+    /// wins; unset/empty/invalid env ⇒ no auto-supply (the forgiving boundary).
+    fn effective_route(&self) -> Option<sovereign_token_law_route::RouteDirective> {
+        self.route.or_else(default_route_directive_from_env)
+    }
+
     /// The token-law profile the routing decision selects (SDD-517), or a no-op
-    /// profile when no route is present. The profile map is the operator's
-    /// `SOVEREIGN_TOKEN_LAW_ROUTE_PROFILES` override if set (SDD-518), else the
+    /// profile when no route is present (request-supplied or the env default,
+    /// SDD-524). The profile map is the operator's
+    /// `SOVEREIGN_TOKEN_LAW_ROUTE_PROFILES` override if set (SDD-518/521), else the
     /// built-in doctrine — resolved the same impure-boundary way the engine's
     /// `MaskLayerSet::from_env_or_all` is.
     fn route_profile(&self) -> sovereign_token_law_route::RouteProfile {
-        self.route
+        self.effective_route()
             .map(|d| {
                 sovereign_token_law_route::RouteProfileMap::from_env_or_default()
                     .resolve_directive(&d)
@@ -3412,6 +3450,29 @@ mod tests {
 
     fn infer_line(req: &CortexRequest) -> String {
         serde_json::json!({ "op": "infer", "request": req }).to_string()
+    }
+
+    #[test]
+    fn parse_route_directive_reads_json_and_rejects_junk() {
+        // SDD-524: the daemon's default RouteDirective parses from JSON; empty /
+        // whitespace / invalid ⇒ None (the forgiving impure boundary).
+        use sovereign_router_7axis::{Privacy, Safety, SrpRole};
+        let d = sovereign_token_law_route::RouteDirective {
+            role: SrpRole::Cloud,
+            privacy: Privacy::Public,
+            safety: Safety::Safe,
+        };
+        let json = serde_json::to_string(&d).unwrap();
+        assert_eq!(parse_route_directive(&json), Some(d));
+        assert_eq!(parse_route_directive(""), None);
+        assert_eq!(parse_route_directive("   "), None);
+        assert_eq!(parse_route_directive("{not json"), None);
+        // the request's explicit route always wins over the env default.
+        let law = ServingTokenLaw {
+            route: Some(d),
+            ..Default::default()
+        };
+        assert_eq!(law.effective_route(), Some(d));
     }
 
     #[test]

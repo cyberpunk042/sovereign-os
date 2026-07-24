@@ -6,7 +6,7 @@
 <title>Token-Law Mask Coverage · sovereign-os</title>
 <meta name="x-sovereign-module" content="token-law-coverage-webapp">
 <meta name="x-sovereign-shipped-in" content="SDD-511">
-<meta name="x-sovereign-standing-rule" content="read-only; checkpoint-free per-layer coverage; honest-degrade when the gateway is down.">
+<meta name="x-sovereign-standing-rule" content="read-compute (no server mutation — the fuse route is non-mutating); checkpoint-free per-layer coverage; custom-scenario POST (SDD-525); honest-degrade when the gateway is down.">
 <script>
   (function(){
     var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
@@ -1949,6 +1949,22 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   <span><span class="hm-swatch" style="background:hsl(0,60%,45%)"></span>restrictive (allows few tokens)</span>
 </div>
 
+<details id="custom-scenario" style="margin-top:.9rem;">
+  <summary style="cursor:pointer;font-size:.95rem;">Custom scenario (read-compute — SDD-525)</summary>
+  <p style="font-size:.85rem;opacity:.85;margin:.5rem 0;">Supply your own vocab + per-layer sources; the daemon runs the <em>same</em> non-mutating <code>token-law/fuse</code> route the sample uses — no server state changes (a read-compute, not a write). One source object per layer, e.g. <code>{"schema":{"type":"boolean"}}</code> (grammar), <code>{"regex":"a+"}</code> (regex), <code>{"denylist":["bad"]}</code> (denylist).</p>
+  <label style="display:block;font-size:.85rem;">Vocab (comma- or newline-separated)
+    <textarea id="cs-vocab" rows="2" style="width:100%;box-sizing:border-box;">true, false, null, 0, 1, bad, ok</textarea>
+  </label>
+  <label style="display:block;font-size:.85rem;margin-top:.4rem;">Layers (JSON array of {name, source})
+    <textarea id="cs-layers" rows="5" style="width:100%;box-sizing:border-box;">[
+  {"name":"grammar","source":{"schema":{"type":"boolean"}}},
+  {"name":"denylist","source":{"denylist":["bad"]}}
+]</textarea>
+  </label>
+  <button id="cs-run" type="button" style="margin-top:.5rem;">Compute coverage</button>
+  <span id="cs-err" style="color:#e88;font-size:.85rem;margin-left:.5rem;"></span>
+</details>
+
 <footer>
   Coverage is computed by <code>sovereign-token-law-coverage-api</code> POSTing a built-in sample scenario (one source per layer, over a fixed sample vocab) to the gateway's checkpoint-free <code>POST /v1/data-plane/token-law/fuse</code> route (F00797); each layer's bar is its <code>per_layer.allowed / vocab</code>. Drive the same selection from the CLI with <code>sovereign-osctl token-law fuse</code> / <code>token-law layers</code>. Honest-degrades to offline when <code>sovereign-gatewayd</code> (:8787) is unreachable — nothing is fabricated.
 </footer>
@@ -1995,6 +2011,36 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     .catch(function(){
       renderOffline('Offline — the token-law-coverage-api daemon is not reachable from this page (DEMO or static hub). Nothing is fabricated.');
     });
+
+  // SDD-525: a custom-scenario coverage READ-COMPUTE. POSTs the operator's own
+  // {vocab, layers} to the SAME non-mutating coverage endpoint and re-renders via
+  // renderCoverage — no server state is written (R10212: a read-compute).
+  var csRun = document.getElementById('cs-run');
+  if (csRun) {
+    csRun.addEventListener('click', function(){
+      var errEl = document.getElementById('cs-err');
+      errEl.textContent = '';
+      var vocab = (document.getElementById('cs-vocab').value || '')
+        .split(/[\n,]/).map(function(s){ return s.trim(); }).filter(Boolean);
+      if (!vocab.length) { errEl.textContent = 'Vocab is empty.'; return; }
+      var layers;
+      try { layers = JSON.parse(document.getElementById('cs-layers').value || '[]'); }
+      catch (e) { errEl.textContent = 'Layers must be valid JSON: ' + e.message; return; }
+      fetch('/api/token-law-coverage/coverage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ vocab: vocab, layers: layers })
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (!d) { errEl.textContent = 'Empty response.'; return; }
+          if (d.up === false) { renderOffline('Offline — ' + (d.error || '')); return; }
+          if (d.error) { errEl.textContent = d.error; return; } // a 400 validation error
+          renderCoverage(d);
+        })
+        .catch(function(){ errEl.textContent = 'Request failed (daemon unreachable).'; });
+    });
+  }
 })();
 </script>
 
