@@ -53,7 +53,9 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -261,8 +263,66 @@ def load_control_systems() -> dict:
         return {"error": f"control-systems unavailable: {e}"}
 
 
-RUN_LOCK = threading.Lock()
-CURRENT_JOB: dict = {"proc": None, "action": None, "device": None}
+RUN_LOCK = threading.Lock()   # serialise STARTS (one flash/plan at a time)
+# Detached run: the job writes straight to a log FILE (not the request socket),
+# so a client that navigates away doesn't orphan it — /api/run/status +
+# /api/run/attach let the panel RE-ATTACH and replay the log so far + follow
+# live, exactly like the build console (a flash that survives navigation must
+# stay visible + cancellable). start_new_session detaches it from this daemon.
+FLASH_STATE_DIR = Path(os.environ.get(
+    "SOVEREIGN_OS_FLASH_STATE_DIR",
+    Path(tempfile.gettempdir()) / f"sovereign-os-flash-{os.getuid()}"))
+FLASH_LOG = FLASH_STATE_DIR / "run.log"
+FLASH_STATUS = FLASH_STATE_DIR / "run.json"
+
+
+def _status_read() -> dict:
+    try:
+        return json.loads(FLASH_STATUS.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _status_write(d: dict) -> None:
+    try:
+        FLASH_STATE_DIR.mkdir(parents=True, exist_ok=True)
+        FLASH_STATUS.write_text(json.dumps(d))
+    except OSError:
+        pass
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def _run_active() -> bool:
+    st = _status_read()
+    pid = st.get("pid")
+    return bool(st and not st.get("done") and pid and _pid_alive(int(pid)))
+
+
+def _run_waiter(proc, action: str) -> None:
+    """Background waiter — outlives the request. Appends the exit footer to the
+    log + marks status done, then releases RUN_LOCK. One daemon thread per run."""
+    try:
+        rc = proc.wait()
+    finally:
+        try:
+            with open(FLASH_LOG, "ab", buffering=0) as f:
+                f.write(f"\n{'✓' if rc == 0 else '✗'} exit code {rc}\n".encode())
+        except (OSError, NameError):
+            rc = None
+        st = _status_read()
+        st.update(done=True, exit_code=rc)
+        _status_write(st)
+        try:
+            RUN_LOCK.release()
+        except RuntimeError:
+            pass
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -289,6 +349,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(assemble_flash(), indent=2))
         if path in ("/control-systems", "/control-systems.json"):
             return self._send(200, json.dumps(load_control_systems()))
+        if path == "/api/run/status":
+            st = _status_read()
+            try:
+                size = FLASH_LOG.stat().st_size
+            except OSError:
+                size = 0
+            return self._send(200, json.dumps({
+                "running": _run_active(), "action": st.get("action"),
+                "device": st.get("device"), "image": st.get("image"),
+                "done": st.get("done", not _run_active()),
+                "exit_code": st.get("exit_code"), "log_bytes": size,
+            }))
+        if path == "/api/run/attach":
+            return self._stream_log(0)
         if path == "/":
             if WEBAPP.exists():
                 return self._send(200, WEBAPP.read_bytes(), "text/html; charset=utf-8")
@@ -313,6 +387,52 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, OSError):
             return None
 
+    def _stream_log(self, from_offset: int):
+        """Replay FLASH_LOG from `from_offset`, then follow it live until the job
+        finishes. Read-only tail — a client disconnect just ends THIS stream and
+        never touches the job. Shared by POST /api/run + GET /api/run/attach, so
+        the flash console re-attaches to a running job after navigation."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        try:
+            with open(FLASH_LOG, "rb") as f:
+                f.seek(max(0, from_offset))
+                dead_since = None
+                while True:
+                    chunk = f.read(65536)
+                    if chunk:
+                        self.wfile.write(ANSI_RE.sub(b"", chunk))
+                        self.wfile.flush()
+                        dead_since = None
+                        continue
+                    st = _status_read()
+                    if st.get("done"):
+                        tail = f.read()          # footer written before done=True
+                        if tail:
+                            self.wfile.write(ANSI_RE.sub(b"", tail))
+                            self.wfile.flush()
+                        break
+                    if not _run_active():
+                        if dead_since is None:
+                            dead_since = time.time()
+                        elif time.time() - dead_since > 3.0:
+                            self.wfile.write(b"\n(job ended)\n")
+                            self.wfile.flush()
+                            break
+                    else:
+                        dead_since = None
+                    time.sleep(0.3)
+        except FileNotFoundError:
+            try:
+                self.wfile.write(b"(no flash job in progress)\n")
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass  # client disconnected — the detached job keeps running
+
     def do_POST(self):
         path = self.path.split("?", 1)[0].rstrip("/")
         if path == "/api/cancel":
@@ -320,13 +440,17 @@ class Handler(BaseHTTPRequestHandler):
                                   require_json=False)
             if reject:
                 return self._send(reject[0], json.dumps({"error": reject[1]}))
-            proc = CURRENT_JOB.get("proc")
-            if proc and proc.poll() is None:
+            # Kill via the status-file pid (not an in-memory handle) so cancel
+            # works even for a run this request never streamed — a re-attached
+            # console, or a job started before a daemon restart.
+            st = _status_read()
+            pid = st.get("pid")
+            if pid and not st.get("done") and _pid_alive(int(pid)):
                 try:
-                    os.killpg(os.getpgid(proc.pid), 15)
+                    os.killpg(os.getpgid(int(pid)), 15)
                 except (OSError, ProcessLookupError):
                     pass
-                return self._send(200, json.dumps({"cancelled": CURRENT_JOB.get("action")}))
+                return self._send(200, json.dumps({"cancelled": st.get("action")}))
             return self._send(200, json.dumps({"cancelled": None}))
         if path == "/api/run":
             # /api/run writes a physical USB device — refuse browser-driven /
@@ -413,54 +537,46 @@ class Handler(BaseHTTPRequestHandler):
             elevation_note = ("  (look for the system password prompt on your "
                               "desktop — polkit/pkexec)\n")
 
+        # Serialise starts; the background waiter releases the lock when the job
+        # ends (so a job that outlives this request still holds it).
         if not RUN_LOCK.acquire(blocking=False):
+            st = _status_read()
             return self._send(409, json.dumps(
-                {"error": f"a flash job is already running: {CURRENT_JOB.get('action')}"}))
+                {"error": f"a flash job is already running: {st.get('action')}",
+                 "hint": "re-attach to it via GET /api/run/attach"}))
         try:
             env = dict(os.environ)
             if action == "flash":
                 # gate 5 + 6 relocate from terminal → armed panel action
                 env["SOVEREIGN_OS_CONFIRM_DESTROY"] = "YES"
                 env["SOVEREIGN_OS_NONINTERACTIVE"] = "1"
-            proc = subprocess.Popen(
-                argv, cwd=REPO, env=env, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, start_new_session=True,
-            )
-            CURRENT_JOB.update(proc=proc, action=action, device=device)
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Accel-Buffering", "no")
-            self.end_headers()
+            FLASH_STATE_DIR.mkdir(parents=True, exist_ok=True)
             verb = "PLAN" if action == "plan" else "FLASH"
-            self.wfile.write(
-                f"▶ {verb} · {Path(image_abs).name} → {device} · pid {proc.pid}\n"
-                f"{elevation_note}\n".encode())
-            self.wfile.flush()
+            # DETACHED: the job writes to a fresh log FILE (not this socket), so a
+            # client disconnect never orphans it — the panel re-attaches via
+            # /api/run/attach. start_new_session outlives this daemon too.
+            logf = open(FLASH_LOG, "wb", buffering=0)
+            logf.write(f"▶ {verb} · {Path(image_abs).name} → {device}\n"
+                       f"{elevation_note}\n".encode())
+            proc = subprocess.Popen(
+                argv, cwd=REPO, env=env, stdout=logf,
+                stderr=subprocess.STDOUT, start_new_session=True)
+            logf.close()   # the child holds its own dup'd fd now
+        except OSError as e:
             try:
-                # dd writes `status=progress` with carriage returns (\r), no
-                # newline — read in binary chunks so the progress line streams
-                # live instead of buffering until a \n that never comes.
-                while True:
-                    chunk = proc.stdout.read1(4096) if hasattr(proc.stdout, "read1") \
-                        else proc.stdout.read(4096)
-                    if not chunk:
-                        break
-                    self.wfile.write(ANSI_RE.sub(b"", chunk))
-                    self.wfile.flush()
-                rc = proc.wait()
-                self.wfile.write(
-                    f"\n{'✓' if rc == 0 else '✗'} exit code {rc}\n".encode())
-                self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
-                if proc.poll() is None:
-                    try:
-                        os.killpg(os.getpgid(proc.pid), 15)
-                    except (OSError, ProcessLookupError):
-                        pass
-        finally:
-            CURRENT_JOB.update(proc=None, action=None, device=None)
-            RUN_LOCK.release()
+                RUN_LOCK.release()
+            except RuntimeError:
+                pass
+            return self._send(500, json.dumps(
+                {"error": f"failed to start flash job: {e}"}))
+        _status_write({"pid": proc.pid, "action": action, "device": device,
+                       "image": Path(image_abs).name, "done": False,
+                       "exit_code": None})
+        threading.Thread(target=_run_waiter, args=(proc, action),
+                         daemon=True).start()
+        # Stream THIS client from the top of the fresh log (replay + follow); a
+        # disconnect just ends this stream, the detached job keeps writing.
+        self._stream_log(0)
 
 
 def main():

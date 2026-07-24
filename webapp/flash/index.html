@@ -42,8 +42,15 @@
   .badge.go{color:var(--good);border-color:var(--good)}
   .badge.no{color:var(--bad);border-color:var(--bad)}
   .fp{color:var(--muted);font-size:.76rem;margin-top:.2rem}
-  pre#run-log{background:#0a0a0a;border:1px solid var(--border);border-radius:4px;padding:.7rem .8rem;font-size:.8rem;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:44vh;overflow:auto;margin:.5rem 0 0}
-  .arm{border:1px solid var(--warn);border-radius:4px;padding:.7rem .85rem;background:#1c1808;margin-top:.6rem}
+  /* Terminal stays dark with light text in BOTH themes (dd/boot output carries
+     ANSI colours tuned for a dark bg). The bg was hardcoded dark but the text
+     colour inherited --fg, which is near-black in the light theme → black-on-black
+     and every line (progress, errors, 'job already running') was invisible. */
+  pre#run-log{background:#0a0a0a;color:#e6e6e6;border:1px solid var(--border);border-radius:4px;padding:.7rem .8rem;font-size:.8rem;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:44vh;overflow:auto;margin:.5rem 0 0}
+  /* Theme-aware warn tint (was a hardcoded dark amber that went dark-on-dark in
+     the light theme); the low-alpha overlay reads on both light and dark bg and
+     text stays --fg. */
+  .arm{border:1px solid var(--warn);border-radius:4px;padding:.7rem .85rem;background:rgba(200,150,20,.14);margin-top:.6rem}
   .arm.armed{border-color:var(--bad);background:#241010}
   footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
   .standing-rule{color:var(--accent);font-style:italic;margin-top:.4rem}
@@ -2776,6 +2783,18 @@ function updateArm() {
   el("btn-flash").disabled = !(armed && !running && DATA.running_as_root !== undefined);
 }
 
+// Drain a text stream into #run-log until the server closes it. Shared by a
+// fresh POST /api/run and a re-attach GET /api/run/attach.
+async function followReader(reader, log) {
+  const dec = new TextDecoder();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    log.textContent += dec.decode(value, { stream: true });
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
 async function runAction(action) {
   if (running) return;
   const image = el("image").value, device = selDevice && selDevice.path;
@@ -2796,13 +2815,7 @@ async function runAction(action) {
       el("run-status").textContent = "refused"; el("run-status").className = "status bad";
       return;
     }
-    const reader = r.body.getReader(), dec = new TextDecoder();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      log.textContent += dec.decode(value, { stream: true });
-      log.scrollTop = log.scrollHeight;
-    }
+    await followReader(r.body.getReader(), log);
     el("run-status").textContent = action === "plan" ? "plan complete" : "flash finished — verify before unplugging";
     el("run-status").className = "status ok";
   } catch (e) {
@@ -2811,6 +2824,35 @@ async function runAction(action) {
   } finally {
     running = false; el("btn-cancel").disabled = true; updateArm();
     if (action === "flash") load();   // refresh device state after a flash
+  }
+}
+
+// On (re)load: if a flash/plan started in a previous view is still running,
+// re-attach and follow its log — same behaviour as the build image stream, so
+// navigating away and back never loses a live flash (and keeps Cancel wired).
+async function attachRunning() {
+  let st;
+  try {
+    st = await (await fetch("./api/run/status", { headers: { Accept: "application/json" } })).json();
+  } catch (e) { return; }
+  if (!st || !st.running) return;
+  running = true; updateArm();
+  el("btn-cancel").disabled = false;
+  const isFlash = st.action === "flash";
+  el("run-status").textContent = (isFlash ? "FLASHING — do not unplug" : "planning…") + " (re-attached)";
+  el("run-status").className = "status " + (isFlash ? "bad" : "warn");
+  const log = el("run-log"); log.textContent = "";
+  try {
+    const r = await fetch("./api/run/attach");
+    if (r.ok && r.body) await followReader(r.body.getReader(), log);
+    el("run-status").textContent = isFlash ? "flash finished — verify before unplugging" : "plan complete";
+    el("run-status").className = "status ok";
+  } catch (e) {
+    log.textContent += "\n✗ stream error: " + e.message;
+    el("run-status").textContent = "error"; el("run-status").className = "status bad";
+  } finally {
+    running = false; el("btn-cancel").disabled = true; updateArm();
+    if (isFlash) load();
   }
 }
 
@@ -2826,6 +2868,7 @@ el("btn-cancel").addEventListener("click", async () => {
 });
 
 load();
+attachRunning();   // re-attach to a flash/plan already running from a prior view
 </script>
 
 
