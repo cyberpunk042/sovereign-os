@@ -152,6 +152,14 @@ def test_gateway_openai_shim_threads_sampling_params():
         "the grammar crate must expose the standard-dialect from_json_schema translator"
     assert "fn object_from_json_schema(" in grammar and "fn string_enum(" in grammar, \
         "the translator must handle object + string-enum shapes"
+    # SDD-522 union types: anyOf/oneOf + type-arrays (["string","null"]) map to a
+    # OneOf alternation, no longer degrading to Schema::Any.
+    assert "OneOf(Vec<Schema>)" in grammar, \
+        "the Schema enum must carry a OneOf union variant (SDD-522)"
+    assert "fn union_of(" in grammar and "fn type_name_to_schema(" in grammar, \
+        "the translator must build unions from anyOf/oneOf/type-arrays"
+    assert '"anyOf"' in grammar and '"oneOf"' in grammar, \
+        "anyOf/oneOf must be translated to a union, not degraded to Any"
     assert "from_json_schema" in main, \
         "parse_response_format must translate the client's json_schema via from_json_schema"
     assert "serde_json::from_value::<Schema>" not in main, \
