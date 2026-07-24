@@ -50,3 +50,45 @@ def test_sdd_518_documents_the_tunable_doctrine():
     assert "operator" in low and "doctrine" in low
     assert "from_env_or_all" in low or "env" in low, "the env-config framing must be documented"
     assert "deepen" in low
+
+
+# ── SDD-521: the config-FILE surface (the persistent v2 of the env override) ──
+
+SDD_521 = REPO / "docs" / "sdd" / "521-token-law-route-profile-config-file.md"
+
+
+def test_route_crate_gains_the_config_file_surface():
+    src = ROUTE.read_text(encoding="utf-8")
+    assert (
+        'pub const ROUTE_PROFILES_FILE_ENV: &str = "SOVEREIGN_TOKEN_LAW_ROUTE_PROFILES_FILE";'
+        in src
+    ), "the file-surface env const must exist"
+    assert "pub fn from_file(path: &str) -> Result<Self, String>" in src, (
+        "from_file must read + parse the JSON config file"
+    )
+    assert "std::fs::read_to_string(path)" in src, "from_file must read the file with std::fs"
+    # the precedence is a pure helper so it's testable without touching the env
+    assert "fn resolve_env(inline: Option<&str>, file: Option<&str>) -> Self" in src, (
+        "the inline>file>doctrine precedence must be a pure, testable helper"
+    )
+    # from_env_or_default drives the pure helper over the two env vars
+    assert "Self::resolve_env(" in src, "from_env_or_default must delegate to resolve_env"
+    # still no new dependency + no plane crates (std::fs only)
+    deps = ROUTE_TOML.read_text(encoding="utf-8").split("[dependencies]", 1)[1]
+    assert "sovereign-token-law-fuse" not in deps and "sovereign-token-law-pii" not in deps
+
+
+def test_gatewayd_is_unchanged_by_the_file_surface():
+    # the file surface is transparent to gatewayd — it still resolves through
+    # from_env_or_default (SDD-518), which now also reads the file.
+    src = GW.read_text(encoding="utf-8")
+    assert "RouteProfileMap::from_env_or_default()" in src
+
+
+def test_sdd_521_documents_the_config_file_surface():
+    assert SDD_521.is_file(), "SDD-521 must exist"
+    text = SDD_521.read_text(encoding="utf-8")
+    assert text.startswith("# SDD-521 —"), "H1 must be the canonical SDD-521 heading"
+    low = text.lower()
+    assert "file" in low and "precedence" in low
+    assert "inline" in low, "the inline-env-over-file precedence must be documented"
