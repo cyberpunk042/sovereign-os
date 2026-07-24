@@ -770,11 +770,21 @@ def _run_status_write(d: dict) -> None:
 
 
 def _pid_alive(pid: int) -> bool:
+    """True only if pid names a LIVE, non-zombie process. A zombie (<defunct>)
+    still answers kill(pid, 0) but is a FINISHED job whose parent never wait()'d
+    it — e.g. the run-waiter died when reload-run.py hot-reloaded this daemon.
+    Treating the zombie as alive would wedge the run-gate at 'already running'
+    forever, so read /proc state and count Z/X as dead → the gate self-heals."""
     try:
-        os.kill(pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+        with open(f"/proc/{pid}/stat", "rb") as f:
+            data = f.read()
+        # format: `pid (comm) state ...` — comm may contain spaces/parens, so
+        # anchor on the LAST ')'; the state char is two bytes after it.
+        i = data.rfind(b")")
+        state = data[i + 2:i + 3]
+        return state not in (b"Z", b"X", b"x")
+    except (OSError, ValueError):
+        return False  # no /proc entry → truly gone
 
 
 def _run_active() -> bool:
@@ -942,6 +952,17 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
         if path == "/healthz":
             return self._send(200, json.dumps({"ok": True}))
+        # Panel-prefixed GETs (/<slug>/api/..., /<slug>/x.json) route to the
+        # panel's OWN backing service and MUST win before the build-console
+        # suffix handlers below — endswith('/api/run/status') would otherwise
+        # greedily hijack /flash/api/run/status to THIS build console, so the
+        # flash panel saw the build's status (never running), never re-attached
+        # to its own live job, and left the Flash button armed → dead-end 409.
+        # _proxy streams no-Content-Length responses, so /flash/api/run/attach
+        # follows live through the hub. Mirrors do_POST's _panel_prefixed gate.
+        pp_port, pp_path = _panel_prefixed(path)
+        if pp_port is not None:
+            return self._proxy(pp_port, pp_path)
         # Background-run status + re-attach (survive page navigation). Suffix-
         # matched so they work whether served at / or /build-configurator/.
         if path.endswith("/api/run/status"):

@@ -292,11 +292,22 @@ def _status_write(d: dict) -> None:
 
 
 def _pid_alive(pid: int) -> bool:
+    """True only if pid names a LIVE, non-zombie process. A zombie (<defunct>)
+    still answers kill(pid, 0) but is a FINISHED job whose parent never wait()'d
+    it — e.g. the _run_waiter died when reload-run.py hot-reloaded this daemon.
+    Treating the zombie as alive would wedge the busy-gate at 'already running'
+    forever (the exact bug this endpoint exists to avoid), so read /proc state
+    and count Z/X as dead → the gate self-heals and the next flash is allowed."""
     try:
-        os.kill(pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+        with open(f"/proc/{pid}/stat", "rb") as f:
+            data = f.read()
+        # format: `pid (comm) state ...` — comm may contain spaces/parens, so
+        # anchor on the LAST ')'; the state char is two bytes after it.
+        i = data.rfind(b")")
+        state = data[i + 2:i + 3]
+        return state not in (b"Z", b"X", b"x")
+    except (OSError, ValueError):
+        return False  # no /proc entry → truly gone
 
 
 def _run_active() -> bool:
@@ -307,7 +318,10 @@ def _run_active() -> bool:
 
 def _run_waiter(proc, action: str) -> None:
     """Background waiter — outlives the request. Appends the exit footer to the
-    log + marks status done, then releases RUN_LOCK. One daemon thread per run."""
+    log + marks status done. One daemon thread per run. RUN_LOCK is NOT held
+    here — it only guards the brief start critical section; run liveness is the
+    status file (done + pid), so the busy-gate self-heals without a lock to
+    release (a crashed waiter can't wedge the panel)."""
     try:
         rc = proc.wait()
     finally:
@@ -319,10 +333,6 @@ def _run_waiter(proc, action: str) -> None:
         st = _status_read()
         st.update(done=True, exit_code=rc)
         _status_write(st)
-        try:
-            RUN_LOCK.release()
-        except RuntimeError:
-            pass
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -537,45 +547,49 @@ class Handler(BaseHTTPRequestHandler):
             elevation_note = ("  (look for the system password prompt on your "
                               "desktop — polkit/pkexec)\n")
 
-        # Serialise starts; the background waiter releases the lock when the job
-        # ends (so a job that outlives this request still holds it).
-        if not RUN_LOCK.acquire(blocking=False):
-            st = _status_read()
-            return self._send(409, json.dumps(
-                {"error": f"a flash job is already running: {st.get('action')}",
-                 "hint": "re-attach to it via GET /api/run/attach"}))
-        try:
-            env = dict(os.environ)
-            if action == "flash":
-                # gate 5 + 6 relocate from terminal → armed panel action
-                env["SOVEREIGN_OS_CONFIRM_DESTROY"] = "YES"
-                env["SOVEREIGN_OS_NONINTERACTIVE"] = "1"
-            FLASH_STATE_DIR.mkdir(parents=True, exist_ok=True)
-            verb = "PLAN" if action == "plan" else "FLASH"
-            # DETACHED: the job writes to a fresh log FILE (not this socket), so a
-            # client disconnect never orphans it — the panel re-attaches via
-            # /api/run/attach. start_new_session outlives this daemon too.
-            logf = open(FLASH_LOG, "wb", buffering=0)
-            logf.write(f"▶ {verb} · {Path(image_abs).name} → {device}\n"
-                       f"{elevation_note}\n".encode())
-            proc = subprocess.Popen(
-                argv, cwd=REPO, env=env, stdout=logf,
-                stderr=subprocess.STDOUT, start_new_session=True)
-            logf.close()   # the child holds its own dup'd fd now
-        except OSError as e:
+        # Busy-gate on the STATUS FILE (pid alive + not done), NOT just the
+        # in-memory lock. RUN_LOCK now only serialises the brief start critical
+        # section; the run's liveness lives in the status file, which is the
+        # source of truth across a daemon restart (reload-run.py hot-reloads on
+        # edit — a fresh process has an unlocked RUN_LOCK yet the detached job
+        # is still writing) AND self-heals a job that already finished/died
+        # (its pid is gone → not busy → the next Flash is allowed instead of a
+        # permanent 'already running' dead-end).
+        with RUN_LOCK:
+            if _run_active():
+                st = _status_read()
+                return self._send(409, json.dumps(
+                    {"error": f"a flash job is already running: {st.get('action')}",
+                     "hint": "re-attach to it via GET /api/run/attach"}))
             try:
-                RUN_LOCK.release()
-            except RuntimeError:
-                pass
-            return self._send(500, json.dumps(
-                {"error": f"failed to start flash job: {e}"}))
-        _status_write({"pid": proc.pid, "action": action, "device": device,
-                       "image": Path(image_abs).name, "done": False,
-                       "exit_code": None})
-        threading.Thread(target=_run_waiter, args=(proc, action),
-                         daemon=True).start()
-        # Stream THIS client from the top of the fresh log (replay + follow); a
-        # disconnect just ends this stream, the detached job keeps writing.
+                env = dict(os.environ)
+                if action == "flash":
+                    # gate 5 + 6 relocate from terminal → armed panel action
+                    env["SOVEREIGN_OS_CONFIRM_DESTROY"] = "YES"
+                    env["SOVEREIGN_OS_NONINTERACTIVE"] = "1"
+                FLASH_STATE_DIR.mkdir(parents=True, exist_ok=True)
+                verb = "PLAN" if action == "plan" else "FLASH"
+                # DETACHED: the job writes to a fresh log FILE (not this socket),
+                # so a client disconnect never orphans it — the panel re-attaches
+                # via /api/run/attach. start_new_session outlives this daemon too.
+                logf = open(FLASH_LOG, "wb", buffering=0)
+                logf.write(f"▶ {verb} · {Path(image_abs).name} → {device}\n"
+                           f"{elevation_note}\n".encode())
+                proc = subprocess.Popen(
+                    argv, cwd=REPO, env=env, stdout=logf,
+                    stderr=subprocess.STDOUT, start_new_session=True)
+                logf.close()   # the child holds its own dup'd fd now
+            except OSError as e:
+                return self._send(500, json.dumps(
+                    {"error": f"failed to start flash job: {e}"}))
+            _status_write({"pid": proc.pid, "action": action, "device": device,
+                           "image": Path(image_abs).name, "done": False,
+                           "exit_code": None})
+            threading.Thread(target=_run_waiter, args=(proc, action),
+                             daemon=True).start()
+        # Lock released (start done). Stream THIS client from the top of the
+        # fresh log (replay + follow); a disconnect just ends this stream, the
+        # detached job keeps writing.
         self._stream_log(0)
 
 

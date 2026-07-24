@@ -2810,6 +2810,13 @@ async function runAction(action) {
       body: JSON.stringify({ action, image, device }),
     });
     if (!r.ok) {
+      if (r.status === 409) {
+        // A flash/plan is already running — don't dead-end; re-attach to it and
+        // show its live output (attachRunning also disables the buttons).
+        el("run-status").textContent = "already running — re-attaching…";
+        el("run-status").className = "status warn";
+        return attachRunning();
+      }
       let j = {}; try { j = await r.json(); } catch (e) {}
       log.textContent = "✗ " + (j.error || r.status) + (j.detail ? "\n  " + j.detail : "") + (j.fix || j.hint ? "\n  → " + (j.fix || j.hint) : "");
       el("run-status").textContent = "refused"; el("run-status").className = "status bad";
