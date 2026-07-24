@@ -81,6 +81,26 @@ def build_routes() -> dict[str, dict]:
             "panel-API route collisions (a prefix maps to two ports):\n  "
             + "\n  ".join(collisions)
         )
+    # A panel-API that serves its DATA at /<slug>.json but exposes only hub-local
+    # prefixes (/api/run, /api/cancel — e.g. flash-api) yields NO route above, so
+    # its /<slug>.json is unreachable through the :8100 hub (the panel "doesn't
+    # see the build"). Give each still-unrouted api a slug route (/api/<slug> →
+    # its port) so the hub's /<slug>.json proxy can resolve the port. Additive +
+    # non-colliding: only apis with no literal-derived route, only if the slug
+    # prefix isn't already taken.
+    routed_apis = {r["api"] for r in routes.values()}
+    for f in _api_files():
+        service = f"sovereign-{f.stem}"
+        if service in routed_apis:
+            continue
+        m = _PORT_RE.search(f.read_text(encoding="utf-8"))
+        if not m:
+            continue
+        slug = f.stem[:-4] if f.stem.endswith("-api") else f.stem  # "flash-api" -> "flash"
+        prefix = f"/api/{slug}"
+        if prefix in HUB_LOCAL_PREFIXES or prefix in SPECIAL_PREFIXES or prefix in routes:
+            continue
+        routes[prefix] = {"port": int(m.group(1)), "api": service}
     return routes
 
 

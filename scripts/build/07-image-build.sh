@@ -28,7 +28,20 @@ if [ -f "${env_debs}" ]; then
   . "${env_debs}"
 fi
 
-inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}")"
+# Signature of the repo working tree baked into the image (mkosi.extra →
+# /opt/sovereign-os). Step 05 re-stages it; step 07 must ALSO re-run to actually
+# rebuild the image, or an edited baked file (hooks/units/scripts) never reaches
+# the .raw. Git-based + gitignore-aware (ignores build/ + target/); 'nogit' for a
+# non-git tarball build (operator falls back to `orchestrate.sh rewind`).
+# safe.directory: build runs as root over the operator-owned repo (see step 05).
+_gitr() { git -c safe.directory="${SOVEREIGN_OS_ROOT}" -C "${SOVEREIGN_OS_ROOT}" "$@" 2>/dev/null; }
+repo_sig="nogit"
+if command -v git >/dev/null 2>&1 && _gitr rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  repo_sig="$( { _gitr rev-parse HEAD; _gitr status --porcelain; _gitr diff HEAD; } \
+               | sha256sum | cut -d' ' -f1)"
+fi
+inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" \
+  "repo_sig=${repo_sig}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"

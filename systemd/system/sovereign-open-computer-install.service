@@ -15,7 +15,7 @@ EnvironmentFile=-/etc/sovereign-os/active-profile.env
 # downloads the ~3GB base image (resumable), renders the LLM preconfig → the local
 # endpoint, stages the runtime unit installed-off. Best-effort + resumable: no network
 # / apt / npm / git each skip cleanly. Re-run: sovereign-osctl open-computer install.
-ExecStart=/opt/sovereign-os/scripts/hooks/post-install/open-computer-install.sh
+ExecStart=-/opt/sovereign-os/scripts/hooks/post-install/open-computer-install.sh
 StandardOutput=journal
 StandardError=journal
 # A ~3GB base-image pull + a repo build can take a long time — don't time it out.

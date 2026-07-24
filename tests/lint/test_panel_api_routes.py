@@ -108,5 +108,7 @@ def test_hub_do_post_proxies_non_local_api_routes():
     assert re.search(r'_proxy\([^\n]*"POST"', body), (
         "do_POST no longer forwards POST bodies to the backing API"
     )
-    # and _proxy forwards a body + method (POST support present)
-    assert "method: str = \"GET\"" in body and "data=body if method" in body
+    # and _proxy forwards a body + method (POST support present). The proxy uses
+    # http.client (streams no-Content-Length responses like the emulate console),
+    # so the body is passed as `body=` to conn.request, not urllib's `data=`.
+    assert "method: str = \"GET\"" in body and "body=body if method" in body

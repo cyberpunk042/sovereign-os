@@ -875,6 +875,24 @@ def _route_and_path(path: str) -> tuple[int | None, str]:
         if hit is not None:
             return hit, tail
     return None, path
+
+
+def _panel_prefixed(path: str) -> tuple[int | None, str]:
+    """A panel webapp served at /<slug>/ makes RELATIVE calls that arrive here
+    prefixed: /<slug>/api/... (lifecycle) and /<slug>/<x>.json (data). Route those
+    to the panel's OWN backing port. This is essential for the console panels
+    (flash/emulate) whose lifecycle endpoint is POST /api/run — which collides
+    with the hub's OWN build /api/run. Without this the flash panel's Plan/Flash
+    buttons hit the build console and 'do nothing'. Static assets (/<slug>/ ,
+    /<slug>/app.js) return (None, path) and fall through to webapp serving."""
+    parts = path.lstrip("/").split("/", 1)
+    if len(parts) == 2:
+        slug, rest = parts[0], "/" + parts[1]
+        if rest.startswith("/api/") or rest.endswith(".json"):
+            port = DEV_GATEWAY_ROUTES.get("/api/" + slug)
+            if port is not None:
+                return port, rest
+    return None, path
 # Exact paths the master-dashboard expects on ITS origin (it is designed
 # to be served by master-dashboard-api at :8090). NOTE: this deliberately
 # shadows this server's own /version — the cockpit's registry identity
@@ -1061,7 +1079,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         try:
             while True:
-                chunk = r.read(4096)
+                # read1() returns whatever is available in ONE underlying recv —
+                # DON'T use read(n), which blocks until it has a full n bytes. On a
+                # live-follow console that trickles (a login prompt, pauses between
+                # first-boot one-shots), read(4096) stalls at the last 4 KB boundary
+                # and the browser freezes mid-boot ('stuck at the same place'),
+                # while the VM keeps going. read1 forwards each byte as it arrives.
+                chunk = r.read1(65536)
                 if not chunk:
                     break
                 self.wfile.write(chunk)
@@ -1080,6 +1104,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0].rstrip("/")
+        # A panel served at /<slug>/ POSTs relative './api/...' → /<slug>/api/... .
+        # Route it to THAT panel's backing API BEFORE the hub's own /api/run|cancel
+        # (build-console) handling — flash-api's POST /api/run is a FLASH job, not a
+        # build (they collide on the bare prefix). Bare /api/run + the hub's own
+        # /build-configurator/api/run fall through to the build handler below.
+        pp_port, pp_path = _panel_prefixed(path)
+        if pp_port is not None:
+            reject = _guard.guard(self.headers, self.client_address[0],
+                                  require_json=False)
+            if reject:
+                return self._send(reject[0], json.dumps({"error": reject[1]}))
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                n = 0
+            raw = self.rfile.read(n) if n else b""
+            return self._proxy(pp_port, pp_path, "POST", raw,
+                               self.headers.get("Content-Type"))
         # The hub serves this page at BOTH / and /build-configurator/ (as a
         # sibling panel), so the Run console's relative POST can arrive prefixed
         # (/build-configurator/api/run). Match the endpoint by SUFFIX so it

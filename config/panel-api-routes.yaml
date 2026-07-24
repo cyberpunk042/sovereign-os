@@ -9,8 +9,15 @@ schema_version: "1.0.0"
 
 routes:
   - {prefix: "/api/adapters", port: 8107, api: sovereign-adapters-api}
+  - {prefix: "/api/anti-min", port: 8098, api: sovereign-anti-min-api}
   - {prefix: "/api/approvals", port: 8110, api: sovereign-approvals-api}
+  - {prefix: "/api/auditor", port: 8103, api: sovereign-auditor-api}
+  - {prefix: "/api/auth-tier", port: 8091, api: sovereign-auth-tier-api}
+  - {prefix: "/api/brain", port: 8141, api: sovereign-brain-api}
+  - {prefix: "/api/chromofold", port: 8147, api: sovereign-chromofold-api}
+  - {prefix: "/api/cockpit-bridge", port: 8137, api: sovereign-cockpit-bridge-api}
   - {prefix: "/api/code-console", port: 8140, api: sovereign-code-console-api}
+  - {prefix: "/api/compliance", port: 8097, api: sovereign-compliance-api}
   - {prefix: "/api/control", port: 8130, api: sovereign-control-exec-api}
   - {prefix: "/api/costs", port: 8106, api: sovereign-costs-api}
   - {prefix: "/api/cpu-features", port: 8124, api: sovereign-cpu-features-api}
@@ -29,21 +36,34 @@ routes:
   - {prefix: "/api/d-27", port: 8144, api: sovereign-guardian-api}
   - {prefix: "/api/d-28", port: 8145, api: sovereign-perimeter-api}
   - {prefix: "/api/d-29", port: 8146, api: sovereign-scheduler-api}
+  - {prefix: "/api/doc-coverage", port: 8099, api: sovereign-doc-coverage-api}
   - {prefix: "/api/emulate", port: 8127, api: sovereign-emulate-api}
   - {prefix: "/api/evals", port: 8108, api: sovereign-evals-api}
   - {prefix: "/api/feature-test", port: 8135, api: sovereign-feature-test-lab-api}
+  - {prefix: "/api/flash", port: 8126, api: sovereign-flash-api}
   - {prefix: "/api/four-watchdog", port: 7712, api: sovereign-four-watchdog-api}
+  - {prefix: "/api/global-history", port: 8094, api: sovereign-global-history-api}
   - {prefix: "/api/hardware", port: 8131, api: sovereign-hardware-pressure-api}
+  - {prefix: "/api/jobs", port: 8142, api: sovereign-jobs-api}
   - {prefix: "/api/lm-orchestration", port: 8129, api: sovereign-lm-orchestration-api}
   - {prefix: "/api/lm-status", port: 8122, api: sovereign-lm-status-operability-api}
   - {prefix: "/api/m060", port: 8160, api: sovereign-m060-health-api}
+  - {prefix: "/api/master-dashboard", port: 8090, api: sovereign-master-dashboard-api}
   - {prefix: "/api/models", port: 8104, api: sovereign-model-health-api}
   - {prefix: "/api/models-catalog", port: 8123, api: sovereign-models-catalog-api}
   - {prefix: "/api/ms022", port: 7711, api: sovereign-ms022-sse-quota-api}
   - {prefix: "/api/operator-key", port: 8110, api: sovereign-approvals-api}
   - {prefix: "/api/profile", port: 8117, api: sovereign-profile-mirror-api}
+  - {prefix: "/api/router", port: 8096, api: sovereign-router-api}
   - {prefix: "/api/runtime-modes", port: 7713, api: sovereign-runtime-modes-api}
+  - {prefix: "/api/science", port: 8134, api: sovereign-science-api}
   - {prefix: "/api/selfdef-management", port: 8125, api: sovereign-selfdef-management-api}
   - {prefix: "/api/sessions", port: 8109, api: sovereign-sessions-api}
+  - {prefix: "/api/surface-map", port: 8101, api: sovereign-surface-map-api}
   - {prefix: "/api/token-law-coverage", port: 8148, api: sovereign-token-law-coverage-api}
   - {prefix: "/api/traces", port: 8105, api: sovereign-traces-api}
+  - {prefix: "/api/trinity", port: 8095, api: sovereign-trinity-api}
+  - {prefix: "/api/ups", port: 8128, api: sovereign-ups-api}
+  - {prefix: "/api/ux-design-audit", port: 8132, api: sovereign-ux-design-audit-api}
+  - {prefix: "/api/warp", port: 8138, api: sovereign-warp-api}
+  - {prefix: "/api/weaver", port: 8102, api: sovereign-weaver-api}

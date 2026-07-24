@@ -15,7 +15,7 @@ EnvironmentFile=-/etc/sovereign-os/active-profile.env
 # `npm install -g openclaw`, renders the preconfig → the local endpoint, stages the
 # runtime unit installed-off. Best-effort + resumable: no network / npm / a too-old
 # Node each skip cleanly (never bricks first boot). Re-run: sovereign-osctl openclaw install.
-ExecStart=/opt/sovereign-os/scripts/hooks/post-install/openclaw-install.sh
+ExecStart=-/opt/sovereign-os/scripts/hooks/post-install/openclaw-install.sh
 StandardOutput=journal
 StandardError=journal
 # npm-global + NodeSource apt can take a while on a slow link — don't time it out.

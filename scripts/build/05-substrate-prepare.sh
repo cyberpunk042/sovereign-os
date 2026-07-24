@@ -31,15 +31,37 @@ emit_substrate_metric() {
 # the 2026-06-12 Run-console build failed on main-only apt AFTER the
 # repos fix landed, because step 05 skipped itself.
 adapter_for_hash="${__SCRIPT_DIR}/adapters/${SOVEREIGN_OS_SUBSTRATE}-emit.sh"
+# Signature of the repo working tree that gets BAKED into the image (mkosi-emit
+# rsyncs it into mkosi.extra → /opt/sovereign-os). WITHOUT this, editing a baked
+# file (first-boot hooks, systemd units, scripts, configs) changes no hashed
+# input, so 05 + 07 skip and the 'rebuild' silently reuses the stale image
+# ('rebuild did nothing'). Git-based (HEAD + uncommitted tracked diff +
+# staged/untracked list) — fast, and naturally ignores gitignored build/ +
+# target/, matching the bake excludes. 'nogit' when not a git checkout (a
+# tarball build), where the operator falls back to `orchestrate.sh rewind`.
+# safe.directory: the build runs as root (sudo) but the repo is operator-owned,
+# so plain git aborts with 'dubious ownership' → sig would silently be 'nogit'.
+_gitr() { git -c safe.directory="${SOVEREIGN_OS_ROOT}" -C "${SOVEREIGN_OS_ROOT}" "$@" 2>/dev/null; }
+repo_sig="nogit"
+if command -v git >/dev/null 2>&1 && _gitr rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  repo_sig="$( { _gitr rev-parse HEAD; _gitr status --porcelain; _gitr diff HEAD; } \
+               | sha256sum | cut -d' ' -f1)"
+fi
+# Resolve the signing key the SAME way mkosi-emit does (env override, else the
+# SDD-015 default /etc/sovereign-os/keys) so a panel build (env set) and a CLI
+# build (auto-discovered) produce the SAME hash instead of spuriously rebuilding.
+sb_key_hash="${SOVEREIGN_OS_PK_KEY:-${SOVEREIGN_OS_MOK_KEY:-}}"
+[ -z "${sb_key_hash}" ] && [ -f /etc/sovereign-os/keys/mok.key ] && sb_key_hash="/etc/sovereign-os/keys/mok.key"
 inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" \
   "${adapter_for_hash}" \
   "snapshot=${DEBIAN_SNAPSHOT:-}" \
   "epoch=${SOURCE_DATE_EPOCH:-}" \
-  "sb_key=${SOVEREIGN_OS_PK_KEY:-${SOVEREIGN_OS_MOK_KEY:-}}" \
+  "sb_key=${sb_key_hash}" \
   "root_pw=$([ -n "${SOVEREIGN_OS_ROOT_PASSWORD:-}" ] && echo set || echo unset)" \
   "bake_dev=${SOVEREIGN_OS_BAKE_DEV_TOOLS:-}" \
   "bake_selfdef=${SOVEREIGN_OS_BAKE_SELFDEF:-}" \
-  "node_major=${SOVEREIGN_OS_NODE_MAJOR:-22}")"
+  "node_major=${SOVEREIGN_OS_NODE_MAJOR:-22}" \
+  "repo_sig=${repo_sig}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"

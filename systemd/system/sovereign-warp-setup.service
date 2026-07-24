@@ -11,7 +11,7 @@ PartOf=sovereign-firstboot.target
 Type=oneshot
 RemainAfterExit=yes
 EnvironmentFile=-/etc/sovereign-os/active-profile.env
-ExecStart=/opt/sovereign-os/scripts/hooks/post-install/warp-setup.sh
+ExecStart=-/opt/sovereign-os/scripts/hooks/post-install/warp-setup.sh
 StandardOutput=journal
 StandardError=journal
 # R171 defense-in-depth. pip writes the warp-lang wheel into the system
