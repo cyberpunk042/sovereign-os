@@ -77,11 +77,20 @@ def test_daemon_sample_scenario_covers_the_five_canonical_layers():
     assert len(m.SAMPLE_VOCAB) >= 8
 
 
-def test_daemon_serves_the_read_only_routes():
+def test_daemon_serves_the_read_compute_routes():
     src = DAEMON.read_text(encoding="utf-8")
     assert "/api/token-law-coverage/coverage" in src
     assert "/v1/data-plane/token-law/fuse" in src, "coverage derives from the fuse route"
-    assert "do_POST" in src and "405" in src, "the daemon is read-only (405 on writes)"
+    # SDD-525: the POST is a custom-scenario READ-COMPUTE (the operator supplies
+    # {vocab, layers}; the daemon runs the SAME non-mutating fuse route). It writes
+    # NO server state — R10212-consistent — so it is a read-compute, not a mutation.
+    assert "def do_POST" in src
+    assert "compute_coverage(vocab, specs)" in src, "POST must compute custom-scenario coverage"
+    assert "read-compute" in src.lower(), "the POST's non-mutating framing must be documented"
+    # still no genuinely-mutating verbs on this loopback daemon
+    assert "do_PUT" not in src and "do_DELETE" not in src
+    # bad input is refused (400), not silently served
+    assert "400" in src
 
 
 def _free_port():

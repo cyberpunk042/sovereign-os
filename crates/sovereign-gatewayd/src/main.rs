@@ -700,11 +700,23 @@ fn handle_http_conn(server: &GatewayServer, stream: TcpStream) -> std::io::Resul
     if method == "POST" && route == "/v1/chat/completions" {
         return stream_chat_completions(server, &mut writer, &body);
     }
-    // Anthropic Messages API: stream as SSE when the client asks; otherwise fall
+    // Anthropic Messages API: server-side agentic tool use (SDD-712 parity) when
+    // opted in + enabled; else stream as SSE when the client asks; otherwise fall
     // through to the non-streaming JSON path in http::respond.
     if method == "POST" && route == "/v1/messages" {
-        let wants_stream = serde_json::from_str::<serde_json::Value>(&body)
-            .ok()
+        let parsed = serde_json::from_str::<serde_json::Value>(&body).ok();
+        if let Some(req) = &parsed {
+            if req
+                .get("sovereign_agentic")
+                .and_then(serde_json::Value::as_bool)
+                == Some(true)
+                && agentic::agentic_enabled()
+            {
+                return agentic_anthropic_message(server, &mut writer, req);
+            }
+        }
+        let wants_stream = parsed
+            .as_ref()
             .and_then(|v| v.get("stream").and_then(serde_json::Value::as_bool))
             .unwrap_or(false);
         if wants_stream {
@@ -764,6 +776,29 @@ fn stream_anthropic_messages(
             );
         }
     };
+    // SDD-524 (piece 4): the STREAMING /v1/messages path now honors `token_law`
+    // too — the constrained decode the non-streaming path already ran (SDD-512),
+    // now applied per step to the live stream. Absent ⇒ unconstrained
+    // (byte-identical). Redaction is unaffected: the output-safety `StreamGuard`
+    // inside `generate_chat_with_sampler_law` wraps the constrained + static paths
+    // identically, so streamed output stays secret/PII-safe either way.
+    let token_law: Option<sovereign_gatewayd::ServingTokenLaw> = match req.get("token_law") {
+        Some(v) => match serde_json::from_value::<sovereign_gatewayd::ServingTokenLaw>(v.clone()) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                return write_http(
+                    writer,
+                    &http::anthropic_err(
+                        400,
+                        "invalid_request_error",
+                        format!("invalid token_law constraint: {e}"),
+                    ),
+                );
+            }
+        },
+        None => None,
+    };
+    let law_active = token_law.as_ref().filter(|s| !s.is_unconstrained());
     let requested = req
         .get("model")
         .and_then(|m| m.as_str())
@@ -777,6 +812,23 @@ fn stream_anthropic_messages(
     // transcode its SSE into the Anthropic event sequence, rather than substituting
     // the primary's stream for the requested proxy model.
     if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
+        // SDD-512: token-law can only bite where the box holds the logits. A
+        // proxy backend generates out-of-process, so a law-carrying request is
+        // refused rather than forwarded and silently served unconstrained.
+        if law_active.is_some() {
+            return write_http(
+                writer,
+                &http::anthropic_err(
+                    422,
+                    "invalid_request_error",
+                    format!(
+                        "token_law constraints cannot be enforced on proxy-backed model \
+                         `{model}` (generates out-of-process — no logit access); route to a \
+                         local model or omit token_law"
+                    ),
+                ),
+            );
+        }
         return stream_proxy_message(writer, &endpoint, &dialect, &model, &req, body);
     }
     if !server.has_generator() {
@@ -827,8 +879,10 @@ fn stream_anthropic_messages(
 
     // Anthropic sampling parity (F-2026-086 / F-2026-088): honor temperature /
     // top_p / top_k (absent ⇒ greedy, byte-identical to the prior plain
-    // generate_chat). The token-law stays OFF on this streaming path (law = None)
-    // — streaming-constrained /v1/messages is SDD-512's deferred item. `stop_sequences`
+    // generate_chat). The token-law (`law_active`, SDD-524 piece 4) now applies to
+    // the streamed decode too — SDD-512's previously-deferred streaming-constrained
+    // path, closed now that the output-safety StreamGuard is confirmed to wrap the
+    // constrained + static paths identically inside the generator. `stop_sequences`
     // ends the stream at the earliest match via a StreamStop scanner (as the
     // OpenAI SSE path does) and drives the final message_delta stop_reason.
     let sampler = http::extract_anthropic_sampler(&req);
@@ -843,7 +897,7 @@ fn stream_anthropic_messages(
         &prompt,
         max_new,
         sampler,
-        None,
+        law_active,
         &[],
         |chunk| {
             if io_err.is_some() || scan.is_stopped() {
@@ -1930,6 +1984,84 @@ fn agentic_chat_completion(
     Ok(())
 }
 
+/// SDD-712 parity (F-2026-088): server-side agentic tool use on the **Anthropic**
+/// `/v1/messages` surface — the same ReAct loop the OpenAI shim runs, shaped as a
+/// non-streaming Anthropic `message`. Gated identically (per-request
+/// `sovereign_agentic:true` + the daemon's `SOVEREIGN_GATEWAY_AGENTIC=1` env,
+/// default OFF). The loop runs on the LOCAL model over the built-in pure tools
+/// (no logit access on a proxy — a proxy-backed model is refused, honestly), and
+/// its final answer is returned buffered (the loop is inherently non-streaming).
+fn agentic_anthropic_message(
+    server: &GatewayServer,
+    writer: &mut TcpStream,
+    req: &serde_json::Value,
+) -> std::io::Result<()> {
+    let requested = req
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("sovereign-local")
+        .to_string();
+    let model = server.expand_alias(Some(&requested)).unwrap_or(requested);
+    // Agentic runs the loop on the local model; a proxy backend has no in-process
+    // logits/generation, so refuse rather than silently ignore the opt-in.
+    if server.resolve_proxy(&model).is_some() {
+        return write_http(
+            writer,
+            &http::anthropic_err(
+                422,
+                "invalid_request_error",
+                format!(
+                    "server-side agentic tool use needs a local model — `{model}` is \
+                     proxy-backed; route to a local model or omit sovereign_agentic"
+                ),
+            ),
+        );
+    }
+    if !server.has_generator() {
+        return write_http(
+            writer,
+            &http::anthropic_err(
+                503,
+                "api_error",
+                "no local model loaded — set SOVEREIGN_GATEWAY_MODEL to a model dir \
+                 (config.json + *.safetensors + tokenizer.json)"
+                    .to_string(),
+            ),
+        );
+    }
+    let prompt = server.rag_augment(&http::anthropic_prompt(req));
+    let max_new = http::anthropic_max_tokens(req);
+    let max_steps = req
+        .get("max_steps")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(agentic::DEFAULT_MAX_STEPS as u64)
+        .clamp(1, 16) as usize;
+    // Deterministic seed (mirrors agentic_chat_completion) — the daemon's decode
+    // is deterministic and the loop's repeat-guard breaks cycles.
+    let answer = agentic::run_agent(server, Some(&model), &prompt, max_new, max_steps, 0);
+    let msg = serde_json::json!({
+        "id": "msg_sovereign",
+        "type": "message",
+        "role": "assistant",
+        "model": model,
+        "content": [{ "type": "text", "text": answer }],
+        "stop_reason": "end_turn",
+        "stop_sequence": serde_json::Value::Null,
+        "usage": {
+            "input_tokens": http::approx_tokens(&prompt),
+            "output_tokens": http::approx_tokens(&answer),
+        },
+    });
+    write_http(
+        writer,
+        &http::HttpReply {
+            status: 200,
+            content_type: "application/json",
+            body: msg.to_string(),
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -1959,8 +2091,8 @@ mod tests {
             parse_response_format(&rf),
             Some(Schema::object([("ok".to_string(), Schema::Boolean)]))
         );
-        // json_schema with a schema the subset can't express (an optional prop) ⇒
-        // still enforce valid JSON (Schema::Any), never over-constrain.
+        // json_schema with an OPTIONAL property (b) ⇒ an ObjectOpt now enforces it
+        // (SDD-523): a is required, b optional, order pinned.
         let rf2 = serde_json::json!({
             "response_format": {"type": "json_schema", "json_schema": {"schema": {
                 "type": "object",
@@ -1968,7 +2100,13 @@ mod tests {
                 "required": ["a"],
             }}}
         });
-        assert_eq!(parse_response_format(&rf2), Some(Schema::Any));
+        assert_eq!(
+            parse_response_format(&rf2),
+            Some(Schema::ObjectOpt(vec![
+                ("a".to_string(), Schema::Integer, true),
+                ("b".to_string(), Schema::StringType, false),
+            ]))
+        );
         // json_schema with no `schema` field ⇒ Schema::Any.
         let rf3 = serde_json::json!({
             "response_format": {"type": "json_schema", "json_schema": {"name": "x"}}
