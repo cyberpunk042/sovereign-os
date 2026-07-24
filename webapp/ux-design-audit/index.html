@@ -580,7 +580,17 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   #so-settings-pane .so-set-h .g{color:var(--accent,#9bd1ff);}
   .so-set-row{display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .7rem;}
   .so-set-row .so-set-lbl{flex:1; min-width:0;} .so-set-row .so-set-lbl b{display:block; font-weight:600;}
-  .so-set-row .so-set-sub{display:block; color:var(--muted,#8a8a8a); font-size:.74rem; line-height:1.4; margin-top:.15rem;}
+  /* Sub-descriptions collapse to save vertical space — each setting's bold
+     label stays; the help text reveals on row hover (or keyboard focus-within)
+     after a ~220ms delay, so a quick pass over the pane doesn't flash every row
+     open (a pure-CSS hover-intent debounce). Kept in the DOM via max-height/
+     opacity (not display:none) so it stays reachable to screen readers and Tab.
+     On leave it collapses immediately (delay:0). */
+  .so-set-row .so-set-sub{display:block; color:var(--muted,#8a8a8a); font-size:.74rem; line-height:1.4;
+    max-height:0; opacity:0; margin-top:0; overflow:hidden;
+    transition:max-height .2s ease, opacity .2s ease, margin-top .2s ease; transition-delay:0s;}
+  .so-set-row:hover .so-set-sub, .so-set-row:focus-within .so-set-sub{max-height:12rem; opacity:1; margin-top:.15rem; transition-delay:.22s;}
+  @media (prefers-reduced-motion:reduce){ .so-set-row .so-set-sub{transition:none;} }
   .so-set-switch{flex-shrink:0; width:42px; height:24px; border-radius:999px; border:1px solid var(--border,#3a3a3a);
     background:var(--bg,#0c0c0c); position:relative; cursor:pointer; padding:0; transition:background .14s ease,border-color .14s ease; margin-top:.1rem;}
   .so-set-switch .knob{position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--muted,#8a8a8a); transition:left .14s ease,background .14s ease;}
