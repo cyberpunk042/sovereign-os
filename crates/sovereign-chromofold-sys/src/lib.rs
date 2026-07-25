@@ -692,6 +692,106 @@ pub unsafe fn fm_host_free(ix: *mut CfFmHostIndex) {
     unsafe { cf_fm_host_free(ix) }
 }
 
+/// A device-resident FM-index built from a `.cffm` blob, queried with plain host
+/// slices — the **safe** GPU search surface. It owns the opaque [`CfFmHostIndex`],
+/// frees it on drop, and no `unsafe` or device pointer crosses its API (the engine
+/// does all host↔device marshalling). Because [`sovereign-chromofold`] forbids
+/// `unsafe`, this safe RAII wrapper over the FFI lives here, the sanctioned carve-out.
+///
+/// Build once (P9 build ≠ query), then `count`/`ranges`/`locate` many times. Pattern
+/// symbols are token ids already shifted into the sentinel alphabet the backward
+/// search consumes (the same convention the `.cffm` fixtures store).
+#[cfg(feature = "linked")]
+pub struct HostFmIndex {
+    raw: *mut CfFmHostIndex,
+}
+
+#[cfg(feature = "linked")]
+impl HostFmIndex {
+    /// Build a device-resident FM-index from a `.cffm` container blob.
+    pub fn load(cffm: &[u8]) -> Result<Self, CfStatus> {
+        let mut raw: *mut CfFmHostIndex = core::ptr::null_mut();
+        // Safety: `cffm` is a valid slice; `&mut raw` is a valid out-pointer.
+        let st = unsafe { fm_host_load(cffm.as_ptr(), cffm.len(), &mut raw) };
+        match st {
+            CfStatus::Ok if !raw.is_null() => Ok(Self { raw }),
+            CfStatus::Ok => Err(CfStatus::Cuda), // Ok but null handle: treat as engine failure, never fabricate
+            other => Err(other),
+        }
+    }
+
+    /// Count occurrences of each pattern (flattened `pat`, per-pattern `pstart`/`plen`).
+    /// One count per pattern; `pstart`/`plen` must be equal length.
+    pub fn count(&self, pat: &[i32], pstart: &[i32], plen: &[i32]) -> Result<Vec<u32>, CfStatus> {
+        if pstart.len() != plen.len() {
+            return Err(CfStatus::InvalidArgument);
+        }
+        let npat = pstart.len();
+        let mut out = vec![0u32; npat];
+        // Safety: live handle; every slice outlives the synchronous call.
+        let st = unsafe {
+            fm_host_count(
+                self.raw,
+                pat.as_ptr(),
+                pstart.as_ptr(),
+                plen.as_ptr(),
+                npat as u32,
+                out.as_mut_ptr(),
+            )
+        };
+        if st == CfStatus::Ok { Ok(out) } else { Err(st) }
+    }
+
+    /// Suffix-array `[lo, hi)` interval per pattern (occurrences = `hi - lo`).
+    pub fn ranges(
+        &self,
+        pat: &[i32],
+        pstart: &[i32],
+        plen: &[i32],
+    ) -> Result<(Vec<i32>, Vec<i32>), CfStatus> {
+        if pstart.len() != plen.len() {
+            return Err(CfStatus::InvalidArgument);
+        }
+        let npat = pstart.len();
+        let mut lo = vec![0i32; npat];
+        let mut hi = vec![0i32; npat];
+        // Safety: live handle; slices outlive the call.
+        let st = unsafe {
+            fm_host_ranges(
+                self.raw,
+                pat.as_ptr(),
+                pstart.as_ptr(),
+                plen.as_ptr(),
+                npat as u32,
+                lo.as_mut_ptr(),
+                hi.as_mut_ptr(),
+            )
+        };
+        if st == CfStatus::Ok {
+            Ok((lo, hi))
+        } else {
+            Err(st)
+        }
+    }
+
+    /// Text position of each suffix-array row index in `rows`.
+    pub fn locate(&self, rows: &[i32]) -> Result<Vec<i32>, CfStatus> {
+        let mut out = vec![0i32; rows.len()];
+        // Safety: live handle; slices outlive the call.
+        let st =
+            unsafe { fm_host_locate(self.raw, rows.as_ptr(), rows.len() as u32, out.as_mut_ptr()) };
+        if st == CfStatus::Ok { Ok(out) } else { Err(st) }
+    }
+}
+
+#[cfg(feature = "linked")]
+impl Drop for HostFmIndex {
+    fn drop(&mut self) {
+        // Safety: `raw` came from a successful `fm_host_load` and is freed exactly once.
+        unsafe { fm_host_free(self.raw) };
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
