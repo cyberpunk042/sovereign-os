@@ -217,6 +217,18 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       exit 0
     fi
     require_command lb
+    # live-build has TWO stages: `lb config` materializes the config tree (runs
+    # config/auto/config), then `lb build` bootstraps + builds. Running only
+    # `lb build` fails at the chroot stage ("the following stage is required to
+    # be done first: config"). The adapter emits config/auto/config; run it now.
+    log_info "running 'lb config' in ${SOVEREIGN_OS_BUILD_OUT}"
+    if ! lb config 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-config-${SOVEREIGN_OS_BUILD_ID}.log"; then
+      rc=${PIPESTATUS[0]}
+      log_error "lb config failed (rc=${rc})"
+      emit_build_metric fail
+      state_step_fail "${STEP_ID}" "lb-config-failed-${rc}"
+      exit 1
+    fi
     log_info "running 'lb build' in ${SOVEREIGN_OS_BUILD_OUT}"
     if lb build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"; then
       emit_build_metric success

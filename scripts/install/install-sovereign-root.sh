@@ -86,11 +86,22 @@ KDIR=""
 for cand in "${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}" /mnt/kernel_forge /mnt/kernel_forge/linux-stable/..; do
   [ -n "$cand" ] && ls "$cand"/linux-image-6.12.0_*.deb >/dev/null 2>&1 && { KDIR="$cand"; break; }
 done
-[ -n "$KDIR" ] || { red "ABORT: can't find linux-image-6.12.0_*.deb (set SOVEREIGN_OS_KERNEL_DEBS_DIR)"; exit 1; }
-KIMG=$(printf '%s\n' "$KDIR"/linux-image-6.12.0_*.deb | grep -v dbg | sort -V | tail -1)
-KHDR=$(ls -1 "$KDIR"/linux-headers-6.12.0_*.deb 2>/dev/null | sort -V | tail -1 || true)
-info "kernel image  : ${KIMG}"
-info "kernel headers: ${KHDR:-none found; DKMS cannot build modules later without them}"
+# Custom znver5 kernel if built; otherwise FALL BACK to the stock Debian kernel
+# so the install still produces a bootable, working system (the custom kernel is
+# a perf optimization, not a prerequisite). Rebuild it (orchestrate.sh 02-04) and
+# re-run install to switch to znver5. Overridable: SOVEREIGN_OS_STOCK_KERNEL=1.
+if [ -n "$KDIR" ] && [ "${SOVEREIGN_OS_STOCK_KERNEL:-0}" != "1" ]; then
+  CUSTOM_KERNEL=1
+  KIMG=$(printf '%s\n' "$KDIR"/linux-image-6.12.0_*.deb | grep -v dbg | sort -V | tail -1)
+  KHDR=$(ls -1 "$KDIR"/linux-headers-6.12.0_*.deb 2>/dev/null | sort -V | tail -1 || true)
+  info "custom kernel image  : ${KIMG}"
+  info "custom kernel headers: ${KHDR:-none found; DKMS cannot build modules later without them}"
+else
+  CUSTOM_KERNEL=0
+  KIMG=""; KHDR=""
+  red "custom kernel .debs not found — falling back to the STOCK Debian kernel (linux-image-amd64)."
+  red "  the box boots + works; build the znver5 kernel (orchestrate.sh 02-04) + re-run install to switch."
+fi
 
 command -v debootstrap >/dev/null || { info "installing debootstrap…"; apt-get install -y debootstrap; }
 
@@ -175,7 +186,13 @@ mount -o bind /dev/pts "${MNT}/dev/pts"
 mount -o bind /proc "${MNT}/proc"
 mount -o bind /sys  "${MNT}/sys"
 mount "${ESP_PART}" "${MNT}/boot/efi"
-cp "${KIMG}" "${MNT}/tmp/"; [ -n "${KHDR}" ] && cp "${KHDR}" "${MNT}/tmp/" || true
+if [ "${CUSTOM_KERNEL}" = 1 ]; then
+  cp "${KIMG}" "${MNT}/tmp/"; [ -n "${KHDR}" ] && cp "${KHDR}" "${MNT}/tmp/" || true
+  KERNEL_INSTALL_CMD="apt-get install -y /tmp/$(basename "${KIMG}") $( [ -n "${KHDR}" ] && echo /tmp/$(basename "${KHDR}") )"
+else
+  # stock Debian kernel (+ headers so DKMS can still build modules later)
+  KERNEL_INSTALL_CMD="apt-get install -y --no-install-recommends linux-image-amd64 linux-headers-amd64"
+fi
 cp /etc/resolv.conf "${MNT}/etc/resolv.conf"
 
 cat > "${MNT}/tmp/chroot-setup.sh" <<CHROOT
@@ -213,12 +230,10 @@ DHCP=yes
 NET
 systemctl enable systemd-networkd systemd-resolved
 
-# custom znver5 kernel (+ headers for DKMS). Emitted into chroot-setup.sh via the
-# UNQUOTED heredoc above: the outer shell expands the basename subshells at
-# write-time to bake the real filenames in, and the optional-header word-split is
-# intentional. Do NOT use a bash array here — the outer shell would expand it to
-# empty at write-time and install no kernel (leaving an unbootable image).
-apt-get install -y /tmp/$(basename "${KIMG}") $( [ -n "${KHDR}" ] && echo /tmp/$(basename "${KHDR}") )
+# kernel: custom znver5 .debs from /tmp if built, else the stock Debian kernel.
+# KERNEL_INSTALL_CMD is composed by the outer shell (unquoted heredoc) so the
+# real filenames / the stock fallback are baked in at write-time.
+${KERNEL_INSTALL_CMD}
 
 # answers mode: create root+user credentials in-chroot (empty in inherit mode,
 # where the accounts were already copied from the host).
