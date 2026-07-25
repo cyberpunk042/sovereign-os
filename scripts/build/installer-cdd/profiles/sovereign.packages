@@ -26,3 +26,5 @@ prometheus-node-exporter
 curl
 git
 nano
+# debian-cd's installtools step wants the installation guide present in the pool
+installation-guide-amd64

@@ -148,9 +148,13 @@ fi
 
 log "running build-simple-cdd (downloads the KDE mirror — long)…"
 cd "${WORK}"
-build-simple-cdd --dist "${DIST}" --profiles "${PROFILE}" \
+# --dvd: DISKTYPE=DVD. The KDE + custom-kernel + cockpit closure is ~1.7GB; a
+# default CD image (~700MB) placed only 620MB and spilled the rest (all the KDE
+# packages, the kernel, the cockpit) onto CD2/3 that we don't build → "missing
+# required packages from profile". A single DVD-sized image holds it all.
+build-simple-cdd --dvd --dist "${DIST}" --profiles "${PROFILE}" \
   --local-packages "${LOCAL_PKGS}" \
-  --conf "${WORK}/sovereign.conf" 2>&1 | tail -40
+  --conf "${WORK}/sovereign.conf" 2>&1 | tail -60
 
 _iso="$(ls -1 "${WORK}"/images/*.iso 2>/dev/null | head -1 || true)"
 if [ -n "${_iso}" ]; then
