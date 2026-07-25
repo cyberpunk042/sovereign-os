@@ -130,15 +130,20 @@ export custom_installer="${CI}"
 # NOT to pull the 32-bit UEFI files (installer-i386/.../cd_info_i386 → 404/missing).
 # The target is a 64-bit-UEFI znver5 box; 32-bit UEFI (Baytrail/old iMac) is moot.
 export DISABLE_UEFI_32=1
-# Localization baked into every boot entry (simple-cdd adds debian-installer/
-# locale + keyboard-configuration to KERNEL_PARAMS) so there's no language/keyboard
-# prompt. GUIDED install: we deliberately do NOT set auto=true/priority=critical,
-# and we do NOT redirect the console to serial — the installer must run ON THE
-# OPERATOR'S SCREEN (tty0, the default). d-i uses the preseed for defaults
-# (accounts, KDE + znver5 kernel + cockpit, the LVM recipe) but stops for the
-# operator to pick and confirm the target disk. (An earlier build forced
-# console=ttyS0 as the primary console for headless testing, which sent the whole
-# installer UI to the serial port — off-screen on real hardware, looking frozen.)
+# Localization baked into every boot entry (simple-cdd adds debian-installer/locale
+# + keyboard-configuration to the kernel line) so there's no language/keyboard
+# prompt — the install goes straight to the substantive steps.
+locale=en_US.UTF-8
+export locale
+keyboard=us
+export keyboard
+# GUIDED install: we deliberately do NOT set auto=true/priority=critical, and we do
+# NOT redirect the console to serial — the installer must run ON THE OPERATOR'S
+# SCREEN (tty0, the default). d-i uses the preseed for defaults (accounts, KDE +
+# znver5 kernel + cockpit, the LVM recipe) but stops for the operator to pick and
+# confirm the target disk. (An earlier build forced console=ttyS0 as the primary
+# console for headless testing, which sent the whole installer UI to the serial
+# port — off-screen on real hardware, looking frozen.)
 CONF
 # simple-cdd looks for <profile>.{preseed,packages,conf} in the profiles dir.
 cp "${HERE}/profiles/${PROFILE}.preseed"  "${WORK}/"
