@@ -156,7 +156,7 @@ The docs already promise these; they need owners/ordering, not rediscovery:
 5. SDD-019 apt-snapshot enforcement + `SOURCE_DATE_EPOCH` in step-04 + in-toto provenance.
 6. SDD-029 roadmap R257–R262 (XMP detection, wattage sampler, PSU OC toggle, KNOWN_BOARDS TOML, Z-14/Z-19 cards).
 7. SDD-046 Q-046-001..004; root Q-A..Q-D (mdbook deploy cadence/provider); Q4..Q25 series across SDD-003..025.
-8. Q-067-A..F app-shell questions incl. Q-067-F live-LLM assistant (network/trust tension) — now partially overtaken by the Brain/Code-Console work; reconcile.
+8. Q-067-A..F app-shell questions incl. Q-067-F live-LLM assistant (network/trust tension) — **reconciled closed 2026-07-25** (deferred-work-register item 10): A/B/C answered by the shipped app-shell chrome (catalog sidemenu · `so-sm-collapsed`+personalization-key · `#so-inbox-badge` roll-up), D/E by the Assistant gold-standard arc (SDD-200→202 across all 51 adopted panels incl. the audit panels), and F de-tensioned by the loopback-LLM arc (SDD-062/204/205 — a sovereignty-clean local LLM, no external path) with only its product decision surviving as the already-tracked SDD-202 Q-C.
 9. selfdef-cli-mirror + selfdef-tui-mirror surface integration; SG7/SG8 stage-gates beyond catalog (MASTER-PLAN).
 10. MS043 selfdef mirror-crate implementations marked "impl pending" (`context.md:203`) — verify against the M060 completion claim and close one way or the other.
 
