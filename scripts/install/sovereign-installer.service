@@ -1,0 +1,33 @@
+# sovereign-os installer autostart — LIVE MEDIUM ONLY.
+#
+# This unit is NOT part of the repo systemd fleet (systemd/system/). It is baked
+# into the live installer ISO by scripts/build/adapters/live-build-emit.sh
+# (installer artifact) into /etc/systemd/system/ and enabled there. It runs the
+# installer TUI on tty1 the first time the live medium boots. ConditionKernel-
+# CommandLine=boot=live means it only ever fires on the live medium, never on an
+# installed sovereign-os. It is deliberately UN-hardened (it partitions disks +
+# debootstraps a new root — it needs full privilege), which is why it must never
+# live under systemd/system/ where the fleet-hardening lint applies.
+[Unit]
+Description=sovereign-os installer (live medium)
+ConditionKernelCommandLine=boot=live
+After=systemd-networkd.service network-online.target getty@tty1.service
+Wants=network-online.target
+Conflicts=getty@tty1.service
+
+[Service]
+Type=idle
+ExecStart=/opt/sovereign-os/scripts/install/installer-tui.sh
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=journal+console
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Restart=no
+# On exit (done or cancelled) drop to an interactive shell on the tty so the
+# operator can inspect / retry rather than a blank console.
+ExecStopPost=/bin/bash -lc 'exec /bin/bash'
+
+[Install]
+WantedBy=multi-user.target

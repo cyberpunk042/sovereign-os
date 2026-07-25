@@ -61,6 +61,7 @@ inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FIL
   "bake_dev=${SOVEREIGN_OS_BAKE_DEV_TOOLS:-}" \
   "bake_selfdef=${SOVEREIGN_OS_BAKE_SELFDEF:-}" \
   "node_major=${SOVEREIGN_OS_NODE_MAJOR:-22}" \
+  "artifact=${SOVEREIGN_OS_ARTIFACT:-image}" \
   "repo_sig=${repo_sig}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then

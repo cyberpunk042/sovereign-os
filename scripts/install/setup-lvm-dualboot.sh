@@ -46,6 +46,13 @@ if [ "${ROOT_DISK}" = "${TARGET}" ]; then
   red "ABORT: ${TARGET} hosts the RUNNING root (${ROOT_SRC}). Never."
   exit 1
 fi
+# Never partition the disk we BOOTED from (installer USB / live medium). The
+# running-root gate above misses this when the live root is a squashfs, so the
+# installer-TUI passes the boot-medium disk explicitly.
+if [ -n "${SOVEREIGN_OS_FORBID_DISK:-}" ] && [ "${TARGET}" = "${SOVEREIGN_OS_FORBID_DISK}" ]; then
+  red "ABORT: ${TARGET} is the boot medium (SOVEREIGN_OS_FORBID_DISK) — refusing."
+  exit 1
+fi
 
 # refuse if the disk already carries partitions or a filesystem/PV signature
 if lsblk -no NAME "${TARGET}" | grep -q "$(basename "${TARGET}")p"; then

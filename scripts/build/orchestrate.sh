@@ -62,10 +62,18 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 : "${SOVEREIGN_OS_PROFILE:=sain-01}"
 : "${SOVEREIGN_OS_SUBSTRATE:=mkosi}"   # working hypothesis; Q-001 locks at Gate 2
+# Artifact shape: `image` (the whole-disk mkosi appliance, default) or `installer`
+# (a bootable live-build ISO that installs the mutable system onto an internal
+# disk). The installer artifact is always live-build (mkosi has no live/installer
+# format); force the substrate so `SOVEREIGN_OS_ARTIFACT=installer` alone works.
+: "${SOVEREIGN_OS_ARTIFACT:=image}"
+if [ "${SOVEREIGN_OS_ARTIFACT}" = "installer" ]; then
+  SOVEREIGN_OS_SUBSTRATE=live-build
+fi
 # Steps run as child processes — without export, a sudo env_reset run leaves
 # these as unexported shell vars and every `set -u` step dies at its first
 # ${SOVEREIGN_OS_PROFILE} reference (caught by the first real build, 2026-06-10).
-export SOVEREIGN_OS_PROFILE SOVEREIGN_OS_SUBSTRATE
+export SOVEREIGN_OS_PROFILE SOVEREIGN_OS_SUBSTRATE SOVEREIGN_OS_ARTIFACT
 
 # Operator build secrets (secrets doctrine: VALUES live in /etc/sovereign-os/*.env,
 # never the repo). Source them so a PANEL- or sudoers-driven build — which cannot

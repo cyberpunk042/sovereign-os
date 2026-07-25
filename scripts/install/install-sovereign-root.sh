@@ -53,6 +53,12 @@ step() { printf '\n\033[36m━━━ %s\033[0m\n' "$*"; }
 
 [ "$(id -u)" -eq 0 ] || { red "must run as root: sudo $0"; exit 1; }
 
+# Identity source. inherit = copy keyboard/locale/tz/credentials from the RUNNING
+# host (the from-host path — no questions). answers = take them from env vars and
+# CREATE the user in-chroot (the installer-USB path — there is no host to inherit
+# from). Default inherit preserves the original from-host behavior exactly.
+IDENTITY_MODE="${SOVEREIGN_OS_IDENTITY_MODE:-inherit}"
+
 # ── SAFETY ──
 for d in "${ROOT_LV}" "${HOME_LV}" "${ESP_PART}"; do
   [ -b "$d" ] || { red "ABORT: ${d} missing — run setup-lvm-dualboot.sh + migrate-home.sh first"; exit 1; }
@@ -62,7 +68,16 @@ ESP_DISK="/dev/$(lsblk -no PKNAME "${ESP_PART}" | head -1)"
 if [ "${ESP_DISK}" = "${RUN_ROOT_DISK}" ]; then
   red "ABORT: sovereign ESP ${ESP_PART} is on the RUNNING OS disk — wrong target."; exit 1
 fi
-id "${PRIMARY_USER}" >/dev/null 2>&1 || { red "ABORT: user ${PRIMARY_USER} doesn't exist on this host to inherit"; exit 1; }
+# Never install onto the disk we BOOTED from (the installer USB / live medium).
+# The RUN_ROOT_DISK gate above misses this when the live root is a squashfs, so
+# the installer-TUI passes the boot-medium disk explicitly.
+if [ -n "${SOVEREIGN_OS_FORBID_DISK:-}" ] && [ "${ESP_DISK}" = "${SOVEREIGN_OS_FORBID_DISK}" ]; then
+  red "ABORT: target ${ESP_DISK} is the boot medium (SOVEREIGN_OS_FORBID_DISK) — refusing."; exit 1
+fi
+# inherit mode needs the user to exist on the running host; answers mode creates it.
+if [ "${IDENTITY_MODE}" = "inherit" ]; then
+  id "${PRIMARY_USER}" >/dev/null 2>&1 || { red "ABORT: user ${PRIMARY_USER} doesn't exist on this host to inherit"; exit 1; }
+fi
 
 # ── locate the custom kernel .debs ──
 step "locating custom kernel .debs"
@@ -94,28 +109,51 @@ else
   info "base already present — skipping debootstrap"
 fi
 
-# ── inherit identity from the running host (no questions) ──
-step "inheriting keyboard / locale / timezone / credentials"
-for f in /etc/default/keyboard /etc/default/locale /etc/locale.gen /etc/localtime; do
-  [ -e "$f" ] && cp -a "$f" "${MNT}${f}" && info "inherited ${f}"
-done
-# root + jfortin account lines (same uid/gid + same passwords)
-inherit_user() {
-  local u="$1" db
-  for db in passwd shadow group gshadow; do
-    if getent "$db" "$u" >/dev/null 2>&1 || grep -q "^${u}:" "/etc/${db}" 2>/dev/null; then
-      grep "^${u}:" "/etc/${db}" 2>/dev/null | while IFS= read -r line; do
-        grep -q "^${u}:" "${MNT}/etc/${db}" \
-          && sed -i "s|^${u}:.*|${line}|" "${MNT}/etc/${db}" \
-          || echo "$line" >> "${MNT}/etc/${db}"
-      done
-    fi
+# ── identity: keyboard / locale / timezone / credentials ──
+# CHROOT_USER_SETUP is injected into the in-chroot setup below; empty in inherit
+# mode (accounts are copied here), populated in answers mode (created in-chroot).
+CHROOT_USER_SETUP=""
+if [ "${IDENTITY_MODE}" = "inherit" ]; then
+  step "inheriting keyboard / locale / timezone / credentials from the running host"
+  for f in /etc/default/keyboard /etc/default/locale /etc/locale.gen /etc/localtime; do
+    [ -e "$f" ] && cp -a "$f" "${MNT}${f}" && info "inherited ${f}"
   done
-}
-inherit_user root
-inherit_user "${PRIMARY_USER}"
-# the user's groups jfortin belongs to (sudo etc.) — ensure sudo membership
-info "inherited root + ${PRIMARY_USER} (uid $(id -u "${PRIMARY_USER}")) credentials"
+  # root + jfortin account lines (same uid/gid + same passwords)
+  inherit_user() {
+    local u="$1" db
+    for db in passwd shadow group gshadow; do
+      if getent "$db" "$u" >/dev/null 2>&1 || grep -q "^${u}:" "/etc/${db}" 2>/dev/null; then
+        grep "^${u}:" "/etc/${db}" 2>/dev/null | while IFS= read -r line; do
+          grep -q "^${u}:" "${MNT}/etc/${db}" \
+            && sed -i "s|^${u}:.*|${line}|" "${MNT}/etc/${db}" \
+            || echo "$line" >> "${MNT}/etc/${db}"
+        done
+      fi
+    done
+  }
+  inherit_user root
+  inherit_user "${PRIMARY_USER}"
+  info "inherited root + ${PRIMARY_USER} (uid $(id -u "${PRIMARY_USER}")) credentials"
+else
+  # answers mode (installer USB): no host to inherit — take from env, create the
+  # user in-chroot. Passwords are plaintext answers (preseed-style, expected for
+  # an unattended installer); the installer-TUI collects/confirms them.
+  local_keymap="${SOVEREIGN_OS_KEYMAP:-us}"
+  local_locale="${SOVEREIGN_OS_LOCALE:-en_US.UTF-8}"
+  local_tz="${SOVEREIGN_OS_TIMEZONE:-UTC}"
+  local_uid="${SOVEREIGN_OS_USER_UID:-1000}"
+  step "identity from answers: keyboard=${local_keymap} locale=${local_locale} tz=${local_tz} user=${PRIMARY_USER}(uid ${local_uid})"
+  printf 'XKBLAYOUT="%s"\n' "${local_keymap}" > "${MNT}/etc/default/keyboard"
+  printf 'LANG=%s\n' "${local_locale}"        > "${MNT}/etc/default/locale"
+  printf '%s UTF-8\n' "${local_locale}"       > "${MNT}/etc/locale.gen"
+  ln -sf "/usr/share/zoneinfo/${local_tz}" "${MNT}/etc/localtime" || true
+  CHROOT_USER_SETUP="$(cat <<USERSETUP
+echo 'root:${SOVEREIGN_OS_ROOT_PASS:-sovereign}' | chpasswd
+id ${PRIMARY_USER} >/dev/null 2>&1 || useradd -m -u ${local_uid} -s /bin/bash -c '${PRIMARY_USER}' ${PRIMARY_USER}
+echo '${PRIMARY_USER}:${SOVEREIGN_OS_USER_PASS:-sovereign}' | chpasswd
+USERSETUP
+)"
+fi
 
 # ── fstab: lv_root / , lv_home /home (THE shared home) , sovereign ESP /boot/efi ──
 step "writing fstab (shared /home wired in)"
@@ -181,6 +219,10 @@ systemctl enable systemd-networkd systemd-resolved
 # intentional. Do NOT use a bash array here — the outer shell would expand it to
 # empty at write-time and install no kernel (leaving an unbootable image).
 apt-get install -y /tmp/$(basename "${KIMG}") $( [ -n "${KHDR}" ] && echo /tmp/$(basename "${KHDR}") )
+
+# answers mode: create root+user credentials in-chroot (empty in inherit mode,
+# where the accounts were already copied from the host).
+${CHROOT_USER_SETUP}
 
 # jfortin: ensure sudo
 usermod -aG sudo ${PRIMARY_USER} || true

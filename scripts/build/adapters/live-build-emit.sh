@@ -151,6 +151,71 @@ chmod +x "${out_dir}/config/hooks/normal/0010-sovereign-first-boot.hook.chroot"
 # ---- Empty includes.chroot — populated by whitelabel render step ----
 mkdir -p "${out_dir}/config/includes.chroot"
 
+# ---- INSTALLER artifact (SOVEREIGN_OS_ARTIFACT=installer) ----
+# Turn the plain live image into a bootable INSTALLER: bake the reflash-root
+# payload (repo + custom kernel .debs), the autostart installer service, an
+# answers template, and the tools the installer needs, into the live squashfs.
+# Booting the ISO then runs scripts/install/installer-tui.sh on tty1, which
+# installs the mutable sovereign-os system onto an internal disk (never the USB).
+if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
+  log_info "installer artifact — staging reflash-root payload into the live ISO"
+  _repo="${SOVEREIGN_OS_ROOT:-$(cd "${__SCRIPT_DIR}/../../.." && pwd)}"
+  _inc="${out_dir}/config/includes.chroot"
+
+  # (a) the repo the installer scripts + GUI stage need, at /opt/sovereign-os
+  mkdir -p "${_inc}/opt/sovereign-os"
+  for d in scripts webapp profiles config systemd share; do
+    [ -d "${_repo}/${d}" ] && cp -a "${_repo}/${d}" "${_inc}/opt/sovereign-os/"
+  done
+
+  # (b) the custom kernel .debs the installed root boots (found by
+  #     install-sovereign-root.sh at /opt/sovereign-os/kernel-debs)
+  mkdir -p "${_inc}/opt/sovereign-os/kernel-debs"
+  _kdir="${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}"
+  [ -z "${_kdir}" ] && [ -r /root/.sovereign-os/build-state/env-kernel-debs.sh ] \
+    && . /root/.sovereign-os/build-state/env-kernel-debs.sh || true
+  for cand in "${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}" /mnt/kernel_forge; do
+    if [ -n "${cand}" ] && ls "${cand}"/linux-image-6.12.0_*.deb >/dev/null 2>&1; then
+      cp -a "${cand}"/linux-{image,headers}-6.12.0_*.deb "${_inc}/opt/sovereign-os/kernel-debs/" 2>/dev/null || true
+      break
+    fi
+  done
+  if ! ls "${_inc}/opt/sovereign-os/kernel-debs/"linux-image-*.deb >/dev/null 2>&1; then
+    log_warn "installer: custom kernel .debs NOT found (set SOVEREIGN_OS_KERNEL_DEBS_DIR); the installed root will fall back to a stock kernel"
+  fi
+
+  # (c) the autostart installer service + answers template
+  mkdir -p "${_inc}/etc/systemd/system/multi-user.target.wants"
+  cp "${_repo}/scripts/install/sovereign-installer.service" "${_inc}/etc/systemd/system/"
+  ln -sf ../sovereign-installer.service \
+    "${_inc}/etc/systemd/system/multi-user.target.wants/sovereign-installer.service"
+  cat > "${_inc}/opt/sovereign-os/install-answers.env" <<'ANSWERS'
+# sovereign-os installer answers (edit or override in the TUI).
+# Unattended: also set SOVEREIGN_OS_NONINTERACTIVE=1 and a TARGET_DISK.
+SOVEREIGN_OS_KEYMAP=us
+SOVEREIGN_OS_LOCALE=en_US.UTF-8
+SOVEREIGN_OS_TIMEZONE=UTC
+SOVEREIGN_OS_USER=jfortin
+SOVEREIGN_OS_USER_UID=1000
+SOVEREIGN_OS_USER_PASS=sovereign
+SOVEREIGN_OS_ROOT_PASS=sovereign
+SOVEREIGN_OS_FRONTEND=kde-plasma
+# SOVEREIGN_OS_TARGET_DISK=/dev/nvme1n1
+ANSWERS
+
+  # (d) the tools the installer runs (into the live env, so debootstrap etc.
+  #     work offline of the target)
+  printf '# installer tooling\ndebootstrap\nlvm2\ngdisk\ngrub-efi-amd64\ngrub-efi-amd64-signed\nefibootmgr\nrsync\nwhiptail\ndosfstools\n' \
+    > "${out_dir}/config/package-lists/sovereign-installer.list.chroot"
+
+  # (e) UEFI-bootable installer (shim-signed chain; iso-hybrid also keeps BIOS).
+  #     Appended to the lb config args so the ISO boots on the ProArt's UEFI.
+  sed -i 's#    "\$@"#    --bootloaders "grub-efi" \\\n    --iso-application "Sovereign OS Installer" \\\n    "$@"#' \
+    "${out_dir}/config/auto/config"
+
+  log_info "installer payload staged: repo + kernel-debs + service + answers + tooling"
+fi
+
 # ---- README at output root ----
 cat > "${out_dir}/README.md" <<EOF
 # live-build config for sovereign-os profile \`${profile_id}\`
