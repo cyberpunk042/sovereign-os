@@ -44,24 +44,14 @@ d-i passwd/user-password-again password sovereign
 d-i user-setup/allow-password-weak boolean true
 d-i user-setup/encrypt-home boolean false
 
-### Partitioning — SAFETY FIRST: pick an internal disk that is NOT the running
-### OS disk (never nvme0n1 here). Prefer the second NVMe, else the first non-boot
-### disk. Then a clean LVM: ESP + root + home.
-d-i partman/early_command string \
-  RUNDISK="$(list-devices disk | head -1)"; \
-  TGT=""; \
-  for d in $(list-devices disk); do \
-    case "$d" in *nvme0n1) continue;; esac; \
-    TGT="$d"; break; \
-  done; \
-  [ -n "$TGT" ] || TGT="$(list-devices disk | grep -v nvme0n1 | head -1)"; \
-  debconf-set partman-auto/disk "$TGT"; \
-  debconf-set grub-installer/bootdev "$TGT"
+### Partitioning — GUIDED. The operator PICKS and CONFIRMS the target disk: we do
+### NOT preseed the disk selection, nor the destructive "write changes to disk" /
+### "remove existing LVM" confirmations — so d-i stops for the operator at those
+### steps. The LVM LAYOUT is still automatic (ESP + root + home) once a disk is
+### chosen, so there's no hand-crafting of partitions.
+### ⚠ SAFETY: the disk list includes the running dev-OS disk (nvme0n1). The operator
+### must select the INTENDED TARGET (e.g. nvme1n1), never the running system disk.
 d-i partman-auto/method string lvm
-d-i partman-lvm/device_remove_lvm boolean true
-d-i partman-md/device_remove_md boolean true
-d-i partman-lvm/confirm boolean true
-d-i partman-lvm/confirm_nooverwrite boolean true
 d-i partman-auto-lvm/new_vg_name string sovereign
 d-i partman-auto/choose_recipe select sovereign-lvm
 d-i partman-auto/expert_recipe string                                   \
@@ -82,11 +72,9 @@ d-i partman-auto/expert_recipe string                                   \
                       use_filesystem{ } filesystem{ ext4 }               \
                       mountpoint{ /home }                                \
               .
-d-i partman-partitioning/confirm_write_new_label boolean true
 d-i partman/choose_partition select finish
-d-i partman/confirm boolean true
-d-i partman/confirm_nooverwrite boolean true
-### Suppress the two partman warnings this layout intentionally triggers:
+### Suppress only the two COSMETIC warnings this layout triggers — NOT the
+### destructive write confirmations, which stay INTERACTIVE for the operator:
 ### - /boot lives on the root LV; with UEFI + ESP + grub-efi (which reads LVM),
 ###   that boots fine, so auto-continue past the "no separate /boot" warning.
 ### - this layout has no swap partition on purpose; don't loop back for it.

@@ -130,24 +130,15 @@ export custom_installer="${CI}"
 # NOT to pull the 32-bit UEFI files (installer-i386/.../cd_info_i386 → 404/missing).
 # The target is a 64-bit-UEFI znver5 box; 32-bit UEFI (Baytrail/old iMac) is moot.
 export DISABLE_UEFI_32=1
-# Localization + serial baked into EVERY boot entry (simple-cdd adds these to
-# KERNEL_PARAMS): no language/keyboard prompt, and grub+d-i output to ttyS0 so a
-# headless boot (and the operator's serial) shows progress.
-locale=en_US.UTF-8
-export locale
-keyboard=us
-export keyboard
-use_serial_console=true
-export use_serial_console
-# Make the DEFAULT boot entry a fully-automated sovereign install (auto=true
-# priority=critical). Combined with the preseed/file, simple-cdd/profiles=sovereign
-# and locale/keymap that simple-cdd already appends, the CD installs hands-off.
-# console=ttyS0 puts d-i on the serial line (headless SAIN box + our boot test);
-# console=tty0 keeps the on-screen installer too. NOTE: KERNEL_PARAMS is a
-# comma-split ListVar in simple-cdd, so NO commas — "console=ttyS0,115200" would
-# be torn into "console=ttyS0 115200". Bare console=ttyS0 (default baud) is fine.
-KERNEL_PARAMS="auto=true priority=critical console=tty0 console=ttyS0"
-export KERNEL_PARAMS
+# Localization baked into every boot entry (simple-cdd adds debian-installer/
+# locale + keyboard-configuration to KERNEL_PARAMS) so there's no language/keyboard
+# prompt. GUIDED install: we deliberately do NOT set auto=true/priority=critical,
+# and we do NOT redirect the console to serial — the installer must run ON THE
+# OPERATOR'S SCREEN (tty0, the default). d-i uses the preseed for defaults
+# (accounts, KDE + znver5 kernel + cockpit, the LVM recipe) but stops for the
+# operator to pick and confirm the target disk. (An earlier build forced
+# console=ttyS0 as the primary console for headless testing, which sent the whole
+# installer UI to the serial port — off-screen on real hardware, looking frozen.)
 CONF
 # simple-cdd looks for <profile>.{preseed,packages,conf} in the profiles dir.
 cp "${HERE}/profiles/${PROFILE}.preseed"  "${WORK}/"
@@ -192,17 +183,14 @@ fi
 
 # ── 5. post-process the ISO so it AUTO-BOOTS the installer ──
 # debian-cd's grub.cfg + isolinux.cfg have NO timeout (the stock d-i behaviour is
-# "wait for the operator to pick"), so a flashed USB would sit on the menu forever
-# — including on a headless box. Append a grub timeout + default (the text Install
-# entry, which is serial-friendly) and put grub on serial too, then re-master the
-# ISO preserving its El Torito UEFI+BIOS boot records.
-log "post-processing: grub auto-boot (timeout + serial)"
+# "wait for the operator to pick"), so a flashed USB would sit on the menu forever.
+# Append a grub timeout + default: the TEXT "Install" entry, which needs no GPU
+# (the graphical entry can hang on very new hardware like znver5). On screen only
+# — no serial redirect (that hid the whole installer off-screen on real hardware).
+log "post-processing: grub auto-boot (timeout=10, default=text Install)"
 cat > "${WORK}/grub-add.cfg" <<'GRUBADD'
 
-# ── sovereign-os: auto-boot the installer, on screen AND serial ──
-serial --unit=0 --speed=115200
-terminal_input console serial
-terminal_output gfxterm serial
+# ── sovereign-os: auto-boot the text installer on screen after 10s ──
 set timeout=10
 set default='Install'
 GRUBADD
