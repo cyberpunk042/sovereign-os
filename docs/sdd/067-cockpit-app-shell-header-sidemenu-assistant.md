@@ -276,6 +276,14 @@ from the catalog.
 | Q-067-E | Which panels get the shell. | All operator-facing cockpit panels; confirm whether meta/audit panels (`ux-design-audit`, `anti-minimization-audit`, `doc-coverage`) are in or out. |
 | Q-067-F | **Live-LLM Assistant** (Stage-N, out of scope now). | A real assistant chat wired to the ecosystem Per-Project AI Assistant / wiki-hub is a **future decision** — it introduces a network path (sovereignty-clean tension) + a trust/permission model. Flag, do not build. |
 
+> **Reconcile — RESOLVED 2026-07-25** (deferred-work-register item 10). All six are now answered by shipped work:
+> - **A** → the app-shell sidemenu is catalog-generated from `config/dashboard-catalog.yaml` (the data-driven source, per the proposal).
+> - **B** → shipped as `body.so-sm-collapsed` default + the `sovereign-os.personalization` localStorage key + the ≤1024px off-canvas breakpoint (folded into the existing personalization schema, per the proposal).
+> - **C** → shipped as the `#so-inbox-badge` attention/down status roll-up in the header chrome.
+> - **D** → superseded by the Assistant gold-standard arc **SDD-200 → 201 → 202** (the full-height context-cascade; 866 selectors resolving across all 51 adopted panels).
+> - **E** → resolved "in": `scripts/webapp/sync-app-shell.py:ADOPTED_PANELS` includes the meta/audit panels (`ux-design-audit`, `anti-minimization-audit`, `doc-coverage`) plus `brain` + `code-console` + `science` = all 51.
+> - **F** → the original network-path-vs-sovereignty-clean tension is **dissolved** by the loopback-LLM arc (SDD-062 D-22 chat, SDD-205 Anthropic Messages API, SDD-204 Code Console — all loopback-only, no external path); only the *product decision* to wire "discuss-what's-hovered" into the Assistant survives, forward-tracked as **SDD-202 Q-C** (inherits Q-200-C / this Q-067-F). Still "flag, do not build" until the operator decides.
+
 ---
 
 ## 6. Non-goals (Stage N)
