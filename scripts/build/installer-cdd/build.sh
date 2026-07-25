@@ -142,7 +142,9 @@ export use_serial_console
 # Make the DEFAULT boot entry a fully-automated sovereign install (auto=true
 # priority=critical). Combined with the preseed/file, simple-cdd/profiles=sovereign
 # and locale/keymap that simple-cdd already appends, the CD installs hands-off.
-KERNEL_PARAMS="auto=true priority=critical"
+# console=ttyS0 puts d-i on the serial line (headless SAIN box + our boot test);
+# console=tty0 keeps the on-screen installer too.
+KERNEL_PARAMS="auto=true priority=critical console=tty0 console=ttyS0,115200"
 export KERNEL_PARAMS
 CONF
 # simple-cdd looks for <profile>.{preseed,packages,conf} in the profiles dir.
