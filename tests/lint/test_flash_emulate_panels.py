@@ -90,6 +90,41 @@ def test_flash_never_reimplements_dd_and_guards_devices():
     assert 'match["flashable"]' in body, "flash must re-validate the target server-side"
 
 
+def test_flash_targets_internal_disks_but_never_the_running_system():
+    """Operator directive 2026-07-25: the panel installs onto the internal NVMe.
+
+    The old rule was `flashable = removable and not is_protected`, which made
+    every internal disk permanently unflashable — the panel could not do the
+    job it exists for. The rail is now exactly one rule: never a disk the
+    RUNNING system depends on. That rule is load-bearing and must not weaken.
+    """
+    body = (OPERATOR / "flash-api.py").read_text(encoding="utf-8")
+    assert "flashable = not is_protected" in body, (
+        "internal disks must be flashable — the gate is protected-only"
+    )
+    assert "flashable = removable" not in body, (
+        "the removable-only gate must not come back; it blocks the NVMe install"
+    )
+    # an internal target must be visually distinct at confirmation time
+    assert '"risk": risk' in body and 'risk = "removable" if removable else "internal"' in body, (
+        "each device must carry risk=removable|internal so the picker can shout "
+        "about an internal disk instead of letting it look like a USB key"
+    )
+    html = (WEBAPP / "flash" / "index.html").read_text(encoding="utf-8")
+    assert 'd.risk === "internal"' in html, "the picker must branch on the risk flag"
+    assert "INTERNAL DISK" in html, "an internal target must be badged unmistakably"
+
+
+def test_protected_disks_covers_every_running_system_mount():
+    """The single remaining rail must be complete — if a mount the running
+    system needs is dropped from this list, that disk becomes flashable."""
+    body = (OPERATOR / "flash-api.py").read_text(encoding="utf-8")
+    block = body[body.index("def protected_disks"):body.index("def list_block_devices")]
+    for mp in ("/", "/boot", "/boot/efi", "/home", "/usr", "/var", "/etc"):
+        assert f'"{mp}"' in block, f"protected_disks must resolve {mp} to its parent disk"
+    assert "swapon" in block, "active swap devices must resolve to protected disks"
+
+
 def test_emulate_keeps_the_image_pristine_and_interactive():
     body = (OPERATOR / "emulate-api.py").read_text(encoding="utf-8")
     assert "-snapshot" in body, "emulate must attach the disk with -snapshot (pristine .raw)"

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 scripts/operator/flash-api.py — HTTP API + webapp for the FLASH surface:
-write a built sovereign-os image onto a target USB block device, from the
-panel, with a device picker, safety gates, and live `dd` progress.
+write a built sovereign-os image onto a target block device — a USB key OR
+an internal disk (the NVMe you actually install onto) — from the panel, with
+a device picker, safety gates, and live `dd` progress.
 
 This is the operable sibling of the build-configurator: where that page
 BUILDS the image, this one FLASHES it. It never re-implements `dd` — every
@@ -20,9 +21,14 @@ weaken, they relocate.
 
 Sovereignty / safety:
   - Loopback-bind by default (127.0.0.1); stdlib-only, zero added deps.
-  - The device picker offers ONLY removable/hot-plug disks and never the
-    system disks; the server RE-VALIDATES the target before every run
-    (defense in depth — the CLI is still the ultimate gate).
+  - The device picker offers every whole disk EXCEPT those the running
+    system depends on (parents of /, /boot, /boot/efi, /home, /usr, /var,
+    /etc and active swap), which are hard-protected. Internal disks are
+    legitimate targets — installing onto the internal NVMe is the point —
+    and each is labelled `risk: internal` so it can never be mistaken for a
+    USB key at the moment of confirmation. The server RE-VALIDATES the
+    target before every run (defense in depth — the CLI is still the
+    ultimate gate).
   - Real dd needs root; if this daemon is not root it elevates via pkexec
     exactly like the build button. raw `dd` is deliberately NOT in the
     operator sudoers allow-list — flashing stays the gated CLI path.
@@ -130,8 +136,10 @@ def protected_disks() -> set[str]:
 
 
 def list_block_devices() -> list[dict]:
-    """Whole disks with safety classification. A disk is `flashable` only
-    when it is removable/hot-plug AND not a protected system disk."""
+    """Whole disks with safety classification. A disk is `flashable` unless the
+    RUNNING system depends on it — internal disks included, since installing
+    onto the internal NVMe is the panel's purpose. `risk` is "removable" or
+    "internal" so the UI can shout about the latter."""
     raw = _run(["lsblk", "-J", "-d", "-b", "-o",
                 "NAME,SIZE,MODEL,SERIAL,TYPE,RM,HOTPLUG,TRAN,MOUNTPOINTS"])
     try:
@@ -166,13 +174,21 @@ def list_block_devices() -> list[dict]:
         removable = bool(d.get("rm")) or bool(d.get("hotplug")) or d.get("tran") == "usb"
         mounts = mounts_by_disk.get(name, [])
         is_protected = name in protected or path in protected
-        flashable = removable and not is_protected
+        # Operator directive 2026-07-25: the panel targets INTERNAL disks too —
+        # the whole point is putting the OS on the NVMe, not only on a USB key.
+        # The safety rail is now exactly one rule: never a disk the RUNNING
+        # system depends on (protected_disks() = the parents of /, /boot,
+        # /boot/efi, /home, /usr, /var, /etc and every active swap). The old
+        # `removable and ...` made every internal NVMe permanently unflashable,
+        # so the panel could never do the job it exists for.
+        flashable = not is_protected
         reason = ""
-        if not flashable:
-            if is_protected:
-                reason = "system disk — hosts a live mount; hard-protected"
-            elif not removable:
-                reason = "fixed (non-removable) disk — not a flash target"
+        risk = "removable" if removable else "internal"
+        if is_protected:
+            reason = "system disk — hosts a live mount or swap of the RUNNING system; hard-protected"
+        elif not removable:
+            # Flashable, but the operator should see that this is not a USB key.
+            reason = "internal fixed disk — allowed, and it will be ERASED"
         size_b = int(d.get("size") or 0)
         devs.append({
             "path": path,
@@ -185,6 +201,9 @@ def list_block_devices() -> list[dict]:
             "removable": removable,
             "protected": is_protected,
             "flashable": flashable,
+            # "removable" | "internal" — the picker surfaces this so an internal
+            # NVMe never *looks* like a USB key at the moment of confirmation.
+            "risk": risk,
             "mounts": mounts,
             "reason": reason,
         })
@@ -517,8 +536,10 @@ class Handler(BaseHTTPRequestHandler):
         if action == "flash" and not match["flashable"]:
             self._send(403, json.dumps({
                 "error": f"REFUSED: {device} is not a safe flash target",
-                "detail": match["reason"] or "not removable / protected",
-                "hint": "only removable USB/SD disks that host no live mount can be flashed",
+                "detail": match["reason"] or "protected system disk",
+                "hint": "internal disks ARE allowed; the one hard rule is that a disk "
+                        "hosting the RUNNING system (/, /boot, /boot/efi, /home, /usr, "
+                        "/var, /etc or active swap) can never be a target",
             }))
             return None
         return action, str(img_abs), device
