@@ -68,7 +68,7 @@ Honest consequence: the **KV fold and embedding fold are wireable now**; the **w
 | Q-401-D | Host→device marshalling ownership: does `sovereign-chromofold` own device buffers (weights/KV uploaded once, resident) or per-call? (P5 device-native — resident is correct; per-call defeats the fold.) | recommend resident (upload-once, decode-many) — the fold only pays if the compressed tensor stays on-device. |
 | Q-401-E | Gate GPU mode on `libchromofold` reaching M1 on the device path (SDD-400 Q-400-G)? | recommend yes — de-facto already, via the OFF-by-default `linked` feature + `NotImplemented` host path until phase 4/5. |
 
-## Build status (2026-07-25 — phase 2 landed)
+## Build status (2026-07-25 — phases 2–4 landed)
 
 **Phase 2 (GPU-mode seam) shipped** (operator: *"I want it. go"*). CPU-verifiable, no `unsafe`, CPU path untouched off-mode:
 
@@ -82,7 +82,14 @@ Honest consequence: the **KV fold and embedding fold are wireable now**; the **w
 - **`sovereign-chromofold`**'s `CapabilityDescriptor` now mirrors all **10** native `chromofold_capability.json` capabilities (8 access/search + the 2 KV compute) — it previously listed 8, a drift this phase corrects.
 - **Verified**: `cargo test -p sovereign-chromofold-sys -p sovereign-chromofold` (5 + 17) + `cargo check --features linked` (FFI type-checks without a link) + clippy `-D warnings` (default **and** `--features linked`) + fmt clean; `tests/lint/test_chromofold_kv_abi_binding_contract.py` (4) pins the binding + that it stays quarantined behind `linked` + the mirror. Off-by-default preserved (`linked()==false` default; no `libchromofold` needed).
 
-**Not built (later gated phases, per the plan above):** the folded-KV GPU attention path wired into `sovereign-mha-block` via a `FoldBackend` impl (phase 4), decode-in-GEMM (phase 5, gated on Q-401-A), and the SAIN measurement (phase 6). No GPU/marshalling landed — phase 3 is the faithful, compile-checked ABI mirror; the live GPU link is SAIN-gated.
+**Phase 4 (folded-KV attention seam in `sovereign-mha-block`) shipped** (operator: *"lets continue"*). CPU-verifiable, no GPU, no `unsafe`:
+
+- **`sovereign-mha-block`** gains the attention-path seam where the KV cache actually lives: a `KvExecMode { Cpu (default) | GpuFold }` selector, a `KvFoldBackend` plug-point trait whose `fold_attend(q, keys, vals, sinks)` **mirrors the phase-3 dense C ABI** (`cf_kv_attn_dense_async`), the `MhaDecoderBlock.kv_exec_mode` + `kv_fold` fields (all three constructors default `Cpu`/`None`), the `with_kv_exec_mode`/`set_kv_exec_mode`/`kv_exec_mode()`/`set_kv_fold_backend`/`kv_fold_status()` accessors, and a `MhaBlockError::GpuFoldUnavailable` variant. The backend is held as `Arc` (not `Box`) so the block stays `Clone` — a shared device handle across all blocks.
+- **`step()` honest-degrades**: `Cpu` runs the pure-Rust `attend`/`attend_with_sinks` path unchanged; `GpuFold` delegates to the attached backend, or returns `GpuFoldUnavailable` when none is attached — never a silent CPU fall-through under a GPU claim.
+- **Bit-exact conformance**: `gpu_fold_with_reference_backend_is_bit_exact_with_cpu` proves that `GpuFold` + a reference backend running the same attention math is byte-identical to the CPU path — the seam plumbs identical inputs, so a real GPU backend need only match this oracle (the fused compressed-residency path, `cf_kv_attn_fused_async`, is the SAIN-gated follow-on; this dense seam is its correctness floor).
+- **Verified**: `cargo test -p sovereign-mha-block` (47 pass, incl. 4 new seam tests) + `cargo clippy -D warnings` + `cargo fmt --check` clean; dependents (`sovereign-decoder-layer`/`-stack`, `sovereign-quant-model`/`-llm`) `cargo check` clean (additive API); `tests/lint/test_gpu_fold_kv_seam_contract.py` (4) pins the seam + the honest-degrade property.
+
+**Not built (later gated phases, per the plan above):** the fused compressed-residency KV path (`cf_kv_attn_fused_async` wired into a device-resident backend — the ~8× memory win, SAIN-gated), decode-in-GEMM (phase 5, gated on Q-401-A), and the SAIN measurement (phase 6). No GPU/marshalling landed — phase 4 is the CPU-verifiable dense seam + bit-exact oracle; the live GPU link is SAIN-gated.
 
 ## Cross-references
 
