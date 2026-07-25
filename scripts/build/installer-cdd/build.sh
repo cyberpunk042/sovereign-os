@@ -125,12 +125,27 @@ simple_cdd_dir="${HERE}"
 # local d-i images (bypass simple-cdd's broken i386 auto-fetch on trixie)
 custom_installer="${CI}"
 export custom_installer="${CI}"
+# amd64-only CD: trixie DROPPED the i386 installer, so tell debian-cd's boot-x86
+# NOT to pull the 32-bit UEFI files (installer-i386/.../cd_info_i386 → 404/missing).
+# The target is a 64-bit-UEFI znver5 box; 32-bit UEFI (Baytrail/old iMac) is moot.
+export DISABLE_UEFI_32=1
 CONF
 # simple-cdd looks for <profile>.{preseed,packages,conf} in the profiles dir.
 cp "${HERE}/profiles/${PROFILE}.preseed"  "${WORK}/"
 cp "${HERE}/profiles/${PROFILE}.packages" "${WORK}/"
 
 # ── 4. build ──
+# When reusing tmp (KEEP_TMP), the reprepro db already has the prior run's LOCAL
+# packages; a freshly-built cockpit .deb (new DEBIAN/* mtimes → new checksum)
+# would collide on re-inclusion. Clear the local records first (keeps the mirror).
+_REPRO="${HERE}/tmp/mirror"
+if [ -d "${_REPRO}/db" ] && command -v reprepro >/dev/null; then
+  log "clearing prior local-package records from reprepro (keeping the mirror)"
+  for p in sovereign-os-cockpit linux-image-6.12.0 linux-headers-6.12.0; do
+    reprepro -b "${_REPRO}" remove "${DIST}" "$p" >/dev/null 2>&1 || true
+  done
+fi
+
 log "running build-simple-cdd (downloads the KDE mirror — long)…"
 cd "${WORK}"
 build-simple-cdd --dist "${DIST}" --profiles "${PROFILE}" \
