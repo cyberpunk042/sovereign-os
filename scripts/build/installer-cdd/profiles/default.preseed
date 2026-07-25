@@ -86,6 +86,14 @@ d-i partman-partitioning/confirm_write_new_label boolean true
 d-i partman/choose_partition select finish
 d-i partman/confirm boolean true
 d-i partman/confirm_nooverwrite boolean true
+### Suppress the two partman warnings this layout intentionally triggers:
+### - /boot lives on the root LV; with UEFI + ESP + grub-efi (which reads LVM),
+###   that boots fine, so auto-continue past the "no separate /boot" warning.
+### - this layout has no swap partition on purpose; don't loop back for it.
+d-i partman-auto-lvm/no_boot boolean true
+d-i partman-basicfilesystems/no_swap boolean false
+d-i partman-basicfilesystems/choose_label string gpt
+d-i partman/default_filesystem string ext4
 
 ### Base + KDE desktop + the sovereign payload (all offline, from the CD).
 ### The custom znver5 kernel + the cockpit are listed EXPLICITLY so they install
