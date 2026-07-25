@@ -58,7 +58,8 @@ done
 # CRITICAL: the cockpit payload is SOURCE ONLY. simple-cdd's scratch mirror lands
 # at scripts/build/installer-cdd/tmp (inside the repo); copying it would bloat the
 # .deb to multi-GB and collide in reprepro. Strip all build scratch + py caches.
-rm -rf "${PKGROOT}/opt/sovereign-os/scripts/build/installer-cdd/tmp"
+rm -rf "${PKGROOT}/opt/sovereign-os/scripts/build/installer-cdd/tmp" \
+       "${PKGROOT}/opt/sovereign-os/scripts/build/installer-cdd/images"
 find "${PKGROOT}/opt/sovereign-os" -depth -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 find "${PKGROOT}/opt/sovereign-os" -type f -name '*.pyc' -delete 2>/dev/null || true
 _cksz="$(du -sm "${PKGROOT}/opt/sovereign-os" | cut -f1)"
