@@ -143,8 +143,10 @@ export use_serial_console
 # priority=critical). Combined with the preseed/file, simple-cdd/profiles=sovereign
 # and locale/keymap that simple-cdd already appends, the CD installs hands-off.
 # console=ttyS0 puts d-i on the serial line (headless SAIN box + our boot test);
-# console=tty0 keeps the on-screen installer too.
-KERNEL_PARAMS="auto=true priority=critical console=tty0 console=ttyS0,115200"
+# console=tty0 keeps the on-screen installer too. NOTE: KERNEL_PARAMS is a
+# comma-split ListVar in simple-cdd, so NO commas — "console=ttyS0,115200" would
+# be torn into "console=ttyS0 115200". Bare console=ttyS0 (default baud) is fine.
+KERNEL_PARAMS="auto=true priority=critical console=tty0 console=ttyS0"
 export KERNEL_PARAMS
 CONF
 # simple-cdd looks for <profile>.{preseed,packages,conf} in the profiles dir.
@@ -183,10 +185,36 @@ build-simple-cdd --dvd --dist "${DIST}" \
 # simple-cdd writes the ISO to ${simple_cdd_dir}/images (= ${HERE}/images), not
 # the CWD/WORK. Look there first, then WORK, for robustness.
 _iso="$(ls -1t "${HERE}"/images/*.iso "${WORK}"/images/*.iso 2>/dev/null | head -1 || true)"
-if [ -n "${_iso}" ]; then
-  cp -v "${_iso}" "${OUT}/sain-01-installer.iso"
-  log "installer ISO → ${OUT}/sain-01-installer.iso ($(du -h "${OUT}/sain-01-installer.iso" | cut -f1))"
-else
+if [ -z "${_iso}" ]; then
   echo "‼ no ISO produced — check the build-simple-cdd output above" >&2
   exit 1
 fi
+
+# ── 5. post-process the ISO so it AUTO-BOOTS the installer ──
+# debian-cd's grub.cfg + isolinux.cfg have NO timeout (the stock d-i behaviour is
+# "wait for the operator to pick"), so a flashed USB would sit on the menu forever
+# — including on a headless box. Append a grub timeout + default (the text Install
+# entry, which is serial-friendly) and put grub on serial too, then re-master the
+# ISO preserving its El Torito UEFI+BIOS boot records.
+log "post-processing: grub auto-boot (timeout + serial)"
+cat > "${WORK}/grub-add.cfg" <<'GRUBADD'
+
+# ── sovereign-os: auto-boot the installer, on screen AND serial ──
+serial --unit=0 --speed=115200
+terminal_input console serial
+terminal_output gfxterm serial
+set timeout=10
+set default='Install'
+GRUBADD
+xorriso -osirrox on -indev "${_iso}" -cpx /boot/grub/grub.cfg "${WORK}/grub.cfg.orig" 2>/dev/null || {
+  echo "‼ could not read grub.cfg from the ISO" >&2; exit 1; }
+cat "${WORK}/grub.cfg.orig" "${WORK}/grub-add.cfg" > "${WORK}/grub.cfg.new"
+_iso_final="${WORK}/sain-01-installer.iso"
+rm -f "${_iso_final}"
+xorriso -indev "${_iso}" -outdev "${_iso_final}" \
+  -boot_image any replay -overwrite on \
+  -map "${WORK}/grub.cfg.new" /boot/grub/grub.cfg 2>&1 | tail -4
+[ -s "${_iso_final}" ] || { echo "‼ re-master produced no ISO" >&2; exit 1; }
+
+cp -v "${_iso_final}" "${OUT}/sain-01-installer.iso"
+log "installer ISO → ${OUT}/sain-01-installer.iso ($(du -h "${OUT}/sain-01-installer.iso" | cut -f1))"
