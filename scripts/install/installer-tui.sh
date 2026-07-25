@@ -28,54 +28,75 @@ step() { printf '\n\033[36m━━━ %s\033[0m\n' "$*"; }
 
 [ "$(id -u)" -eq 0 ] || { red "installer must run as root"; exit 1; }
 
+# whole-disk device for any block device (partition or disk). Uses sysfs, NOT
+# `lsblk -no PKNAME` — that returns MULTIPLE lines when LVs are stacked on the
+# partition (the sovereign LVs), and head -1 grabs an LV's parent (the partition)
+# instead of the disk. sysfs `<part>/..` is the disk, deterministically.
+_whole_disk() {
+  local d p; d="$(basename "${1#/dev/}")"
+  p="$(basename "$(readlink -f "/sys/class/block/${d}/.." 2>/dev/null)" 2>/dev/null)"
+  if [ -n "${p}" ] && [ "${p}" != "block" ] && [ -b "/dev/${p}" ]; then echo "/dev/${p}"
+  elif [ -b "/dev/${d}" ]; then echo "/dev/${d}"; fi
+}
+
 # ── 1. the disk we BOOTED from — must never be a target ──
-MEDIUM_SRC="$(findmnt -no SOURCE /run/live/medium 2>/dev/null \
-  || findmnt -no SOURCE / 2>/dev/null || echo '')"
+# The live medium mounts at /run/live/medium; its backing BLOCK device is the
+# boot disk to protect. NEVER fall back to `/` (a live overlay, not a block
+# device — feeding it to lsblk is what printed "lsblk: overlay: ...").
+_medium_dev=""
+for _mp in /run/live/medium /lib/live/mount/medium /run/live/rootfs; do
+  _src="$(findmnt -fno SOURCE "${_mp}" 2>/dev/null || true)"
+  if [ -n "${_src}" ] && [ -b "${_src}" ]; then _medium_dev="${_src}"; break; fi
+done
 FORBID_DISK=""
-if [ -n "${MEDIUM_SRC}" ] && [ -b "${MEDIUM_SRC}" ]; then
-  FORBID_DISK="/dev/$(lsblk -no PKNAME "${MEDIUM_SRC}" 2>/dev/null | head -1)"
-fi
+[ -n "${_medium_dev}" ] && FORBID_DISK="$(_whole_disk "${_medium_dev}")"
 export SOVEREIGN_OS_FORBID_DISK="${FORBID_DISK}"
 
 step "sovereign-os installer"
-info "boot medium : ${MEDIUM_SRC:-unknown}  (disk ${FORBID_DISK:-unknown} — protected)"
+info "boot medium : ${_medium_dev:-unknown}  (disk ${FORBID_DISK:-unknown} — protected)"
 
-# ── 2. candidate internal disks (NVMe/SATA), excluding the boot medium ──
-mapfile -t DISKS < <(
-  lsblk -dno NAME,TYPE 2>/dev/null | awk '$2=="disk"{print "/dev/"$1}' \
-    | grep -vx "${FORBID_DISK}" || true
-)
-# prefer NVMe
-mapfile -t NVME < <(printf '%s\n' "${DISKS[@]}" | grep -E '/dev/nvme' || true)
-[ "${#NVME[@]}" -gt 0 ] && DISKS=("${NVME[@]}")
-if [ "${#DISKS[@]}" -eq 0 ]; then
-  red "no installable internal disk found (only the boot medium is present). Aborting."
-  exit 1
-fi
-
-# ── 3. pick the target (answers TARGET_DISK → auto if single → whiptail menu) ──
-TARGET="${SOVEREIGN_OS_TARGET_DISK:-}"
-if [ -z "${TARGET}" ]; then
-  if [ "${#DISKS[@]}" -eq 1 ]; then
-    TARGET="${DISKS[0]}"
-  elif command -v whiptail >/dev/null 2>&1 && [ -z "${SOVEREIGN_OS_NONINTERACTIVE:-}" ]; then
-    menu=(); for d in "${DISKS[@]}"; do
-      menu+=("${d}" "$(lsblk -dno MODEL,SIZE "${d}" 2>/dev/null | xargs)")
-    done
-    TARGET="$(whiptail --title "sovereign-os installer" \
-      --menu "Choose the disk to install sovereign-os onto (the boot USB is protected):" \
-      20 76 8 "${menu[@]}" 3>&1 1>&2 2>&3)" || { red "cancelled"; exit 1; }
-  else
-    TARGET="${DISKS[0]}"
-    info "multiple disks; auto-selecting ${TARGET} (set TARGET_DISK to override)"
+# ── 2. reflash-root FIRST: if the `sovereign` VG already exists (box prepared
+#      with setup-lvm), REUSE it — rebuild the root LV, keep /home. No disk
+#      picking, and NO OTHER OS DISK (e.g. your dev Debian on nvme0n1) is ever
+#      touched: we only write the sovereign LVs + the ESP on the VG's own disk. ──
+REFLASH=0
+TARGET=""
+if vgs sovereign >/dev/null 2>&1; then
+  REFLASH=1
+  _pv="$(pvs --noheadings -o pv_name -S vg_name=sovereign 2>/dev/null | awk 'NF{print $1; exit}')"
+  [ -n "${_pv}" ] && TARGET="$(_whole_disk "${_pv}")"
+  [ -b "${TARGET}" ] || TARGET="${SOVEREIGN_OS_TARGET_DISK:-/dev/nvme1n1}"
+else
+  # ── FRESH: offer ONLY internal (non-removable, RM=0) whole disks that are not
+  #    the boot medium. The USB stick (RM=1) is excluded automatically; lsblk
+  #    only lists real block disks, so "overlay" can never reach it. ──
+  mapfile -t DISKS < <(
+    lsblk -dpno NAME,TYPE,RM 2>/dev/null \
+      | awk -v f="${FORBID_DISK}" '$2=="disk" && $3==0 && $1!=f {print $1}'
+  )
+  mapfile -t NVME < <(printf '%s\n' "${DISKS[@]}" | grep -E '/dev/nvme' || true)
+  [ "${#NVME[@]}" -gt 0 ] && DISKS=("${NVME[@]}")
+  if [ "${#DISKS[@]}" -eq 0 ]; then
+    red "no installable internal disk found (boot medium + removable excluded). Aborting."; exit 1
+  fi
+  TARGET="${SOVEREIGN_OS_TARGET_DISK:-}"
+  if [ -z "${TARGET}" ]; then
+    if [ "${#DISKS[@]}" -eq 1 ]; then
+      TARGET="${DISKS[0]}"
+    elif command -v whiptail >/dev/null 2>&1 && [ -z "${SOVEREIGN_OS_NONINTERACTIVE:-}" ]; then
+      menu=(); for d in "${DISKS[@]}"; do
+        menu+=("${d}" "$(lsblk -dpno MODEL,SIZE "${d}" 2>/dev/null | xargs)")
+      done
+      TARGET="$(whiptail --title "sovereign-os installer" \
+        --menu "Choose the INTERNAL disk to install onto (the boot USB is protected):" \
+        20 78 8 "${menu[@]}" 3>&1 1>&2 2>&3)" || { red "cancelled"; exit 1; }
+    else
+      TARGET="${DISKS[0]}"; info "auto-selecting ${TARGET} (set TARGET_DISK to override)"
+    fi
   fi
 fi
-[ -b "${TARGET}" ] || { red "target ${TARGET} is not a block device"; exit 1; }
+[ -b "${TARGET}" ] || { red "target ${TARGET} is not a valid block device"; exit 1; }
 [ "${TARGET}" = "${FORBID_DISK}" ] && { red "refusing: ${TARGET} is the boot medium"; exit 1; }
-
-# ── 4. reflash-root vs fresh ──
-REFLASH=0
-if vgs sovereign >/dev/null 2>&1; then REFLASH=1; fi
 
 FRONTEND="${SOVEREIGN_OS_FRONTEND:-kde-plasma}"
 step "install plan"
