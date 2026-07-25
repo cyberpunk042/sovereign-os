@@ -24,11 +24,15 @@
 //!   prediction is a *derived* capability built on top of count/ranges, not a C
 //!   entry point.)
 //!
-//! All views are POD / `#[repr(C)]`, passed by value; the query path is
-//! device-native (every pointer is a DEVICE pointer). The safe host-side surface
-//! — GPU marshalling of host patterns into device memory — is the wrapper crate's
-//! step-7 (hardware-gated) work; this crate is the faithful, compile-checked ABI
-//! mirror plus the `unsafe` call sites.
+//! All views are POD / `#[repr(C)]`, passed by value; the async query path is
+//! device-native (every pointer is a DEVICE pointer). This crate ALSO binds the
+//! engine's **host-pointer FM-search layer** (`cf_fm_host_load` / `cf_fm_host_count`
+//! / `cf_fm_host_ranges` / `cf_fm_host_locate` / `cf_fm_host_free`, over the opaque
+//! [`CfFmHostIndex`]): the engine performs the host↔device marshalling internally,
+//! so this path needs **no cudart on the caller** — SDD-400 "step 7" satisfied *by
+//! the engine* rather than re-implemented here. Verified through the `.so` by a
+//! pure-C caller (`../chromoFold/packaging/functional_host.c`,
+//! `make -C packaging functional-host`: `cf_fm_host_count` bit-identical to golden).
 //!
 //! ## Honest-degrade (opt-in, OFF by default)
 //!
@@ -176,6 +180,16 @@ pub const fn linked() -> bool {
     cfg!(feature = "linked")
 }
 
+/// Opaque handle to a device-resident FM-index built from a `.cffm` blob by the
+/// engine's **host-pointer** search layer (`cf_fm_host_*` in `chromofold_search.h`).
+/// It owns device memory; only the engine dereferences it. Callers hold a `*mut`/`*const`
+/// to it and never look inside — so unlike [`CfFmView`] this API needs no cudart on the
+/// caller side (all device marshalling is inside the engine). See [`fm_host_load`].
+#[repr(C)]
+pub struct CfFmHostIndex {
+    _private: [u8; 0],
+}
+
 #[cfg(feature = "linked")]
 #[link(name = "chromofold")]
 unsafe extern "C" {
@@ -310,6 +324,38 @@ unsafe extern "C" {
         nocc: usize,
         stream: *mut c_void,
     ) -> i32;
+
+    // --- chromofold_search.h: host-pointer FM-search (device marshalling inside the engine) ---
+
+    fn cf_fm_host_load(cffm: *const u8, nbytes: usize, out: *mut *mut CfFmHostIndex) -> i32;
+
+    fn cf_fm_host_count(
+        ix: *const CfFmHostIndex,
+        pat: *const i32,
+        pstart: *const i32,
+        plen: *const i32,
+        npat: u32,
+        counts_out: *mut u32,
+    ) -> i32;
+
+    fn cf_fm_host_ranges(
+        ix: *const CfFmHostIndex,
+        pat: *const i32,
+        pstart: *const i32,
+        plen: *const i32,
+        npat: u32,
+        lo_out: *mut i32,
+        hi_out: *mut i32,
+    ) -> i32;
+
+    fn cf_fm_host_locate(
+        ix: *const CfFmHostIndex,
+        rows: *const i32,
+        nocc: u32,
+        pos_out: *mut i32,
+    ) -> i32;
+
+    fn cf_fm_host_free(ix: *mut CfFmHostIndex);
 }
 
 /// Device-native batched `access`: decode token IDs at `device_positions` into
@@ -569,6 +615,83 @@ pub unsafe fn fm_locate_async(
     CfStatus::from_raw(unsafe { cf_fm_locate_async(v, r_in, out, nocc, stream) })
 }
 
+// --- host-pointer FM-search wrappers (no cudart on the caller; marshalling is in the engine) ---
+
+/// Build a device-resident FM-index from a `.cffm` container blob. On [`CfStatus::Ok`],
+/// `*out` owns device memory until [`fm_host_free`].
+///
+/// # Safety
+/// `cffm` points to `nbytes` readable bytes; `out` is a valid writable
+/// `*mut *mut CfFmHostIndex`. NULL is handled by the engine (returns
+/// `InvalidArgument` before any CUDA call).
+#[cfg(feature = "linked")]
+pub unsafe fn fm_host_load(
+    cffm: *const u8,
+    nbytes: usize,
+    out: *mut *mut CfFmHostIndex,
+) -> CfStatus {
+    CfStatus::from_raw(unsafe { cf_fm_host_load(cffm, nbytes, out) })
+}
+
+/// Count occurrences of each of `npat` patterns (host arrays: `pat` flattened,
+/// per-pattern `pstart`/`plen`). `counts_out` is host memory of length `npat`.
+///
+/// # Safety
+/// `ix` a live handle from [`fm_host_load`]; `pat`/`pstart`/`plen`/`counts_out`
+/// readable/writable host arrays of the stated lengths.
+#[cfg(feature = "linked")]
+pub unsafe fn fm_host_count(
+    ix: *const CfFmHostIndex,
+    pat: *const i32,
+    pstart: *const i32,
+    plen: *const i32,
+    npat: u32,
+    counts_out: *mut u32,
+) -> CfStatus {
+    CfStatus::from_raw(unsafe { cf_fm_host_count(ix, pat, pstart, plen, npat, counts_out) })
+}
+
+/// Suffix-array `[lo, hi)` interval per pattern (host in/out, length `npat`).
+///
+/// # Safety
+/// As [`fm_host_count`]; `lo_out`/`hi_out` host arrays of length `npat`.
+#[allow(clippy::too_many_arguments)]
+#[cfg(feature = "linked")]
+pub unsafe fn fm_host_ranges(
+    ix: *const CfFmHostIndex,
+    pat: *const i32,
+    pstart: *const i32,
+    plen: *const i32,
+    npat: u32,
+    lo_out: *mut i32,
+    hi_out: *mut i32,
+) -> CfStatus {
+    CfStatus::from_raw(unsafe { cf_fm_host_ranges(ix, pat, pstart, plen, npat, lo_out, hi_out) })
+}
+
+/// Text position of each of `nocc` suffix-array row indices in `rows` (host in/out).
+///
+/// # Safety
+/// `ix` live; `rows`/`pos_out` host arrays of length `nocc`.
+#[cfg(feature = "linked")]
+pub unsafe fn fm_host_locate(
+    ix: *const CfFmHostIndex,
+    rows: *const i32,
+    nocc: u32,
+    pos_out: *mut i32,
+) -> CfStatus {
+    CfStatus::from_raw(unsafe { cf_fm_host_locate(ix, rows, nocc, pos_out) })
+}
+
+/// Release a device-resident index from [`fm_host_load`].
+///
+/// # Safety
+/// `ix` must be a handle from [`fm_host_load`] not already freed; unused after.
+#[cfg(feature = "linked")]
+pub unsafe fn fm_host_free(ix: *mut CfFmHostIndex) {
+    unsafe { cf_fm_host_free(ix) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -579,6 +702,14 @@ mod tests {
         // chromofold.h: CHROMOFOLD_ABI_VERSION 0, CF_WAVELET_SB 8.
         assert_eq!(ABI_VERSION, 0);
         assert_eq!(WAVELET_SB, 8);
+    }
+
+    #[test]
+    fn fm_host_index_is_opaque_zero_sized() {
+        // The host handle is an opaque FFI type: the caller never sees its layout, so it
+        // must be a ZST (only the engine allocates/dereferences it). No GPU needed.
+        assert_eq!(size_of::<CfFmHostIndex>(), 0);
+        assert_eq!(align_of::<CfFmHostIndex>(), 1);
     }
 
     #[test]
