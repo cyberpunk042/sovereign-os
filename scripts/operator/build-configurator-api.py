@@ -96,6 +96,7 @@ REPO = Path(__file__).resolve().parents[2]
 PROFILES_DIR = REPO / "profiles"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+import elevation as _elevate  # noqa: E402
 import request_guard as _guard  # noqa: E402
 # SDD-709: the frontend the built image boots into by default. Mirrors the
 # canonical set in scripts/operator/frontend.py (FRONTENDS) — kept as a plain
@@ -1260,30 +1261,30 @@ class Handler(BaseHTTPRequestHandler):
         argv = argv_fn()
         elevation_note = ""
         if needs_root and os.geteuid() != 0:
-            pkexec = shutil.which("pkexec")
-            if not pkexec:
-                return self._send(403, json.dumps({
-                    "error": "a real build needs root and pkexec is unavailable",
-                    "fix": "stop this panel, then:  sudo -E scripts/operator/panel.sh "
-                           "— the BUILD button works when the server runs as root. "
-                           "dry-run + preflight work right now without it.",
-                }))
-            # GUI session: polkit pops the system password dialog on the
-            # operator's desktop; the build then runs as root. pkexec
-            # sanitizes env, so re-inject what orchestrate.sh needs.
-            # A root build needs the sbin dirs (debootstrap/lb live in /usr/sbin),
-            # but the panel runs as the operator whose PATH usually omits them —
-            # prepend sbin so a pkexec-elevated build finds them (the installer's
-            # live-build → debootstrap failed otherwise).
-            argv = [pkexec, "env",
-                    f"SOVEREIGN_OS_PROFILE={profile}",
-                    f"PATH=/usr/sbin:/sbin:{os.environ.get('PATH', '/usr/bin:/bin')}",
-                    *([f"DEBIAN_SNAPSHOT={snapshot}"] if snapshot else []),
-                    *[f"{k}={v}" for k, v in bake_env.items()],
-                    *[f"{k}={v}" for k, v in operator_key_env().items()],
-                    str(REPO / argv[0]), *argv[1:]]
-            elevation_note = ("  (look for the system password prompt on "
-                              "your desktop — polkit/pkexec)\n")
+            # No terminal here — an HTTP server cannot prompt for a password.
+            # elevation.wrap() picks pkexec (desktop dialog) or a passwordless
+            # sudo grant, re-injecting the env both helpers sanitize away, and
+            # raises when the host has neither (the 403 then names the missing
+            # package + the self-elevating bootstrap that installs it, instead
+            # of telling the operator to demote the whole panel to root).
+            run_env = {
+                "SOVEREIGN_OS_PROFILE": profile,
+                **({"DEBIAN_SNAPSHOT": snapshot} if snapshot else {}),
+                **bake_env,
+                **operator_key_env(),
+            }
+            try:
+                argv, elevation_note = _elevate.wrap(
+                    [str(REPO / argv[0]), *argv[1:]], run_env,
+                    what="a real build",
+                    unprivileged_hint="dry-run + preflight",
+                    # A root build needs the sbin dirs (debootstrap/lb live in
+                    # /usr/sbin) but the panel runs as the operator, whose PATH
+                    # usually omits them — the installer's live-build →
+                    # debootstrap failed exactly there.
+                    extra_path="/usr/sbin:/sbin")
+            except _elevate.ElevationUnavailable as exc:
+                return self._send(403, json.dumps(exc.payload))
         # One run at a time — but the run now OUTLIVES this request: it streams to
         # a state file (see _run_waiter), so a client navigating away never kills
         # it. Serialise only the START; then stream this client from the top.

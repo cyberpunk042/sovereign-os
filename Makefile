@@ -26,7 +26,21 @@ setup:  ## One-command fresh-clone bootstrap (git hooks + deps + smoke)
 	scripts/setup.sh
 
 dev-deps:  ## Install the Python test/lint deps (pytest pyyaml jsonschema) from requirements-dev.txt
-	python3 -m pip install -r requirements-dev.txt
+	@# Debian 13 is PEP-668 "externally managed": a bare `pip install` into the
+	@# system interpreter REFUSES, and a stock trixie ships no pip at all — so
+	@# this target used to die on exactly the fresh host it exists to set up.
+	@# Order: apt (managed, no override) → pip --user → pip --user --break-system-packages.
+	@if python3 -c 'import pytest, yaml, jsonschema' 2>/dev/null; then \
+	  echo "dev deps already importable — nothing to do"; \
+	elif command -v apt-get >/dev/null 2>&1 && ! python3 -m pip --version >/dev/null 2>&1; then \
+	  echo "no pip on this host (PEP-668 Debian) — installing the apt builds"; \
+	  sudo apt-get install -y python3-pytest python3-yaml python3-jsonschema python3-pip; \
+	else \
+	  python3 -m pip install --user -r requirements-dev.txt \
+	    || python3 -m pip install --user --break-system-packages -r requirements-dev.txt; \
+	fi
+	@python3 -c 'import pytest, yaml, jsonschema' \
+	  && echo "✓ pytest + pyyaml + jsonschema importable"
 
 panel:  ## Start the operator panels (build configurator :8100 + runtime dashboard :8443) — no sudo
 	scripts/operator/panel.sh

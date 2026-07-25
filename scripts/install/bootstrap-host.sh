@@ -192,8 +192,27 @@ HOST_PACKAGES=(
   qemu-system-x86 ovmf
   # ZFS userland — required by the zfs-tiered profile's preflight
   zfsutils-linux
+  # panel elevation — the operator panels (build configurator, flash) are HTTP
+  # servers with NO controlling terminal, so they can never prompt for a sudo
+  # password themselves; they elevate the privileged run via pkexec, which pops
+  # the password dialog on the operator's desktop session. Debian 13 split the
+  # binary out of policykit-1 into its own `pkexec` package, so a stock trixie
+  # install does NOT have it and the panel's BUILD/FLASH buttons 403 with
+  # "pkexec is unavailable". polkitd is the daemon pkexec talks to. Omitting
+  # these is what made bootstrap claim success while a shipped surface was dead.
+  pkexec polkitd
   # shared across scripts
   git jq curl ca-certificates python3 python3-yaml python3-jsonschema
+  # Layer-1 lint is the law (~6900 tests) and scripts/setup.sh gates on pytest
+  # being importable. Debian 13 is PEP-668 managed, so `pip install pytest` into
+  # the system interpreter REFUSES — and a stock trixie has no pip at all, so
+  # `make dev-deps` cannot self-heal. Ship the apt build of pytest (and pip, for
+  # the rest of requirements-dev.txt) or a freshly bootstrapped host cannot run
+  # its own test suite.
+  python3-pytest python3-pip
+  # scripts/setup.sh checks for shellcheck and the lint suite shells out to it;
+  # it was never installed by the one command that claims to leave the host ready.
+  shellcheck
 )
 missing=()
 for pkg in "${HOST_PACKAGES[@]}"; do

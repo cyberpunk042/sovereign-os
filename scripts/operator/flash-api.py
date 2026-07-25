@@ -50,7 +50,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -68,6 +67,7 @@ WEBAPP_ROOT = REPO / "webapp"
 WEBAPP = WEBAPP_ROOT / "flash" / "index.html"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+import elevation as _elevate  # noqa: E402
 import request_guard as _guard  # noqa: E402
 OSCTL = REPO / "scripts" / "sovereign-osctl"
 
@@ -254,7 +254,9 @@ def assemble_flash() -> dict:
         "images": list_images(),
         "devices": list_block_devices(),
         "running_as_root": os.geteuid() == 0,
-        "pkexec": bool(shutil.which("pkexec")),
+        # Elevation posture from the shared resolver, so the panel reports the
+        # SAME truth the FLASH button will act on (they diverged before).
+        **_elevate.status(),
         "confirm_env": "SOVEREIGN_OS_CONFIRM_DESTROY=YES",
     }
 
@@ -540,21 +542,17 @@ class Handler(BaseHTTPRequestHandler):
 
         elevation_note = ""
         if needs_root and os.geteuid() != 0:
-            pkexec = shutil.which("pkexec")
-            if not pkexec:
-                return self._send(403, json.dumps({
-                    "error": "flashing needs root and pkexec is unavailable",
-                    "fix": "stop this panel, then:  sudo -E scripts/operator/panel.sh "
-                           "— the FLASH button works when the server runs as root. "
-                           "'plan' works right now without it.",
-                }))
-            argv = [pkexec, "env",
-                    "SOVEREIGN_OS_CONFIRM_DESTROY=YES",
-                    "SOVEREIGN_OS_NONINTERACTIVE=1",
-                    f"PATH={os.environ.get('PATH', '/usr/sbin:/usr/bin:/sbin:/bin')}",
-                    *argv]
-            elevation_note = ("  (look for the system password prompt on your "
-                              "desktop — polkit/pkexec)\n")
+            # Same contract as the build panel — see scripts/operator/lib/elevation.py.
+            try:
+                argv, elevation_note = _elevate.wrap(
+                    list(argv),
+                    {"SOVEREIGN_OS_CONFIRM_DESTROY": "YES",
+                     "SOVEREIGN_OS_NONINTERACTIVE": "1"},
+                    what="flashing",
+                    unprivileged_hint="'plan'",
+                    extra_path="/usr/sbin:/sbin")
+            except _elevate.ElevationUnavailable as exc:
+                return self._send(403, json.dumps(exc.payload))
 
         # Busy-gate on the STATUS FILE (pid alive + not done), NOT just the
         # in-memory lock. RUN_LOCK now only serialises the brief start critical
