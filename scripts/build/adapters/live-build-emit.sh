@@ -43,7 +43,7 @@ lb config noauto \
     --archive-areas "main contrib non-free non-free-firmware" \
     --architectures amd64 \
     --binary-images iso-hybrid \
-    --bootappend-live "boot=live components quiet splash" \
+    --bootappend-live "boot=live components console=tty0 console=ttyS0,115200" \
     --apt-source-archives false \
     --memtest none \
     --iso-volume "Sovereign-OS-${SOVEREIGN_OS_PROFILE:-sain-01}" \

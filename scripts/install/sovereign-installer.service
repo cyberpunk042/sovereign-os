@@ -11,8 +11,10 @@
 [Unit]
 Description=sovereign-os installer (live medium)
 ConditionKernelCommandLine=boot=live
-After=systemd-networkd.service network-online.target getty@tty1.service
-Wants=network-online.target
+# OFFLINE installer — do NOT wait on the network (network-online.target stalls
+# the boot for minutes with no Ethernet, and the install needs no network at all:
+# it unsquashes a complete rootfs). Only order after the getty it replaces.
+After=getty@tty1.service
 Conflicts=getty@tty1.service
 
 [Service]
