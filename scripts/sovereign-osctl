@@ -5879,12 +5879,128 @@ cmd_install() {
       fi
       ;;
 
+    system)
+      # Install the MUTABLE sovereign-os SYSTEM onto an internal disk's
+      # sovereign-root LV, keeping sovereign-home as /home — the reflash-root
+      # model (mutable Debian 13 + custom znver5 kernel + KDE; apt works,
+      # modules toggle). Wraps the scripts/install trio behind the same safety
+      # gates as `install image`. DISTINCT from `install image`, which does a
+      # whole-disk dd of the immutable appliance and does NOT keep /home.
+      local plan_only=0 device="" install_gui="${SOVEREIGN_OS_INSTALL_GUI:-1}"
+      local profile="${SOVEREIGN_OS_PROFILE:-sain-01}"
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --plan)     plan_only=1; shift ;;
+          --to)       device="${2:-}"; shift 2 ;;
+          --profile)  profile="${2:-}"; shift 2 ;;
+          --headless) install_gui=0; shift ;;
+          --)         shift; break ;;
+          -*)         log_error "unknown install system flag: $1"; return 2 ;;
+          *)          log_error "unexpected install system arg: $1"; return 2 ;;
+        esac
+      done
+
+      if [ -z "${device}" ]; then
+        log_error "usage: sovereign-osctl install system --to <disk> [--plan] [--headless] [--profile <id>]"
+        return 2
+      fi
+      if [ ! -b "${device}" ]; then
+        log_error "target is not a block device: ${device}"; return 1
+      fi
+      local dev_basename; dev_basename="$(basename "${device}")"
+      if [[ "${dev_basename}" =~ [0-9]$ ]] && [ -e "/sys/class/block/${dev_basename}/partition" ]; then
+        log_error "target ${device} is a PARTITION, not a whole disk; pass the parent disk"; return 1
+      fi
+      # HARD REFUSAL — never the running root or its parent
+      local root_src root_parent
+      root_src="$(findmnt -n -o SOURCE / 2>/dev/null || echo unknown)"
+      root_parent="$(lsblk -no PKNAME "${root_src}" 2>/dev/null | head -1 || echo unknown)"
+      if [ "${device}" = "${root_src}" ] || [ "${dev_basename}" = "${root_parent}" ]; then
+        log_error "target ${device} IS THE RUNNING ROOT or its parent; HARD REFUSAL"
+        log_error "  running root: ${root_src}  parent: ${root_parent}"; return 1
+      fi
+
+      # Frontend from the profile (default kde-plasma; the install script also
+      # defaults kde-plasma). Best-effort YAML read, never fatal.
+      local frontend="${SOVEREIGN_OS_FRONTEND:-}"
+      if [ -z "${frontend}" ] && [ -r "${SOVEREIGN_OS_ROOT}/profiles/${profile}.yaml" ]; then
+        frontend="$(awk '/^[[:space:]]*frontend:[[:space:]]*$/{f=1;next} f&&/^[[:space:]]*default:/{print $2;exit} f&&/^[[:space:]]{0,4}[a-z_]+:/{exit}' "${SOVEREIGN_OS_ROOT}/profiles/${profile}.yaml" 2>/dev/null || true)"
+      fi
+      frontend="${frontend:-kde-plasma}"
+
+      # Reflash-root detection: an existing `sovereign` VG means Phases 1-2 are
+      # done — rebuild ONLY the root LV, preserving the shared /home. Non-
+      # interactive probe so --plan never prompts for a password.
+      local reflash=0
+      if sudo -n vgs sovereign >/dev/null 2>&1; then reflash=1; fi
+
+      local model size_human
+      model="$(lsblk -dn -o MODEL "${device}" 2>/dev/null | xargs || echo unknown)"
+      size_human="$(lsblk -dn -o SIZE "${device}" 2>/dev/null | xargs || echo unknown)"
+      local osdir="${SOVEREIGN_OS_ROOT}/scripts/install"
+
+      echo
+      echo "  install sovereign-os SYSTEM (mutable Debian + custom kernel + ${frontend}):"
+      echo "    disk:     ${device}  (${model}, ${size_human})"
+      echo "    profile:  ${profile}"
+      echo "    GUI:      $([ "${install_gui}" = 1 ] && echo "${frontend} desktop" || echo "headless")"
+      echo "    mode:     $([ "${reflash}" = 1 ] && echo "REFLASH-ROOT (sovereign VG exists → rebuild root, KEEP /home)" || echo "FRESH (partition ${device}: ESP + sovereign VG root/home)")"
+      echo
+
+      if [ "${plan_only}" -eq 1 ]; then
+        echo "  --plan: would run (writes NOTHING now):"
+        if [ "${reflash}" -eq 1 ]; then
+          echo "    sudo SOVEREIGN_OS_TARGET_DISK=${device} SOVEREIGN_OS_FRONTEND=${frontend} SOVEREIGN_OS_INSTALL_GUI=${install_gui} \\"
+          echo "      ${osdir}/install-sovereign-root.sh    # Phase 3 only (reflash root, keep /home)"
+        else
+          echo "    sudo SOVEREIGN_OS_LVM_DISK=${device} ${osdir}/setup-lvm-dualboot.sh   # Phase 1: partition + LVs"
+          echo "    sudo ${osdir}/migrate-home.sh                                        # Phase 2: /home → shared LV (edits THIS host's fstab)"
+          echo "    sudo SOVEREIGN_OS_TARGET_DISK=${device} SOVEREIGN_OS_FRONTEND=${frontend} SOVEREIGN_OS_INSTALL_GUI=${install_gui} \\"
+          echo "      ${osdir}/install-sovereign-root.sh                                 # Phase 3: install the OS"
+        fi
+        echo
+        echo "  NOTE: Phase 2 repoints THIS host's /home to the shared LV on next reboot (backup: /etc/fstab.pre-sovereign.bak)."
+        echo "  no byte was written. drop --plan to execute (gates: SOVEREIGN_OS_CONFIRM_DESTROY=YES + interactive)."
+        return 0
+      fi
+
+      # Gate 5 — env confirmation
+      if [ "${SOVEREIGN_OS_CONFIRM_DESTROY:-}" != "YES" ]; then
+        log_error "DESTRUCTIVE operation. SOVEREIGN_OS_CONFIRM_DESTROY=YES not set."
+        log_error "  preview first: sovereign-osctl install system --plan --to ${device}"
+        return 1
+      fi
+      # Gate 6 — interactive confirm
+      if [ -z "${SOVEREIGN_OS_NONINTERACTIVE:-}" ]; then
+        echo "  This will $([ "${reflash}" = 1 ] && echo "REBUILD the sovereign-root LV on" || echo "PARTITION") ${device} and install sovereign-os."
+        read -rp "  Type the disk path (${device}) to confirm: " typed
+        [ "${typed}" = "${device}" ] || { log_error "device confirmation mismatch; aborting"; return 1; }
+      fi
+
+      if [ "${reflash}" -eq 0 ]; then
+        log_info "Phase 1 — partition ${device} + create sovereign VG (root/home)"
+        sudo SOVEREIGN_OS_LVM_DISK="${device}" bash "${osdir}/setup-lvm-dualboot.sh" \
+          || { log_error "Phase 1 (setup-lvm-dualboot) failed"; return 1; }
+        log_info "Phase 2 — migrate /home onto the shared LV"
+        sudo bash "${osdir}/migrate-home.sh" \
+          || { log_error "Phase 2 (migrate-home) failed"; return 1; }
+      else
+        log_info "sovereign VG present — REFLASH-ROOT: rebuilding root only, keeping /home"
+      fi
+      log_info "Phase 3 — install mutable Debian + custom kernel + ${frontend} into sovereign-root"
+      sudo SOVEREIGN_OS_TARGET_DISK="${device}" SOVEREIGN_OS_FRONTEND="${frontend}" \
+        SOVEREIGN_OS_INSTALL_GUI="${install_gui}" bash "${osdir}/install-sovereign-root.sh" \
+        || { log_error "Phase 3 (install-sovereign-root) failed"; return 1; }
+      log_info "install complete — reboot and pick 'sovereign-os' from the firmware boot menu"
+      ;;
+
     help|--help|-h|"")
       cat <<EOF
 sovereign-osctl install — operator-side image deployment
 
 USAGE:
-  sovereign-osctl install image [--plan] <image-path> --to <device>
+  sovereign-osctl install image  [--plan] <image-path> --to <device>
+  sovereign-osctl install system [--plan] --to <disk> [--headless] [--profile <id>]
 
 GATES (every byte-writing path must pass ALL):
   • image exists + non-empty + regular file
@@ -5896,13 +6012,26 @@ GATES (every byte-writing path must pass ALL):
 --plan mode: shows the device fingerprint + the command that WOULD
 run, writes nothing. Recommended first step.
 
+image  — whole-disk dd of the immutable mkosi APPLIANCE onto <device>.
+         Wipes the whole disk; does NOT keep /home. Boots by auto-discovery.
+
+system — install the MUTABLE sovereign-os SYSTEM (Debian 13 + custom znver5
+         kernel + KDE; apt works, modules toggle) into the target disk's
+         sovereign-root LV, keeping sovereign-home as /home (the reflash-root
+         model). If a 'sovereign' VG already exists it REFLASHES the root only
+         and preserves /home; otherwise it partitions the disk fresh. This is
+         the one that installs a system you can actually log into and change.
+
 EXAMPLES:
-  # 1. Preview
+  # Preview a whole-disk appliance write
   sovereign-osctl install image --plan build/sain-01/output/sain-01 --to /dev/nvme1n1
 
-  # 2. Execute (after preview review)
+  # Preview installing the mutable system onto the second NVMe
+  sovereign-osctl install system --plan --to /dev/nvme1n1
+
+  # Execute the system install (after preview review)
   SOVEREIGN_OS_CONFIRM_DESTROY=YES \\
-    sudo sovereign-osctl install image build/sain-01/output/sain-01 --to /dev/nvme1n1
+    sudo -E sovereign-osctl install system --to /dev/nvme1n1
 EOF
       ;;
 

@@ -22,7 +22,15 @@ set -euo pipefail
 
 ROOT_LV="${SOVEREIGN_OS_ROOT_LV:-/dev/sovereign/root}"
 HOME_LV="${SOVEREIGN_OS_HOME_LV:-/dev/sovereign/home}"
-ESP_PART="${SOVEREIGN_OS_ESP:-/dev/nvme1n1p1}"     # sovereign's own ESP (Phase 1)
+# ESP = sovereign's own ESP partition (Phase 1 created it as <target-disk>p1).
+# Derive it from the target disk so `install system --to <disk>` works for ANY
+# NVMe, not just the historical /dev/nvme1n1 default.
+_TARGET_DISK="${SOVEREIGN_OS_TARGET_DISK:-/dev/nvme1n1}"
+case "${_TARGET_DISK}" in
+  *[0-9]) _ESP_DEFAULT="${_TARGET_DISK}p1" ;;
+  *)      _ESP_DEFAULT="${_TARGET_DISK}1"  ;;
+esac
+ESP_PART="${SOVEREIGN_OS_ESP:-${_ESP_DEFAULT}}"
 PRIMARY_USER="${SOVEREIGN_OS_USER:-jfortin}"
 SUITE="${SOVEREIGN_OS_SUITE:-trixie}"
 MIRROR="${SOVEREIGN_OS_MIRROR:-http://deb.debian.org/debian}"
@@ -31,6 +39,12 @@ REPO_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # GUI desktop + dashboards on by default (operator directive 2026-07-02).
 # Set SOVEREIGN_OS_INSTALL_GUI=0 for a headless install.
 INSTALL_GUI="${SOVEREIGN_OS_INSTALL_GUI:-1}"
+# Desktop frontend on the INSTALLED system. Default kde-plasma (the sain-01
+# profile default) — NOT gnome. Without this the GUI stage passed only the
+# legacy SOVEREIGN_OS_DESKTOP=gnome and install-gui-dashboards.sh installed
+# GNOME, contradicting the profile's frontend.default: kde-plasma.
+FRONTEND="${SOVEREIGN_OS_FRONTEND:-kde-plasma}"
+FRONTEND_INSTALL="${SOVEREIGN_OS_FRONTEND_INSTALL:-kde-plasma,gnome,dashboards-kiosk}"
 
 red()  { printf '\033[31m%s\033[0m\n' "$*"; }
 grn()  { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -196,9 +210,11 @@ if [ "${INSTALL_GUI}" = 1 ]; then
   chroot "${MNT}" env \
     DEBIAN_FRONTEND=noninteractive \
     SOVEREIGN_OS_SRC="${STAGE}" \
-    SOVEREIGN_OS_DESKTOP="${SOVEREIGN_OS_DESKTOP:-gnome}" \
+    SOVEREIGN_OS_FRONTEND="${FRONTEND}" \
+    SOVEREIGN_OS_FRONTEND_INSTALL="${FRONTEND_INSTALL}" \
+    SOVEREIGN_OS_DESKTOP="${SOVEREIGN_OS_DESKTOP:-${FRONTEND}}" \
     bash "${STAGE}/scripts/install/install-gui-dashboards.sh"
-  info "GUI + dashboards installed (hub on :8100, launcher in app menu + autostart)"
+  info "GUI + dashboards installed (frontend=${FRONTEND}; hub on :8100, launcher in app menu + autostart)"
 else
   info "SOVEREIGN_OS_INSTALL_GUI=0 — headless install; run scripts/install/install-gui-dashboards.sh later to add the GUI"
 fi
@@ -232,7 +248,7 @@ EOF
 if [ "${INSTALL_GUI}" = 1 ]; then
   cat <<EOF
 GUI + dashboards are ON by default:
-  - Debian ${SUITE} desktop (${SOVEREIGN_OS_DESKTOP:-gnome}) boots to graphical.target.
+  - Debian ${SUITE} desktop (${FRONTEND}) boots to graphical.target.
   - The dashboard hub runs on boot (loopback): http://127.0.0.1:8100/
   - Log in and look for "Sovereign Dashboards" — it's in the app menu, on the
     desktop, and auto-opens in the browser on first login.
