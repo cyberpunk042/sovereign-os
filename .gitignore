@@ -24,6 +24,12 @@ __pycache__/
 binary/
 config/auto/build
 
+# simple-cdd (offline debian-installer) build scratch — multi-GB, never commit.
+# The tool writes its working mirror + reprepro db + debian-cd checkout under
+# tmp/, and the finished ISO under images/, INSIDE the repo (simple_cdd_dir).
+/scripts/build/installer-cdd/tmp/
+/scripts/build/installer-cdd/images/
+
 # Sovereign-os build state (resume-from-step)
 .sovereign-os-build/
 .build-state/
