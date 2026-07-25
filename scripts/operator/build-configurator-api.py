@@ -1271,9 +1271,13 @@ class Handler(BaseHTTPRequestHandler):
             # GUI session: polkit pops the system password dialog on the
             # operator's desktop; the build then runs as root. pkexec
             # sanitizes env, so re-inject what orchestrate.sh needs.
+            # A root build needs the sbin dirs (debootstrap/lb live in /usr/sbin),
+            # but the panel runs as the operator whose PATH usually omits them —
+            # prepend sbin so a pkexec-elevated build finds them (the installer's
+            # live-build → debootstrap failed otherwise).
             argv = [pkexec, "env",
                     f"SOVEREIGN_OS_PROFILE={profile}",
-                    f"PATH={os.environ.get('PATH', '/usr/sbin:/usr/bin:/sbin:/bin')}",
+                    f"PATH=/usr/sbin:/sbin:{os.environ.get('PATH', '/usr/bin:/bin')}",
                     *([f"DEBIAN_SNAPSHOT={snapshot}"] if snapshot else []),
                     *[f"{k}={v}" for k, v in bake_env.items()],
                     *[f"{k}={v}" for k, v in operator_key_env().items()],
