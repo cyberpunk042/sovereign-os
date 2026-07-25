@@ -13,6 +13,11 @@
 //!   self-contained, `unsafe`-free port that answers `count` / `ranges` / `locate`
 //!   / `predict` over a token stream with **no GPU and no native library**,
 //!   verified against a naive substring oracle. This is the working search path.
+//! - [`HostFmSearch`] — the **provenance-A** GPU search surface (SDD-400 step 7):
+//!   `count` / `ranges` / `locate` over a `.cffm` blob, delegating to the engine's
+//!   safe host-pointer path. Opt-in: honest-degrades to [`HostSearchError::Unavailable`]
+//!   unless the `linked` feature is on. Verified end-to-end on GPU via the
+//!   `sovereign-chromofold-sys` `host_fm_smoke` example.
 //! - [`availability`] — is the native GPU engine (provenance-A) linked?
 //! - [`engine_root`] — the resident engine checkout (`CHROMOFOLD_ROOT`, else
 //!   `WARP_SHADERS_ROOT`), or `None` when absent (honest-degrade / offline).
@@ -23,14 +28,18 @@
 //!
 //! - **provenance-B** ([`FmIndex`]) — CPU-native Rust, always available, the
 //!   reference-grade correctness floor.
-//! - **provenance-A** (`sovereign-chromofold-sys` + the GPU engine) — the
-//!   device-native hot path; its safe host-side marshalling is the hardware-gated
-//!   **step 7** of SDD-400. Both must agree with the same oracle.
+//! - **provenance-A** ([`HostFmSearch`], over `sovereign-chromofold-sys` + the GPU
+//!   engine) — the device-native hot path; its safe host-side marshalling was the
+//!   hardware-gated **step 7** of SDD-400, now wired and verified on GPU. Both
+//!   backends must agree with the same oracle.
 
 use serde::{Deserialize, Serialize};
 
 pub mod fm;
 pub use fm::FmIndex;
+
+pub mod host;
+pub use host::{HostFmSearch, HostSearchError};
 
 pub mod span_cache;
 pub use span_cache::{SpanCache, SpanHit};
@@ -216,10 +225,10 @@ pub fn descriptor() -> CapabilityDescriptor {
     }
 }
 
-// The searchable surface is [`FmIndex`] (provenance-B, CPU-native). It supersedes
-// the earlier corpus-less honest-degrade stubs: a real FM-index needs a corpus,
-// so search lives on the index, not on free functions. The GPU host path
-// (provenance-A) will add its own surface at SDD-400 step 7.
+// Two searchable surfaces, both index-scoped (a real FM-index needs a corpus, so
+// search lives on the index, not on free functions): [`FmIndex`] (provenance-B,
+// CPU-native, always available) and [`HostFmSearch`] (provenance-A, the GPU host
+// path — SDD-400 step 7, now landed; opt-in via the `linked` feature).
 
 #[cfg(test)]
 mod tests {
