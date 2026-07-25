@@ -2828,13 +2828,19 @@ async function load() {
 function renderImages() {
   const sel = el("image");
   sel.innerHTML = "";
-  if (!DATA.images.length) { sel.innerHTML = '<option value="">— no built image found —</option>'; return; }
+  if (!DATA.images.length) { sel.innerHTML = '<option value="">— no built artifact found —</option>'; return; }
   DATA.images.forEach(im => {
     const o = document.createElement("option");
     o.value = im.path;
-    o.textContent = `${im.profile}/${im.name} · ${im.size_human}`;
+    // Label the kind so "flash the installer" is unmistakable. list_images
+    // already sorts installers first, so the newest installer is the default.
+    const tag = im.kind === "installer" ? "🖴 INSTALLER · " : "💿 OS image · ";
+    o.textContent = `${tag}${im.profile}/${im.name} · ${im.size_human}`;
     sel.appendChild(o);
   });
+  // default-select the first installer if any (list order guarantees it's first)
+  const firstInstaller = DATA.images.findIndex(i => i.kind === "installer");
+  sel.selectedIndex = firstInstaller >= 0 ? firstInstaller : 0;
   sel.addEventListener("change", showImageMeta);
   showImageMeta();
 }

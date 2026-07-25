@@ -220,6 +220,16 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     log_info "running 'lb build' in ${SOVEREIGN_OS_BUILD_OUT}"
     if lb build 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/image-build-${SOVEREIGN_OS_BUILD_ID}.log"; then
       emit_build_metric success
+      # Place the ISO where flash discovers it (build/<profile>/output/), named
+      # by artifact so the flash panel can tell installer from OS image.
+      mkdir -p "${SOVEREIGN_OS_BUILD_OUT}/output"
+      _iso="$(ls -1 "${SOVEREIGN_OS_BUILD_OUT}"/*.iso 2>/dev/null | head -1 || true)"
+      if [ -n "${_iso}" ]; then
+        _suffix=""; [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ] && _suffix="-installer"
+        _dest="${SOVEREIGN_OS_BUILD_OUT}/output/${SOVEREIGN_OS_PROFILE}${_suffix}.iso"
+        mv -f "${_iso}" "${_dest}"
+        log_info "iso → ${_dest}"
+      fi
     else
       rc=${PIPESTATUS[0]}
       log_error "lb build failed (rc=${rc})"
@@ -247,7 +257,7 @@ esac
 # Discover output (per substrate)
 case "${SOVEREIGN_OS_SUBSTRATE}" in
   mkosi)      output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
-  live-build) output_dir="${SOVEREIGN_OS_BUILD_OUT}" ;;  # lb build emits to the same dir
+  live-build) output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;  # ISO moved here above
 esac
 
 if [ -d "${output_dir}" ] && [ -z "${SOVEREIGN_OS_DRY_RUN:-}" ]; then

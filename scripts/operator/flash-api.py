@@ -205,39 +205,47 @@ def _human(n: int) -> str:
 
 
 def list_images() -> list[dict]:
-    """Built .raw images under build/*/output, newest first, with size +
-    the sha256 recorded alongside (if any)."""
+    """Built artifacts under build/*/output, newest first, with size + sha256.
+    Two kinds: `installer` (a bootable *-installer.iso that installs the mutable
+    OS onto an internal disk — the primary target) and `image` (a whole-disk
+    .raw/.iso appliance you dd onto a disk). The `kind` lets the flash panel
+    label them and default to the installer."""
     out = []
     build_dir = REPO / "build"
     if not build_dir.is_dir():
         return out
-    for raw in sorted(build_dir.glob("*/output/*.raw")):
+    artifacts = sorted(build_dir.glob("*/output/*.raw")) + sorted(build_dir.glob("*/output/*.iso"))
+    for art in artifacts:
         try:
-            st = raw.stat()
+            st = art.stat()
         except OSError:
             continue
-        sums = raw.parent / "sha256sums.txt"
+        sums = art.parent / "sha256sums.txt"
         sha = ""
         if sums.is_file():
             try:
                 for line in sums.read_text(errors="replace").splitlines():
                     parts = line.split()
-                    if len(parts) == 2 and parts[1].lstrip("*") == raw.name:
+                    if len(parts) == 2 and parts[1].lstrip("*") == art.name:
                         sha = parts[0]
                         break
             except OSError:
                 pass
+        kind = "installer" if art.name.endswith("-installer.iso") else "image"
         out.append({
-            "path": str(raw.relative_to(REPO)),
-            "abs": str(raw),
-            "name": raw.name,
-            "profile": raw.parent.parent.name,
+            "path": str(art.relative_to(REPO)),
+            "abs": str(art),
+            "name": art.name,
+            "profile": art.parent.parent.name,
+            "kind": kind,
             "size_bytes": st.st_size,
             "size_human": _human(st.st_size),
             "mtime": int(st.st_mtime),
             "sha256": sha,
         })
-    out.sort(key=lambda x: x["mtime"], reverse=True)
+    # installers first, then newest-first within each kind — so the panel can
+    # default-select the newest installer.
+    out.sort(key=lambda x: (x["kind"] != "installer", -x["mtime"]))
     return out
 
 
@@ -482,15 +490,16 @@ class Handler(BaseHTTPRequestHandler):
                 {"error": f"unknown action {action!r}", "allowed": ["plan", "flash"]}))
             return None
         image = body.get("image") or ""
-        # image must resolve to a real .raw inside build/ (no traversal)
+        # image must resolve to a real .raw/.iso inside build/ (no traversal).
+        # dd writes an iso-hybrid installer to USB just as it writes a .raw.
         try:
             img_abs = (REPO / image).resolve()
             img_abs.relative_to((REPO / "build").resolve())
         except (ValueError, OSError):
             self._send(400, json.dumps({"error": f"image must be a build/ artifact: {image!r}"}))
             return None
-        if img_abs.suffix != ".raw" or not img_abs.is_file():
-            self._send(400, json.dumps({"error": f"image not found / not a .raw: {image!r}"}))
+        if img_abs.suffix not in (".raw", ".iso") or not img_abs.is_file():
+            self._send(400, json.dumps({"error": f"artifact not found / not a .raw|.iso: {image!r}"}))
             return None
         device = body.get("device") or ""
         if not DEVICE_RE.match(device):
