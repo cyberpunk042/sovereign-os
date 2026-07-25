@@ -31,6 +31,15 @@ command -v build-simple-cdd >/dev/null || { echo "install simple-cdd" >&2; exit 
 
 rm -rf "${WORK}"; mkdir -p "${WORK}" "${LOCAL_PKGS}" "${OUT}"
 
+# simple-cdd writes its scratch (partial mirror + reprepro db) to ${HERE}/tmp —
+# INSIDE the repo. A stale/partial tree from a failed prior run causes reprepro
+# checksum collisions and confusing debian-cd errors, so start clean by default.
+# The (expensive) d-i images live in their own cache, untouched. Keep the mirror
+# across runs only when explicitly iterating: SOVEREIGN_OS_CDD_KEEP_TMP=1.
+if [ "${SOVEREIGN_OS_CDD_KEEP_TMP:-0}" != "1" ]; then
+  rm -rf "${HERE}/tmp"
+fi
+
 # ── 1. custom kernel .debs → local packages ──
 log "staging custom kernel .debs"
 if ls "${KDIR}"/linux-image-6.12.0_*.deb >/dev/null 2>&1; then
@@ -46,6 +55,14 @@ rm -rf "${PKGROOT}"; mkdir -p "${PKGROOT}/DEBIAN" "${PKGROOT}/opt/sovereign-os"
 for d in scripts webapp profiles config systemd share; do
   [ -d "${REPO}/${d}" ] && cp -a "${REPO}/${d}" "${PKGROOT}/opt/sovereign-os/"
 done
+# CRITICAL: the cockpit payload is SOURCE ONLY. simple-cdd's scratch mirror lands
+# at scripts/build/installer-cdd/tmp (inside the repo); copying it would bloat the
+# .deb to multi-GB and collide in reprepro. Strip all build scratch + py caches.
+rm -rf "${PKGROOT}/opt/sovereign-os/scripts/build/installer-cdd/tmp"
+find "${PKGROOT}/opt/sovereign-os" -depth -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+find "${PKGROOT}/opt/sovereign-os" -type f -name '*.pyc' -delete 2>/dev/null || true
+_cksz="$(du -sm "${PKGROOT}/opt/sovereign-os" | cut -f1)"
+[ "${_cksz}" -lt 200 ] || { echo "‼ cockpit payload is ${_cksz}MB — build scratch leaked in; refusing" >&2; exit 1; }
 cat > "${PKGROOT}/DEBIAN/control" <<CTRL
 Package: sovereign-os-cockpit
 Version: 1.0.0
