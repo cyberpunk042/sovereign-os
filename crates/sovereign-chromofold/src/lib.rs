@@ -176,6 +176,18 @@ pub fn descriptor() -> CapabilityDescriptor {
                 false,
             ),
             cap(
+                "kv_attention_fused",
+                "chromofold.h",
+                "cf_kv_attn_fused_async",
+                false,
+            ),
+            cap(
+                "kv_attention_dense_reference",
+                "chromofold.h",
+                "cf_kv_attn_dense_async",
+                false,
+            ),
+            cap(
                 "rrrw_access",
                 "chromofold_search.h",
                 "cf_rrrw_access_async",
@@ -236,7 +248,7 @@ mod tests {
         assert_eq!(d.root_env, "CHROMOFOLD_ROOT");
         assert_eq!(d.root_default_env, "WARP_SHADERS_ROOT");
         assert!(d.lane.contains("FM-index"));
-        assert_eq!(d.capabilities.len(), 8);
+        assert_eq!(d.capabilities.len(), 10);
         // exactly one sovereign-os-first primitive, and it is fm_count (Lane A).
         let first: Vec<&str> = d
             .capabilities

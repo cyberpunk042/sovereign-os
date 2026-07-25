@@ -76,7 +76,13 @@ Honest consequence: the **KV fold and embedding fold are wireable now**; the **w
 - **`forward()` honest-degrades**: selecting `GpuFold` returns `GpuFoldUnavailable` (with a precise reason — backend state + which later phase wires the routing) instead of silently running the CPU path under a GPU claim. The default `Cpu` path is **byte-identical** to before (proven by `cpu_mode_generation_is_unchanged_by_an_attached_backend` — attaching a backend while in `Cpu` mode yields identical generation).
 - **Verified**: `cargo test -p sovereign-quant-model` (16 pass, incl. 4 new seam tests) + `cargo clippy -D warnings` + `cargo fmt --check` clean; dependents (`sovereign-gatewayd`, `sovereign-llm`) `cargo check` clean (additive API); `tests/lint/test_gpu_fold_seam_contract.py` (4) pins the seam + the honest-degrade property.
 
-**Not built (later gated phases, per the plan above):** binding the compute C ABI into `sovereign-chromofold-sys` (phase 3), the folded-KV GPU attention path (phase 4), decode-in-GEMM (phase 5, gated on Q-401-A), and the SAIN measurement (phase 6). No GPU/`unsafe`/marshalling landed this phase — the seam is the plug-point those phases fill.
+**Phase 3 (bind the compute C ABI) shipped** (operator: *"lets continue"*). CPU-verifiable, no GPU:
+
+- **`sovereign-chromofold-sys`** now binds the fused compressed-KV attention kernels — `cf_kv_attn_fused_async` (the ~8× folded-KV serving path) + `cf_kv_attn_dense_async` (its bit-exact verification baseline) — as `extern "C"` decls + safe wrappers, **behind the OFF-by-default `linked` feature** (the sanctioned-unsafe carve-out; `#[allow(clippy::too_many_arguments)]` since the C ABI dictates the 20/22-arg shape). `cf_embedding_gather_async` was already bound (SDD-400).
+- **`sovereign-chromofold`**'s `CapabilityDescriptor` now mirrors all **10** native `chromofold_capability.json` capabilities (8 access/search + the 2 KV compute) — it previously listed 8, a drift this phase corrects.
+- **Verified**: `cargo test -p sovereign-chromofold-sys -p sovereign-chromofold` (5 + 17) + `cargo check --features linked` (FFI type-checks without a link) + clippy `-D warnings` (default **and** `--features linked`) + fmt clean; `tests/lint/test_chromofold_kv_abi_binding_contract.py` (4) pins the binding + that it stays quarantined behind `linked` + the mirror. Off-by-default preserved (`linked()==false` default; no `libchromofold` needed).
+
+**Not built (later gated phases, per the plan above):** the folded-KV GPU attention path wired into `sovereign-mha-block` via a `FoldBackend` impl (phase 4), decode-in-GEMM (phase 5, gated on Q-401-A), and the SAIN measurement (phase 6). No GPU/marshalling landed — phase 3 is the faithful, compile-checked ABI mirror; the live GPU link is SAIN-gated.
 
 ## Cross-references
 
