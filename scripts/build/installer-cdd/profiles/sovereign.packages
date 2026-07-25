@@ -28,3 +28,8 @@ git
 nano
 # debian-cd's installtools step wants the installation guide present in the pool
 installation-guide-amd64
+# trixie's base-installer installs `zstd` as part of the base set (dpkg's default
+# compressor), but nothing in the closure above depends on the zstd BINARY package
+# (they pull libzstd1), so it was absent from the offline mirror and base-install
+# failed with "Unable to install zstd". Pull it in explicitly.
+zstd
