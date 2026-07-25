@@ -12,7 +12,10 @@
 //!
 //! Two committed headers, mirrored 1:1:
 //! - **`chromofold.h`** — the packed-wavelet primitives (`cf_access_async`,
-//!   `cf_rank_async` — the header's *"FM-index primitive"* —, `cf_embedding_gather_async`).
+//!   `cf_rank_async` — the header's *"FM-index primitive"* —, `cf_embedding_gather_async`)
+//!   plus the **fused compressed-KV attention** compute kernels (SDD-401 phase 3):
+//!   `cf_kv_attn_fused_async` (the folded-KV serving path, ~8× less KV VRAM) and
+//!   `cf_kv_attn_dense_async` (its bit-exact verification baseline).
 //! - **`chromofold_search.h`** — the RRR-backed self-index + **FM-index
 //!   compressed-domain search**: `cf_rrrw_access_async`/`cf_rrrw_rank_async` and
 //!   the Lane-A priority `cf_fm_count_async` / `cf_fm_ranges_async` /
@@ -203,6 +206,63 @@ unsafe extern "C" {
         stream: *mut c_void,
     ) -> i32;
 
+    // --- chromofold.h: fused compressed-KV attention (M6/M9 seam; SDD-401 phase 3) ---
+    // K/V are block-Huffman-coded ints in device memory; the kernel decodes +
+    // dequantizes each attended value inside the consumer, so no dense KV buffer
+    // is materialized. All pointers are DEVICE pointers.
+    #[allow(clippy::too_many_arguments)]
+    fn cf_kv_attn_fused_async(
+        kw: *const u32,
+        kb: *const i32,
+        kl: *const i32,
+        kmax: c_int,
+        vw: *const u32,
+        vb: *const i32,
+        vl: *const i32,
+        vmax: c_int,
+        kscale: *const f32,
+        vscale: *const f32,
+        q: *const f32,
+        out: *mut f32,
+        seq: c_int,
+        dim: c_int,
+        nq: c_int,
+        window: c_int,
+        block: c_int,
+        zero: c_int,
+        sscale: f32,
+        stream: *mut c_void,
+    ) -> i32;
+
+    // Dense-reference KV path: decodes K/V into caller `kd`/`vd` [seq,dim] scratch
+    // then runs the same causal windowed attention — the bit-exact verification
+    // baseline for the fused path (SDD-401 phase 4 oracle), not a serving path.
+    #[allow(clippy::too_many_arguments)]
+    fn cf_kv_attn_dense_async(
+        kw: *const u32,
+        kb: *const i32,
+        kl: *const i32,
+        kmax: c_int,
+        vw: *const u32,
+        vb: *const i32,
+        vl: *const i32,
+        vmax: c_int,
+        kscale: *const f32,
+        vscale: *const f32,
+        q: *const f32,
+        kd: *mut f32,
+        vd: *mut f32,
+        out: *mut f32,
+        seq: c_int,
+        dim: c_int,
+        nq: c_int,
+        window: c_int,
+        block: c_int,
+        zero: c_int,
+        sscale: f32,
+        stream: *mut c_void,
+    ) -> i32;
+
     // --- chromofold_search.h: RRR self-index + FM-index compressed-domain search ---
 
     fn cf_rrrw_access_async(
@@ -318,6 +378,96 @@ pub unsafe fn embedding_gather_async(
 ) -> CfStatus {
     CfStatus::from_raw(unsafe {
         cf_embedding_gather_async(index, embeddings, dim, device_positions, out, count, stream)
+    })
+}
+
+/// Fused compressed-KV attention (SDD-401 phase 4 target): causal windowed
+/// attention over block-Huffman-coded int K/V, decoding + dequantizing each
+/// attended value inside the kernel so no dense KV buffer is materialized —
+/// the folded-KV serving path (~8× less KV VRAM).
+///
+/// `kw`/`kb`/`kl`/`kmax` and `vw`/`vb`/`vl`/`vmax` are the K/V code words, block
+/// bit-offsets, decode lookup tables, and max symbol; `kscale` (`dim`) / `vscale`
+/// (`seq`) are dequant scales; `q`/`out` are `[nq, dim]` row-major. `zero` is the
+/// pad/zero symbol, `sscale` the softmax scale, `window` the causal window
+/// (`0` = full causal).
+///
+/// # Safety
+/// All pointers are DEVICE allocations of the documented shape, live for the
+/// async call; `stream` is a valid `cudaStream_t` or null. The kernel allocates
+/// nothing and does not synchronize.
+#[cfg(feature = "linked")]
+#[allow(clippy::too_many_arguments)]
+pub unsafe fn kv_attn_fused_async(
+    kw: *const u32,
+    kb: *const i32,
+    kl: *const i32,
+    kmax: c_int,
+    vw: *const u32,
+    vb: *const i32,
+    vl: *const i32,
+    vmax: c_int,
+    kscale: *const f32,
+    vscale: *const f32,
+    q: *const f32,
+    out: *mut f32,
+    seq: c_int,
+    dim: c_int,
+    nq: c_int,
+    window: c_int,
+    block: c_int,
+    zero: c_int,
+    sscale: f32,
+    stream: *mut c_void,
+) -> CfStatus {
+    CfStatus::from_raw(unsafe {
+        cf_kv_attn_fused_async(
+            kw, kb, kl, kmax, vw, vb, vl, vmax, kscale, vscale, q, out, seq, dim, nq, window,
+            block, zero, sscale, stream,
+        )
+    })
+}
+
+/// Dense-reference KV attention — decodes K/V into caller-provided `kd`/`vd`
+/// `[seq, dim]` scratch, then runs the same causal windowed attention. The
+/// **bit-exact verification baseline** for [`kv_attn_fused_async`] (SDD-401
+/// phase 4 oracle) — proves the fused path matches dense and quantifies the
+/// memory it avoids; not the preferred serving path.
+///
+/// # Safety
+/// Same contract as [`kv_attn_fused_async`], plus `kd`/`vd` are writable device
+/// `[seq, dim]` scratch buffers.
+#[cfg(feature = "linked")]
+#[allow(clippy::too_many_arguments)]
+pub unsafe fn kv_attn_dense_async(
+    kw: *const u32,
+    kb: *const i32,
+    kl: *const i32,
+    kmax: c_int,
+    vw: *const u32,
+    vb: *const i32,
+    vl: *const i32,
+    vmax: c_int,
+    kscale: *const f32,
+    vscale: *const f32,
+    q: *const f32,
+    kd: *mut f32,
+    vd: *mut f32,
+    out: *mut f32,
+    seq: c_int,
+    dim: c_int,
+    nq: c_int,
+    window: c_int,
+    block: c_int,
+    zero: c_int,
+    sscale: f32,
+    stream: *mut c_void,
+) -> CfStatus {
+    CfStatus::from_raw(unsafe {
+        cf_kv_attn_dense_async(
+            kw, kb, kl, kmax, vw, vb, vl, vmax, kscale, vscale, q, kd, vd, out, seq, dim, nq,
+            window, block, zero, sscale, stream,
+        )
     })
 }
 

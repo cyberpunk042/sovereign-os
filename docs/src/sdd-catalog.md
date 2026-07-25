@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (236 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (237 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -139,6 +139,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (236 total), by number.
 - [SDD-207 — The Sovereign Compute Plane (Phase 1: VRAM-fit job placement)](../sdd/207-compute-plane.md)
 - [SDD-300 — Warp management panel (warp-solar-system-shaders: catalog, relations & execution)](../sdd/300-warp-management-panel.md)
 - [SDD-400 — ChromoFold compressed-domain integration (DESIGN / positioning)](../sdd/400-chromofold-compressed-domain-integration.md)
+- [SDD-401 — ChromoFold GPU hotswap: fold-the-model decode-in-GEMM + folded KV (DESIGN)](../sdd/401-chromofold-gpu-hotswap-fold-the-model.md)
 - [SDD-500 — Per-token token-law bitset: wiring the M002 bit-machine into the in-repo decode loop](../sdd/500-per-token-token-law-bitset.md)
 - [SDD-501 — Multi-plane token-law composition: gate the decoder by grammar AND policy at once](../sdd/501-multi-plane-token-law-composition.md)
 - [SDD-502 — Incremental Earley parser: per-token grammar masking without re-parsing the prefix](../sdd/502-incremental-grammar-parser.md)
