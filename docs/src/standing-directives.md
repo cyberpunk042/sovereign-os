@@ -14,6 +14,7 @@ Operator standing-directives (verbatim mandate records), newest by date last.
 - [Standing directive — shared notification-settings overlay panel + trigger markdown properties](../standing-directives/2026-07-19-notification-settings-overlay-panel.md)
 - [Standing directive — wiki-operability AI mode + ntfy/Resend/Twilio notification layer](../standing-directives/2026-07-19-notification-wiki-operability-mode.md)
 - [Standing directive — upstream rename: root-ghostproxy → root-modules](../standing-directives/2026-07-19-root-modules-rename.md)
+- [Standing directive — sovereign-os is INSTALLED onto the NVMe (installer, not just an image)](../standing-directives/2026-07-25-installer-onto-nvme.md)
 - [Re-arming `/goal` autopilot — root cause + the fix](../standing-directives/goal-rearming.md)
 - [Mandate review — 2026-Q2 (R285 / E9.M3)](../standing-directives/mandate-review-2026-Q2.md)
 - [Standing directive — the two ultimate solutions](../standing-directives/two-ultimate-solutions.md)

@@ -1,12 +1,26 @@
 # SDD-013 — Installer experience (Q-008 resolution)
 
-> Status: **review**
+> Status: **amended** (was: review)
 > Owner: cyberpunk042
-> Last updated: 2026-05-16
+> Last updated: 2026-07-25
 > Closes findings: Q-008 (installer experience decision)
 > Derived from: SDD-003 (substrate survey — mkosi primary), SDD-005
 > (initial profiles), `config/cloud-init/` + `config/preseed/` existing
 > configs.
+
+> **AMENDMENT 2026-07-25 (operator directive — see
+> `docs/standing-directives/2026-07-25-installer-onto-nvme.md`).** The original
+> "image-only, NO installer UI" decision below is SUPERSEDED as the sole path.
+> The operator install target is a **mutable Debian 13 in the `sovereign-root`
+> LV** (keeping `sovereign-home` as `/home`), not the immutable whole-disk
+> appliance — and an **installer IS wanted**, in two forms: (a) from-host
+> `sovereign-osctl install system --to <disk>`, and (b) a **bootable installer
+> USB** (live-build ISO, `SOVEREIGN_OS_ARTIFACT=installer`) that boots and runs a
+> guided TUI (`scripts/install/installer-tui.sh`) to install onto the internal
+> NVMe. The flash panel **defaults to the installer**. The mkosi whole-disk image
+> + `dd` remains a supported SECONDARY path for the appliance; the "custom TUI —
+> not picked" verdict below no longer holds. The reflash-root engine is
+> `scripts/install/{setup-lvm-dualboot,migrate-home,install-sovereign-root}.sh`.
 
 ## Problem
 
