@@ -54,14 +54,38 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# ── base OS packages (mirror install-sovereign-root's chroot list) + stock kernel ──
-log "installing base OS + stock kernel + LVM/GRUB tooling"
+# ── kernel: the CUSTOM znver5 kernel (crown jewel) if built, else stock + a LOUD
+#    warning (never a silent fallback — the custom kernel is core to sovereign-os).
+#    SOVEREIGN_OS_STOCK_KERNEL=1 forces stock; SOVEREIGN_OS_REQUIRE_CUSTOM_KERNEL=1
+#    makes a missing custom kernel FATAL. ──
+KDIR="${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}"
+if [ -z "${KDIR}" ] && [ -r /root/.sovereign-os/build-state/env-kernel-debs.sh ]; then
+  # shellcheck source=/dev/null
+  . /root/.sovereign-os/build-state/env-kernel-debs.sh || true
+  KDIR="${SOVEREIGN_OS_KERNEL_DEBS_DIR:-}"
+fi
+KERNEL_PKGS="linux-image-amd64 linux-headers-amd64"
+if [ "${SOVEREIGN_OS_STOCK_KERNEL:-0}" != "1" ] && [ -n "${KDIR}" ] && ls "${KDIR}"/linux-image-6.12.0_*.deb >/dev/null 2>&1; then
+  _kimg="$(ls -1 "${KDIR}"/linux-image-6.12.0_*.deb | grep -v dbg | sort -V | tail -1)"
+  _khdr="$(ls -1 "${KDIR}"/linux-headers-6.12.0_*.deb 2>/dev/null | sort -V | tail -1 || true)"
+  cp "${_kimg}" "${STAGE}/tmp/"; [ -n "${_khdr}" ] && cp "${_khdr}" "${STAGE}/tmp/" || true
+  KERNEL_PKGS="/tmp/$(basename "${_kimg}") $([ -n "${_khdr}" ] && echo "/tmp/$(basename "${_khdr}")")"
+  log "custom znver5 kernel → $(basename "${_kimg}")"
+else
+  red "‼ custom kernel .debs NOT found (SOVEREIGN_OS_KERNEL_DEBS_DIR='${KDIR:-unset}') — building with the STOCK Debian kernel."
+  red "  build the znver5 kernel first: sudo scripts/build/orchestrate.sh rewind 02 && … run"
+  if [ "${SOVEREIGN_OS_REQUIRE_CUSTOM_KERNEL:-0}" = "1" ]; then
+    red "  SOVEREIGN_OS_REQUIRE_CUSTOM_KERNEL=1 set — refusing to build a stock-kernel rootfs."; exit 1
+  fi
+fi
+
+log "installing base OS + kernel + LVM/GRUB tooling"
 cat > "${STAGE}/etc/apt/sources.list" <<APT
 deb ${MIRROR} ${SUITE} main contrib non-free non-free-firmware
 deb ${MIRROR} ${SUITE}-updates main contrib non-free non-free-firmware
 deb http://security.debian.org/debian-security ${SUITE}-security main contrib non-free non-free-firmware
 APT
-chroot "${STAGE}" env DEBIAN_FRONTEND=noninteractive bash -c '
+chroot "${STAGE}" env DEBIAN_FRONTEND=noninteractive KERNEL_PKGS="${KERNEL_PKGS}" bash -c '
   set -e
   apt-get update
   apt-get install -y --no-install-recommends \
@@ -69,8 +93,9 @@ chroot "${STAGE}" env DEBIAN_FRONTEND=noninteractive bash -c '
     sudo locales console-setup keyboard-configuration \
     systemd-resolved netbase iproute2 isc-dhcp-client \
     python3 python3-yaml python3-jsonschema prometheus-node-exporter \
-    ca-certificates curl nano less \
-    linux-image-amd64 linux-headers-amd64
+    ca-certificates curl nano less
+  # kernel last (may be local .deb paths for the custom znver5 kernel)
+  apt-get install -y ${KERNEL_PKGS}
   systemctl enable systemd-networkd systemd-resolved
 '
 
