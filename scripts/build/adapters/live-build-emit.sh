@@ -40,6 +40,7 @@ set -euo pipefail
 
 lb config noauto \
     --distribution trixie \
+    --archive-areas "main contrib non-free non-free-firmware" \
     --architectures amd64 \
     --binary-images iso-hybrid \
     --bootappend-live "boot=live components quiet splash" \
@@ -69,6 +70,14 @@ EOF
 chmod +x "${out_dir}/config/auto/clean"
 
 # ---- package-lists/sovereign.list.chroot — from profile.packages ----
+# INSTALLER: keep the LIVE env minimal — the profile's app/driver packages
+# (nvidia, zfs, kde, …) install onto the TARGET at install-time, NOT into the
+# live USB (and many are contrib/non-free that the live chroot wouldn't resolve).
+# The installer tooling is a separate list (sovereign-installer.list.chroot).
+if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
+  printf '# installer live env — minimal by design; the profile package set installs\n# onto the target at install-time (see install-sovereign-root.sh), not here.\n' \
+    > "${out_dir}/config/package-lists/sovereign.list.chroot"
+else
 "${PYTHON3}" - <<PY > "${out_dir}/config/package-lists/sovereign.list.chroot"
 import yaml
 with open("${profile_yaml}") as f:
@@ -92,6 +101,7 @@ for pkg in profile_pkgs:
         continue
     print(pkg)
 PY
+fi
 
 # ---- config/archives/sovereign-deny.pref.chroot + purge hook (sovereignty) ----
 # The profile's packages.deny is a no-phone-home policy (snapd, apport, whoopsie,
