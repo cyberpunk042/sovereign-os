@@ -2303,6 +2303,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   <span class="status-line" id="src-status">data: built-in snapshot</span>
   <button class="btn" id="btn-target" title="switch between composing an image build and managing the OS this page is served from">target: image build</button>
   <button class="btn" id="btn-guide" title="restart the step-by-step walkthrough">guide me</button>
+  <button class="btn" id="btn-checkall" title="Select the fullest SAFE build in one click: every bake-* image layer (dev, selfdef, gui, model, dashboards, openclaw, open-computer, intelligence, …), all operator tools (npm/apt/pip), all base+profile packages, all hooks, modules-to-load, kernel symbols + CPU features. Deliberately LEAVES the profile's package-deny + module-blacklist and the curl|bash installers as-is — checking those would install bloatware, un-blacklist nouveau (breaks NVIDIA), or run remote scripts as root. Click again to reset to the profile defaults.">✓ select everything</button>
   <button class="btn" id="btn-xall">collapse all</button>
   <a class="nav" href="../panels">all panels ↗</a>
   <a class="nav" href="../master-dashboard/">cockpit ↗</a>
@@ -3369,6 +3370,10 @@ function loadProfile(){
 
   renderProfiles();
   regenerate();
+  // switching profile re-seeds everything → the "select everything" toggle is
+  // back to its unselected state (label reset guarded for the init-time call).
+  _allSelected = false;
+  if (typeof _syncCheckallLabel === "function") _syncCheckallLabel();
 }
 
 /* ───────────────────────── generation ───────────────────────── */
@@ -4227,6 +4232,64 @@ document.getElementById("btn-xall").addEventListener("click", function(){
   var anyOpen = CARDS.some(function(c){ return !c.classList.contains("closed"); });
   setAllCards(anyOpen);
   this.textContent = anyOpen ? "expand all" : "collapse all";
+});
+
+/* ── "select everything" ↔ "reset to profile" (operator 2026-07-25: "add a
+   check all option to the build panel, i want everything but dont want to check
+   it all"). ONE toggle that sets the MAXIMAL SAFE build: every install-positive
+   group ON — including the bake-* image layers, which live in the DOM OUTSIDE
+   `state` and a naive check-all would miss — while deliberately LEAVING the
+   inverted correctness groups (pkg-deny, mod-blacklist) and the risky curl|bash
+   installers at the profile default. Checking those would install bloatware,
+   un-blacklist nouveau (breaks the NVIDIA build), or run remote scripts as root
+   — the opposite of a clean full build. Click again → reset to profile defaults. */
+var _allSelected = false;
+var BAKE_CHECKBOX_IDS = ["bake-dev","bake-selfdef","bake-graceful","bake-openclaw",
+  "bake-open_computer","bake-intelligence","bake-model","bake-dashboards","bake-gui",
+  "bake-livereload","bake-firstboot","bake-root_modules"];   // bake-frontend is a <select>, left as-is
+var BAKE_DEFAULTS = {};
+BAKE_CHECKBOX_IDS.forEach(function(id){ var b=document.getElementById(id); if(b) BAKE_DEFAULTS[id]=b.checked; });
+var BAKE_FRONTEND_DEFAULT = (document.getElementById("bake-frontend")||{}).value || "";
+
+function _fillBag(bag, on){ Object.keys(bag||{}).forEach(function(k){ bag[k]=on; }); }
+function _fillContainer(elId, on){
+  var el=document.getElementById(elId); if(!el) return;
+  el.querySelectorAll('input[type=checkbox]').forEach(function(b){ if(!b.disabled) b.checked=on; });
+}
+// install-POSITIVE groups only (container id, state bag). Excluded on purpose:
+// pkg-deny / mod-blacklist (inverted — checking DENIES/blacklists), tools-curl
+// (curl|bash, security), bios (verification checklist, installs nothing).
+function _installGroups(){
+  return [["k-enable",state.kEnable],["cmd-base",state.cmdBase],["cmd-vfio",state.cmdVfio],
+    ["cpu-required",state.cpuReq],["cpu-preferred",state.cpuPref],["mod-load",state.modLoad],
+    ["pkg-base",state.pkgBase],["pkg-profile",state.pkgProfile],
+    ["tools-ai",state.tools.ai],["tools-apt",state.tools.apt],["tools-pip",state.tools.pip]];
+}
+function selectEverything(){
+  _installGroups().forEach(function(p){ _fillBag(p[1],true); _fillContainer(p[0],true); });
+  Object.keys(state.hooks||{}).forEach(function(ph){
+    Object.keys(state.hooks[ph]).forEach(function(id){ state.hooks[ph][id]=true; }); });
+  _fillContainer("hooks-all", true);   // mandatory hooks are locked-on already (skipped: disabled)
+  BAKE_CHECKBOX_IDS.forEach(function(id){ var b=document.getElementById(id); if(b) b.checked=true; });
+  regenerate();
+}
+function resetToProfileDefaults(){
+  loadProfile();                                   // re-seeds kernel/cpu/mod/pkg/cmd + hooks from the profile
+  state.tools = { ai:{}, apt:{}, pip:{}, curl:{} };
+  renderTools();                                   // re-seeds tool defaults (Claude on; OpenCode/curl off)
+  BAKE_CHECKBOX_IDS.forEach(function(id){ var b=document.getElementById(id); if(b) b.checked=!!BAKE_DEFAULTS[id]; });
+  var bf=document.getElementById("bake-frontend"); if(bf) bf.value=BAKE_FRONTEND_DEFAULT;
+  regenerate();
+}
+function _syncCheckallLabel(){
+  var cb=document.getElementById("btn-checkall"); if(!cb) return;
+  cb.textContent = _allSelected ? "⟲ reset to profile" : "✓ select everything";
+  cb.classList.toggle("on", _allSelected);
+}
+document.getElementById("btn-checkall").addEventListener("click", function(){
+  _allSelected = !_allSelected;
+  if (_allSelected) selectEverything(); else resetToProfileDefaults();
+  _syncCheckallLabel();
 });
 
 /* ───────────────────────── printable BIOS/PSU sheet ─────────────────────────
