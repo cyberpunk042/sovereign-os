@@ -236,7 +236,7 @@ Per operator: *"little piece by little piece and progress in this massive endles
 | 8/8 SATURATED mirror crates (auth-tier / bashrc-install / history-sink / dashboard-manifest / surface-manifest / ux-checklist / audit-manifest / doc-manifest) | ✓ shipped | `crates/selfdef-{auth-tier,...}/` |
 | Guardian Daemon `/usr/local/bin/guardian-core` Python impl | catalog ✓ (MS044) / impl pending | `backlog/milestones/MS044-*` |
 | MS045 UX coherence test harness impl | catalog ✓ / impl pending | `backlog/milestones/MS045-*` |
-| 9 D-12..D-18 mirror crates (selfdef-rules / -grants / -capability / -sandbox / -audit / -quarantine / -trust-score / -cli / -tui) | catalog ✓ (MS043 R10182-R10193) / impl pending | `backlog/milestones/MS043-*` |
+| 9 D-12..D-18 mirror crates (selfdef-rules / -grants / -capability / -sandbox / -audit / -quarantine / -trust-score / -cli / -tui) | ✓ shipped (verified 2026-07-25 — selfdef `context.md` "M060 mirror producers COMPLETE" 2026-05-28; empirical `cargo test` per crate: rules 7 · grants 8 · capability 11 · sandbox 8 · audit 11 · quarantine 11 · trust-score 12 · cli 13 · tui 14) | `../selfdef/crates/selfdef-{rules,grants,capability,sandbox,audit,quarantine,trust-score,profile}-mirror` + `-cli-mirror` + `-tui-mirror` |
 
 ## What's ahead (forward queue, operator-priority)
 
