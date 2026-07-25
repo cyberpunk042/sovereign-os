@@ -156,7 +156,9 @@ build-simple-cdd --dvd --dist "${DIST}" --profiles "${PROFILE}" \
   --local-packages "${LOCAL_PKGS}" \
   --conf "${WORK}/sovereign.conf" 2>&1 | tail -60
 
-_iso="$(ls -1 "${WORK}"/images/*.iso 2>/dev/null | head -1 || true)"
+# simple-cdd writes the ISO to ${simple_cdd_dir}/images (= ${HERE}/images), not
+# the CWD/WORK. Look there first, then WORK, for robustness.
+_iso="$(ls -1t "${HERE}"/images/*.iso "${WORK}"/images/*.iso 2>/dev/null | head -1 || true)"
 if [ -n "${_iso}" ]; then
   cp -v "${_iso}" "${OUT}/sain-01-installer.iso"
   log "installer ISO → ${OUT}/sain-01-installer.iso ($(du -h "${OUT}/sain-01-installer.iso" | cut -f1))"
