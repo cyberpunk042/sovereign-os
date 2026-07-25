@@ -1,3 +1,11 @@
+# tasksel machinery + tasks — debian-cd's update_tasks needs task-desktop and
+# tasksel-data present in the CD mirror to build the task structure and derive
+# the default desktop; task-kde-desktop pulls the full KDE closure the preseed's
+# `tasksel/first ... kde-desktop` selects at install time (all of it offline).
+tasksel
+tasksel-data
+task-desktop
+task-kde-desktop
 kde-plasma-desktop
 sddm
 konsole
