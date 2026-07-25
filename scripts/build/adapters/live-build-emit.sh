@@ -246,7 +246,35 @@ ANSWERS
   sed -i 's#    "\$@"#    --bootloaders "grub-efi" \\\n    --iso-application "Sovereign OS Installer" \\\n    "$@"#' \
     "${out_dir}/config/auto/config"
 
-  log_info "installer payload staged: repo + kernel-debs + service + answers + tooling"
+  # (g) boot-config binary hook — runs late in `lb binary`, AFTER live-build has
+  #     generated grub.cfg/isolinux.cfg, and rewrites them deterministically
+  #     (live-build's --bootappend-live proved unreliable). It: AUTO-BOOTS the
+  #     installer (timeout 3s, default 0 — no more "Testing" menu the operator
+  #     had to pick from), drops `quiet splash` so boot progress is visible, adds
+  #     a serial console (real-hw harmless, lets QEMU/OVMF watch the boot), and
+  #     routes GRUB itself to serial.
+  cat > "${out_dir}/config/hooks/normal/9990-installer-bootcfg.hook.binary" <<'BOOTCFG'
+#!/bin/sh
+set -e
+_cmdline_fix() { sed -i -e 's/quiet splash//g' \
+  -e 's#boot=live components#boot=live components console=tty0 console=ttyS0,115200#g' "$1"; }
+for cfg in binary/boot/grub/grub.cfg binary/efi/boot/grub.cfg binary/boot/grub/x86_64-efi/grub.cfg; do
+  [ -f "$cfg" ] || continue
+  grep -q 'set timeout=' "$cfg" && sed -i 's/^set timeout=.*/set timeout=3/' "$cfg" \
+    || sed -i '1i set timeout=3\nset default=0' "$cfg"
+  grep -q 'terminal_output' "$cfg" || sed -i '1i serial --unit=0 --speed=115200\nterminal_input console serial\nterminal_output console serial' "$cfg"
+  _cmdline_fix "$cfg"
+done
+for cfg in binary/isolinux/isolinux.cfg binary/isolinux/live.cfg binary/isolinux/menu.cfg binary/isolinux/stdmenu.cfg; do
+  [ -f "$cfg" ] || continue
+  sed -i 's/^timeout .*/timeout 30/' "$cfg" 2>/dev/null || true
+  _cmdline_fix "$cfg"
+done
+echo "installer bootcfg: auto-boot (timeout 3s) + serial console applied"
+BOOTCFG
+  chmod +x "${out_dir}/config/hooks/normal/9990-installer-bootcfg.hook.binary"
+
+  log_info "installer payload staged: repo + kernel-debs + service + answers + tooling + bootcfg"
 fi
 
 # ---- README at output root ----
