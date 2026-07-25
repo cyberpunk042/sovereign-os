@@ -68,6 +68,16 @@ Honest consequence: the **KV fold and embedding fold are wireable now**; the **w
 | Q-401-D | Host→device marshalling ownership: does `sovereign-chromofold` own device buffers (weights/KV uploaded once, resident) or per-call? (P5 device-native — resident is correct; per-call defeats the fold.) | recommend resident (upload-once, decode-many) — the fold only pays if the compressed tensor stays on-device. |
 | Q-401-E | Gate GPU mode on `libchromofold` reaching M1 on the device path (SDD-400 Q-400-G)? | recommend yes — de-facto already, via the OFF-by-default `linked` feature + `NotImplemented` host path until phase 4/5. |
 
+## Build status (2026-07-25 — phase 2 landed)
+
+**Phase 2 (GPU-mode seam) shipped** (operator: *"I want it. go"*). CPU-verifiable, no `unsafe`, CPU path untouched off-mode:
+
+- **`sovereign-quant-model`** gains the seam: an `ExecMode { Cpu (default) | GpuFold }` selector, a `FoldBackend` plug-point trait (+ `FoldCaps { weights, kv, embedding }`), the `QuantModel.exec_mode` + `fold_backend` fields with `with_exec_mode`/`set_exec_mode`/`exec_mode()`/`set_fold_backend`/`fold_backend_status()` accessors, and a `QuantModelError::GpuFoldUnavailable` variant.
+- **`forward()` honest-degrades**: selecting `GpuFold` returns `GpuFoldUnavailable` (with a precise reason — backend state + which later phase wires the routing) instead of silently running the CPU path under a GPU claim. The default `Cpu` path is **byte-identical** to before (proven by `cpu_mode_generation_is_unchanged_by_an_attached_backend` — attaching a backend while in `Cpu` mode yields identical generation).
+- **Verified**: `cargo test -p sovereign-quant-model` (16 pass, incl. 4 new seam tests) + `cargo clippy -D warnings` + `cargo fmt --check` clean; dependents (`sovereign-gatewayd`, `sovereign-llm`) `cargo check` clean (additive API); `tests/lint/test_gpu_fold_seam_contract.py` (4) pins the seam + the honest-degrade property.
+
+**Not built (later gated phases, per the plan above):** binding the compute C ABI into `sovereign-chromofold-sys` (phase 3), the folded-KV GPU attention path (phase 4), decode-in-GEMM (phase 5, gated on Q-401-A), and the SAIN measurement (phase 6). No GPU/`unsafe`/marshalling landed this phase — the seam is the plug-point those phases fill.
+
 ## Cross-references
 
 - **SDD-400** (`docs/sdd/400-chromofold-compressed-domain-integration.md`) — the positioning + Lane A (search) this extends; the `-sys`/wrapper/root-env/honest-degrade pattern reused; SDD-400 Non-goal #2 is the boundary SDD-401 deliberately crosses (opt-in execution mode, not controller replacement).

@@ -76,6 +76,58 @@ pub enum QuantModelError {
     /// A sampler error.
     #[error("sampler: {0}")]
     Sampler(#[from] SamplerError),
+    /// [`ExecMode::GpuFold`] was selected but the GPU fold path cannot serve the
+    /// request (SDD-401): no fold backend is attached, or the attached backend's
+    /// fold routing is not yet wired into the decode hot path. Never a silent
+    /// fall-through to the CPU path under a GPU claim — the mode honest-degrades.
+    #[error("gpu-fold unavailable: {reason}")]
+    GpuFoldUnavailable {
+        /// Why the GPU fold path could not run (backend state + which SDD-401
+        /// phase wires it).
+        reason: String,
+    },
+}
+
+/// Decode execution mode (SDD-401 ChromoFold GPU hotswap).
+///
+/// The CPU path is the **default** and the **bit-exact reference oracle** every
+/// future GPU-fold kernel must reproduce (PROJECT_SYNC). `GpuFold` is the opt-in
+/// hotswap; until a fold backend is attached **and** the hot-path fold routing
+/// lands (SDD-401 phases 4–5), selecting it honest-degrades rather than silently
+/// running the CPU path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExecMode {
+    /// CPU Rust engine — the default and the correctness oracle.
+    #[default]
+    Cpu,
+    /// Opt-in GPU fold path (ChromoFold decode-in-consumer on the device).
+    GpuFold,
+}
+
+/// Which folds a [`FoldBackend`] can currently serve. An all-`false` set is
+/// valid — the seam (mode + plug-point) exists before any fold is wired.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FoldCaps {
+    /// Weight decode-in-GEMM (the "fold the model itself" path; SDD-401 Q-401-A
+    /// gated on ChromoFold exporting the GEMM C ABI).
+    pub weights: bool,
+    /// Folded-KV attention (`cf_kv_attn_fused_async`; SDD-401 phase 4).
+    pub kv: bool,
+    /// Folded-embedding gather (`cf_embedding_gather_async`).
+    pub embedding: bool,
+}
+
+/// A GPU fold backend — the device-side decode-in-consumer path a linked
+/// ChromoFold engine provides (SDD-401). This trait is the **sovereign-side
+/// plug-point**: phase 2 establishes the registration seam (name + capabilities);
+/// the actual fold kernels + host↔device marshalling are bound behind the
+/// `sovereign-chromofold-sys` `linked` feature in later gated phases. The C ABI
+/// stays quarantined in the `-sys` crate — a backend impl lives on the safe side.
+pub trait FoldBackend: Send + Sync + std::fmt::Debug {
+    /// Human-readable backend name (diagnostics + honest-degrade messages).
+    fn name(&self) -> &str;
+    /// Which folds this backend can currently serve.
+    fn folds(&self) -> FoldCaps;
 }
 
 /// A complete mixed-precision decoder-only model.
@@ -99,6 +151,12 @@ pub struct QuantModel {
     sampler: Sampler,
     recent: Vec<usize>,
     recent_window: usize,
+    /// Decode execution mode (SDD-401). `Cpu` (default) runs the reference
+    /// path; `GpuFold` is the opt-in hotswap.
+    exec_mode: ExecMode,
+    /// The attached GPU fold backend, if any (SDD-401). `None` by default; a
+    /// linked ChromoFold engine registers one in later gated phases.
+    fold_backend: Option<Box<dyn FoldBackend>>,
 }
 
 impl QuantModel {
@@ -138,6 +196,8 @@ impl QuantModel {
             sampler,
             recent: Vec::new(),
             recent_window: 64,
+            exec_mode: ExecMode::Cpu,
+            fold_backend: None,
         })
     }
 
@@ -172,6 +232,8 @@ impl QuantModel {
             sampler,
             recent: Vec::new(),
             recent_window: 64,
+            exec_mode: ExecMode::Cpu,
+            fold_backend: None,
         })
     }
 
@@ -217,6 +279,37 @@ impl QuantModel {
     /// the model is already loaded and you need per-request sampling).
     pub fn set_sampler(&mut self, sampler: Sampler) {
         self.sampler = sampler;
+    }
+
+    /// Select the decode execution mode (builder; SDD-401). Default is
+    /// [`ExecMode::Cpu`] — the reference path. [`ExecMode::GpuFold`] is the
+    /// opt-in hotswap and requires an attached, capable [`FoldBackend`].
+    pub fn with_exec_mode(mut self, mode: ExecMode) -> Self {
+        self.exec_mode = mode;
+        self
+    }
+
+    /// Select the decode execution mode on an existing model (mutable; SDD-401).
+    pub fn set_exec_mode(&mut self, mode: ExecMode) {
+        self.exec_mode = mode;
+    }
+
+    /// The active decode execution mode.
+    pub fn exec_mode(&self) -> ExecMode {
+        self.exec_mode
+    }
+
+    /// Attach a GPU fold backend (SDD-401). Off by default; a linked ChromoFold
+    /// engine registers one in later gated phases. Attaching a backend does not
+    /// by itself change decode — [`ExecMode::GpuFold`] must also be selected.
+    pub fn set_fold_backend(&mut self, backend: Option<Box<dyn FoldBackend>>) {
+        self.fold_backend = backend;
+    }
+
+    /// The attached fold backend's name + capabilities, or `None` if none is
+    /// attached — the operator-surface introspection for the hotswap state.
+    pub fn fold_backend_status(&self) -> Option<(&str, FoldCaps)> {
+        self.fold_backend.as_ref().map(|b| (b.name(), b.folds()))
     }
 
     /// The active token sampler. Its [`config`] carries the temperature /
@@ -289,6 +382,28 @@ impl QuantModel {
                 token,
                 vocab: self.vocab,
             });
+        }
+        // SDD-401 GPU hotswap seam. Phase 2 establishes the mode + backend
+        // plug-point; the hot-path fold routing (folded-KV = phase 4,
+        // decode-in-GEMM = phase 5) is not wired yet. So `GpuFold` MUST NOT
+        // silently run the CPU path under a GPU claim — it honest-degrades with
+        // a precise reason. The default `Cpu` path below is untouched.
+        if self.exec_mode == ExecMode::GpuFold {
+            let reason = match &self.fold_backend {
+                None => "GpuFold mode requires an attached fold backend; none is set \
+                     (attach one via set_fold_backend — SDD-401 phase 3)"
+                    .to_string(),
+                Some(b) => format!(
+                    "fold backend '{}' attached (folds: weights={}, kv={}, embedding={}), \
+                     but hot-path fold routing is not wired yet (folded-KV lands in \
+                     SDD-401 phase 4, decode-in-GEMM in phase 5)",
+                    b.name(),
+                    b.folds().weights,
+                    b.folds().kv,
+                    b.folds().embedding,
+                ),
+            };
+            return Err(QuantModelError::GpuFoldUnavailable { reason });
         }
         let hidden = self.embed(token);
         let hidden = self.stack.run(&hidden)?;
@@ -550,6 +665,96 @@ mod tests {
         assert!(out.iter().all(|&t| t < 8));
         // 3 prompt + 6 generated = 9 positions in the stack
         assert_eq!(m.position(), 9);
+    }
+
+    // ── SDD-401 GPU-hotswap seam (phase 2) ──────────────────────────────────
+    #[derive(Debug)]
+    struct MockFold {
+        caps: FoldCaps,
+    }
+    impl FoldBackend for MockFold {
+        fn name(&self) -> &str {
+            "mock-fold"
+        }
+        fn folds(&self) -> FoldCaps {
+            self.caps
+        }
+    }
+
+    #[test]
+    fn exec_mode_defaults_to_cpu() {
+        let m = mixed_model(8, Sampler::greedy());
+        assert_eq!(m.exec_mode(), ExecMode::Cpu);
+        assert!(m.fold_backend_status().is_none());
+    }
+
+    #[test]
+    fn gpu_fold_without_backend_honest_degrades() {
+        let mut m = mixed_model(8, Sampler::greedy()).with_exec_mode(ExecMode::GpuFold);
+        let err = m.forward(1).unwrap_err();
+        match err {
+            QuantModelError::GpuFoldUnavailable { reason } => {
+                assert!(
+                    reason.contains("none is set"),
+                    "reason should name the missing backend: {reason}"
+                );
+            }
+            other => panic!("expected GpuFoldUnavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn gpu_fold_with_unwired_backend_honest_degrades_and_names_it() {
+        let mut m = mixed_model(8, Sampler::greedy());
+        m.set_fold_backend(Some(Box::new(MockFold {
+            caps: FoldCaps {
+                kv: true,
+                ..FoldCaps::default()
+            },
+        })));
+        m.set_exec_mode(ExecMode::GpuFold);
+        assert_eq!(m.fold_backend_status().map(|(n, _)| n), Some("mock-fold"));
+        assert!(m.fold_backend_status().unwrap().1.kv);
+        let err = m.forward(1).unwrap_err();
+        match err {
+            QuantModelError::GpuFoldUnavailable { reason } => {
+                assert!(
+                    reason.contains("mock-fold"),
+                    "reason should name the backend: {reason}"
+                );
+                assert!(
+                    reason.contains("kv=true"),
+                    "reason should report caps: {reason}"
+                );
+                assert!(
+                    reason.contains("not wired yet"),
+                    "reason should say routing is unwired: {reason}"
+                );
+            }
+            other => panic!("expected GpuFoldUnavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cpu_mode_generation_is_unchanged_by_an_attached_backend() {
+        // The default (Cpu) path must never consult the fold backend — attaching
+        // one and staying in Cpu mode yields byte-identical generation.
+        let mut plain = mixed_model(8, Sampler::greedy());
+        let mut withbe = mixed_model(8, Sampler::greedy());
+        withbe.set_fold_backend(Some(Box::new(MockFold {
+            caps: FoldCaps {
+                weights: true,
+                kv: true,
+                embedding: true,
+            },
+        })));
+        assert_eq!(withbe.exec_mode(), ExecMode::Cpu);
+        let a = plain.generate(&[1, 2, 3], 6, 42).unwrap();
+        let b = withbe.generate(&[1, 2, 3], 6, 42).unwrap();
+        assert_eq!(
+            a, b,
+            "Cpu-mode output must be identical regardless of an attached backend"
+        );
     }
 
     #[test]
