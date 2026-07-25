@@ -249,15 +249,34 @@ fi
 if [ "${SOVEREIGN_OS_BAKE_GUI:-}" = "1" ] && [ -x "${REPO}/scripts/install/install-gui-dashboards.sh" ]; then
   # SDD-704: the profile's provisioning.frontend.default (SOVEREIGN_OS_FRONTEND) picks
   # what the image presents (gnome | kde-plasma | dashboards-kiosk | open-computer-kiosk | none);
-  # install-gui-dashboards.sh reads it and stages the matching stack. Absent → gnome.
-  log "installing frontend on the image (bake.gui=1) — frontend=${SOVEREIGN_OS_FRONTEND:-gnome}, de=${SOVEREIGN_OS_DESKTOP:-gnome}"
-  if SOVEREIGN_OS_SRC="${REPO}" SOVEREIGN_OS_DESKTOP="${SOVEREIGN_OS_DESKTOP:-gnome}" \
-       SOVEREIGN_OS_FRONTEND="${SOVEREIGN_OS_FRONTEND:-gnome}" \
-       SOVEREIGN_OS_FRONTEND_INSTALL="${SOVEREIGN_OS_FRONTEND_INSTALL:-gnome}" \
-       bash "${REPO}/scripts/install/install-gui-dashboards.sh" 2>&1 | sed 's/^/provision-bake:   /' >&2; then
-    log "desktop installed on the image"
+  # install-gui-dashboards.sh reads it and stages the matching stack. Default
+  # kde-plasma (the sain-01 profile default) — NOT gnome.
+  _fe="${SOVEREIGN_OS_FRONTEND:-kde-plasma}"
+  log "installing frontend on the image (bake.gui=1) — frontend=${_fe}"
+  SOVEREIGN_OS_SRC="${REPO}" SOVEREIGN_OS_DESKTOP="${SOVEREIGN_OS_DESKTOP:-${_fe}}" \
+    SOVEREIGN_OS_FRONTEND="${_fe}" \
+    SOVEREIGN_OS_FRONTEND_INSTALL="${SOVEREIGN_OS_FRONTEND_INSTALL:-${_fe}}" \
+    bash "${REPO}/scripts/install/install-gui-dashboards.sh" 2>&1 | sed 's/^/provision-bake:   /' >&2
+  _gui_rc=${PIPESTATUS[0]}
+  if [ "${_gui_rc}" -eq 0 ]; then
+    log "desktop installed on the image (frontend=${_fe})"
   else
-    log "desktop install hiccup (non-fatal — image stays headless; run install-gui-dashboards.sh post-flash)"
+    # LOUD by design. The ORIGINAL bug lived right here: the install ran through
+    # `| sed`, so the `if …; then` tested SED's exit code (always 0) — the
+    # failure branch never fired and the image shipped HEADLESS with zero signal,
+    # even though the operator explicitly asked for a desktop. Now: capture the
+    # real rc via PIPESTATUS, mark it, and FAIL the build so a requested desktop
+    # can never silently vanish. Opt into the old best-effort headless with
+    # SOVEREIGN_OS_BAKE_GUI_BESTEFFORT=1.
+    log "‼ DESKTOP INSTALL FAILED (bake.gui=1, frontend=${_fe}, rc=${_gui_rc}) — the image would ship HEADLESS."
+    mkdir -p /var/lib/sovereign-os 2>/dev/null || true
+    echo "desktop-install-failed frontend=${_fe} rc=${_gui_rc}" > /var/lib/sovereign-os/bake-gui-failed 2>/dev/null || true
+    if [ "${SOVEREIGN_OS_BAKE_GUI_BESTEFFORT:-}" = "1" ]; then
+      log "SOVEREIGN_OS_BAKE_GUI_BESTEFFORT=1 — continuing headless (run install-gui-dashboards.sh post-flash)."
+    else
+      log "FAILING the build so the missing desktop is impossible to miss (set SOVEREIGN_OS_BAKE_GUI_BESTEFFORT=1 to allow a headless image)."
+      exit 1
+    fi
   fi
 fi
 
