@@ -210,13 +210,36 @@ SOVEREIGN_OS_USER_UID=1000
 SOVEREIGN_OS_USER_PASS=sovereign
 SOVEREIGN_OS_ROOT_PASS=sovereign
 SOVEREIGN_OS_FRONTEND=kde-plasma
+# OFFLINE install: lay the pre-built rootfs (base+kernel+KDE+cockpit) onto the LV
+# instead of debootstrap/apt over the network. Baked at this path in the ISO.
+SOVEREIGN_OS_ROOTFS_SQUASHFS=/opt/sovereign-os/rootfs.squashfs
 # SOVEREIGN_OS_TARGET_DISK=/dev/nvme1n1
 ANSWERS
 
-  # (d) the tools the installer runs (into the live env, so debootstrap etc.
-  #     work offline of the target)
-  printf '# installer tooling\ndebootstrap\nlvm2\ngdisk\ngrub-efi-amd64\ngrub-efi-amd64-signed\nefibootmgr\nrsync\nwhiptail\ndosfstools\n' \
+  # (d) the tools the installer runs in the LIVE env (unsquashfs lays the rootfs;
+  #     debootstrap/lvm/gdisk/grub are the online-fallback + partitioning tools)
+  printf '# installer tooling\ndebootstrap\nsquashfs-tools\nlvm2\ngdisk\ngrub-efi-amd64\ngrub-efi-amd64-signed\nefibootmgr\nrsync\nwhiptail\ndosfstools\n' \
     > "${out_dir}/config/package-lists/sovereign-installer.list.chroot"
+
+  # (f) the COMPLETE pre-built target rootfs — the OFFLINE install payload (base +
+  #     stock kernel + KDE + sovereign-os cockpit). Built once by
+  #     build-target-rootfs.sh, cached at build/<profile>/rootfs.squashfs across
+  #     builds (rebuild with SOVEREIGN_OS_REBUILD_ROOTFS=1). This is the bulk of
+  #     the ISO's size — the "contains everything" payload.
+  _rootfs_cache="${_repo}/build/${profile_id}/rootfs.squashfs"
+  if [ "${SOVEREIGN_OS_REBUILD_ROOTFS:-0}" != "1" ] && [ -s "${_rootfs_cache}" ]; then
+    log_info "reusing cached target rootfs: ${_rootfs_cache} ($(du -h "${_rootfs_cache}" | cut -f1))"
+  else
+    log_info "building the complete target rootfs (offline payload — base+kernel+KDE+cockpit, ~15-20 min)…"
+    _stage="$(mktemp -d /var/tmp/sovereign-rootfs.XXXXXX)"
+    SOVEREIGN_OS_STAGE_DIR="${_stage}" \
+    SOVEREIGN_OS_ROOTFS_OUT="${_rootfs_cache}" \
+    SOVEREIGN_OS_FRONTEND="${SOVEREIGN_OS_FRONTEND:-kde-plasma}" \
+    SOVEREIGN_OS_ROOT="${_repo}" \
+      bash "${_repo}/scripts/build/build-target-rootfs.sh"
+    rm -rf "${_stage}"
+  fi
+  cp -a "${_rootfs_cache}" "${_inc}/opt/sovereign-os/rootfs.squashfs"
 
   # (e) UEFI-bootable installer (shim-signed chain; iso-hybrid also keeps BIOS).
   #     Appended to the lb config args so the ISO boots on the ProArt's UEFI.

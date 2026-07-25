@@ -79,6 +79,88 @@ if [ "${IDENTITY_MODE}" = "inherit" ]; then
   id "${PRIMARY_USER}" >/dev/null 2>&1 || { red "ABORT: user ${PRIMARY_USER} doesn't exist on this host to inherit"; exit 1; }
 fi
 
+# ══ OFFLINE / SQUASHFS MODE ═══════════════════════════════════════════════════
+# The installer USB carries a COMPLETE, pre-built rootfs (build-target-rootfs.sh:
+# base + stock kernel + KDE + sovereign-os cockpit). Lay it onto the LV and do
+# ONLY the per-machine wiring — no debootstrap/apt over the network. 100% offline.
+if [ -n "${SOVEREIGN_OS_ROOTFS_SQUASHFS:-}" ]; then
+  SQ="${SOVEREIGN_OS_ROOTFS_SQUASHFS}"
+  [ -r "$SQ" ] || { red "ABORT: rootfs squashfs not found: $SQ"; exit 1; }
+  command -v unsquashfs >/dev/null || { info "installing squashfs-tools…"; apt-get install -y squashfs-tools; }
+
+  step "offline install: unsquashing $(du -h "$SQ" | cut -f1) → ${ROOT_LV}"
+  mkdir -p "${MNT}"; mountpoint -q "${MNT}" || mount "${ROOT_LV}" "${MNT}"
+  find "${MNT}" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+  unsquashfs -f -d "${MNT}" "$SQ"
+
+  step "wiring the installed root to this machine (fstab · identity · GRUB)"
+  mount -o bind /dev "${MNT}/dev"; mount -o bind /dev/pts "${MNT}/dev/pts"
+  mount -o bind /proc "${MNT}/proc"; mount -o bind /sys "${MNT}/sys"
+  mkdir -p "${MNT}/boot/efi"; mount "${ESP_PART}" "${MNT}/boot/efi"
+  cp /etc/resolv.conf "${MNT}/etc/resolv.conf" 2>/dev/null || true
+
+  ROOT_UUID=$(blkid -s UUID -o value "${ROOT_LV}")
+  HOME_UUID=$(blkid -s UUID -o value "${HOME_LV}")
+  ESP_UUID=$(blkid -s UUID -o value "${ESP_PART}")
+  cat > "${MNT}/etc/fstab" <<FSTAB
+# sovereign-os reflash-root — generated $(date -I)
+UUID=${ROOT_UUID}  /          ext4  defaults,relatime           0  1
+UUID=${HOME_UUID}  /home      ext4  defaults,relatime           0  2
+UUID=${ESP_UUID}   /boot/efi  vfat  umask=0077,shortname=winnt  0  1
+FSTAB
+
+  # identity: inherit from the running host OR create from answers in-chroot
+  if [ "${IDENTITY_MODE}" = "inherit" ]; then
+    for f in /etc/default/keyboard /etc/default/locale /etc/locale.gen /etc/localtime; do
+      [ -e "$f" ] && cp -a "$f" "${MNT}${f}" || true
+    done
+    for u in root "${PRIMARY_USER}"; do
+      for db in passwd shadow group gshadow; do
+        if grep -q "^${u}:" "/etc/${db}" 2>/dev/null; then
+          grep "^${u}:" "/etc/${db}" | while IFS= read -r line; do
+            grep -q "^${u}:" "${MNT}/etc/${db}" \
+              && sed -i "s|^${u}:.*|${line}|" "${MNT}/etc/${db}" \
+              || echo "$line" >> "${MNT}/etc/${db}"
+          done
+        fi
+      done
+    done
+    CHROOT_USER_SETUP=""
+  else
+    printf 'XKBLAYOUT="%s"\n' "${SOVEREIGN_OS_KEYMAP:-us}" > "${MNT}/etc/default/keyboard"
+    printf 'LANG=%s\n' "${SOVEREIGN_OS_LOCALE:-en_US.UTF-8}" > "${MNT}/etc/default/locale"
+    ln -sf "/usr/share/zoneinfo/${SOVEREIGN_OS_TIMEZONE:-UTC}" "${MNT}/etc/localtime" || true
+    CHROOT_USER_SETUP="$(cat <<US
+echo 'root:${SOVEREIGN_OS_ROOT_PASS:-sovereign}' | chpasswd
+id ${PRIMARY_USER} >/dev/null 2>&1 || useradd -m -u ${SOVEREIGN_OS_USER_UID:-1000} -s /bin/bash ${PRIMARY_USER}
+echo '${PRIMARY_USER}:${SOVEREIGN_OS_USER_PASS:-sovereign}' | chpasswd
+US
+)"
+  fi
+
+  cat > "${MNT}/tmp/wire.sh" <<WIRE
+set -uo pipefail
+echo sovereign-os > /etc/hostname
+printf '127.0.0.1 localhost\n127.0.1.1 sovereign-os\n' > /etc/hosts
+${CHROOT_USER_SETUP}
+usermod -aG sudo ${PRIMARY_USER} 2>/dev/null || true
+update-initramfs -u -k all || true
+sed -i 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="root=/dev/mapper/sovereign-root rw"|' /etc/default/grub || true
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=sovereign-os --recheck
+update-grub
+WIRE
+  chroot "${MNT}" bash /tmp/wire.sh
+
+  sync
+  umount "${MNT}/boot/efi" 2>/dev/null || true
+  umount "${MNT}/sys" "${MNT}/proc" "${MNT}/dev/pts" "${MNT}/dev" 2>/dev/null || true
+  umount "${MNT}" 2>/dev/null || true
+  grn "━━━ offline install complete — mutable Debian + ${FRONTEND} + cockpit on sovereign-root ━━━"
+  echo "Reboot → firmware boot menu → 'sovereign-os'. Login: ${PRIMARY_USER} (your usual password). /home preserved."
+  exit 0
+fi
+# ══ end offline mode; below is the online debootstrap+apt path ════════════════
+
 # ── locate the custom kernel .debs ──
 step "locating custom kernel .debs"
 KDIR=""

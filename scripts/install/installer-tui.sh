@@ -16,8 +16,10 @@ set -euo pipefail
 
 OSDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ANSWERS="${SOVEREIGN_OS_ANSWERS:-/opt/sovereign-os/install-answers.env}"
+# set -a so EVERY answer (keyboard/locale/creds/frontend/ROOTFS_SQUASHFS/…) is
+# exported to install-sovereign-root.sh, which reads them from the environment.
 # shellcheck source=/dev/null
-[ -r "${ANSWERS}" ] && . "${ANSWERS}" || true
+if [ -r "${ANSWERS}" ]; then set -a; . "${ANSWERS}"; set +a; fi
 
 red()  { printf '\033[31m%s\033[0m\n' "$*"; }
 grn()  { printf '\033[32m%s\033[0m\n' "$*"; }
