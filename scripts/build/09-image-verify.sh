@@ -51,6 +51,28 @@ if [ -z "${SOVEREIGN_OS_IMAGE_DIR:-}" ] || [ ! -d "${SOVEREIGN_OS_IMAGE_DIR}" ];
   exit 1
 fi
 
+# INSTALLER artifact: the produced artifact is a live-build ISO, not a whole-disk
+# image this QEMU disk-boot path can smoke the same way (the ISO boots UEFI live
+# then autostarts the installer, which needs a target disk). Do NOT QEMU-boot the
+# stale appliance .raw and report a false pass. Confirm the ISO exists; the real
+# UEFI boot test is manual (boot it under OVMF, or flash + boot).
+if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
+  iso="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 -name '*.iso' -type f 2>/dev/null | head -1)"
+  if [ -n "${iso}" ] && [ -s "${iso}" ]; then
+    log_info "artifact=installer — ISO present ($(du -h "${iso}" | cut -f1)): ${iso}"
+    log_info "  QEMU disk-boot smoke does not apply to the ISO; validate by booting it"
+    log_info "  under UEFI (OVMF) or flashing it to USB and booting."
+    emit_metric sovereign_os_build_step_image_verify_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"skip-installer\""
+    exit 0
+  fi
+  log_error "artifact=installer but no .iso found in ${SOVEREIGN_OS_IMAGE_DIR}"
+  emit_metric sovereign_os_build_step_image_verify_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+  state_step_fail "${STEP_ID}" "no-installer-iso"
+  exit 1
+fi
+
 # Find the produced image file
 image_file="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 \( -name '*.img' -o -name '*.qcow2' -o -name '*.raw' -o -name "${SOVEREIGN_OS_PROFILE}" \) -type f 2>/dev/null | head -1)"
 

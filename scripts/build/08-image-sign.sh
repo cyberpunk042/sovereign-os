@@ -139,6 +139,16 @@ if [ -z "${SOVEREIGN_OS_IMAGE_DIR:-}" ] || [ ! -d "${SOVEREIGN_OS_IMAGE_DIR}" ];
   exit 1
 fi
 
+# INSTALLER artifact (live-build ISO): it boots Debian's factory-signed
+# shim/grub chain — there are no operator-MOK-signed binaries to verify, and any
+# .raw in output/ is an unrelated appliance from a prior build. Do NOT sign/verify
+# the stale .raw. Skip cleanly.
+if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
+  log_info "artifact=installer — MOK signing skipped (the ISO uses Debian's signed shim/grub chain)"
+  emit_sign_metric skip
+  exit 0
+fi
+
 # ---- mkosi substrate: verify-in-place instead of signing loose files ----
 # A mkosi disk image carries its boot binaries INSIDE the ESP partition,
 # already signed at build time via [Validation] SecureBootKey= with the
