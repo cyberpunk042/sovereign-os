@@ -152,7 +152,14 @@ cd "${WORK}"
 # default CD image (~700MB) placed only 620MB and spilled the rest (all the KDE
 # packages, the kernel, the cockpit) onto CD2/3 that we don't build → "missing
 # required packages from profile". A single DVD-sized image holds it all.
-build-simple-cdd --dvd --dist "${DIST}" --profiles "${PROFILE}" \
+# --profiles collects the profile's {preseed,packages}; --auto-profiles (-a) is
+# what actually SELECTS it at install time — it emits the `simple-cdd/profiles=
+# sovereign` boot arg so the simple-cdd-profiles udeb ships + applies our
+# sovereign.preseed (root pw, LVM recipe, tasksel KDE, late_command). Without
+# --auto-profiles the profile is merely "available" and d-i falls back to the
+# stock default.preseed → the install stalls asking for a root password, etc.
+build-simple-cdd --dvd --dist "${DIST}" \
+  --profiles "${PROFILE}" --auto-profiles "${PROFILE}" \
   --local-packages "${LOCAL_PKGS}" \
   --conf "${WORK}/sovereign.conf" 2>&1 | tail -60
 
