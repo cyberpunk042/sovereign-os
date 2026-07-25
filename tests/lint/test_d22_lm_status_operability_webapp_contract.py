@@ -451,19 +451,23 @@ def test_select_bar_is_client_side_only_no_new_post():
     """The per-device Select bar is client-side selection only — no new fetch/POST
     (the only permitted POSTs remain /api/control/execute + /api/lm-status/chat)."""
     body = WEBAPP_HTML.read_text(encoding="utf-8")
-    posts = re.findall(r"method:\s*['\"]POST['\"]", body)
-    # each POST target must be one of the two sanctioned endpoints
+    # the endpoints the panel actually fetches (first quoted arg of each fetch)
     targets = re.findall(r"fetch\(\s*[`'\"]([^`'\"]+)[`'\"]", body)
-    for t in targets:
-        if t.startswith("/api/") and ("chat" in body):
-            pass
     assert "/api/lm-status/chat" in body, "the one sanctioned chat POST must remain"
-    # The shared app-shell settings pane carries the sanctioned /api/control/setup
-    # exec-rail (dry-run + type-to-confirm — allow-listed by the app-shell contract);
-    # exclude it before checking for a bare mutation endpoint.
-    body_no_sanctioned = body.replace("/api/control/setup", "")
-    assert "/set" not in body_no_sanctioned and "/mutate" not in body_no_sanctioned, (
-        "no new mutation endpoint"
+    # A new mutation endpoint = a `/set` or `/mutate` PATH SEGMENT in an actual
+    # fetch TARGET — checked against the real endpoints the panel calls, NOT as a
+    # bare substring of the whole body. The substring form false-positives on
+    # panel prose: the shared app-shell settings pane + Notifications inbox carry
+    # sanctioned `/api/control/setup` and help text like ".env/setup", where
+    # "/set" is merely a prefix of "/setup" (the Scunthorpe problem). Matching a
+    # path segment (`/(set|mutate)(/|$)`) on the fetch targets avoids that while
+    # still catching a genuine `fetch('/set', {method:'POST'})`.
+    sanctioned = {"/api/control/execute", "/api/lm-status/chat", "/api/control/setup"}
+    mutation_targets = [
+        t for t in targets if t not in sanctioned and re.search(r"/(set|mutate)(/|$)", t)
+    ]
+    assert not mutation_targets, (
+        f"no new mutation endpoint; unsanctioned mutation fetch target(s): {mutation_targets}"
     )
 
 
