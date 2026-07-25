@@ -72,6 +72,14 @@ pub enum MhaBlockError {
     /// The MoE FFN was built with a malformed expert bank.
     #[error("moe config: {0}")]
     MoeConfig(String),
+    /// The block is in [`KvExecMode::GpuFold`] but no [`KvFoldBackend`] is
+    /// attached — honest-degrade (SB-077): refuse rather than silently running
+    /// the CPU path and reporting it as GPU-folded (SDD-401 phase 4).
+    #[error("gpu-fold unavailable: {reason}")]
+    GpuFoldUnavailable {
+        /// Why the folded-KV path can't run (no backend attached).
+        reason: String,
+    },
 }
 
 /// The autoregressive KV cache, either dense f32 or NVFP4-compressed. The
@@ -132,6 +140,58 @@ impl KvStore {
             KvStore::Quant(s) => s.iter().map(|q| q.dequantized_weights()).collect(),
         }
     }
+}
+
+/// How this block computes attention over its KV cache (SDD-401 phase 4).
+///
+/// The default is [`Cpu`](KvExecMode::Cpu) — the pure-Rust `#![forbid(unsafe)]`
+/// path this box has always run. [`GpuFold`](KvExecMode::GpuFold) is the opt-in
+/// hotswap: when a [`KvFoldBackend`] is attached, attention is delegated to the
+/// ChromoFold GPU engine's compressed-KV kernels. It is **off by default** and,
+/// with no backend attached, honest-degrades to [`MhaBlockError::GpuFoldUnavailable`]
+/// rather than silently falling back to CPU while claiming to be folded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum KvExecMode {
+    /// Pure-Rust CPU attention over the [`KvStore`] (the always-available default).
+    #[default]
+    Cpu,
+    /// Opt-in GPU-folded attention via an attached [`KvFoldBackend`].
+    GpuFold,
+}
+
+/// A pluggable folded-KV attention backend (SDD-401 phase 4).
+///
+/// This is the sovereign-side seam for ChromoFold's GPU attention kernels. The
+/// method mirrors the **dense verification** C ABI entry
+/// (`cf_kv_attn_dense_async`, bound in phase 3): it receives the same dense
+/// `query` / `keys` / `values` (and optional per-query-head attention `sinks`)
+/// the CPU path uses, and returns the attention context vector. A correct
+/// backend is therefore **bit-exact** with the CPU [`sovereign_mha::Mha`] path by
+/// construction — the seam feeds it identical inputs. The compressed-residency
+/// *fused* path (`cf_kv_attn_fused_async`, the ~8× memory win) is the
+/// hardware-gated follow-on that owns its device-side KV instead of taking dense
+/// vectors; this dense seam is its correctness oracle.
+///
+/// Implementors live in `sovereign-chromofold` (the safe wrapper). This crate
+/// only defines the contract, so it stays `#![forbid(unsafe_code)]`.
+pub trait KvFoldBackend: Send + Sync + std::fmt::Debug {
+    /// A short, stable name for the backend (surfaced in `kv_fold_status`).
+    fn name(&self) -> &str;
+
+    /// Compute the attention context for `query` over the cache.
+    ///
+    /// `keys` / `values` are the dense per-position vectors (as the CPU path
+    /// materializes them); `sinks`, when `Some`, are the GPT-OSS per-query-head
+    /// learned attention-sink logits. Returns the context vector (query-width),
+    /// or an error string on any device/shape failure (the caller maps it to
+    /// [`MhaBlockError::GpuFoldUnavailable`]).
+    fn fold_attend(
+        &self,
+        query: &[f32],
+        keys: &[Vec<f32>],
+        values: &[Vec<f32>],
+        sinks: Option<&[f32]>,
+    ) -> Result<Vec<f32>, String>;
 }
 
 /// A SwiGLU feed-forward network: `down( SiLU(gate(x)) ⊙ up(x) )`, run over an
@@ -492,6 +552,13 @@ pub struct MhaDecoderBlock {
     /// Absolute positions processed so far (the RoPE position counter), which
     /// keeps advancing even as the windowed cache drops old entries.
     position: usize,
+    /// How attention is computed (SDD-401 phase 4). Default [`KvExecMode::Cpu`]
+    /// — the pure-Rust path. [`KvExecMode::GpuFold`] delegates to `kv_fold`.
+    kv_exec_mode: KvExecMode,
+    /// The opt-in folded-KV backend (SDD-401 phase 4). `None` by default; when
+    /// `kv_exec_mode` is `GpuFold` and this is `None`, `step` honest-degrades.
+    /// `Arc` (not `Box`) so the block stays `Clone` — a shared device handle.
+    kv_fold: Option<std::sync::Arc<dyn KvFoldBackend>>,
 }
 
 /// The RoPE position-scaling family a model config asks for (HuggingFace
@@ -614,6 +681,8 @@ impl MhaDecoderBlock {
             window: None,
             sink_count: 0,
             position: 0,
+            kv_exec_mode: KvExecMode::Cpu,
+            kv_fold: None,
         })
     }
 
@@ -704,6 +773,8 @@ impl MhaDecoderBlock {
             window: None,
             sink_count: 0,
             position: 0,
+            kv_exec_mode: KvExecMode::Cpu,
+            kv_fold: None,
         })
     }
 
@@ -798,6 +869,8 @@ impl MhaDecoderBlock {
             window: None,
             sink_count: 0,
             position: 0,
+            kv_exec_mode: KvExecMode::Cpu,
+            kv_fold: None,
         })
     }
 
@@ -837,6 +910,35 @@ impl MhaDecoderBlock {
     /// Whether this block stores its KV cache NVFP4-compressed.
     pub fn kv_quantized(&self) -> bool {
         matches!(self.values, KvStore::Quant(_))
+    }
+
+    /// Set the attention execution mode (builder form; SDD-401 phase 4).
+    #[must_use]
+    pub fn with_kv_exec_mode(mut self, mode: KvExecMode) -> Self {
+        self.kv_exec_mode = mode;
+        self
+    }
+
+    /// Set the attention execution mode in place (SDD-401 phase 4).
+    pub fn set_kv_exec_mode(&mut self, mode: KvExecMode) {
+        self.kv_exec_mode = mode;
+    }
+
+    /// The current attention execution mode (SDD-401 phase 4).
+    pub fn kv_exec_mode(&self) -> KvExecMode {
+        self.kv_exec_mode
+    }
+
+    /// Attach (or clear) the folded-KV backend (SDD-401 phase 4). An `Arc` so
+    /// one device handle can be shared across every block in the stack.
+    pub fn set_kv_fold_backend(&mut self, backend: Option<std::sync::Arc<dyn KvFoldBackend>>) {
+        self.kv_fold = backend;
+    }
+
+    /// The attached folded-KV backend's name, or `None` when honest-degrading
+    /// (no backend). Lets the cockpit/CLI report exactly what this block offers.
+    pub fn kv_fold_status(&self) -> Option<&str> {
+        self.kv_fold.as_ref().map(|b| b.name())
     }
 
     /// Extend this block's usable context from `train_ctx` to `target_ctx` by
@@ -1068,9 +1170,26 @@ impl MhaDecoderBlock {
         let keys = self.rotated_keys.materialize();
         let vals = self.values.materialize();
         // GPT-OSS per-head attention sinks when present, else standard softmax.
-        let ctx = match &self.attn_sinks {
-            Some(sinks) => self.mha.attend_with_sinks(&q, &keys, &vals, sinks)?,
-            None => self.mha.attend(&q, &keys, &vals)?,
+        // SDD-401 phase 4: `Cpu` (default) runs the pure-Rust path; `GpuFold`
+        // delegates to the attached backend, or honest-degrades if none.
+        let ctx = match self.kv_exec_mode {
+            KvExecMode::Cpu => match &self.attn_sinks {
+                Some(sinks) => self.mha.attend_with_sinks(&q, &keys, &vals, sinks)?,
+                None => self.mha.attend(&q, &keys, &vals)?,
+            },
+            KvExecMode::GpuFold => {
+                let backend =
+                    self.kv_fold
+                        .as_ref()
+                        .ok_or_else(|| MhaBlockError::GpuFoldUnavailable {
+                            reason: "KvExecMode::GpuFold set but no KvFoldBackend attached \
+                                 (attach one via set_kv_fold_backend — SDD-401 phase 4)"
+                                .to_string(),
+                        })?;
+                backend
+                    .fold_attend(&q, &keys, &vals, self.attn_sinks.as_deref())
+                    .map_err(|e| MhaBlockError::GpuFoldUnavailable { reason: e })?
+            }
         };
         let mut attn_out = self.o.forward(&ctx)?;
         add_bias(&mut attn_out, &self.o_bias);
@@ -2086,5 +2205,108 @@ mod tests {
             differed,
             "attention biases + sinks must change the decode output"
         );
+    }
+
+    // ---- SDD-401 phase 4: GPU-fold hotswap seam ----
+
+    /// A reference folded-KV backend that computes attention with a standalone
+    /// `Mha` (the same math as the CPU path). Because the seam feeds it the
+    /// identical `(q, keys, vals, sinks)` the CPU path uses, it is bit-exact with
+    /// [`KvExecMode::Cpu`] — the correctness oracle a real GPU backend must match.
+    #[derive(Debug)]
+    struct RefFold {
+        mha: Mha,
+    }
+
+    impl KvFoldBackend for RefFold {
+        fn name(&self) -> &str {
+            "ref-cpu-fold"
+        }
+        fn fold_attend(
+            &self,
+            query: &[f32],
+            keys: &[Vec<f32>],
+            values: &[Vec<f32>],
+            sinks: Option<&[f32]>,
+        ) -> Result<Vec<f32>, String> {
+            match sinks {
+                Some(s) => self
+                    .mha
+                    .attend_with_sinks(query, keys, values, s)
+                    .map_err(|e| e.to_string()),
+                None => self
+                    .mha
+                    .attend(query, keys, values)
+                    .map_err(|e| e.to_string()),
+            }
+        }
+    }
+
+    #[test]
+    fn kv_exec_mode_defaults_to_cpu_with_no_fold_backend() {
+        // Off by default: the box behaves exactly as today (pure-Rust CPU).
+        let w = weights(8, 2, 4, 2, 16);
+        let block = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        assert_eq!(block.kv_exec_mode(), KvExecMode::Cpu);
+        assert!(block.kv_fold_status().is_none());
+    }
+
+    #[test]
+    fn gpu_fold_without_backend_honest_degrades() {
+        // GpuFold set + no backend → refuse (SB-077), never silently run CPU and
+        // report it as folded.
+        let w = weights(8, 2, 4, 2, 16);
+        let mut block = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_kv_exec_mode(KvExecMode::GpuFold);
+        assert_eq!(block.kv_exec_mode(), KvExecMode::GpuFold);
+        let x: Vec<f32> = (0..8).map(|i| (i as f32 * 0.3).sin()).collect();
+        match block.step(&x) {
+            Err(MhaBlockError::GpuFoldUnavailable { reason }) => {
+                assert!(reason.contains("no KvFoldBackend"), "reason: {reason}");
+            }
+            other => panic!("expected GpuFoldUnavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cpu_path_unchanged_when_backend_attached_but_mode_is_cpu() {
+        // The mode gates delegation, not the mere presence of a backend: an
+        // attached backend must not perturb the default CPU decode.
+        let w = weights(8, 2, 4, 2, 16);
+        let mut plain = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        let mut withbe = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        withbe.set_kv_fold_backend(Some(std::sync::Arc::new(RefFold {
+            mha: Mha::new(4, 2, 2).unwrap(),
+        })));
+        assert_eq!(withbe.kv_fold_status(), Some("ref-cpu-fold"));
+        assert_eq!(withbe.kv_exec_mode(), KvExecMode::Cpu);
+        for step in 0..5 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.3).sin()).collect();
+            let a = plain.step(&x).unwrap();
+            let b = withbe.step(&x).unwrap();
+            assert_eq!(a, b, "step {step}: an idle backend changed the CPU decode");
+        }
+    }
+
+    #[test]
+    fn gpu_fold_with_reference_backend_is_bit_exact_with_cpu() {
+        // Load-bearing conformance: GpuFold + a reference backend running the same
+        // attention math is BIT-EXACT with the CPU path — proving the seam plumbs
+        // identical inputs. A real GPU backend need only match this oracle.
+        let w = weights(8, 2, 4, 2, 16);
+        let mut cpu = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        let mut gpu = MhaDecoderBlock::from_weights(&w, Precision::F32)
+            .unwrap()
+            .with_kv_exec_mode(KvExecMode::GpuFold);
+        gpu.set_kv_fold_backend(Some(std::sync::Arc::new(RefFold {
+            mha: Mha::new(4, 2, 2).unwrap(),
+        })));
+        for step in 0..6 {
+            let x: Vec<f32> = (0..8).map(|i| ((i + step) as f32 * 0.3).sin()).collect();
+            let a = cpu.step(&x).unwrap();
+            let b = gpu.step(&x).unwrap();
+            assert_eq!(a, b, "step {step}: fold seam not bit-exact with CPU path");
+        }
     }
 }
