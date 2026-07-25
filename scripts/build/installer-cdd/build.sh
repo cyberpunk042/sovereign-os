@@ -50,6 +50,8 @@ cat > "${PKGROOT}/DEBIAN/control" <<CTRL
 Package: sovereign-os-cockpit
 Version: 1.0.0
 Architecture: all
+Section: admin
+Priority: optional
 Maintainer: cyberpunk042 <noreply@sovereign-os>
 Depends: python3, python3-yaml, bash
 Description: sovereign-os cockpit + operator tooling
