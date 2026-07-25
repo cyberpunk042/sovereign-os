@@ -52,6 +52,7 @@ routes:
   - {prefix: "/api/models", port: 8104, api: sovereign-model-health-api}
   - {prefix: "/api/models-catalog", port: 8123, api: sovereign-models-catalog-api}
   - {prefix: "/api/ms022", port: 7711, api: sovereign-ms022-sse-quota-api}
+  - {prefix: "/api/notifications", port: 8149, api: sovereign-notifications-api}
   - {prefix: "/api/operator-key", port: 8110, api: sovereign-approvals-api}
   - {prefix: "/api/profile", port: 8117, api: sovereign-profile-mirror-api}
   - {prefix: "/api/router", port: 8096, api: sovereign-router-api}

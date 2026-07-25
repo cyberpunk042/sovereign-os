@@ -125,10 +125,16 @@ SANCTIONED_AVX_MODE_FETCH = "/api/control/avx-mode"
 # runs `sovereign-osctl setup set` under sudo -n, and REDACTS the value from all
 # logs. A third sanctioned same-origin loopback mutation, alongside chat + execute.
 SANCTIONED_SETUP_FETCH = "/api/control/setup"
+# Notifications INBOX: the read-only rollup behind the 🔔 header badge + pane
+# (/api/notifications). GET-only aggregation of "needs attention" items (.env/setup
+# unconfigured, failed first-boot units); zero egress, fixed loopback path. Distinct
+# from the notifykit 🔔 SETTINGS fetch above (that configures OUTBOUND channels).
+SANCTIONED_NOTIFICATIONS_FETCH = "/api/notifications"
 SANCTIONED_FETCHES = {
     SANCTIONED_CHAT_FETCH, SANCTIONED_EXEC_FETCH, SANCTIONED_COMPAT_FETCH,
     SANCTIONED_NOTIFYKIT_FETCH, SANCTIONED_COMPAT_PANE_FETCH,
     SANCTIONED_AVX_MODE_FETCH, SANCTIONED_SETUP_FETCH,
+    SANCTIONED_NOTIFICATIONS_FETCH,
 }
 
 

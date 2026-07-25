@@ -1,0 +1,16 @@
+[Unit]
+Description=Sovereign notifications outbound fan-out cadence (fires sovereign-notifications-emit ~every 5 min; no-op unless fan-out is enabled)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/notifications-emit.py
+
+[Timer]
+# Relative cadence: 2 min after boot, then every 5 min. The paired oneshot exits
+# immediately when SOVEREIGN_OS_NOTIFICATIONS_FANOUT is unset, so an enabled timer
+# is a cheap no-op until the operator opts into outbound delivery.
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+Persistent=true
+Unit=sovereign-notifications-emit.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,33 @@
+[Unit]
+Description=Sovereign notifications OPTIONAL outbound fan-out (🔔 inbox items → notifykit channels; opt-in, de-duped)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/notifications-emit.py
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# OFF BY DEFAULT: does nothing unless SOVEREIGN_OS_NOTIFICATIONS_FANOUT is set
+# (drop a `[Service] Environment=SOVEREIGN_OS_NOTIFICATIONS_FANOUT=1` override to
+# enable). Delivery is de-duped against /var/lib/sovereign-os so a periodic tick
+# never re-sends the same item.
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/notifications-emit.py
+StandardOutput=journal
+StandardError=journal
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/sovereign-os
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
