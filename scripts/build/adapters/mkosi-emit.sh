@@ -29,6 +29,22 @@ out_dir="${2:?usage: mkosi-emit.sh <profile.yaml> <out-dir>}"
 require_file "${profile_yaml}"
 mkdir -p "${out_dir}"/{mkosi.conf.d,mkosi.skeleton,mkosi.extra,mkosi.repart}
 
+# ---------- operator signing key (SDD-015) ----------
+# Resolve — and on first use MINT — the operator key BEFORE the emitter runs,
+# so the Python below discovers it instead of aborting a build that already
+# spent 30+ minutes compiling the kernel. Every consumer (this step and
+# 08-image-sign) goes through the one library, so they cannot drift.
+# shellcheck source=../lib/operator-keys.sh
+. "${__SCRIPT_DIR}/../lib/operator-keys.sh"
+_posture="$("${PYTHON3}" -c '
+import os, sys, yaml
+with open(sys.argv[1]) as f:
+    p = yaml.safe_load(f) or {}
+k = p.get("kernel") or {}
+print((k.get("cmdline") or {}).get("secure_boot") or k.get("secure_boot") or "none")
+' "${profile_yaml}" 2>/dev/null || echo none)"
+ensure_operator_keys "${_posture}" || true   # non-fatal here; the emitter reports
+
 # Use python to translate YAML → mkosi .conf (INI-style)
 SOVEREIGN_OS_PROFILE_FILE="${profile_yaml}" "${PYTHON3}" - "${out_dir}" <<'PY'
 import os, sys, yaml, pathlib, textwrap, shutil, subprocess
@@ -191,19 +207,22 @@ validation_block = ""
 if secure_boot not in ("none", "disabled"):
     if not (sb_key and sb_cert):
         sys.exit(
-            f"mkosi-emit: profile posture secure_boot={secure_boot} needs operator\n"
-            "keys, but neither SOVEREIGN_OS_PK_KEY/SOVEREIGN_OS_PK_CERT nor\n"
-            "SOVEREIGN_OS_MOK_KEY/SOVEREIGN_OS_MOK_CERT is set in the environment.\n"
-            "Operator keys are NEVER stored in the repo (SDD-015). Generate once:\n"
-            "  sudo mkdir -p /etc/sovereign-os/keys\n"
-            "  sudo openssl req -new -x509 -newkey rsa:4096 -nodes -days 3650 \\\n"
-            "    -subj '/CN=sovereign-os operator MOK/' \\\n"
-            "    -keyout /etc/sovereign-os/keys/mok.key -out /etc/sovereign-os/keys/mok.crt\n"
-            "  sudo chmod 600 /etc/sovereign-os/keys/mok.key\n"
-            "then add to the build invocation:\n"
-            "  SOVEREIGN_OS_MOK_KEY=/etc/sovereign-os/keys/mok.key \\\n"
-            "  SOVEREIGN_OS_MOK_CERT=/etc/sovereign-os/keys/mok.crt\n"
-            "(or set the profile's kernel.secure_boot to 'disabled').")
+            f"mkosi-emit: profile posture secure_boot={secure_boot} needs an operator\n"
+            "signing key, and this step could not mint one.\n"
+            "\n"
+            "scripts/build/lib/operator-keys.sh mints a key at\n"
+            "/etc/sovereign-os/keys/mok.{key,crt} automatically on first use, so the\n"
+            "usual cause of reaching this message is that the build is NOT running as\n"
+            "root (writing under /etc needs it) or openssl is missing.\n"
+            "\n"
+            "Fix, in order of preference:\n"
+            "  • run the build as root — the panel elevates via pkexec, the CLI via\n"
+            "    `sudo scripts/build/orchestrate.sh run`\n"
+            "  • point at your own chain (SDD-015 — keys are NEVER stored in the repo):\n"
+            "      SOVEREIGN_OS_MOK_KEY=/path/mok.key SOVEREIGN_OS_MOK_CERT=/path/mok.crt\n"
+            "    or the PK pair SOVEREIGN_OS_PK_KEY / SOVEREIGN_OS_PK_CERT\n"
+            "  • drop the requirement: set the profile's kernel.cmdline.secure_boot\n"
+            "    to 'none' (unsigned image; fine for a first build on this box)")
     for path, what in ((sb_key, "key"), (sb_cert, "certificate")):
         if not pathlib.Path(path).is_file():
             sys.exit(f"mkosi-emit: secure-boot {what} not found: {path}")

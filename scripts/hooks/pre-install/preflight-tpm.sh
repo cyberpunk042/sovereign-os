@@ -109,8 +109,22 @@ if [ -n "${SOVEREIGN_OS_MOK_KEY:-}${SOVEREIGN_OS_MOK_CERT:-}" ]; then
     log_error "  FAIL — only one of SOVEREIGN_OS_MOK_{KEY,CERT} is set; must be both or neither"
     fail=$((fail + 1))
   fi
+elif [ -f /etc/sovereign-os/keys/mok.key ] && [ -f /etc/sovereign-os/keys/mok.crt ]; then
+  log_info "  MOK env unset, but an operator key exists at /etc/sovereign-os/keys — the build will use it"
 else
-  log_info "  MOK key+cert unset — step 08 will auto-generate (operator must enroll manually after install)"
+  # This branch used to claim "step 08 will auto-generate", which was FALSE:
+  # no step generated anything, and step 05 hard-failed on the missing key
+  # LONG before 08 would have run — so the operator lost a 30+ minute kernel
+  # compile to a check that could have run here in milliseconds (reported
+  # 2026-07-25). scripts/build/lib/operator-keys.sh now mints the key, but it
+  # can only do so as root, so warn precisely when that will not happen.
+  if [ "$(id -u)" -eq 0 ]; then
+    log_info "  no operator key yet — the build will mint one at /etc/sovereign-os/keys (SDD-015; enroll with mokutil after install)"
+  else
+    log_warn "  no operator key at /etc/sovereign-os/keys, and this preflight is not root"
+    log_warn "  the build mints one automatically WHEN RUN AS ROOT (panel: pkexec; CLI: sudo)"
+    log_warn "  an unprivileged build will fail at step 05 with posture secure_boot=${secure_boot}"
+  fi
 fi
 
 if [ "${fail}" -eq 0 ]; then

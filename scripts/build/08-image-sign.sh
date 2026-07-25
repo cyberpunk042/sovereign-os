@@ -61,17 +61,14 @@ emit_sign_metric() {
     "posture=\"${secure_boot}\",result=\"$1\""
 }
 
-# Auto-discover operator signing keys at the SDD-015 documented default location
-# when no env override is set — the same path 05-substrate-prepare's mkosi-emit
-# honours. Keys generated once at /etc/sovereign-os/keys/mok.{key,crt} then work
-# without threading SOVEREIGN_OS_MOK_{KEY,CERT} through sudo's env_reset on every
-# build. Env overrides (PK or an alternate MOK path) still win.
-if [ -z "${SOVEREIGN_OS_PK_KEY:-}" ] && [ -z "${SOVEREIGN_OS_MOK_KEY:-}" ] \
-   && [ -f /etc/sovereign-os/keys/mok.key ] && [ -f /etc/sovereign-os/keys/mok.crt ]; then
-  export SOVEREIGN_OS_MOK_KEY=/etc/sovereign-os/keys/mok.key
-  export SOVEREIGN_OS_MOK_CERT=/etc/sovereign-os/keys/mok.crt
-  log_info "using operator MOK keys at /etc/sovereign-os/keys (SDD-015 default location)"
-fi
+# Resolve (env override → documented default location → mint on first use) the
+# operator signing key through the SAME library 05-substrate-prepare uses. Both
+# steps previously hand-rolled discovery of /etc/sovereign-os/keys/mok.{key,crt}
+# while NEITHER could create it — so the documented happy path dead-ended.
+# Env overrides (PK, or an alternate MOK path) still win inside the library.
+# shellcheck source=lib/operator-keys.sh
+. "${__SCRIPT_DIR}/lib/operator-keys.sh"
+ensure_operator_keys "${secure_boot}" || true   # the posture cases below report
 
 case "${secure_boot}" in
   none)

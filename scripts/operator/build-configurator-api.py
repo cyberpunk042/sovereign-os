@@ -1257,6 +1257,32 @@ class Handler(BaseHTTPRequestHandler):
             # orchestrate.sh forces the live-build substrate for installer.
             if body.get("build_installer"):
                 bake_env["SOVEREIGN_OS_ARTIFACT"] = "installer"
+            # Bootstrap root password. mkosi-emit HARD-FAILS without it (an
+            # image with a locked root boots to a prompt nobody can satisfy),
+            # and the panel previously offered no way to supply it at all — so
+            # a panel-launched build could never clear step 05 (2026-07-25).
+            #
+            # The plaintext is hashed HERE and only the crypt hash is exported:
+            # elevation passes env through `pkexec env K=V …`, whose argv is
+            # world-readable in `ps`. A bootstrap password the first-login
+            # assistant rotates is low-value, but it must never sit in argv.
+            root_pw = body.get("root_password") or ""
+            if root_pw:
+                if root_pw.startswith("hashed:"):
+                    bake_env["SOVEREIGN_OS_ROOT_PASSWORD"] = root_pw
+                else:
+                    try:
+                        hashed = subprocess.run(
+                            ["openssl", "passwd", "-6", "-stdin"],
+                            input=root_pw, capture_output=True, text=True,
+                            timeout=15, check=True).stdout.strip()
+                    except (OSError, subprocess.SubprocessError) as e:
+                        return self._send(500, json.dumps({
+                            "error": f"could not hash the root password: {e}"}))
+                    bake_env["SOVEREIGN_OS_ROOT_PASSWORD"] = f"hashed:{hashed}"
+            elif body.get("allow_locked_root"):
+                # Explicit opt-in to a console-loginless image (SSH keys only).
+                bake_env["SOVEREIGN_OS_ALLOW_LOCKED_ROOT"] = "1"
         argv_fn, needs_root = RUN_ACTIONS[action]
         argv = argv_fn()
         elevation_note = ""

@@ -75,6 +75,14 @@ fi
 # ${SOVEREIGN_OS_PROFILE} reference (caught by the first real build, 2026-06-10).
 export SOVEREIGN_OS_PROFILE SOVEREIGN_OS_SUBSTRATE SOVEREIGN_OS_ARTIFACT
 
+# A real build runs as ROOT (pkexec from the panel, sudo from the CLI) and imports
+# repo Python along the way — which drops root-owned __pycache__/*.pyc INTO the
+# operator's working tree. The operator can then neither rewrite nor remove them,
+# and the Layer-1 lint suite fails with PermissionError on its own byte-compile
+# check (seen 2026-07-25: scripts/lib/__pycache__ left root-owned by a panel
+# build). Bytecode caching buys a build nothing, so never write it.
+export PYTHONDONTWRITEBYTECODE=1
+
 # Operator build secrets (secrets doctrine: VALUES live in /etc/sovereign-os/*.env,
 # never the repo). Source them so a PANEL- or sudoers-driven build — which cannot
 # thread env through the UI — still gets SOVEREIGN_OS_ROOT_PASSWORD (and any other

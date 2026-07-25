@@ -2628,6 +2628,12 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Build a bootable INSTALLER ISO (live-build) that installs the mutable OS onto an internal NVMe (sovereign-root LV, keeps /home), instead of the whole-disk appliance image. The flash panel defaults to the installer.">
         <label class="chk" style="margin:0"><input type="checkbox" id="build-installer"> 🖴 build INSTALLER <span class="muted small">(bootable USB that installs onto the NVMe — vs the whole-disk appliance)</span></label>
       </div>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-bottom:.5rem" title="REQUIRED by the image build: without it mkosi locks root and the image boots to a login prompt nobody can satisfy. Sent once, hashed server-side (openssl passwd -6) before it reaches the build — the plaintext is never stored, logged, or placed in a command line. The first-login assistant rotates it on first boot.">
+        <label class="chk" style="margin:0">🔑 root bootstrap password
+          <input type="password" id="root-password" autocomplete="new-password" placeholder="required unless locked-root" style="margin-left:.4rem">
+        </label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="allow-locked-root"> ship LOCKED root <span class="muted small">(no console login — SSH keys / autologin only)</span></label>
+      </div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Bake operator software INTO the image so a flashed box is self-contained (bigger image, zero-touch after flash)">
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-dev"> bake dev tools <span class="muted small">(node 22 + Claude Code)</span></label>
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-selfdef"> bake selfdef <span class="muted small">(built + ready to enable)</span></label>
@@ -3759,7 +3765,14 @@ function runAction(action){
                           bake_livereload: document.getElementById("bake-livereload").checked,
                           bake_firstboot: document.getElementById("bake-firstboot").checked,
                           bake_root_modules: document.getElementById("bake-root_modules").checked,
-                          build_installer: (document.getElementById("build-installer")||{}).checked || false}),
+                          build_installer: (document.getElementById("build-installer")||{}).checked || false,
+                          // Bootstrap root password — mkosi-emit hard-fails without
+                          // it (a locked-root image boots to an unsatisfiable login
+                          // prompt). The API hashes it before it ever reaches an
+                          // env/argv. Empty + the locked-root checkbox = explicit
+                          // console-loginless image.
+                          root_password: (document.getElementById("root-password")||{}).value || "",
+                          allow_locked_root: (document.getElementById("allow-locked-root")||{}).checked || false}),
   }).then(function(r){
     if (r.status === 409){ return attachRun(); }   // one already running → attach to it
     if (!r.ok) return r.text().then(function(t){

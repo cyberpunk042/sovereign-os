@@ -30,13 +30,20 @@ dev-deps:  ## Install the Python test/lint deps (pytest pyyaml jsonschema) from 
 	@# system interpreter REFUSES, and a stock trixie ships no pip at all — so
 	@# this target used to die on exactly the fresh host it exists to set up.
 	@# Order: apt (managed, no override) → pip --user → pip --user --break-system-packages.
+	@# requirements-dev.txt stays the ONE source (SDD-963): the apt fallback
+	@# DERIVES its package names from the file rather than hardcoding the triple.
 	@if python3 -c 'import pytest, yaml, jsonschema' 2>/dev/null; then \
 	  echo "dev deps already importable — nothing to do"; \
 	elif command -v apt-get >/dev/null 2>&1 && ! python3 -m pip --version >/dev/null 2>&1; then \
 	  echo "no pip on this host (PEP-668 Debian) — installing the apt builds"; \
-	  sudo apt-get install -y python3-pytest python3-yaml python3-jsonschema python3-pip; \
+	  pkgs=$$(sed -e 's/#.*//' -e 's/[<>=!~;[].*//' requirements-dev.txt \
+	          | tr -d '[:blank:]' | grep -v '^$$' \
+	          | sed -e 's/^pyyaml$$/yaml/' -e 's/^/python3-/' | tr '\n' ' '); \
+	  echo "  from requirements-dev.txt: $$pkgs"; \
+	  sudo apt-get install -y python3-pip $$pkgs; \
 	else \
-	  python3 -m pip install --user -r requirements-dev.txt \
+	  python3 -m pip install -r requirements-dev.txt \
+	    || python3 -m pip install --user -r requirements-dev.txt \
 	    || python3 -m pip install --user --break-system-packages -r requirements-dev.txt; \
 	fi
 	@python3 -c 'import pytest, yaml, jsonschema' \
