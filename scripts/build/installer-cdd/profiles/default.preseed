@@ -109,6 +109,7 @@ d-i grub-installer/with_other_os boolean false
 ### themselves are installed by pkgsel above; this just fixes up per-machine bits.
 d-i preseed/late_command string \
     in-target sh -c 'update-initramfs -u -k all || true'; \
+    in-target sh -c 'sh /opt/sovereign-os/scripts/install/set-grub-default-kernel.sh 6.12.0 || true'; \
     in-target sh -c 'mkdir -p /etc/sovereign-os; echo sain-01 > /etc/sovereign-os/active-profile'; \
     in-target sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env'; \
     in-target systemctl enable sddm || true
