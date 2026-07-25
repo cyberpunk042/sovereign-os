@@ -1251,6 +1251,11 @@ class Handler(BaseHTTPRequestHandler):
                         {"error": f"unknown frontend {frontend!r}",
                          "allowed": sorted(FRONTEND_CHOICES)}))
                 bake_env["SOVEREIGN_OS_FRONTEND"] = frontend
+            # Artifact shape: build a bootable INSTALLER ISO (installs the mutable
+            # OS onto an internal disk) instead of the whole-disk appliance image.
+            # orchestrate.sh forces the live-build substrate for installer.
+            if body.get("build_installer"):
+                bake_env["SOVEREIGN_OS_ARTIFACT"] = "installer"
         argv_fn, needs_root = RUN_ACTIONS[action]
         argv = argv_fn()
         elevation_note = ""

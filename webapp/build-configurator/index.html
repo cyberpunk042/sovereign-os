@@ -2621,9 +2621,12 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem">
         <button class="btn action primary" id="run-dry"       title="orchestrate.sh run --dry-run — validates the 9-step plan, builds nothing">▶ validate (dry-run)</button>
         <button class="btn action go" id="run-preflight" title="orchestrate.sh preflight — runs the pre-install hooks (friction audit)">▶ preflight</button>
-        <button class="btn action heavy" id="run-build"     title="orchestrate.sh run — the REAL ~30 min image build; needs the panel started with sudo">▶ BUILD image (~30 min)</button>
+        <button class="btn action heavy" id="run-build"     title="orchestrate.sh run — the REAL ~30 min build; needs the panel started with sudo">▶ BUILD (~30 min)</button>
         <button class="btn" id="run-cancel" disabled>■ cancel</button>
         <span class="small muted" id="run-status" style="align-self:center"></span>
+      </div>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Build a bootable INSTALLER ISO (live-build) that installs the mutable OS onto an internal NVMe (sovereign-root LV, keeps /home), instead of the whole-disk appliance image. The flash panel defaults to the installer.">
+        <label class="chk" style="margin:0"><input type="checkbox" id="build-installer"> 🖴 build INSTALLER <span class="muted small">(bootable USB that installs onto the NVMe — vs the whole-disk appliance)</span></label>
       </div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Bake operator software INTO the image so a flashed box is self-contained (bigger image, zero-touch after flash)">
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-dev"> bake dev tools <span class="muted small">(node 22 + Claude Code)</span></label>
@@ -3421,6 +3424,8 @@ function buildCommand(){
     var el = document.getElementById(pair[0]);
     if (el && el.checked) lines.push(pair[1] + "=1 \\");
   });
+  var _inst = document.getElementById("build-installer");
+  if (_inst && _inst.checked) lines.push("SOVEREIGN_OS_ARTIFACT=installer \\");
   lines.push(
     "SOVEREIGN_OS_OVERLAY_PROFILE=overlay.yaml \\",
     "SOVEREIGN_OS_OVERLAY_OPERATOR_DEPS=operator-deps.toml \\",
@@ -3753,7 +3758,8 @@ function runAction(action){
                           bake_gui: document.getElementById("bake-gui").checked,
                           bake_livereload: document.getElementById("bake-livereload").checked,
                           bake_firstboot: document.getElementById("bake-firstboot").checked,
-                          bake_root_modules: document.getElementById("bake-root_modules").checked}),
+                          bake_root_modules: document.getElementById("bake-root_modules").checked,
+                          build_installer: (document.getElementById("build-installer")||{}).checked || false}),
   }).then(function(r){
     if (r.status === 409){ return attachRun(); }   // one already running → attach to it
     if (!r.ok) return r.text().then(function(t){
