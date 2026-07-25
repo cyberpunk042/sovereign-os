@@ -1,0 +1,118 @@
+#### sovereign-os debian-installer preseed — OFFLINE, fresh LVM install.
+#### (SDD-013 amended 2026-07-25.)
+####
+#### This is the MASTER preseed: it overrides simple-cdd's stock default.preseed
+#### (find_profile_files picks HERE/profiles/default.preseed first) and is loaded
+#### directly via preseed/file=/cdrom/simple-cdd/default.preseed — the reliable
+#### path. It deliberately does NOT depend on the simple-cdd-profiles udeb to
+#### apply anything (that indirection silently no-op'd), so EVERYTHING the install
+#### needs — accounts, partitioning, the KDE + znver5-kernel + cockpit package
+#### set — is inline here. sovereign.packages still drives what gets MIRRORED onto
+#### the CD; this drives what gets INSTALLED.
+####
+#### SAFETY: partman targets an internal disk that is NOT the running/dev OS disk
+#### (never nvme0n1 here).
+
+### Localization (also set as boot args; harmless to repeat)
+d-i debian-installer/locale string en_US.UTF-8
+d-i keyboard-configuration/xkb-keymap select us
+d-i time/zone string Etc/UTC
+d-i clock-setup/utc boolean true
+d-i clock-setup/ntp boolean false
+
+### Network (offline install — packages come from the CD, not a mirror)
+d-i netcfg/choose_interface select auto
+d-i netcfg/get_hostname string sovereign-os
+d-i netcfg/get_domain string local
+d-i netcfg/hostname string sovereign-os
+
+### Apt — CD only, no network mirror
+d-i apt-setup/use_mirror boolean false
+d-i apt-setup/cdrom/set-first boolean false
+d-i apt-setup/services-select multiselect
+d-i apt-setup/enable-source-repositories boolean false
+
+### Accounts (operator; change the passwords after first login)
+d-i passwd/root-login boolean true
+d-i passwd/root-password password sovereign
+d-i passwd/root-password-again password sovereign
+d-i passwd/make-user boolean true
+d-i passwd/user-fullname string jfortin
+d-i passwd/username string jfortin
+d-i passwd/user-password password sovereign
+d-i passwd/user-password-again password sovereign
+d-i user-setup/allow-password-weak boolean true
+d-i user-setup/encrypt-home boolean false
+
+### Partitioning — SAFETY FIRST: pick an internal disk that is NOT the running
+### OS disk (never nvme0n1 here). Prefer the second NVMe, else the first non-boot
+### disk. Then a clean LVM: ESP + root + home.
+d-i partman/early_command string \
+  RUNDISK="$(list-devices disk | head -1)"; \
+  TGT=""; \
+  for d in $(list-devices disk); do \
+    case "$d" in *nvme0n1) continue;; esac; \
+    TGT="$d"; break; \
+  done; \
+  [ -n "$TGT" ] || TGT="$(list-devices disk | grep -v nvme0n1 | head -1)"; \
+  debconf-set partman-auto/disk "$TGT"; \
+  debconf-set grub-installer/bootdev "$TGT"
+d-i partman-auto/method string lvm
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+d-i partman-auto-lvm/new_vg_name string sovereign
+d-i partman-auto/choose_recipe select sovereign-lvm
+d-i partman-auto/expert_recipe string                                   \
+      sovereign-lvm ::                                                   \
+              538 538 1075 free                                         \
+                      $iflabel{ gpt } $reusemethod{ }                    \
+                      method{ efi } format{ }                           \
+              .                                                          \
+              4096 8192 15360 ext4                                       \
+                      $lvmok{ } lv_name{ root }                          \
+                      method{ format } format{ }                        \
+                      use_filesystem{ } filesystem{ ext4 }               \
+                      mountpoint{ / }                                    \
+              .                                                          \
+              4096 10000 -1 ext4                                         \
+                      $lvmok{ } lv_name{ home }                          \
+                      method{ format } format{ }                        \
+                      use_filesystem{ } filesystem{ ext4 }               \
+                      mountpoint{ /home }                                \
+              .
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+### Base + KDE desktop + the sovereign payload (all offline, from the CD).
+### The custom znver5 kernel + the cockpit are listed EXPLICITLY so they install
+### regardless of any profile machinery.
+tasksel tasksel/first multiselect kde-desktop
+d-i pkgsel/include string sudo lvm2 grub-efi-amd64 efibootmgr network-manager \
+    task-kde-desktop sddm konsole dolphin firefox-esr \
+    linux-image-6.12.0 linux-headers-6.12.0 sovereign-os-cockpit \
+    python3 python3-yaml python3-jsonschema prometheus-node-exporter \
+    curl git ca-certificates nano
+d-i pkgsel/upgrade select none
+d-i pkgsel/update-policy select none
+popularity-contest popularity-contest/participate boolean false
+
+### Boot loader
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean false
+
+### late_command — belt-and-suspenders wiring for the sovereign cockpit/profile,
+### and make sure the custom kernel's initramfs is regenerated. The packages
+### themselves are installed by pkgsel above; this just fixes up per-machine bits.
+d-i preseed/late_command string \
+    in-target sh -c 'update-initramfs -u -k all || true'; \
+    in-target sh -c 'mkdir -p /etc/sovereign-os; echo sain-01 > /etc/sovereign-os/active-profile'; \
+    in-target sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env'; \
+    in-target systemctl enable sddm || true
+
+### Finish
+d-i finish-install/reboot_in_progress note
+d-i debian-installer/exit/poweroff boolean false
