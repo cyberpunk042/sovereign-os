@@ -130,6 +130,20 @@ export custom_installer="${CI}"
 # NOT to pull the 32-bit UEFI files (installer-i386/.../cd_info_i386 → 404/missing).
 # The target is a 64-bit-UEFI znver5 box; 32-bit UEFI (Baytrail/old iMac) is moot.
 export DISABLE_UEFI_32=1
+# Localization + serial baked into EVERY boot entry (simple-cdd adds these to
+# KERNEL_PARAMS): no language/keyboard prompt, and grub+d-i output to ttyS0 so a
+# headless boot (and the operator's serial) shows progress.
+locale=en_US.UTF-8
+export locale
+keyboard=us
+export keyboard
+use_serial_console=true
+export use_serial_console
+# Make the DEFAULT boot entry a fully-automated sovereign install (auto=true
+# priority=critical). Combined with the preseed/file, simple-cdd/profiles=sovereign
+# and locale/keymap that simple-cdd already appends, the CD installs hands-off.
+KERNEL_PARAMS="auto=true priority=critical"
+export KERNEL_PARAMS
 CONF
 # simple-cdd looks for <profile>.{preseed,packages,conf} in the profiles dir.
 cp "${HERE}/profiles/${PROFILE}.preseed"  "${WORK}/"
