@@ -82,6 +82,26 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
   live-build)
     adapter="${__SCRIPT_DIR}/adapters/live-build-emit.sh"
     ;;
+  installer-cdd)
+    # The STANDARD debian-installer ISO. Unlike mkosi/live-build there is no
+    # config tree to emit: scripts/build/installer-cdd/build.sh owns the whole
+    # thing (simple-cdd profile, local package repo, preseed, the CD mirror) and
+    # runs in step 07. This step only needs to confirm the builder exists and
+    # let the pipeline through — adding the substrate to step 07 alone left
+    # step 05 rejecting it as unknown (2026-07-26, my own miss).
+    _cdd="${SOVEREIGN_OS_ROOT}/scripts/build/installer-cdd/build.sh"
+    if [ ! -x "${_cdd}" ]; then
+      log_error "installer-cdd substrate selected but ${_cdd} is missing or not executable"
+      emit_substrate_metric fail
+      state_step_fail "${STEP_ID}" "installer-cdd-builder-missing"
+      exit 1
+    fi
+    log_info "substrate installer-cdd — the d-i ISO is built by ${_cdd} in step 07"
+    log_info "  (no config tree to emit here; simple-cdd owns its own profile + mirror)"
+    emit_substrate_metric success
+    state_step_complete "${STEP_ID}"
+    exit 0
+    ;;
   rpm-ostree|nixos)
     log_error "substrate '${SOVEREIGN_OS_SUBSTRATE}' is an ALT path (B/C); adapter not implemented in foundation phase"
     emit_substrate_metric not-implemented
@@ -89,7 +109,7 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     exit 1
     ;;
   *)
-    log_error "unknown substrate: ${SOVEREIGN_OS_SUBSTRATE} (valid: mkosi, live-build, rpm-ostree, nixos)"
+    log_error "unknown substrate: ${SOVEREIGN_OS_SUBSTRATE} (valid: mkosi, live-build, installer-cdd, rpm-ostree, nixos)"
     emit_substrate_metric unknown
     state_step_fail "${STEP_ID}" "unknown-substrate"
     exit 1

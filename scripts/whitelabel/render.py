@@ -328,7 +328,7 @@ def main() -> int:
     parser.add_argument("--out", required=True, help="substrate output dir")
     parser.add_argument(
         "--substrate",
-        choices=["mkosi", "live-build", "rpm-ostree", "nixos"],
+        choices=["mkosi", "live-build", "installer-cdd", "rpm-ostree", "nixos"],
         default="mkosi",
         help="substrate adapter target",
     )
@@ -347,6 +347,17 @@ def main() -> int:
         emit_for_mkosi(cs, out_dir)
     elif args.substrate == "live-build":
         emit_for_live_build(cs, out_dir)
+    elif args.substrate == "installer-cdd":
+        # The standard debian-installer ISO owns its own tree: simple-cdd builds
+        # the profile, the local package repo and the preseed itself
+        # (scripts/build/installer-cdd/build.sh). There is no substrate config
+        # dir here to render whitelabel overlays into — the branding that
+        # matters rides in the sovereign-os-cockpit package and the installed
+        # system's /etc, both produced by that builder. Emitting nothing is
+        # CORRECT; rejecting the substrate would fail step 06 for a build that
+        # is otherwise fine (2026-07-26 — step 05 had the same gap).
+        print("  installer-cdd: no substrate config tree to render into "
+              "(simple-cdd owns its profile + preseed); whitelabel is a no-op here")
     else:
         sys.stderr.write(
             f"error: substrate '{args.substrate}' adapter not yet implemented; "
