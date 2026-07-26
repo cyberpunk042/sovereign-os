@@ -19,8 +19,20 @@ load_profile "${SOVEREIGN_OS_PROFILE}"
 
 env_substrate="${SOVEREIGN_OS_STATE_DIR}/env-substrate.sh"
 require_file "${env_substrate}"
+# The handoff `export`s SOVEREIGN_OS_SUBSTRATE, so sourcing it OVERRIDES what
+# the orchestrator chose. When a stale file survives from a previous run with a
+# different substrate, this step silently builds the WRONG artifact and reports
+# success (2026-07-26: step 05 ran installer-cdd, step 07 ran live-build,
+# "Skipping binary_iso, already done", stale ISO shipped). Remember what was
+# asked for, and let it win — loudly.
+_substrate_requested="${SOVEREIGN_OS_SUBSTRATE:-}"
 # shellcheck disable=SC1090
 . "${env_substrate}"
+if [ -n "${_substrate_requested}" ] && [ "${_substrate_requested}" != "${SOVEREIGN_OS_SUBSTRATE}" ]; then
+  log_warn "env handoff says substrate=${SOVEREIGN_OS_SUBSTRATE} but this run asked for ${_substrate_requested}"
+  log_warn "  the handoff is STALE — honouring the requested substrate (${_substrate_requested})"
+  SOVEREIGN_OS_SUBSTRATE="${_substrate_requested}"
+fi
 
 env_debs="${SOVEREIGN_OS_STATE_DIR}/env-kernel-debs.sh"
 if [ -f "${env_debs}" ]; then
@@ -40,7 +52,14 @@ if command -v git >/dev/null 2>&1 && _gitr rev-parse --is-inside-work-tree >/dev
   repo_sig="$( { _gitr rev-parse HEAD; _gitr status --porcelain; _gitr diff HEAD; } \
                | sha256sum | cut -d' ' -f1)"
 fi
+# artifact + substrate ARE inputs. Without them, switching from the appliance to
+# the installer did not invalidate this step: it reported "already completed with
+# matching inputs", skipped, and the pipeline exited 0 having built NOTHING — the
+# operator flashed a 5-hour-old ISO twice believing it was fresh (2026-07-26).
+# Step 05 already folds in the artifact, which is why 05 re-ran while 07 did not.
 inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" \
+  "artifact=${SOVEREIGN_OS_ARTIFACT:-image}" \
+  "substrate=${SOVEREIGN_OS_SUBSTRATE:-mkosi}" \
   "repo_sig=${repo_sig}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
@@ -221,13 +240,33 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       state_step_dry_run "${STEP_ID}"
       exit 0
     fi
+    # SOVEREIGN_OS_IMAGE_DIR is not exported until AFTER this case block, so
+    # referencing it here is an "unbound variable" crash under `set -u`.
+    _out="${SOVEREIGN_OS_BUILD_OUT:-${SOVEREIGN_OS_ROOT}/build/${SOVEREIGN_OS_PROFILE}/output}"
+    mkdir -p "${_out}"
     require_command build-simple-cdd "sudo apt install simple-cdd — or run scripts/install/bootstrap-host.sh"
     _cdd="${SOVEREIGN_OS_ROOT}/scripts/build/installer-cdd/build.sh"
     [ -x "${_cdd}" ] || { log_error "missing ${_cdd}"; state_step_fail "${STEP_ID}" "cdd-missing"; exit 1; }
     _asuser="${SUDO_USER:-$(stat -c '%U' "${SOVEREIGN_OS_ROOT}" 2>/dev/null || echo root)}"
     if [ "$(id -u)" -eq 0 ] && [ "${_asuser}" != "root" ]; then
       log_info "running the d-i ISO build as ${_asuser} (simple-cdd refuses root)"
-      _run_cdd=(runuser -u "${_asuser}" -- bash "${_cdd}")
+      # The output dir is created by root-run steps, so the dropped-privilege
+      # builder cannot write its finished ISO into it. simple-cdd built a
+      # perfectly good 1.2G d-i ISO and died on the last line with
+      # "cp: cannot create regular file ...: Permission denied" (2026-07-26).
+      # We are root here; hand the directory to the user who has to write it.
+      chown "${_asuser}" "${_out}" 2>/dev/null || true
+      # Pass ONLY what the builder needs. --preserve-environment carried
+      # HOME=/root in from pkexec, so gpg — running as ${_asuser} — tried to
+      # create /root/.gnupg and build-simple-cdd died at read_configuration()
+      # (2026-07-26). runuser must hand over that user's OWN home.
+      _uhome="$(getent passwd "${_asuser}" | cut -d: -f6)"
+      [ -n "${_uhome}" ] || _uhome="/home/${_asuser}"
+      _run_cdd=(runuser -u "${_asuser}" -- env
+                "HOME=${_uhome}" "USER=${_asuser}" "LOGNAME=${_asuser}"
+                "SOVEREIGN_OS_BUILD_OUT=${_out}"
+                "SOVEREIGN_OS_PROFILE=${SOVEREIGN_OS_PROFILE}"
+                bash "${_cdd}")
     elif [ "$(id -u)" -eq 0 ]; then
       log_error "simple-cdd refuses to run as root and no non-root operator could be determined."
       log_error "  re-run the build as your normal user, or set SUDO_USER."
@@ -235,7 +274,35 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     else
       _run_cdd=(bash "${_cdd}")
     fi
+    # Fingerprint the existing ISO FIRST. A build that produces nothing must
+    # never report success: the operator's build "finished with exit 0", left
+    # the 5-hour-old live-build ISO untouched in output/, and they flashed that
+    # same stale file a second time (2026-07-26). Exit status is not evidence of
+    # an artifact.
+    _iso_before=""
+    _iso_path="$(find "${_out}" -maxdepth 1 -name '*.iso' -type f 2>/dev/null | head -1)"
+    [ -n "${_iso_path}" ] && _iso_before="$(stat -c '%Y:%s' "${_iso_path}" 2>/dev/null || true)"
+
     if "${_run_cdd[@]}" 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/installer-cdd-${SOVEREIGN_OS_BUILD_ID}.log"; then
+      # PROVE it: a NEW .iso must exist, and it must not be the one we started
+      # with. Otherwise the step lies and the operator flashes yesterday's image.
+      _iso_now="$(find "${_out}" -maxdepth 1 -name '*.iso' -type f -newermt '-6 hours' 2>/dev/null | head -1)"
+      if [ -z "${_iso_now}" ]; then
+        log_error "the d-i builder exited 0 but produced NO .iso in ${_out}"
+        log_error "  do NOT flash — anything already in that directory is from an earlier build."
+        emit_build_metric fail
+        state_step_fail "${STEP_ID}" "installer-cdd-no-artifact"
+        exit 1
+      fi
+      _iso_after="$(stat -c '%Y:%s' "${_iso_now}" 2>/dev/null || true)"
+      if [ -n "${_iso_before}" ] && [ "${_iso_after}" = "${_iso_before}" ]; then
+        log_error "the .iso in ${_out} is UNCHANGED (${_iso_now})"
+        log_error "  the build claimed success without writing a new image — do NOT flash it."
+        emit_build_metric fail
+        state_step_fail "${STEP_ID}" "installer-cdd-stale-artifact"
+        exit 1
+      fi
+      log_info "d-i ISO produced: ${_iso_now} ($(du -h "${_iso_now}" 2>/dev/null | cut -f1))"
       emit_build_metric success
     else
       rc=${PIPESTATUS[0]}

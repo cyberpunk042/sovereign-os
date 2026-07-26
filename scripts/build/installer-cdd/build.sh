@@ -22,7 +22,9 @@ PROFILE="sovereign"
 DIST="${SOVEREIGN_OS_SUITE:-trixie}"
 KDIR="${SOVEREIGN_OS_KERNEL_DEBS_DIR:-/mnt/kernel_forge/kernel-debs}"
 WORK="${SOVEREIGN_OS_CDD_WORK:-/var/tmp/sovereign-cdd}"
-OUT="${REPO}/build/sain-01/output"
+# Honour the pipeline's output dir. Hardcoding sain-01 meant any other
+# profile silently wrote its ISO into sain-01's output (2026-07-26).
+OUT="${SOVEREIGN_OS_BUILD_OUT:-${REPO}/build/${SOVEREIGN_OS_PROFILE:-sain-01}/output}"
 LOCAL_PKGS="${WORK}/local-packages"
 
 log() { printf '\033[36m━━ cdd: %s\033[0m\n' "$*" >&2; }

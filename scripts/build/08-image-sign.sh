@@ -46,7 +46,9 @@ if [ "${secure_boot}" = "disabled" ]; then
   secure_boot="none"
 fi
 
-inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}")"
+inputs_hash="$(state_inputs_hash \
+  "artifact=${SOVEREIGN_OS_ARTIFACT:-image}" \
+  "substrate=${SOVEREIGN_OS_SUBSTRATE:-mkosi}" "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"
