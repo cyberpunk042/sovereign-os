@@ -816,12 +816,32 @@ OPERATOR_KEY_DIR = Path("/etc/sovereign-os/keys")
 
 
 def operator_key_env() -> dict[str, str]:
+    """Pre-inject the operator MOK paths when this process can SEE them.
+
+    Best-effort by design: the key dir is 0700 root (it holds a private key) and
+    this daemon runs as the operator, so probing it raises EACCES rather than
+    returning False — pathlib swallows ENOENT but NOT EACCES. That escaping
+    PermissionError killed the request handler thread, closing the connection
+    with no response, which the browser reports as the opaque
+    "TypeError: NetworkError when attempting to fetch resource" on every BUILD
+    click (operator-reported 2026-07-26).
+
+    Returning {} when the key is unreadable is CORRECT, not a degradation: the
+    build runs as root and resolves the very same key itself through
+    scripts/build/lib/operator-keys.sh. This is a convenience shortcut, never
+    the mechanism — so it must never be able to fail a request.
+    """
     if "SOVEREIGN_OS_MOK_KEY" in os.environ or "SOVEREIGN_OS_PK_KEY" in os.environ:
         return {}
     key, crt = OPERATOR_KEY_DIR / "mok.key", OPERATOR_KEY_DIR / "mok.crt"
-    if key.is_file() and crt.is_file():
-        return {"SOVEREIGN_OS_MOK_KEY": str(key),
-                "SOVEREIGN_OS_MOK_CERT": str(crt)}
+    try:
+        if key.is_file() and crt.is_file():
+            return {"SOVEREIGN_OS_MOK_KEY": str(key),
+                    "SOVEREIGN_OS_MOK_CERT": str(crt)}
+    except OSError:
+        # unreadable (0700 dir), a dangling mount, anything — the root build
+        # discovers the key on its own.
+        pass
     return {}
 ANSI_RE = re.compile(rb"\x1b\[[0-9;]*[A-Za-z]")
 

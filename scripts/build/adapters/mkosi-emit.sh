@@ -200,8 +200,14 @@ sb_cert = os.environ.get("SOVEREIGN_OS_PK_CERT") or os.environ.get("SOVEREIGN_OS
 if not sb_key and not sb_cert:
     _dk = pathlib.Path("/etc/sovereign-os/keys/mok.key")
     _dc = pathlib.Path("/etc/sovereign-os/keys/mok.crt")
-    if _dk.is_file() and _dc.is_file():
-        sb_key, sb_cert = str(_dk), str(_dc)
+    # The key dir is 0700 root. Probing it unprivileged raises EACCES (pathlib
+    # swallows ENOENT but NOT EACCES), so an un-elevated run used to die with a
+    # bare PermissionError traceback instead of the actionable message below.
+    try:
+        if _dk.is_file() and _dc.is_file():
+            sb_key, sb_cert = str(_dk), str(_dc)
+    except OSError:
+        pass
 
 validation_block = ""
 if secure_boot not in ("none", "disabled"):
@@ -274,6 +280,15 @@ top = textwrap.dedent(f"""\
     Format=disk
     OutputDirectory=output
     Output={profile_id}
+    # 512-byte logical sectors — NOT mkosi's default. Without this, mkosi 25.x
+    # formatted the ESP as a FAT32 with BPB bytes-per-sector=4096 while the GPT
+    # stayed on 512-byte LBAs. Most UEFI firmware FAT drivers implement 512-byte
+    # sectors only, so the firmware enumerated the ESP, created a boot entry, and
+    # then could not READ \\EFI\\BOOT\\BOOTX64.EFI — the flashed NVMe booted to a
+    # blinking cursor with no error (operator-reported 2026-07-25; Secure Boot was
+    # off and the ESP content was verified correct, which ruled everything else
+    # out). Every consumer disk here is 512-byte logical, so pin it.
+    SectorSize=512
 
     [Content]
     Bootable=yes
@@ -346,6 +361,29 @@ if bake_selfdef:
     for tool in ("cargo", "rustc", "git", "pkg-config", "libssl-dev"):
         if tool not in all_packages:
             all_packages.append(tool)
+if bake_gui:
+    # The desktop must be installed by MKOSI (host apt → buildroot), not by
+    # apt-get inside the postinst chroot: the appliance image ships no `apt`,
+    # so install-gui-dashboards.sh died with "apt-get: command not found"
+    # (rc=127) and the image would have gone out headless (2026-07-26).
+    # Same pattern as bake_selfdef above. The script still runs in the postinst
+    # — it does the CONFIGURATION (sddm/autologin/kiosk units) and now finds
+    # its packages already present.
+    _FRONTEND_PACKAGES = {
+        "kde-plasma": ("kde-plasma-desktop", "sddm"),
+        "gnome": ("gnome-core", "gdm3"),
+        "xfce": ("xfce4", "lightdm"),
+        "dashboards-kiosk": ("cage", "seatd"),
+        "open-computer-kiosk": ("cage", "seatd"),
+    }
+    _wanted = [f.strip() for f in frontend_install.split(",") if f.strip()]
+    for _fe in (_wanted or [frontend_default]):
+        for pkg in _FRONTEND_PACKAGES.get(_fe, ()):
+            if pkg not in all_packages:
+                all_packages.append(pkg)
+    for pkg in ("firefox-esr", "xdg-utils"):   # shared by every frontend
+        if pkg not in all_packages:
+            all_packages.append(pkg)
 if bake_dev_tools:
     # nodejs from the PINNED SNAPSHOT (trixie ships 20.19.2 — identical to the
     # build host's node), so Claude Code runs OFFLINE. The build has no external
@@ -516,8 +554,12 @@ if run_provision:
               SOVEREIGN_OS_UPS_ARM="{'1' if ups_arm else ''}" \\
               SOVEREIGN_OS_UPS_HOST="{ups_host}" \\
               SOVEREIGN_OS_UPS_SLAVEID="{ups_slaveid}" \\
-              bash /opt/sovereign-os/scripts/build/provision-bake.sh 2>&1 \\
-                || echo "postinst: provision-bake returned nonzero (non-fatal)" >&2
+              bash /opt/sovereign-os/scripts/build/provision-bake.sh 2>&1 || {{
+                  _pb_rc=$?
+                  echo "postinst: provision-bake FAILED (rc=$_pb_rc)" >&2
+                  echo "postinst: the image would ship missing what you asked for — failing the build." >&2
+                  exit "$_pb_rc"
+              }}
         else
             echo "postinst: provision-bake.sh not staged — image stays root-only base" >&2
         fi

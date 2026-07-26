@@ -61,6 +61,40 @@ step() { printf '\n\033[36m━━━ %s\033[0m\n' "$*"; }
 # are enabled). Every apt/systemctl step is best-effort so a hiccup never bricks the
 # build (the image just lands headless or on a partial frontend, recoverable post-flash).
 export DEBIAN_FRONTEND=noninteractive
+
+# pkg_ensure PKG… — install packages, or verify the image build already did.
+#
+# This script runs in TWO contexts:
+#   • post-install on a real system  — apt-get is present, install normally;
+#   • inside the mkosi postinst chroot — the appliance image ships NO `apt`,
+#     so a bare `apt-get install` exits 127 and the desktop never lands. That
+#     is exactly how a build that asked for KDE produced a headless image
+#     (2026-07-26). There, mkosi has ALREADY installed the frontend packages
+#     via Packages= (see mkosi-emit.sh's bake_gui block), so the correct
+#     behaviour is to VERIFY rather than install.
+#
+# Verification is dpkg-based (dpkg exists in the image even when apt does not).
+# Missing packages with no way to install them is a hard error — never a
+# silent headless image again.
+pkg_ensure() {
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get install -y --no-install-recommends "$@"
+    return $?
+  fi
+  local missing=()
+  for pkg in "$@"; do
+    dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q "ok installed" \
+      || missing+=("${pkg}")
+  done
+  if [ "${#missing[@]}" -eq 0 ]; then
+    info "no apt in this root — packages already provided by the image build: $*"
+    return 0
+  fi
+  red "no apt in this root AND these packages are missing: ${missing[*]}"
+  red "  the image build must install them (mkosi Packages= via bake_gui in mkosi-emit.sh)"
+  return 1
+}
+
 step "1/5 frontend stacks (install: ${FRONTEND_INSTALL} · default: ${FRONTEND})"
 
 install_gnome_de() {
@@ -68,14 +102,14 @@ install_gnome_de() {
     gnome)
       # gnome-core = a lean but complete GNOME (shell + gdm3 + settings). Swap
       # for task-gnome-desktop if you want the full default Debian app set.
-      apt-get install -y --no-install-recommends gnome-core gdm3 firefox-esr xdg-utils
+      pkg_ensure gnome-core gdm3 firefox-esr xdg-utils
       ;;
     minimal)
-      apt-get install -y --no-install-recommends xfce4 lightdm firefox-esr xdg-utils
+      pkg_ensure xfce4 lightdm firefox-esr xdg-utils
       ;;
     *)
       red "unknown SOVEREIGN_OS_DESKTOP='${DESKTOP_ENV}' (gnome|minimal) — defaulting to gnome-core"
-      apt-get install -y --no-install-recommends gnome-core gdm3 firefox-esr xdg-utils
+      pkg_ensure gnome-core gdm3 firefox-esr xdg-utils
       ;;
   esac
 }
@@ -86,7 +120,7 @@ install_plasma_de() {
   # Swap for kde-standard if you want the fuller Debian KDE app set. Unlike
   # install_gnome_de this does NOT key off SOVEREIGN_OS_DESKTOP — selecting the
   # kde-plasma frontend is itself the request for Plasma (SDD-704 decoupling).
-  apt-get install -y --no-install-recommends kde-plasma-desktop sddm firefox-esr xdg-utils
+  pkg_ensure kde-plasma-desktop sddm firefox-esr xdg-utils
 }
 
 install_kiosk_stack() {
@@ -94,7 +128,7 @@ install_kiosk_stack() {
   # at a URL by sovereign-frontend-kiosk.service. No full desktop shell. seatd gives
   # the compositor seat/DRM access without a login manager. Non-fatal — if cage isn't
   # available the unit still installs (disabled) and the operator can install it later.
-  apt-get install -y --no-install-recommends cage seatd firefox-esr xdg-utils || \
+  pkg_ensure cage seatd firefox-esr xdg-utils || \
     info "kiosk stack apt hiccup (cage/seatd) — unit still staged; install post-flash"
   systemctl enable seatd.service 2>/dev/null || true
   # Stage the kiosk unit (DISABLED — the default-activation step below enables it

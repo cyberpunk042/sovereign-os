@@ -5723,6 +5723,91 @@ EOF
 # --plan mode: show what WOULD happen + device fingerprint, exit 0,
 # never write a byte. Operator runs this first to inspect.
 
+# install_register_boot_entry <whole-disk> — make a freshly flashed INTERNAL
+# disk actually bootable, and clean up the entry the last flash left behind.
+#
+# Why this exists (operator, 2026-07-26): "why do I need to do this manually?"
+# Flashing a USB key needs no NVRAM work — firmware boots removable media from
+# the fallback path \EFI\BOOT\BOOTX64.EFI all on its own. An INTERNAL disk is
+# different: many firmwares only consult NVRAM Boot#### entries for fixed
+# disks. The flash panel gained internal-disk targeting and never gained the
+# matching boot-entry step, so the operator was left running efibootmgr by hand.
+#
+# Worse, each flash mints a NEW ESP PARTUUID, so the PREVIOUS entry silently
+# rots — it points at a partition UUID that no longer exists anywhere. That is
+# exactly the "UEFI OS" entry that survived two reflashes here.
+#
+# Idempotent + best-effort: a non-UEFI host, a missing efibootmgr or an image
+# with no ESP are all reported and skipped, never fatal — the bytes are already
+# on the disk and the operator can still pick the disk from the firmware menu.
+install_register_boot_entry() {
+  local disk="$1"
+  if [ ! -d /sys/firmware/efi ]; then
+    log_info "boot entry: skipped — this host booted non-UEFI (BIOS/legacy)"
+    return 0
+  fi
+  local ebm; ebm="$(command -v efibootmgr || echo /usr/sbin/efibootmgr)"
+  if [ ! -x "${ebm}" ]; then
+    log_warn "boot entry: efibootmgr not installed — the flashed disk has no NVRAM entry."
+    log_warn "  install it (apt install efibootmgr) and re-run, or pick the disk in the firmware menu."
+    return 0
+  fi
+
+  # ESP = the partition whose type is EFI System. Never assume p1.
+  local esp_part="" esp_num="" part
+  for part in $(lsblk -ln -o NAME "${disk}" | tail -n +2); do
+    if [ "$(lsblk -no PARTTYPENAME "/dev/${part}" 2>/dev/null)" = "EFI System" ]; then
+      esp_part="/dev/${part}"
+      esp_num="$(printf '%s' "${part}" | grep -oE '[0-9]+$' || true)"
+      break
+    fi
+  done
+  if [ -z "${esp_part}" ]; then
+    log_warn "boot entry: no EFI System partition found on ${disk} — nothing to register"
+    return 0
+  fi
+  local esp_uuid; esp_uuid="$(lsblk -no PARTUUID "${esp_part}" 2>/dev/null | tr -d ' ')"
+
+  # Drop entries whose target PARTUUID no longer exists on ANY disk. That is
+  # precisely a previous flash's now-dangling entry; a live entry is untouched.
+  local live_uuids; live_uuids="$(lsblk -ln -o PARTUUID | tr -d ' ' | grep . || true)"
+  local line num ref
+  # EVERY grep here must be `|| true`. osctl runs under `set -euo pipefail`, and
+  # a grep that matches nothing exits 1 — inside a command substitution that
+  # aborts the whole CLI. The operator's NVRAM holds entries with no GPT device
+  # path at all (UEFI:CD/DVD Drive, UEFI:Removable Device, UEFI:Network Device,
+  # and a USB entry using an MBR path), so the first such line killed a flash
+  # that had already written and synced every byte — reported as ✗ exit 1
+  # (2026-07-26). Registration is best-effort; it must never fail the flash.
+  while IFS= read -r line; do
+    [ -n "${line}" ] || continue
+    num="$(printf '%s' "${line}" | grep -oE '^Boot[0-9A-Fa-f]{4}' | sed 's/^Boot//' || true)"
+    ref="$(printf '%s' "${line}" | grep -oiE 'GPT,[0-9a-f-]{36}' | cut -d, -f2 || true)"
+    [ -n "${num}" ] && [ -n "${ref}" ] || continue
+    if ! printf '%s\n' "${live_uuids}" | grep -qi "^${ref}$"; then
+      log_info "boot entry: removing stale Boot${num} → ${ref} (that partition no longer exists)"
+      sudo "${ebm}" -b "${num}" -B >/dev/null 2>&1 || true
+    fi
+  done <<< "$(sudo "${ebm}" -v 2>/dev/null | grep -E '^Boot[0-9A-Fa-f]{4}' || true)"
+
+  # Replace any entry we previously created for this label, then create ours.
+  while IFS= read -r line; do
+    [ -n "${line}" ] || continue
+    num="$(printf '%s' "${line}" | grep -oE '^Boot[0-9A-Fa-f]{4}' | sed 's/^Boot//' || true)"
+    [ -n "${num}" ] || continue
+    sudo "${ebm}" -b "${num}" -B >/dev/null 2>&1 || true
+  done <<< "$(sudo "${ebm}" 2>/dev/null | grep -E '^Boot[0-9A-Fa-f]{4}\*? +sovereign-os$' || true)"
+
+  if sudo "${ebm}" -c -d "${disk}" -p "${esp_num}" \
+       -L "sovereign-os" -l '\EFI\BOOT\BOOTX64.EFI' >/dev/null 2>&1; then
+    log_info "boot entry: registered 'sovereign-os' → ${esp_part} (PARTUUID ${esp_uuid})"
+    log_info "  reboot and pick 'sovereign-os' in the firmware boot menu"
+  else
+    log_warn "boot entry: efibootmgr could not create the entry (needs root + efivarfs rw)"
+    log_warn "  pick the disk manually in the firmware boot menu instead"
+  fi
+}
+
 cmd_install() {
   local sub="${1:-help}"
   shift || true
@@ -5872,6 +5957,9 @@ cmd_install() {
         log_info "image dump complete"
         log_info "sync'ing disk..."
         sudo sync
+        # `|| true`: the image is already written and synced. NVRAM registration
+        # is a convenience on top — it must never turn a good flash into ✗ exit 1.
+        install_register_boot_entry "${device}" || true
         log_info "done. consider 'sovereign-osctl install verify --to ${device}' (future) before unplugging."
       else
         log_error "dd not available; cannot proceed"

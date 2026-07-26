@@ -78,8 +78,18 @@ check "TPM device node present (/dev/tpm0 or /dev/tpmrm0)" \
 
 # 2. tpm2-tools available + can read a PCR
 if command -v tpm2_pcrread >/dev/null 2>&1; then
-  check "tpm2_pcrread reports sha256 bank" \
-    bash -c "tpm2_pcrread sha256:0 2>/dev/null | grep -q '^\s*0\s*:'"
+  # /dev/tpmrm0 is crw-rw---- tss:tss. Unprivileged, tpm2_pcrread fails with
+  # "Permission denied" on the TCTI device — which is NOT "this TPM has no
+  # sha256 bank". Reporting the latter sent the operator hunting a firmware
+  # problem that does not exist; the real build runs as root and reads it fine.
+  if [ ! -r /dev/tpmrm0 ] && [ ! -r /dev/tpm0 ] && [ "$(id -u)" -ne 0 ]; then
+    log_warn "  SKIP — TPM device is tss-group only and this preflight is not root"
+    log_warn "  (run: sudo … preflight, or add $(id -un) to the 'tss' group to check it here)"
+    log_warn "  the build itself runs as root and reads the TPM normally"
+  else
+    check "tpm2_pcrread reports sha256 bank" \
+      bash -c "tpm2_pcrread sha256:0 2>/dev/null | grep -q '^\s*0\s*:'"
+  fi
 else
   log_warn "  SKIP — tpm2-tools not installed (operator must install before secure-boot install)"
 fi
@@ -111,6 +121,12 @@ if [ -n "${SOVEREIGN_OS_MOK_KEY:-}${SOVEREIGN_OS_MOK_CERT:-}" ]; then
   fi
 elif [ -f /etc/sovereign-os/keys/mok.key ] && [ -f /etc/sovereign-os/keys/mok.crt ]; then
   log_info "  MOK env unset, but an operator key exists at /etc/sovereign-os/keys — the build will use it"
+elif [ -d /etc/sovereign-os/keys ] && [ ! -r /etc/sovereign-os/keys ]; then
+  # The key dir is 0700 root by design. Unprivileged we cannot see INTO it, so
+  # "no key" would be a guess — and a wrong one here sends the operator off to
+  # regenerate a key that already exists.
+  log_info "  operator key dir exists but is not readable as $(id -un) (0700 root, expected)"
+  log_info "  the build runs as root and will find/mint the key itself"
 else
   # This branch used to claim "step 08 will auto-generate", which was FALSE:
   # no step generated anything, and step 05 hard-failed on the missing key

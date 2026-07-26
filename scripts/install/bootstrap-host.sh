@@ -213,6 +213,12 @@ HOST_PACKAGES=(
   # scripts/setup.sh checks for shellcheck and the lint suite shells out to it;
   # it was never installed by the one command that claims to leave the host ready.
   shellcheck
+  # `install image` registers an NVRAM boot entry after flashing an INTERNAL
+  # disk (a USB key boots from the fallback path; a fixed disk usually needs a
+  # Boot#### entry). Without efibootmgr the flash succeeds and the disk simply
+  # will not appear in the boot menu — which is how the operator ended up
+  # running efibootmgr by hand (2026-07-26).
+  efibootmgr
 )
 missing=()
 for pkg in "${HOST_PACKAGES[@]}"; do

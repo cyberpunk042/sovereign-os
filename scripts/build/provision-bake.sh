@@ -246,7 +246,35 @@ fi
 # install-gui-dashboards.sh in the postinst (apt is available here) so the
 # flashed image boots straight to a desktop + the dashboards. NON-FATAL — a
 # desktop apt hiccup must never brick the image build (it stays headless).
-if [ "${SOVEREIGN_OS_BAKE_GUI:-}" = "1" ] && [ -x "${REPO}/scripts/install/install-gui-dashboards.sh" ]; then
+# The precondition itself must be LOUD. Until 2026-07-26 this was a single
+# `if BAKE_GUI=1 && [ -x installer ]` — and the -x arm was FALSE because
+# install-gui-dashboards.sh was committed 100644 (the only non-executable
+# script in scripts/install/). A false `if` logs nothing, so the operator
+# explicitly asked for KDE, the build reported success, and the image shipped
+# headless with no breadcrumb and no failed step. The `exit 1` guard below
+# never got a chance to run because its whole block was skipped. Never again:
+# a REQUESTED desktop whose installer is missing/not-executable is a BUILD
+# FAILURE, reported with the actual reason.
+_gui_installer="${REPO}/scripts/install/install-gui-dashboards.sh"
+if [ "${SOVEREIGN_OS_BAKE_GUI:-}" = "1" ] && [ ! -x "${_gui_installer}" ]; then
+  if [ -f "${_gui_installer}" ]; then
+    log "‼ bake.gui=1 but ${_gui_installer} is NOT EXECUTABLE (mode $(stat -c '%a' "${_gui_installer}" 2>/dev/null || echo '?'))"
+    log "  fix: chmod +x scripts/install/install-gui-dashboards.sh (and commit the mode)"
+  else
+    log "‼ bake.gui=1 but ${_gui_installer} is MISSING from the image"
+    log "  the repo tree was not staged into /opt/sovereign-os — check the image staging step"
+  fi
+  mkdir -p /var/lib/sovereign-os 2>/dev/null || true
+  echo "desktop-installer-unusable path=${_gui_installer}" \
+    > /var/lib/sovereign-os/bake-gui-failed 2>/dev/null || true
+  if [ "${SOVEREIGN_OS_BAKE_GUI_BESTEFFORT:-}" = "1" ]; then
+    log "SOVEREIGN_OS_BAKE_GUI_BESTEFFORT=1 — continuing headless."
+  else
+    log "FAILING the build: a requested desktop must never silently vanish."
+    exit 1
+  fi
+fi
+if [ "${SOVEREIGN_OS_BAKE_GUI:-}" = "1" ] && [ -x "${_gui_installer}" ]; then
   # SDD-704: the profile's provisioning.frontend.default (SOVEREIGN_OS_FRONTEND) picks
   # what the image presents (gnome | kde-plasma | dashboards-kiosk | open-computer-kiosk | none);
   # install-gui-dashboards.sh reads it and stages the matching stack. Default

@@ -194,3 +194,55 @@ def test_root_builds_do_not_write_bytecode_into_the_repo():
         "orchestrate.sh must export PYTHONDONTWRITEBYTECODE=1 so an elevated "
         "build never drops root-owned bytecode into the operator's checkout"
     )
+
+
+def test_image_pins_512_byte_sectors():
+    """The ESP must be a 512-byte-sector FAT or the firmware cannot boot it.
+
+    mkosi 25.x defaulted to a 4096-byte sector size, which produced a FAT32 whose
+    BPB declared bytes-per-sector=4096 while the GPT stayed on 512-byte LBAs.
+    Most UEFI FAT drivers implement 512-byte sectors only: the firmware
+    enumerated the ESP and created a boot entry (verified: Boot0002 → the exact
+    ESP PARTUUID), then could not read \\EFI\\BOOT\\BOOTX64.EFI. The flashed NVMe
+    booted to a blinking cursor with no error message — Secure Boot was off and
+    the ESP content was verified correct, so nothing else explained it
+    (operator-reported 2026-07-25).
+    """
+    text = MKOSI_EMIT.read_text(encoding="utf-8")
+    # "[Content]" also appears in a comment ABOVE the template, so anchor the
+    # slice on the [Output] header and take the NEXT [Content] after it.
+    start = text.index("[Output]")
+    out_block = text[start:text.index("[Content]", start)]
+    assert "SectorSize=512" in out_block, (
+        "mkosi-emit must pin SectorSize=512 in [Output]; mkosi's default produces "
+        "a 4K-sector ESP that most UEFI firmware cannot read"
+    )
+
+
+def test_key_probes_survive_an_unreadable_key_dir():
+    """Probing the 0700 key dir unprivileged must never raise.
+
+    ensure_operator_keys() creates /etc/sovereign-os/keys as 0700 root (it holds
+    a private key). Every consumer that runs UNPRIVILEGED then gets EACCES from
+    os.stat — and pathlib swallows ENOENT but NOT EACCES. The escaping
+    PermissionError killed the build panel's request handler thread mid-POST,
+    closing the connection with no response, which the browser surfaced as the
+    opaque "TypeError: NetworkError when attempting to fetch resource" on every
+    BUILD click (operator-reported 2026-07-26).
+    """
+    api = BUILD_API.read_text(encoding="utf-8")
+    fn = api[api.index("def operator_key_env"):api.index("ANSI_RE")]
+    assert "except OSError" in fn, (
+        "operator_key_env() must tolerate an unreadable key dir — it is a "
+        "convenience pre-injection, and the root build finds the key anyway"
+    )
+    assert "is_file()" in fn and "try:" in fn, "the stat probe must be guarded"
+
+    emit = MKOSI_EMIT.read_text(encoding="utf-8")
+    probe = emit[emit.index('_dk = pathlib.Path'):]
+    probe = probe[:probe.index("validation_block")]
+    assert "except OSError" in probe, (
+        "mkosi-emit's default-location probe must be guarded too, or an "
+        "un-elevated run dies with a bare traceback instead of the actionable "
+        "'could not mint one' message"
+    )
