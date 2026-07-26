@@ -260,6 +260,12 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       # "cp: cannot create regular file ...: Permission denied" (2026-07-26).
       # We are root here; hand the directory to the user who has to write it.
       chown "${_asuser}" "${_out}" 2>/dev/null || true
+      # Owning the DIRECTORY is not enough: cp opens an EXISTING target for
+      # writing, so a root-owned mode-664 artifact from a previous root-run
+      # build denies the operator write access and the copy fails with
+      # "Permission denied" even though the dir is now theirs (2026-07-26).
+      find "${_out}" -maxdepth 1 -type f -name '*.iso' \
+        -exec chown "${_asuser}" {} + 2>/dev/null || true
       # Pass ONLY what the builder needs. --preserve-environment carried
       # HOME=/root in from pkexec, so gpg — running as ${_asuser} — tried to
       # create /root/.gnupg and build-simple-cdd died at read_configuration()

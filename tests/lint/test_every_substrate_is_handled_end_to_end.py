@@ -255,3 +255,21 @@ def test_the_cdd_output_dir_matches_the_other_substrates():
         "BUILD_OUT is build/<profile>; writing the ISO there instead of its "
         "output/ subdir hides it from the flash panel"
     )
+
+
+def test_the_dropped_privilege_builder_can_overwrite_an_existing_iso():
+    """chown on the directory does not grant write on files inside it.
+
+    cp opens an EXISTING target for writing. A root-owned mode-664 ISO from an
+    earlier root-run build denied the operator write access, so the d-i build
+    succeeded and the copy failed with "Permission denied" — twice, on two
+    different paths (2026-07-26).
+    """
+    text = BUILD.read_text(encoding="utf-8")
+    blk = text[text.index("installer-cdd)"):text.index("  live-build)")]
+    code = "\n".join(l for l in blk.splitlines() if not l.lstrip().startswith("#"))
+    assert "chown" in code, "the output dir must be handed to the build user"
+    assert "*.iso" in code and "-exec chown" in code, (
+        "existing artifacts must be chowned too, or the copy is denied by the "
+        "file's own permissions regardless of who owns the directory"
+    )
