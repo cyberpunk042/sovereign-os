@@ -6225,6 +6225,45 @@ EOF
       [ "${n_x}" -eq 0 ] && echo "  no Xorg log — the X server never got far enough to write one"
       echo
 
+        # "No Xorg log" proves X never RAN. It does not say why. On 2026-07-26 a
+        # freshly installed system booted clean -- zero failed units, boot
+        # finished in 1m49 -- and still showed a dark screen, because nothing
+        # ever asked for a graphical session. All of this is readable from an
+        # unmounted disk. Every grep/find is guarded: an unmatched one under
+        # `set -e` would abort the whole diagnostic.
+        echo "-- desktop stack (why X was never asked to start) --"
+        local dflt dm _pkg
+        dflt="$(sudo readlink "${mnt}/etc/systemd/system/default.target" 2>/dev/null || true)"
+        echo "  default.target : ${dflt:-<unset>}"
+        dm="$(sudo readlink "${mnt}/etc/systemd/system/display-manager.service" 2>/dev/null || true)"
+        echo "  display-manager: ${dm:-<NOT SET -- nothing will ever start X>}"
+        echo "  packages that must be present:"
+        for _pkg in sddm plasma-desktop kde-plasma-desktop xserver-xorg-core \
+                    xserver-xorg-video-fbdev xserver-xorg-video-vesa \
+                    firmware-amd-graphics sovereign-os-cockpit; do
+          if sudo grep -qE "^Package: ${_pkg}$" "${mnt}/var/lib/dpkg/status" 2>/dev/null; then
+            echo "    [ok] ${_pkg}"
+          else
+            echo "    [MISSING] ${_pkg}"
+          fi
+        done
+        echo "  kernels installed:"
+        sudo find "${mnt}/boot" -maxdepth 1 -name "vmlinuz-*" 2>/dev/null \
+          | sed "s|${mnt}/boot/|    |" | sort || true
+        echo "  kernel cmdline GRUB will use:"
+        sudo grep -hE "^[[:space:]]*linux[[:space:]]" "${mnt}/boot/grub/grub.cfg" 2>/dev/null \
+          | head -2 | sed 's/^/    /' || true
+        echo "  sovereign payload:"
+        if sudo test -d "${mnt}/opt/sovereign-os/scripts"; then
+          echo "    [ok] /opt/sovereign-os present"
+        else
+          echo "    [MISSING] /opt/sovereign-os -- the cockpit deb never landed"
+        fi
+        echo "  module blacklists:"
+        sudo find "${mnt}/etc/modprobe.d" -name "*.conf" 2>/dev/null \
+          | sed "s|${mnt}|    |" | head -6 || true
+        echo
+
       echo "── failed units + errors (persistent journal) ──"
       if sudo test -d "${mnt}/var/log/journal"; then
         local jargs=(-D "${mnt}/var/log/journal" --no-pager)

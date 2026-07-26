@@ -92,6 +92,19 @@ SOVEREIGN_OS_WORKSTATION_PACKAGES="${SOVEREIGN_OS_WORKSTATION_PACKAGES-${_sovos_
 # /dev/console is tty0: the physical screen.
 SOVEREIGN_OS_KERNEL_CMDLINE="${SOVEREIGN_OS_KERNEL_CMDLINE:-nomodeset}"
 
+# ── MODULE BLACKLIST for the installed system ────────────────────────────────
+# A Ryzen 9 9900X carries a Granite Ridge iGPU [1002:13c0]. This kernel's amdgpu
+# does not recognise that ASIC -- it logs "unknown chipset", early_init fails,
+# and the module reports "amdgpu: Fatal error during GPU init", halting the boot
+# of a freshly installed system (2026-07-26). Installing firmware-amd-graphics
+# does NOT help: the failure is chipset support, not missing blobs.
+#
+# The operator's working Debian 13 on this exact machine binds NO kernel driver
+# to ANY of its three GPUs (two NVIDIA + this iGPU) and runs the desktop on the
+# EFI framebuffer via xserver-xorg-video-fbdev/vesa. Matching that proven
+# configuration means keeping amdgpu out of the way entirely.
+SOVEREIGN_OS_MODULE_BLACKLIST="${SOVEREIGN_OS_MODULE_BLACKLIST:-amdgpu}"
+
 # All packages to install into an installed root, base first.
 sovereign_os_installed_packages() {
   printf '%s %s\n' "${SOVEREIGN_OS_BASE_PACKAGES}" "${SOVEREIGN_OS_WORKSTATION_PACKAGES}"

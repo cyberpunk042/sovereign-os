@@ -243,6 +243,12 @@ echo sovereign-os > /etc/hostname
 printf '127.0.0.1 localhost\n127.0.1.1 sovereign-os\n' > /etc/hosts
 ${CHROOT_USER_SETUP}
 usermod -aG sudo ${PRIMARY_USER} 2>/dev/null || true
+# Keep amdgpu out of the initrd too -- it probes before userspace modprobe.d
+# would ever be consulted. See SOVEREIGN_OS_MODULE_BLACKLIST in installed-system.sh.
+mkdir -p /etc/modprobe.d
+for _m in ${SOVEREIGN_OS_MODULE_BLACKLIST}; do
+  echo "blacklist ${_m}" > "/etc/modprobe.d/sovereign-blacklist-${_m}.conf"
+done
 update-initramfs -u -k all || true
 sed -i 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="root=/dev/mapper/sovereign-root rw ${SOVEREIGN_OS_KERNEL_CMDLINE}"|' /etc/default/grub || true
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=sovereign-os --recheck

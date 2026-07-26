@@ -100,6 +100,7 @@ d-i preseed/late_command string \
     cp -a /cdrom/sovereign/repo/. /target/opt/sovereign-os/ 2>/dev/null || true; \
     cp /cdrom/sovereign/kernel/linux-*.deb /target/tmp/ 2>/dev/null || true; \
     in-target sh -c 'dpkg -i /tmp/linux-image-*.deb /tmp/linux-headers-*.deb 2>/dev/null || apt-get -f install -y || true'; \
+    in-target sh -c 'mkdir -p /etc/modprobe.d; echo blacklist amdgpu > /etc/modprobe.d/sovereign-blacklist-amdgpu.conf'; \
     in-target sh -c 'update-initramfs -u -k all || true'; \
     in-target sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env'; \
     in-target sh -c 'echo sain-01 > /etc/sovereign-os/active-profile'; \
