@@ -3,7 +3,21 @@ Description=sovereign-os first-boot completion marker
 Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/src/lifecycle/post-install.md
 ConditionFirstBoot=yes
 After=sovereign-friction-audit.service sovereign-vfio-bind.service sovereign-network-vlan.service sovereign-tetragon-policy-load.service sovereign-zfs-arc-clamp.service sovereign-nvidia-driver-install.service sovereign-nvidia-driver-bind.service sovereign-workstation-shell-setup.service
-Requires=sovereign-friction-audit.service sovereign-network-vlan.service sovereign-tetragon-policy-load.service sovereign-zfs-arc-clamp.service
+# Wants=, NOT Requires= (2026-07-26). These four are HARDWARE-CONDITIONAL and
+# each legitimately fails on a box that does not match the SAIN-01 reference
+# exactly: tetragon-policy-load exits 1 when tetragon is not installed yet (it
+# is downloaded by sovereign-tetragon-install at this same first boot);
+# zfs-arc-clamp needs the zfs module, which is late because Debian's zfs units
+# Requires= the deprecated systemd-udev-settle; network-vlan exits 1 when the
+# profile's NIC layout is not present. With Requires=, ONE of those failing
+# meant the completion marker never ran and first boot could never finish —
+# the operator's box stalled at "Reached target sovereign-firstboot.target"
+# with several units failed. The failures must stay LOUD (each hook emits a
+# result="fail" metric and journal error, and the ordering below is unchanged),
+# but they must not be able to wedge the boot. `systemctl --failed` remains the
+# report; the marker now records that first boot RAN, not that the hardware was
+# perfect.
+Wants=sovereign-friction-audit.service sovereign-network-vlan.service sovereign-tetragon-policy-load.service sovereign-zfs-arc-clamp.service
 PartOf=sovereign-firstboot.target
 
 [Service]

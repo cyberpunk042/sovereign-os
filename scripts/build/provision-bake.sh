@@ -499,6 +499,35 @@ if [ "${SOVEREIGN_OS_UPS:-}" = "1" ]; then
   # (b) NUT base config (standalone, loopback). The device stanza + daemon enable
   #     are the first-boot hook's job (after it detects the transport). Here we
   #     lay the base down + skip the NUT daemons on VMs.
+  # ── zfs ↔ systemd-udev-settle: bound the stall, never fail on it ─────────
+  # Debian's ZFS units carry `Requires=systemd-udev-settle.service`, a
+  # DEPRECATED unit whose default TimeoutStartSec is 120s. On real hardware
+  # (two NVMe, three GPUs whose drivers do not probe cleanly) udev takes the
+  # full timeout, so first boot sat on "Job systemd-udev-settle.service/start
+  # running" for minutes — and because it is Requires=, a timeout then FAILED
+  # zfs-load-module, which cascaded into sovereign-zfs-arc-clamp and the rest
+  # of the first-boot chain (operator-reported 2026-07-26).
+  #
+  # The appliance root is ext4 BY DESIGN and ships NO pool — the tank pool is
+  # created on the target at install time — so this whole wait buys an import
+  # that has nothing to import. Two conservative drop-ins rather than masking
+  # anything: bound the settle wait, and downgrade the hard dependency to a
+  # want so a slow/timed-out settle degrades instead of cascading. ZFS still
+  # orders itself AFTER settle when settle works.
+  mkdir -p /etc/systemd/system/systemd-udev-settle.service.d
+  printf '[Unit]\n# sovereign-os: deprecated unit, bounded so it cannot stall first boot.\n[Service]\nTimeoutStartSec=%s\n' \
+    "${SOVEREIGN_OS_UDEV_SETTLE_TIMEOUT:-15s}" \
+    > /etc/systemd/system/systemd-udev-settle.service.d/10-sovereign-timeout.conf
+  for u in zfs-load-module zfs-import-cache zfs-import-scan; do
+    mkdir -p "/etc/systemd/system/${u}.service.d"
+    printf '[Unit]\n# sovereign-os: settle is a WANT, not a requirement — a timed-out\n# settle must not fail zfs and cascade into the first-boot chain.\nRequires=\nRequires=zfs-load-module.service\nWants=systemd-udev-settle.service\n' \
+      > "/etc/systemd/system/${u}.service.d/10-sovereign-settle-nonfatal.conf"
+  done
+  # zfs-load-module must not re-require itself.
+  printf '[Unit]\nRequires=\nWants=systemd-udev-settle.service\n' \
+    > /etc/systemd/system/zfs-load-module.service.d/10-sovereign-settle-nonfatal.conf
+  log "zfs/udev-settle: settle bounded to ${SOVEREIGN_OS_UDEV_SETTLE_TIMEOUT:-15s} + demoted to Wants= (no first-boot stall)"
+
   if [ -d /etc/nut ]; then
     printf 'MODE=standalone\n' > /etc/nut/nut.conf
     printf '# sovereign-os — loopback only (operator exposes deliberately)\nLISTEN 127.0.0.1 %s\nLISTEN ::1 %s\n' "${SOVEREIGN_OS_NUT_LISTEN_PORT:-3493}" "${SOVEREIGN_OS_NUT_LISTEN_PORT:-3493}" > /etc/nut/upsd.conf
