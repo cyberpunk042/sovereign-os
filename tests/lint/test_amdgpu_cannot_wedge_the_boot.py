@@ -20,11 +20,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALLED = REPO_ROOT / "scripts" / "install" / "lib" / "installed-system.sh"
 ROOT_INSTALL = REPO_ROOT / "scripts" / "install" / "install-sovereign-root.sh"
-PRESEED = (REPO_ROOT / "scripts" / "build" / "installer-cdd"
-           / "profiles" / "sovereign.preseed")
+PROFILES = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "profiles"
+# BOTH preseeds. default.preseed is the one that actually runs -- it is loaded
+# directly via preseed/file=, while sovereign.preseed depends on the
+# simple-cdd-profiles udeb that "silently no-op'd". Proof: sovereign.preseed's
+# partman/early_command explicitly REFUSES nvme0n1, yet the operator's install
+# landed on nvme0n1. A fix applied only to sovereign.preseed is dead code --
+# which is exactly where the amdgpu blacklist first went (2026-07-26).
+PRESEEDS = ("default.preseed", "sovereign.preseed")
 
 
 def test_the_shared_definition_blacklists_amdgpu():
@@ -47,8 +55,9 @@ def test_the_direct_install_path_writes_it_before_the_initramfs():
     )
 
 
-def test_the_installer_writes_it_before_the_initramfs():
-    text = PRESEED.read_text(encoding="utf-8")
+@pytest.mark.parametrize("name", PRESEEDS)
+def test_the_installer_writes_it_before_the_initramfs(name: str):
+    text = (PROFILES / name).read_text(encoding="utf-8")
     assert "blacklist amdgpu" in text, (
         "the d-i late_command must blacklist amdgpu — this is the path the "
         "operator actually installs from"
