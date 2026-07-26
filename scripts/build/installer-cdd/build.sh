@@ -138,6 +138,25 @@ export custom_installer="${CI}"
 # NOT to pull the 32-bit UEFI files (installer-i386/.../cd_info_i386 → 404/missing).
 # The target is a 64-bit-UEFI znver5 box; 32-bit UEFI (Baytrail/old iMac) is moot.
 export DISABLE_UEFI_32=1
+# debian-cd, not simple-cdd, reads these two.
+#
+# NONFREE_COMPONENTS: tools/which_deb does
+#   push @components, split / /, ENV{NONFREE_COMPONENTS}   if ENV{NONFREE}
+# so with NONFREE set and this unset it splits undef -- the non-free components
+# are DROPPED from the component list, with only an "uninitialized value"
+# warning to show for it.
+#
+# DEP11=0: make_disc_trees.pl runs generate_firmware_patterns over
+#   dists/CODENAME/COMPONENT/dep11/Components-ARCH.yml.gz
+# to build the installer firmware-lookup patterns. Our offline mirror is built
+# by reprepro and carries no DEP-11 AppStream metadata, so that step died with
+#   missing metadata file .../main/dep11/Components-amd64.yml.gz
+#   generate_firmware_patterns failed: 512
+# the dep11 flag gates exactly ONE block (make_disc_trees.pl:1370) -- nothing else is
+# skipped. The patterns only power d-i's "detect missing firmware" prompt; this
+# profile installs firmware-* explicitly, so it never needs the lookup.
+export NONFREE_COMPONENTS="non-free non-free-firmware"
+export DEP11=0
 # Localization baked into every boot entry (simple-cdd adds debian-installer/locale
 # + keyboard-configuration to the kernel line) so there's no language/keyboard
 # prompt — the install goes straight to the substantive steps.

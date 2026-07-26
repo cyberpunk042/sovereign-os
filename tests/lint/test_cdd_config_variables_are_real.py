@@ -57,3 +57,45 @@ def test_no_command_substitution_in_the_generated_conf():
         "backticks inside the unquoted sovereign.conf heredoc run as commands; "
         "use plain quotes in comments there"
     )
+
+
+def test_debian_cd_gets_the_env_it_needs_for_non_free_firmware():
+    """Two vars are read by debian-cd, not simple-cdd, and both were unset.
+
+    NONFREE_COMPONENTS: tools/which_deb splits it into the component list only
+    when NONFREE is set. Unset, it split undef and silently DROPPED the non-free
+    components, leaving just an "uninitialized value" warning.
+
+    DEP11: make_disc_trees.pl defaults it to 1 and then runs
+    generate_firmware_patterns against dep11/Components-<arch>.yml.gz. A
+    reprepro-built offline mirror carries no DEP-11 metadata, so the build died
+    with "generate_firmware_patterns failed: 512" (2026-07-26).
+    """
+    text = BUILD.read_text(encoding="utf-8")
+    assert 'export NONFREE_COMPONENTS="non-free non-free-firmware"' in text, (
+        "which_deb drops the non-free components without this"
+    )
+    assert "export DEP11=0" in text, (
+        "debian-cd defaults DEP11=1 and needs AppStream metadata our reprepro "
+        "mirror does not build; the firmware patterns only power d-i's "
+        "detect-missing-firmware prompt, which this profile does not rely on"
+    )
+
+
+def test_the_generated_conf_survives_set_u():
+    """build.sh runs under `set -euo pipefail` and the heredoc is UNQUOTED.
+
+    Any $VAR in it — including inside a COMMENT — expands, and an unset one
+    aborts the whole build. A comment quoting Perl's $ENV{NONFREE_COMPONENTS}
+    would have killed the build before simple-cdd ever started (caught
+    pre-flight, 2026-07-26).
+    """
+    text = BUILD.read_text(encoding="utf-8")
+    start = text.index("cat > ")
+    body = text[start:text.index("\nCONF\n", start)]
+    bad = [l for l in body.splitlines()
+           if l.lstrip().startswith("#") and "$" in l]
+    assert not bad, (
+        "comments inside the unquoted heredoc must contain no $ expansions; "
+        f"offending line(s): {bad}"
+    )
