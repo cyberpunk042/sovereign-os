@@ -46,10 +46,109 @@ INSTALL_GUI="${SOVEREIGN_OS_INSTALL_GUI:-1}"
 FRONTEND="${SOVEREIGN_OS_FRONTEND:-kde-plasma}"
 FRONTEND_INSTALL="${SOVEREIGN_OS_FRONTEND_INSTALL:-kde-plasma,gnome,dashboards-kiosk}"
 
+# ── what the installed system contains ───────────────────────────────────────
+# ONE definition, shared with the bootable-installer path
+# (scripts/build/build-target-rootfs.sh). Both surfaces used to carry their own
+# hand-copied package list, so fixing one left the other building an unusable
+# machine — see the library header for the full story.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/installed-system.sh"
+
 red()  { printf '\033[31m%s\033[0m\n' "$*"; }
 grn()  { printf '\033[32m%s\033[0m\n' "$*"; }
 info() { printf '  %s\n' "$*"; }
 step() { printf '\n\033[36m━━━ %s\033[0m\n' "$*"; }
+
+# ── VERIFY before claiming success ───────────────────────────────────────────
+# This installer used to print "install complete", "a new firmware boot entry
+# now exists", "boots to graphical.target" and "uname -r → 6.12.0" without
+# CHECKING ANY OF IT. Every failure this operator hit in 2026-07 was found by
+# rebooting into a black screen, never by the tool that had just declared
+# success. An installer that cannot verify its own output is not bulletproof.
+#
+# Runs while ${MNT} is still mounted. Hard failures FAIL the install; the
+# operator should learn here, not at the firmware boot menu.
+sovereign_verify_install() {
+  local fail=0 warn=0
+  step "verifying the installed system"
+
+  _v_ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+  _v_bad()  { printf '  \033[31m✗\033[0m %s\n' "$*"; fail=$((fail+1)); }
+  _v_warn() { printf '  \033[33m!\033[0m %s\n' "$*"; warn=$((warn+1)); }
+
+  # 1. a bootloader actually exists on the ESP
+  local efi_n
+  efi_n="$(find "${MNT}/boot/efi/EFI" -iname '*.efi' 2>/dev/null | wc -l)"
+  if [ "${efi_n}" -gt 0 ]; then
+    _v_ok "ESP carries ${efi_n} EFI binary(ies)"
+  else
+    _v_bad "ESP has NO .efi binary — this disk cannot boot"
+  fi
+
+  # 2. a kernel + initramfs are installed, and WHICH kernel
+  local kver
+  kver="$(ls -1 "${MNT}/boot"/vmlinuz-* 2>/dev/null | sed 's|.*/vmlinuz-||' | sort -V | tail -1 || true)"
+  if [ -n "${kver}" ]; then
+    _v_ok "kernel installed: ${kver}"
+    case "${kver}" in
+      6.12.0*) _v_ok "  …that is the custom znver5 build" ;;
+      *)       _v_warn "  …that is the STOCK Debian kernel, not the custom znver5 one" ;;
+    esac
+    [ -f "${MNT}/boot/initrd.img-${kver}" ] \
+      && _v_ok "initramfs present for ${kver}" \
+      || _v_bad "no initramfs for ${kver} — the kernel cannot mount root"
+  else
+    _v_bad "NO kernel in /boot — this disk cannot boot"
+  fi
+
+  # 3. fstab points at real filesystems
+  if [ -s "${MNT}/etc/fstab" ] && grep -q ' / ' "${MNT}/etc/fstab" 2>/dev/null; then
+    _v_ok "fstab has a root entry"
+  else
+    _v_bad "fstab has no root entry"
+  fi
+
+  # 4. SOMEONE CAN LOG IN. A locked-only shadow shipped once already.
+  local usable
+  usable="$(awk -F: '($2 ~ /^\$/){print $1}' "${MNT}/etc/shadow" 2>/dev/null | tr '\n' ' ')"
+  if [ -n "${usable}" ]; then
+    _v_ok "accounts with a usable password: ${usable}"
+  else
+    _v_bad "NO account has a usable password — you would boot to a login nobody can pass"
+  fi
+
+  # 5. if a desktop was requested, it must be able to actually start
+  if [ "${INSTALL_GUI}" = 1 ]; then
+    [ -e "${MNT}/etc/systemd/system/display-manager.service" ] \
+      && _v_ok "display-manager.service is enabled" \
+      || _v_bad "GUI requested but no display-manager.service — you get a text console"
+    # The black-screen bug: X needs a driver that works with nomodeset and an
+    # unbindable GPU. modesetting/nvidia are not enough on their own.
+    if ls "${MNT}/usr/lib/xorg/modules/drivers/"{fbdev,vesa}_drv.so >/dev/null 2>&1; then
+      _v_ok "X fallback driver present (fbdev/vesa)"
+    else
+      _v_bad "no fbdev/vesa X driver — with nomodeset the X server cannot start at all"
+    fi
+    # …and a terminal, or the desktop is unusable (operator, 2026-07-26).
+    [ -x "${MNT}/usr/bin/konsole" ] || [ -x "${MNT}/usr/bin/xterm" ] \
+      && _v_ok "terminal emulator installed" \
+      || _v_warn "no terminal emulator on the desktop"
+  fi
+
+  # 6. DNS — networkd alone leaves glibc with no resolver
+  [ -e "${MNT}/etc/resolv.conf" ] \
+    && _v_ok "/etc/resolv.conf present" \
+    || _v_warn "no /etc/resolv.conf — hostname lookups will fail on first boot"
+
+  echo
+  if [ "${fail}" -gt 0 ]; then
+    red "verification FAILED: ${fail} blocking problem(s), ${warn} warning(s)."
+    red "  The install did NOT produce a bootable system. Fix the above and re-run;"
+    red "  do not reboot into it expecting it to work."
+    return 1
+  fi
+  [ "${warn}" -gt 0 ] && info "verification passed with ${warn} warning(s)." || grn "verification passed — this disk should boot."
+  return 0
+}
 
 [ "$(id -u)" -eq 0 ] || { red "must run as root: sudo $0"; exit 1; }
 
@@ -145,13 +244,14 @@ printf '127.0.0.1 localhost\n127.0.1.1 sovereign-os\n' > /etc/hosts
 ${CHROOT_USER_SETUP}
 usermod -aG sudo ${PRIMARY_USER} 2>/dev/null || true
 update-initramfs -u -k all || true
-sed -i 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="root=/dev/mapper/sovereign-root rw"|' /etc/default/grub || true
+sed -i 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="root=/dev/mapper/sovereign-root rw ${SOVEREIGN_OS_KERNEL_CMDLINE}"|' /etc/default/grub || true
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=sovereign-os --recheck
 update-grub
 WIRE
   chroot "${MNT}" bash /tmp/wire.sh
 
   sync
+  sovereign_verify_install || exit 1
   umount "${MNT}/boot/efi" 2>/dev/null || true
   umount "${MNT}/sys" "${MNT}/proc" "${MNT}/dev/pts" "${MNT}/dev" 2>/dev/null || true
   umount "${MNT}" 2>/dev/null || true
@@ -294,11 +394,7 @@ apt-get update
 # + python3 + PyYAML/jsonschema (the dashboard/operator daemons import yaml at
 #   runtime) + node_exporter (scrapes the Layer-B textfile metrics).
 apt-get install -y --no-install-recommends \
-  lvm2 grub-efi-amd64 efibootmgr initramfs-tools \
-  sudo locales console-setup keyboard-configuration \
-  systemd-resolved netbase iproute2 isc-dhcp-client \
-  python3 python3-yaml python3-jsonschema prometheus-node-exporter \
-  ca-certificates curl nano less
+  ${SOVEREIGN_OS_BASE_PACKAGES} ${SOVEREIGN_OS_WORKSTATION_PACKAGES}
 
 # regenerate locale we inherited
 locale-gen || true
@@ -328,7 +424,7 @@ usermod -aG sudo ${PRIMARY_USER} || true
 update-initramfs -u -k all
 
 # GRUB: root=lv_root, install to sovereign's own ESP, own bootloader id
-sed -i 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="root=/dev/mapper/sovereign-root rw"|' /etc/default/grub
+sed -i 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="root=/dev/mapper/sovereign-root rw ${SOVEREIGN_OS_KERNEL_CMDLINE}"|' /etc/default/grub
 grub-install --target=x86_64-efi --efi-directory=/boot/efi \
   --bootloader-id=sovereign-os --recheck
 update-grub
@@ -361,6 +457,7 @@ fi
 # ── cleanup ──
 step "unmounting"
 sync
+sovereign_verify_install || exit 1
 umount "${MNT}/boot/efi" || true
 umount "${MNT}/sys" "${MNT}/proc" "${MNT}/dev/pts" "${MNT}/dev" || true
 umount "${MNT}" || true

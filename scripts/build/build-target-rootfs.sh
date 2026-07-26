@@ -24,6 +24,12 @@ SUITE="${SOVEREIGN_OS_SUITE:-trixie}"
 MIRROR="${SOVEREIGN_OS_MIRROR:-http://deb.debian.org/debian}"
 FRONTEND="${SOVEREIGN_OS_FRONTEND:-kde-plasma}"
 FRONTEND_INSTALL="${SOVEREIGN_OS_FRONTEND_INSTALL:-kde-plasma,gnome,dashboards-kiosk}"
+
+# ONE definition of what an installed root contains — shared with the from-host
+# installer (scripts/install/install-sovereign-root.sh). Both surfaces used to
+# carry their own copy of the package list, so the bootable installer would have
+# built the same terminal-less desktop even after the other was fixed.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../install" && pwd)/lib/installed-system.sh"
 REPO_SRC="${SOVEREIGN_OS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 log()  { printf '\033[36m━━ build-rootfs: %s\033[0m\n' "$*" >&2; }
@@ -85,15 +91,11 @@ deb ${MIRROR} ${SUITE} main contrib non-free non-free-firmware
 deb ${MIRROR} ${SUITE}-updates main contrib non-free non-free-firmware
 deb http://security.debian.org/debian-security ${SUITE}-security main contrib non-free non-free-firmware
 APT
-chroot "${STAGE}" env DEBIAN_FRONTEND=noninteractive KERNEL_PKGS="${KERNEL_PKGS}" bash -c '
+chroot "${STAGE}" env DEBIAN_FRONTEND=noninteractive KERNEL_PKGS="${KERNEL_PKGS}" \
+  SOVEREIGN_OS_INSTALLED_PACKAGES="$(sovereign_os_installed_packages)" bash -c '
   set -e
   apt-get update
-  apt-get install -y --no-install-recommends \
-    lvm2 grub-efi-amd64 efibootmgr initramfs-tools \
-    sudo locales console-setup keyboard-configuration \
-    systemd-resolved netbase iproute2 isc-dhcp-client \
-    python3 python3-yaml python3-jsonschema prometheus-node-exporter \
-    ca-certificates curl nano less
+  apt-get install -y --no-install-recommends ${SOVEREIGN_OS_INSTALLED_PACKAGES}
   # kernel last (may be local .deb paths for the custom znver5 kernel)
   apt-get install -y ${KERNEL_PKGS}
   systemctl enable systemd-networkd systemd-resolved
