@@ -9,9 +9,17 @@
 # Safety: NEVER touches the disk we booted from. Detects an existing `sovereign`
 # VG and offers reflash-root (rebuild root, keep /home) vs a fresh partition.
 #
-# Answers (keyboard/locale/tz/passwords/target) come from a baked answers file
-# (default /opt/sovereign-os/install-answers.env) pre-filled into a whiptail form
-# the operator confirms; SOVEREIGN_OS_NONINTERACTIVE=1 + complete answers → hands-off.
+# Answers (keyboard/locale/tz/target) come from a baked answers file (default
+# /opt/sovereign-os/install-answers.env). PASSWORDS are asked for here, in a
+# whiptail passwordbox: the baked file ships a placeholder, and an install must
+# never go out on it. Unattended (SOVEREIGN_OS_NONINTERACTIVE=1) requires a real
+# password in the answers file, or SOVEREIGN_OS_ALLOW_DEFAULT_PASSWORD=1 to
+# accept the built-in default deliberately.
+#
+# This header previously claimed the answers were "pre-filled into a whiptail
+# form the operator confirms". No such form existed — the TUI asked only for the
+# disk — so every installer-USB install shipped root:sovereign and
+# <user>:sovereign (audited 2026-07-26).
 set -euo pipefail
 
 OSDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -103,6 +111,59 @@ step "install plan"
 info "target   : ${TARGET}  ($(lsblk -dno MODEL,SIZE "${TARGET}" 2>/dev/null | xargs))"
 info "frontend : ${FRONTEND}"
 info "mode     : $([ "${REFLASH}" = 1 ] && echo 'REFLASH-ROOT (sovereign VG exists → rebuild root, KEEP /home)' || echo "FRESH (partition ${TARGET})")"
+
+# ── 4b. CREDENTIALS ──────────────────────────────────────────────────────────
+# The baked answers file ships SOVEREIGN_OS_{ROOT,USER}_PASS=sovereign, and this
+# TUI never asked for anything else — so every installer-USB install went out
+# with root:sovereign and <user>:sovereign. The header claimed the answers were
+# "pre-filled into a whiptail form the operator confirms"; no such form existed
+# (audited 2026-07-26). A default credential must be a DELIBERATE choice, never
+# the path of least resistance.
+_DEFAULT_PASS="sovereign"
+_pw_looks_default() { [ "${1:-}" = "${_DEFAULT_PASS}" ] || [ -z "${1:-}" ]; }
+
+if [ -z "${SOVEREIGN_OS_NONINTERACTIVE:-}" ] && command -v whiptail >/dev/null 2>&1; then
+  if _pw_looks_default "${SOVEREIGN_OS_USER_PASS:-}"; then
+    while :; do
+      _p1="$(whiptail --title "sovereign-os installer" --passwordbox \
+        "Password for '${SOVEREIGN_OS_USER:-jfortin}' (also used for root).\n\nThis replaces the built-in default." \
+        12 68 3>&1 1>&2 2>&3)" || { red "cancelled"; exit 1; }
+      _p2="$(whiptail --title "sovereign-os installer" --passwordbox \
+        "Confirm the password:" 10 68 3>&1 1>&2 2>&3)" || { red "cancelled"; exit 1; }
+      if [ -z "${_p1}" ]; then
+        whiptail --title "Empty password" --msgbox \
+          "An empty password locks the account — you would boot to a login nobody can pass." 10 68 || true
+      elif [ "${_p1}" != "${_p2}" ]; then
+        whiptail --title "Mismatch" --msgbox "The two entries differ. Try again." 8 60 || true
+      elif case "${_p1}" in *\'*) true ;; *) false ;; esac; then
+        # The downstream chroot setup interpolates these into a single-quoted
+        # shell string; an apostrophe would break the script mid-install.
+        whiptail --title "Unsupported character" --msgbox \
+          "The password cannot contain an apostrophe ( ' ). Please choose another." 9 66 || true
+      else
+        SOVEREIGN_OS_USER_PASS="${_p1}"; SOVEREIGN_OS_ROOT_PASS="${_p1}"
+        export SOVEREIGN_OS_USER_PASS SOVEREIGN_OS_ROOT_PASS
+        unset _p1 _p2
+        info "credentials set for ${SOVEREIGN_OS_USER:-jfortin} + root"
+        break
+      fi
+    done
+  else
+    info "credentials supplied by the answers file (not the built-in default)"
+  fi
+else
+  # Unattended. Shipping the default here is allowed only on purpose.
+  if _pw_looks_default "${SOVEREIGN_OS_USER_PASS:-}"; then
+    if [ "${SOVEREIGN_OS_ALLOW_DEFAULT_PASSWORD:-0}" = 1 ]; then
+      red "WARNING: installing with the BUILT-IN DEFAULT password — change it at first login."
+    else
+      red "refusing to install with the built-in default password."
+      red "  set SOVEREIGN_OS_USER_PASS / SOVEREIGN_OS_ROOT_PASS in the answers file,"
+      red "  or SOVEREIGN_OS_ALLOW_DEFAULT_PASSWORD=1 to accept it deliberately."
+      exit 1
+    fi
+  fi
+fi
 
 # ── 5. confirm ──
 if [ -z "${SOVEREIGN_OS_NONINTERACTIVE:-}" ]; then

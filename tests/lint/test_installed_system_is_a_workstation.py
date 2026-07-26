@@ -205,3 +205,65 @@ def test_verifier_distinguishes_blocking_from_advisory():
     fn = _verifier()
     assert "_v_bad" in fn and "_v_warn" in fn, "must separate blocking from advisory"
     assert "return 1" in fn, "blocking problems must fail the install"
+
+
+TUI = REPO_ROOT / "scripts" / "install" / "installer-tui.sh"
+LIVE_BUILD = REPO_ROOT / "scripts" / "build" / "adapters" / "live-build-emit.sh"
+
+
+def test_installer_usb_never_ships_a_default_credential():
+    """Every installer-USB install went out with root:sovereign.
+
+    live-build-emit.sh bakes SOVEREIGN_OS_{ROOT,USER}_PASS=sovereign into
+    /opt/sovereign-os/install-answers.env, and installer-tui.sh asked only for
+    the target DISK — no password prompt existed anywhere, despite its own
+    header claiming the answers were "pre-filled into a whiptail form the
+    operator confirms" (audited 2026-07-26).
+    """
+    tui = TUI.read_text(encoding="utf-8")
+    assert "passwordbox" in tui, (
+        "the installer must PROMPT for a password — the baked answers file is a "
+        "placeholder, not a credential"
+    )
+    assert "SOVEREIGN_OS_ALLOW_DEFAULT_PASSWORD" in tui, (
+        "shipping the built-in default must be possible only as a deliberate, "
+        "named opt-in"
+    )
+    # unattended must refuse rather than quietly ship the default
+    blk = tui[tui.index("_DEFAULT_PASS="):]
+    assert "refusing to install with the built-in default password" in blk, (
+        "a non-interactive install on the default password must FAIL, not warn"
+    )
+
+
+def test_the_tui_header_does_not_describe_a_form_it_lacks():
+    """The header asserted a whiptail answers form that did not exist."""
+    tui = TUI.read_text(encoding="utf-8")
+    header = tui[:tui.index("set -euo pipefail")]
+    if "pre-filled into a whiptail form" in header:
+        assert "No such form existed" in header, (
+            "the header claims a form the TUI does not implement"
+        )
+
+
+def test_password_confirmation_and_validation():
+    """Empty locks the account; an apostrophe breaks the downstream chroot script."""
+    tui = TUI.read_text(encoding="utf-8")
+    blk = tui[tui.index("_DEFAULT_PASS="):]
+    assert "Confirm the password" in blk, "a typed password must be confirmed"
+    assert "empty password locks the account" in blk.lower(), (
+        "an empty password must be rejected — it locks the account"
+    )
+    assert "apostrophe" in blk.lower(), (
+        "the chroot setup interpolates the password into a single-quoted string; "
+        "an apostrophe would break the install midway"
+    )
+
+
+def test_baked_answers_marks_the_password_as_a_placeholder():
+    lb = LIVE_BUILD.read_text(encoding="utf-8")
+    i = lb.index("SOVEREIGN_OS_USER_PASS=")
+    assert "PLACEHOLDER" in lb[max(0, i - 400):i], (
+        "the baked answers file must say the password is a placeholder, or the "
+        "next person reads it as a supported default"
+    )

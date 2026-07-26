@@ -207,6 +207,9 @@ SOVEREIGN_OS_LOCALE=en_US.UTF-8
 SOVEREIGN_OS_TIMEZONE=UTC
 SOVEREIGN_OS_USER=jfortin
 SOVEREIGN_OS_USER_UID=1000
+# PLACEHOLDER — the installer PROMPTS for this and refuses to install on the
+# default unless SOVEREIGN_OS_ALLOW_DEFAULT_PASSWORD=1. Set a real value here
+# only for a deliberate unattended build.
 SOVEREIGN_OS_USER_PASS=sovereign
 SOVEREIGN_OS_ROOT_PASS=sovereign
 SOVEREIGN_OS_FRONTEND=kde-plasma
