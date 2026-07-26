@@ -122,7 +122,13 @@ export DIST="${DIST}"
 profiles="${PROFILE}"
 dist="${DIST}"
 # offline: bundle everything the profile packages resolve to
-export mirror_files_include="main contrib non-free non-free-firmware"
+# simple-cdd reads 'mirror_components' (simple_cdd/variables.py). The name
+# 'mirror_files_include' is not a simple-cdd variable at all, so it was
+# silently ignored and the mirror carried only 'main' — build-simple-cdd
+# then died with "missing required packages from profile sovereign:
+# amd64-microcode firmware-amd-graphics …", every one of them
+# non-free-firmware (2026-07-26).
+export mirror_components="main contrib non-free non-free-firmware"
 local_packages="${LOCAL_PKGS}"
 simple_cdd_dir="${HERE}"
 # local d-i images (bypass simple-cdd's broken i386 auto-fetch on trixie)
@@ -170,8 +176,8 @@ cd "${WORK}"
 # packages, the kernel, the cockpit) onto CD2/3 that we don't build → "missing
 # required packages from profile". A single DVD-sized image holds it all.
 # --profiles collects the profile's {preseed,packages}; --auto-profiles (-a) is
-# what actually SELECTS it at install time — it emits the `simple-cdd/profiles=
-# sovereign` boot arg so the simple-cdd-profiles udeb ships + applies our
+# what actually SELECTS it at install time — it emits the 'simple-cdd/profiles=
+# sovereign' boot arg so the simple-cdd-profiles udeb ships + applies our
 # sovereign.preseed (root pw, LVM recipe, tasksel KDE, late_command). Without
 # --auto-profiles the profile is merely "available" and d-i falls back to the
 # stock default.preseed → the install stalls asking for a root password, etc.
