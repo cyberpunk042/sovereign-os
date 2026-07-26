@@ -22,6 +22,12 @@
 # <user>:sovereign (audited 2026-07-26).
 set -euo pipefail
 
+# whiptail/newt hard-fail without TERM, and a systemd service inherits none.
+# The unit sets it, but the script must stand alone too (a rescue shell, an
+# operator running it by hand) — otherwise every dialog exits 1 and the
+# installer looks hung.
+: "${TERM:=linux}"; export TERM
+
 OSDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ANSWERS="${SOVEREIGN_OS_ANSWERS:-/opt/sovereign-os/install-answers.env}"
 # set -a so EVERY answer (keyboard/locale/creds/frontend/ROOTFS_SQUASHFS/…) is

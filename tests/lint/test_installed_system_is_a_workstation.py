@@ -267,3 +267,99 @@ def test_baked_answers_marks_the_password_as_a_placeholder():
         "the baked answers file must say the password is a placeholder, or the "
         "next person reads it as a supported default"
     )
+
+
+BOOTSTRAP = REPO_ROOT / "scripts" / "install" / "bootstrap-host.sh"
+LB_EMIT = REPO_ROOT / "scripts" / "build" / "adapters" / "live-build-emit.sh"
+IMAGE_BUILD = REPO_ROOT / "scripts" / "build" / "07-image-build.sh"
+
+
+def test_bootstrap_installs_both_substrates():
+    """`SOVEREIGN_OS_ARTIFACT=installer` forces substrate=live-build.
+
+    Only mkosi was ever installed, so building the bootable installer USB — the
+    PRIMARY deployment surface per the 2026-07-25 directive — ran the full
+    ~20-minute rootfs stage and then died with "missing required command: lb"
+    (2026-07-26).
+    """
+    block = BOOTSTRAP.read_text(encoding="utf-8")
+    block = block[block.index("HOST_PACKAGES=("):]
+    block = block[:block.index("\n)")]
+    for pkg in ("mkosi", "live-build"):
+        assert pkg in block, (
+            f"{pkg} missing from the bootstrap toolchain — a build using that "
+            "substrate cannot complete on a freshly bootstrapped host"
+        )
+
+
+def test_substrate_tool_is_checked_before_expensive_work():
+    """A missing tool is knowable in one second; don't charge 20 minutes for it.
+
+    `require_command lb` lived only in step 07 — after step 05 had already
+    debootstrapped the entire target rootfs.
+    """
+    emit = LB_EMIT.read_text(encoding="utf-8")
+    assert "require_command lb" in emit, (
+        "live-build-emit must verify `lb` exists before it starts building"
+    )
+    i_check = emit.index("require_command lb")
+    i_work = emit.index("building the complete target rootfs")
+    assert i_check < i_work, (
+        "the tool check must come BEFORE the ~20-minute rootfs build, not after"
+    )
+    # and the message must say how to fix it
+    line = emit[i_check:emit.index("\n", i_check)]
+    assert "live-build" in line and "bootstrap-host" in line, (
+        "the error must name the package AND the one command that installs it"
+    )
+
+
+ORCHESTRATE = REPO_ROOT / "scripts" / "build" / "orchestrate.sh"
+
+
+def test_installer_artifact_builds_the_standard_debian_installer():
+    """"it should be the normal debian 13 installer" — operator, 2026-07-26.
+
+    The repo had TWO bootable-installer paths: a live-build ISO with a bespoke
+    whiptail TUI (what ARTIFACT=installer built, and what the panel's INSTALLER
+    toggle produced), and scripts/build/installer-cdd/build.sh — the SDD-013
+    amended path that builds a STANDARD debian-installer ISO. The d-i builder
+    was not wired to the orchestrator or the panel at all; it could only be run
+    by hand. So pressing BUILD gave the operator "a weird launcher".
+    """
+    orch = ORCHESTRATE.read_text(encoding="utf-8")
+    assert "installer)      SOVEREIGN_OS_SUBSTRATE=installer-cdd" in orch, (
+        "ARTIFACT=installer must build the standard debian-installer ISO"
+    )
+    assert "installer-live" in orch, (
+        "the legacy live-build TUI must stay reachable under its own name, not "
+        "silently disappear"
+    )
+    build = IMAGE_BUILD.read_text(encoding="utf-8")
+    assert "installer-cdd)" in build, "step 07 must handle the installer-cdd substrate"
+    assert "installer-cdd/build.sh" in build, "…and actually invoke the d-i builder"
+
+
+def test_the_di_builder_is_run_as_non_root():
+    """simple-cdd refuses to run as root; a panel build IS root via pkexec.
+
+    That conflict is precisely why this path was never wired. Dropping to the
+    operator is what makes it reachable from the panel at all.
+    """
+    build = IMAGE_BUILD.read_text(encoding="utf-8")
+    blk = build[build.index("installer-cdd)"):build.index("  live-build)")]
+    assert "runuser" in blk, "must drop privileges to run simple-cdd"
+    assert "SUDO_USER" in blk, "the operator identity must come from SUDO_USER first"
+    assert "refuses to run as root" in blk or "refuses root" in blk, (
+        "the reason for dropping privileges must be stated where it happens"
+    )
+
+
+def test_bootstrap_installs_simple_cdd():
+    block = BOOTSTRAP.read_text(encoding="utf-8")
+    block = block[block.index("HOST_PACKAGES=("):]
+    block = block[:block.index("\n)")]
+    assert "simple-cdd" in block, (
+        "simple-cdd builds the standard debian-installer ISO; without it that "
+        "builder can only fail with 'install simple-cdd'"
+    )

@@ -206,6 +206,46 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     fi
     ;;
 
+  installer-cdd)
+    # THE standard debian-installer ISO (SDD-013 amended path). The operator
+    # wants "the normal Debian 13 installer", not a bespoke TUI — the live-build
+    # artifact produced a whiptail launcher nobody asked for, and this builder
+    # existed but was reachable only by hand (2026-07-26).
+    #
+    # simple-cdd REFUSES to run as root, and a panel build runs as root via
+    # pkexec — which is exactly why this was never wired. Drop to the operator
+    # (SUDO_USER, else the repo owner) for this one command.
+    if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+      log_warn "SOVEREIGN_OS_DRY_RUN — skipping the debian-installer ISO build"
+      emit_build_metric skip
+      state_step_dry_run "${STEP_ID}"
+      exit 0
+    fi
+    require_command build-simple-cdd "sudo apt install simple-cdd — or run scripts/install/bootstrap-host.sh"
+    _cdd="${SOVEREIGN_OS_ROOT}/scripts/build/installer-cdd/build.sh"
+    [ -x "${_cdd}" ] || { log_error "missing ${_cdd}"; state_step_fail "${STEP_ID}" "cdd-missing"; exit 1; }
+    _asuser="${SUDO_USER:-$(stat -c '%U' "${SOVEREIGN_OS_ROOT}" 2>/dev/null || echo root)}"
+    if [ "$(id -u)" -eq 0 ] && [ "${_asuser}" != "root" ]; then
+      log_info "running the d-i ISO build as ${_asuser} (simple-cdd refuses root)"
+      _run_cdd=(runuser -u "${_asuser}" -- bash "${_cdd}")
+    elif [ "$(id -u)" -eq 0 ]; then
+      log_error "simple-cdd refuses to run as root and no non-root operator could be determined."
+      log_error "  re-run the build as your normal user, or set SUDO_USER."
+      state_step_fail "${STEP_ID}" "cdd-needs-nonroot"; exit 1
+    else
+      _run_cdd=(bash "${_cdd}")
+    fi
+    if "${_run_cdd[@]}" 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/installer-cdd-${SOVEREIGN_OS_BUILD_ID}.log"; then
+      emit_build_metric success
+    else
+      rc=${PIPESTATUS[0]}
+      log_error "debian-installer ISO build failed (rc=${rc})"
+      emit_build_metric fail
+      state_step_fail "${STEP_ID}" "installer-cdd-failed-${rc}"
+      exit 1
+    fi
+    ;;
+
   live-build)
     stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/config/packages.chroot"
     cd "${SOVEREIGN_OS_BUILD_OUT}" || exit 1

@@ -188,6 +188,18 @@ HOST_PACKAGES=(
   rsync debhelper pahole gcc-14 g++-14 cpio kmod
   # image build + repart
   mkosi dosfstools
+  # live-build — the OTHER substrate. `SOVEREIGN_OS_ARTIFACT=installer` (the
+  # bootable installer USB, the PRIMARY deployment surface per the 2026-07-25
+  # directive) forces substrate=live-build, and the build then needs `lb`.
+  # Only mkosi was ever installed, so an installer build ran the full ~20-minute
+  # rootfs stage and then died with "missing required command: lb" (2026-07-26).
+  live-build
+  # simple-cdd — builds the STANDARD debian-installer ISO
+  # (scripts/build/installer-cdd/build.sh). That is the SDD-013 amended path and
+  # what the operator means by "the installer": a normal Debian 13 install
+  # experience, not a bespoke TUI. It was never installed, so that builder could
+  # only ever fail with "install simple-cdd" (2026-07-26).
+  simple-cdd
   # secure-boot signing (sbsign / sbverify)
   sbsigntool
   # QEMU smoke test (step 09) — emulator + UEFI firmware

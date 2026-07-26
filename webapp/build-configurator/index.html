@@ -2650,8 +2650,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         <button class="btn" id="run-cancel" disabled>■ cancel</button>
         <span class="small muted" id="run-status" style="align-self:center"></span>
       </div>
-      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Build a bootable INSTALLER ISO (live-build) that installs the mutable OS onto an internal NVMe (sovereign-root LV, keeps /home), instead of the whole-disk appliance image. The flash panel defaults to the installer.">
-        <label class="chk" style="margin:0"><input type="checkbox" id="build-installer"> 🖴 build INSTALLER <span class="muted small">(bootable USB that installs onto the NVMe — vs the whole-disk appliance)</span></label>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Build the STANDARD debian-installer ISO (simple-cdd): the normal Debian 13 install experience, fully offline (the CD carries its own package mirror), installing Debian 13 + KDE + the custom znver5 kernel + the sovereign-os cockpit onto the target NVMe. This replaced the old live-build ISO, whose bespoke whiptail TUI was not what an operator means by an installer.">
+        <label class="chk" style="margin:0"><input type="checkbox" id="build-installer"> 🖴 build INSTALLER <span class="muted small">(standard Debian 13 installer ISO — normal d-i install onto the NVMe, offline; vs the whole-disk appliance)</span></label>
       </div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-bottom:.5rem" title="REQUIRED by the image build: without it mkosi locks root and the image boots to a login prompt nobody can satisfy. Sent once, hashed server-side (openssl passwd -6) before it reaches the build — the plaintext is never stored, logged, or placed in a command line. The first-login assistant rotates it on first boot.">
         <label class="chk" style="margin:0">🔑 root bootstrap password

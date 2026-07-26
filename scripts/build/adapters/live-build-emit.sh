@@ -22,6 +22,13 @@ out_dir="${2:?usage: live-build-emit.sh <profile.yaml> <out-dir>}"
 
 require_file "${profile_yaml}"
 
+# FAIL FAST on the substrate tool. `lb` was only required in step 07 — AFTER
+# this step had already spent ~20 minutes debootstrapping the complete target
+# rootfs. The operator paid for the whole build to be told a package was
+# missing (2026-07-26: "missing required command: lb"). A missing tool is
+# knowable in one second; check it before doing any expensive work.
+require_command lb "sudo apt install live-build — or run scripts/install/bootstrap-host.sh"
+
 mkdir -p "${out_dir}"/config/{auto,package-lists,includes.chroot,hooks/normal,bootloaders}
 
 profile_id="$("${PYTHON3}" -c "

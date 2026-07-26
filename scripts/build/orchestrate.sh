@@ -62,14 +62,23 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 : "${SOVEREIGN_OS_PROFILE:=sain-01}"
 : "${SOVEREIGN_OS_SUBSTRATE:=mkosi}"   # working hypothesis; Q-001 locks at Gate 2
-# Artifact shape: `image` (the whole-disk mkosi appliance, default) or `installer`
-# (a bootable live-build ISO that installs the mutable system onto an internal
-# disk). The installer artifact is always live-build (mkosi has no live/installer
-# format); force the substrate so `SOVEREIGN_OS_ARTIFACT=installer` alone works.
+# Artifact shape:
+#   image           the whole-disk mkosi appliance (default)
+#   installer       the STANDARD debian-installer ISO (simple-cdd) — a normal
+#                   Debian 13 install onto the target NVMe, offline
+#   installer-live  the live-build ISO with the bespoke whiptail TUI (legacy)
+# Each forces its substrate so the ARTIFACT alone is enough.
 : "${SOVEREIGN_OS_ARTIFACT:=image}"
-if [ "${SOVEREIGN_OS_ARTIFACT}" = "installer" ]; then
-  SOVEREIGN_OS_SUBSTRATE=live-build
-fi
+# `installer` now means THE STANDARD DEBIAN INSTALLER (simple-cdd / d-i), the
+# SDD-013 amended path. It previously meant the live-build ISO, whose bespoke
+# whiptail TUI is not what an operator means by "the installer" — building it
+# from the panel produced a launcher nobody wanted (2026-07-26, verbatim: "it
+# should be the normal debian 13 installer"). The live-build variant is still
+# reachable as `installer-live` for anyone who wants the TUI.
+case "${SOVEREIGN_OS_ARTIFACT}" in
+  installer)      SOVEREIGN_OS_SUBSTRATE=installer-cdd ;;
+  installer-live) SOVEREIGN_OS_SUBSTRATE=live-build ;;
+esac
 # Steps run as child processes — without export, a sudo env_reset run leaves
 # these as unexported shell vars and every `set -u` step dies at its first
 # ${SOVEREIGN_OS_PROFILE} reference (caught by the first real build, 2026-06-10).

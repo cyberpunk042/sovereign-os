@@ -23,6 +23,12 @@ ExecStart=/opt/sovereign-os/scripts/install/installer-tui.sh
 StandardInput=tty-force
 StandardOutput=tty
 StandardError=journal+console
+# whiptail/newt REFUSE to run without TERM ("TERM environment variable needs
+# set.", exit 1) and systemd gives a service NO TERM by default. Every dialog in
+# the installer — disk menu, confirm, password prompt — died on this, so the
+# live medium appeared to hang at the start of the installer (operator,
+# 2026-07-26). `linux` is the correct type for a kernel VT.
+Environment=TERM=linux
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
