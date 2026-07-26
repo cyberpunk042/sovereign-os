@@ -57,17 +57,26 @@ ca-certificates curl nano less}"
 #              server cannot start AT ALL and the desktop is a black screen on
 #              a perfectly healthy system (the appliance's
 #              "sddm: Failed to read display number from pipe").
+#   firmware   The kernel is CONFIG_DRM_AMDGPU=m with CONFIG_EXTRA_FIRMWARE="",
+#              so amdgpu loads at runtime and asks the FILESYSTEM for its blobs.
+#              A Ryzen 9 9900X carries a Granite Ridge iGPU [1002:13c0]; with no
+#              firmware-amd-graphics installed the module dies with "amdgpu:
+#              Fatal error during GPU init" and the boot stops dead — on a
+#              machine whose real GPUs are NVIDIA (2026-07-26). These are the
+#              exact packages the operator's working Debian 13 carries on this
+#              same hardware. non-free-firmware is already in the CD mirror.
 _sovos_ws_console="konsole xterm tmux vim bash-completion man-db"
 _sovos_ws_hardware="pciutils usbutils nvme-cli smartmontools lshw dmidecode lm-sensors htop"
 _sovos_ws_fsnet="rsync wget git file tree lsof iputils-ping bind9-dnsutils ncdu"
 _sovos_ws_xfallback="xserver-xorg-video-fbdev xserver-xorg-video-vesa"
+_sovos_ws_firmware="amd64-microcode firmware-amd-graphics firmware-nvidia-graphics firmware-linux-free firmware-misc-nonfree"
 
 if [ "${SOVEREIGN_OS_INSTALL_GUI:-1}" != 1 ]; then
   _sovos_ws_console="tmux vim bash-completion man-db"   # no X client on a headless root
   _sovos_ws_xfallback=""
 fi
 
-SOVEREIGN_OS_WORKSTATION_PACKAGES="${SOVEREIGN_OS_WORKSTATION_PACKAGES-${_sovos_ws_console} ${_sovos_ws_hardware} ${_sovos_ws_fsnet} ${_sovos_ws_xfallback}}"
+SOVEREIGN_OS_WORKSTATION_PACKAGES="${SOVEREIGN_OS_WORKSTATION_PACKAGES-${_sovos_ws_console} ${_sovos_ws_hardware} ${_sovos_ws_fsnet} ${_sovos_ws_xfallback} ${_sovos_ws_firmware}}"
 
 # ── KERNEL CMDLINE for the installed system ──────────────────────────────────
 # Both installers used to hardcode `root=… rw` and ignore the profile. On this

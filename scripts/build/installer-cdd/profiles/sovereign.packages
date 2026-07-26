@@ -33,3 +33,57 @@ installation-guide-amd64
 # (they pull libzstd1), so it was absent from the offline mirror and base-install
 # failed with "Unable to install zstd". Pull it in explicitly.
 zstd
+
+# FIRMWARE. The custom kernel is CONFIG_DRM_AMDGPU=m / CONFIG_EXTRA_FIRMWARE="",
+# so amdgpu loads at runtime and needs its blobs on disk. The Ryzen 9 9900X has
+# a Granite Ridge iGPU [1002:13c0]; without these the installed system halts at
+# "amdgpu: Fatal error during GPU init" right after a successful install
+# (2026-07-26). mirror_files_include already carries non-free-firmware.
+amd64-microcode
+firmware-amd-graphics
+firmware-nvidia-graphics
+firmware-linux-free
+firmware-misc-nonfree
+
+# ── THE SHARED INSTALLED-SYSTEM SET ─────────────────────────────────────────
+# scripts/install/lib/installed-system.sh is the ONE definition of what an
+# installed sovereign-os IS. This list had drifted 33 packages away from it:
+# no xserver-xorg-video-fbdev/vesa (the ONLY X config proven on this hardware —
+# no kernel driver binds to any of the three GPUs, the desktop runs on the EFI
+# framebuffer), no systemd-resolved, and none of the console or hardware tools.
+# That drift is what "it did load some GUI but it was buggy and there was not
+# even a console tool installed" was (2026-07-26).
+# tests/lint/test_installer_matches_the_installed_system.py keeps them in sync.
+bash-completion
+bind9-dnsutils
+ca-certificates
+console-setup
+dmidecode
+file
+htop
+initramfs-tools
+iproute2
+iputils-ping
+isc-dhcp-client
+keyboard-configuration
+less
+lm-sensors
+locales
+lshw
+lsof
+man-db
+ncdu
+netbase
+nvme-cli
+pciutils
+rsync
+smartmontools
+systemd-resolved
+tmux
+tree
+usbutils
+vim
+wget
+xserver-xorg-video-fbdev
+xserver-xorg-video-vesa
+xterm
