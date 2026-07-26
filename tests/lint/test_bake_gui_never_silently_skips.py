@@ -169,3 +169,55 @@ def test_gui_installer_never_bare_apt_gets():
     assert "return 1" in helper, (
         "genuinely missing packages with no installer must be a hard error"
     )
+
+
+def test_operator_account_is_not_left_locked():
+    """A desktop image whose only account is locked is unusable.
+
+    provision-bake read root's hash from /etc/shadow to copy onto the operator
+    account. In the mkosi flow the postinst runs BEFORE mkosi applies
+    RootPassword=, so root's entry was still `!` and the copy always fell
+    through — the shipped image had root with a hash (set later by mkosi) and
+    `operator` LOCKED. Booting it landed on an sddm login screen that no
+    account could satisfy (2026-07-26).
+    """
+    bake = PROVISION_BAKE.read_text(encoding="utf-8")
+    blk = bake[bake.index("SOVEREIGN_OS_OPERATOR_PASSWORD_FROM_ROOT"):]
+    blk = blk[:blk.index("\nOPHOME=")]
+    assert "SOVEREIGN_OS_ROOT_PASSWORD" in blk, (
+        "the operator password must come from the password the BUILD was given "
+        "— reading /etc/shadow is too early in the mkosi postinst"
+    )
+    assert "hashed:" in blk, "the hashed: form the panel sends must be understood"
+    assert "LOCKED and cannot log in" in blk, (
+        "a locked operator account must be reported LOUDLY, never as a quiet "
+        "'left password-less' note"
+    )
+
+    emit = MKOSI_EMIT.read_text(encoding="utf-8")
+    # shell-QUOTED form — see test_postinst_env_values_are_shell_quoted for why
+    # the raw double-quoted value aborts the build on a $6$ crypt hash.
+    assert "SOVEREIGN_OS_ROOT_PASSWORD={root_password_sh}" in emit, (
+        "the postinst env must carry the root password so provision-bake can "
+        "give the operator account the same credential"
+    )
+
+
+def test_postinst_env_values_are_shell_quoted():
+    """The postinst is bash under `set -u` — a crypt hash must not be expanded.
+
+    Every SHA-512 hash starts with `$6$`. Interpolated inside DOUBLE quotes,
+    bash treats `$6` as a positional parameter and `set -u` aborts:
+    "/work/postinst: line 93: $6: unbound variable" killed the whole image build
+    (2026-07-26). shlex.quote() emits it single-quoted so it stays literal.
+    """
+    emit = MKOSI_EMIT.read_text(encoding="utf-8")
+    assert "import shlex" in emit and "root_password_sh = shlex.quote" in emit, (
+        "the root password must be shell-quoted before it reaches the postinst"
+    )
+    assert "SOVEREIGN_OS_ROOT_PASSWORD={root_password_sh}" in emit, (
+        "the postinst must use the shell-quoted form, never the raw value"
+    )
+    assert 'SOVEREIGN_OS_ROOT_PASSWORD="{root_password}"' not in emit, (
+        "the double-quoted form expands $6 and aborts the build under set -u"
+    )

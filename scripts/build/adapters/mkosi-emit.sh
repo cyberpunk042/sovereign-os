@@ -245,6 +245,14 @@ if secure_boot not in ("none", "disabled"):
 # first boot validation 2026-06-10). The credential comes from the
 # environment, never the repo. first-login-assistant rotates it.
 root_password = os.environ.get("SOVEREIGN_OS_ROOT_PASSWORD", "")
+# SHELL-QUOTED form for the postinst, which is a bash script run under `set -u`.
+# Every SHA-512 crypt hash begins with `$6$`, so interpolating the value inside
+# DOUBLE quotes made bash expand `$6` as a positional parameter and abort with
+# "line 93: $6: unbound variable" — the whole image build died in the postinst
+# (2026-07-26). mkosi.conf is a config file, not shell, so RootPassword= there
+# is unaffected; only the postinst needs quoting.
+import shlex  # noqa: E402
+root_password_sh = shlex.quote(root_password)
 root_pw_block = ""
 if root_password:
     root_pw_block = f"RootPassword={root_password}\n"
@@ -536,6 +544,7 @@ if run_provision:
               SOVEREIGN_OS_OPERATOR_SHELL="{_op.get('shell', '/bin/bash')}" \\
               SOVEREIGN_OS_OPERATOR_HOME_REPO="{_op.get('home_repo', 'sovereign-os')}" \\
               SOVEREIGN_OS_OPERATOR_PASSWORD_FROM_ROOT="{'1' if _op.get('password_from_root', True) else '0'}" \\
+              SOVEREIGN_OS_ROOT_PASSWORD={root_password_sh} \\
               SOVEREIGN_OS_POSTURE="{posture}" \\
               SOVEREIGN_OS_BAKE_SELFDEF="{'1' if bake_selfdef else ''}" \\
               SOVEREIGN_OS_BAKE_GHOSTPROXY="{'1' if bake_ghostproxy else ''}" \\

@@ -2965,7 +2965,27 @@ async function attachRunning() {
   try {
     st = await (await fetch("./api/run/status", { headers: { Accept: "application/json" } })).json();
   } catch (e) { return; }
-  if (!st || !st.running) return;
+  if (!st) return;
+  if (!st.running) {
+    // FINISHED run: replay its log instead of showing an empty console. A
+    // refresh used to wipe the output of the flash you just ran — including
+    // the boot-entry lines and the exit code (operator-reported 2026-07-26).
+    if (!st.log_bytes) return;                       // nothing ever ran
+    const plog = el("run-log");
+    try {
+      const pr = await fetch("./api/run/attach");
+      if (!pr.ok) return;
+      plog.textContent = await pr.text();
+      plog.scrollTop = plog.scrollHeight;            // land on the outcome
+      const ok = st.exit_code === 0;
+      el("run-status").textContent =
+        (st.action === "flash" ? "flash" : "plan")
+        + (ok ? " — finished ✓" : " — FAILED (exit " + st.exit_code + ")")
+        + " · last run, reloaded";
+      el("run-status").className = "status " + (ok ? "ok" : "bad");
+    } catch (e) { /* log unreadable — leave the console idle */ }
+    return;
+  }
   running = true; updateArm();
   el("btn-cancel").disabled = false;
   const isFlash = st.action === "flash";

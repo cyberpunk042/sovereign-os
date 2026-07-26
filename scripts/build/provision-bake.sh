@@ -107,7 +107,21 @@ if ! id "${OPERATOR}" >/dev/null 2>&1; then
 fi
 # password = root's (copy the hash — no plaintext needed) unless opted out
 if [ "${SOVEREIGN_OS_OPERATOR_PASSWORD_FROM_ROOT:-1}" = "1" ] && id "${OPERATOR}" >/dev/null 2>&1; then
-  rh="$(getent shadow root | cut -d: -f2)"
+  # ORDERING (2026-07-26): in the mkosi flow this postinst runs BEFORE mkosi
+  # applies RootPassword=, so /etc/shadow's root entry is still `!` here and
+  # reading it always fell through to "left password-less" — the operator
+  # account shipped LOCKED while root got its hash later. The image booted to
+  # an sddm login screen no account could satisfy. So prefer the password the
+  # build was GIVEN (same value mkosi will set on root) and only fall back to
+  # reading root's shadow entry, which works on the live-system path.
+  rh=""
+  case "${SOVEREIGN_OS_ROOT_PASSWORD:-}" in
+    hashed:*) rh="${SOVEREIGN_OS_ROOT_PASSWORD#hashed:}" ;;
+    "")       rh="" ;;
+    *)        # plaintext — hash it rather than storing it anywhere
+              rh="$(openssl passwd -6 -stdin <<<"${SOVEREIGN_OS_ROOT_PASSWORD}" 2>/dev/null || true)" ;;
+  esac
+  [ -n "${rh}" ] || rh="$(getent shadow root | cut -d: -f2)"
   if [ -n "${rh}" ] && [ "${rh}" != "!" ] && [ "${rh}" != "*" ]; then
     if echo "${OPERATOR}:${rh}" | chpasswd -e 2>/dev/null; then
       log "operator password set (= root's)"
@@ -115,7 +129,10 @@ if [ "${SOVEREIGN_OS_OPERATOR_PASSWORD_FROM_ROOT:-1}" = "1" ] && id "${OPERATOR}
       log "chpasswd failed (non-fatal)"
     fi
   else
-    log "root has no usable password hash — operator left password-less (SSH/console per your keys)"
+    # LOUD: a locked operator + a desktop image = an unusable box. Never quiet.
+    log "‼ no root password available — operator '${OPERATOR}' is LOCKED and cannot log in."
+    log "  set a bootstrap password in the build panel (🔑 field) or"
+    log "  SOVEREIGN_OS_ROOT_PASSWORD=… so the operator account inherits it."
   fi
 fi
 OPHOME="$(getent passwd "${OPERATOR}" 2>/dev/null | cut -d: -f6)"; OPHOME="${OPHOME:-/home/${OPERATOR}}"

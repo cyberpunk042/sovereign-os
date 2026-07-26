@@ -258,6 +258,18 @@ kernel:
       # userspace marker instead of a warn-skip — and gives ops a serial
       # console on hardware. First green button build, 2026-06-12.
       - "console=ttyS0"
+      # …AND the screen. The kernel gives /dev/console to the LAST console=
+      # listed, so `console=ttyS0` ALONE sent every kernel message, the boot
+      # splash and every getty to a serial port — leaving the monitor showing
+      # the bootloader's leftover cursor forever. The box was booting fine the
+      # whole time; the output was simply on a cable that is not plugged in.
+      # That is the "frozen underscore on a black screen" the operator hit on
+      # 2026-07-26, and it is exactly why the QEMU smoke test never caught it:
+      # step 09 runs `-serial mon:stdio`, i.e. it watches the ONE output path
+      # this flag redirects to. Listing tty0 last keeps the serial console
+      # (both consoles still receive kernel messages) while giving /dev/console
+      # — and therefore the login prompt — back to the physical display.
+      - "console=tty0"
     vfio:
       - "vfio-pci.ids=10de:2684,10de:22ba"
       - "amd_iommu=on"

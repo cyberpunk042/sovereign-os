@@ -79,9 +79,21 @@
   body.so-assist-open .right { position:static; max-height:none; border-left:0; border-top:1px solid var(--border); }
   .left { padding:1.1rem 1.2rem 4rem; min-width:0; }
   .right {
-    position: sticky; top:54px; max-height: calc(100vh - 54px); overflow:auto;
+    position: sticky; top:54px; max-height: calc(100vh - 54px);
+    /* Vertical scrolling ONLY. `overflow:auto` scrolled BOTH axes, so any child
+       wider than the 470px track (a <select> sized to its longest <option>, an
+       <input> sized to its placeholder) turned this pane into a sideways
+       scroller instead of wrapping — operator-reported 2026-07-26. min-width:0
+       lets the grid item shrink; .left already had it, .right did not. */
+    overflow-y:auto; overflow-x:hidden; min-width:0;
     border-left:1px solid var(--border); padding:1.1rem 1.1rem 3rem; background:var(--bg);
   }
+  /* Long unbroken strings (paths, digests, device names) must wrap rather than
+     widen the pane now that it can no longer scroll sideways. The build log
+     (pre.out) keeps its OWN horizontal scroll — column alignment in dpkg/mkosi
+     output is worth preserving — it just may not widen the pane to get it. */
+  .right { overflow-wrap:anywhere; }
+  .right pre { max-width:100%; min-width:0; overflow-wrap:normal; }
   @media (max-width: 1050px){ .right { position:static; max-height:none; border-left:0; border-top:1px solid var(--border);} }
   section.card {
     border:1px solid var(--border); border-radius:5px; background:var(--panel);
@@ -111,6 +123,19 @@
   label.chk.danger-tag { border-color: rgba(232,136,136,.4); }
   label.chk.locked { opacity:.75; cursor:not-allowed; }
   label.chk .req { color:var(--good); font-size:.66rem; }
+  /* Flex items default to min-width:auto, so a control that is intrinsically
+     wider than the pane cannot shrink and forces the whole column to scroll
+     HORIZONTALLY instead of vertically (operator-reported 2026-07-26). Two
+     offenders: a <select> is as wide as its LONGEST <option> ("gnome — desktop
+     + dashboards launcher"), and a text/password input sizes to its `size`
+     attribute / placeholder. Let them shrink, and cap them at the container. */
+  label.chk, label.profile { min-width:0; max-width:100%; }
+  label.chk select, label.chk input[type="text"], label.chk input[type="password"],
+  label.profile select, label.profile input[type="text"] {
+    min-width:0; max-width:100%; flex:0 1 auto;
+  }
+  /* A long option/placeholder must ellipsize rather than widen the column. */
+  label.chk select { text-overflow:ellipsis; }
   .profiles { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap:var(--space-sm); }
   label.profile { display:block; padding:.55rem .7rem; margin:0; }
   label.profile.sel { border-color:var(--accent); background:rgba(155,209,255,.08); }
@@ -2630,7 +2655,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       </div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-bottom:.5rem" title="REQUIRED by the image build: without it mkosi locks root and the image boots to a login prompt nobody can satisfy. Sent once, hashed server-side (openssl passwd -6) before it reaches the build — the plaintext is never stored, logged, or placed in a command line. The first-login assistant rotates it on first boot.">
         <label class="chk" style="margin:0">🔑 root bootstrap password
-          <input type="password" id="root-password" autocomplete="new-password" placeholder="required unless locked-root" style="margin-left:.4rem">
+          <input type="password" id="root-password" autocomplete="new-password"
+                 size="18" placeholder="required" style="margin-left:.4rem; width:11rem">
         </label>
         <label class="chk" style="margin:0"><input type="checkbox" id="allow-locked-root"> ship LOCKED root <span class="muted small">(no console login — SSH keys / autologin only)</span></label>
       </div>
@@ -3789,14 +3815,37 @@ function runAction(action){
 
 // On load: if a run started earlier is still going (we navigated away and back,
 // or opened this page fresh), restore the busy UI + re-attach at current progress.
+// On load: show whatever the last run left behind — LIVE or FINISHED.
+// Previously only a still-running job was restored, so refreshing after a build
+// completed (or failed) wiped the console to "(idle)" and the operator lost the
+// output they were reading — including the error that explained the failure
+// (operator-reported 2026-07-26). The daemon already keeps both halves: the log
+// file is replayed in full by /api/run/attach, and /api/run/status carries
+// done/exit_code for a finished run.
 function restoreRun(){
   fetch("/api/run/status").then(function(r){ return r.ok ? r.json() : null; })
     .then(function(s){
-      if (s && s.running){
+      if (!s) return;
+      if (s.running){
         document.getElementById("run-log").textContent = "";
         setRunBusy(true, s.action || "run");
         attachRun();
+        return;
       }
+      // Finished run: replay the log once, then show its final verdict.
+      if (!s.log_bytes) return;                       // nothing ever ran
+      var log = document.getElementById("run-log");
+      fetch("/api/run/attach").then(function(r){ return r.ok ? r.text() : null; })
+        .then(function(t){
+          if (t === null) return;
+          log.textContent = t;
+          log.scrollTop = log.scrollHeight;           // land on the outcome
+          var ok = s.exit_code === 0;
+          var st = document.getElementById("run-status");
+          st.textContent = (s.action || "run") + (ok ? " — finished ✓" : " — FAILED (exit " + s.exit_code + ")")
+                         + " · last run, reloaded";
+          st.className = "status " + (ok ? "ok" : "bad");
+        }).catch(function(){ /* log unreadable — leave the console idle */ });
     }).catch(function(){ /* status unavailable — nothing to restore */ });
 }
 if (document.readyState === "loading")
