@@ -6209,6 +6209,22 @@ EOF
       [ "${n}" -eq 0 ] && echo "  (empty)"
       echo
 
+      # The DESKTOP is the thing the operator actually looks at, and when it
+      # fails the screen just stops repainting — indistinguishable from a hung
+      # boot. sddm's "Failed to read display number from pipe" says only that X
+      # died; Xorg's own log says WHY (2026-07-26: no usable driver, because
+      # fbdev/vesa were never installed and modesetting needs a DRM device that
+      # `nomodeset` prevents). Print it, so a dark screen is diagnosable.
+      echo "── display server (why the screen is dark, if it is) ──"
+      local xlog n_x=0
+      for xlog in $(sudo find "${mnt}/var/log" -maxdepth 1 -name "Xorg.*.log" 2>/dev/null | sort); do
+        n_x=$((n_x+1)); echo "  ── $(basename "${xlog}") ──"
+        sudo grep -aE "\(EE\)|\(WW\).*(driver|module)|Loading.*drivers/|no screens found|Fatal server error" \
+          "${xlog}" 2>/dev/null | tail -n 20 | sed 's/^/    /' || true
+      done
+      [ "${n_x}" -eq 0 ] && echo "  no Xorg log — the X server never got far enough to write one"
+      echo
+
       echo "── failed units + errors (persistent journal) ──"
       if sudo test -d "${mnt}/var/log/journal"; then
         local jargs=(-D "${mnt}/var/log/journal" --no-pager)

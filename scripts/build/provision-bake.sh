@@ -499,6 +499,31 @@ if [ "${SOVEREIGN_OS_UPS:-}" = "1" ]; then
   # (b) NUT base config (standalone, loopback). The device stanza + daemon enable
   #     are the first-boot hook's job (after it detects the transport). Here we
   #     lay the base down + skip the NUT daemons on VMs.
+  # ── DNS: networkd needs resolved, and glibc needs /etc/resolv.conf ───────
+  # The image enabled systemd-networkd but NOT systemd-resolved, and shipped no
+  # /etc/resolv.conf at all. network-vlan-config.sh writes `DNS=` into the
+  # .network files, but that only reaches applications through resolved's stub
+  # resolver — so glibc had no resolver configuration whatsoever and EVERY
+  # hostname lookup failed on first boot (operator, 2026-07-26):
+  #   curl: (6) Could not resolve host: us.download.nvidia.com
+  # That one gap failed the NVIDIA ≥570 driver download, the Tetragon download,
+  # and the UPS connection — i.e. every remaining first-boot failure that was
+  # actually ours. Pair networkd with resolved the standard way.
+  if [ -f /usr/lib/systemd/system/systemd-resolved.service ]; then
+    systemctl enable systemd-resolved.service 2>/dev/null \
+      || ln -sf /usr/lib/systemd/system/systemd-resolved.service \
+           /etc/systemd/system/multi-user.target.wants/systemd-resolved.service 2>/dev/null || true
+    # glibc reads /etc/resolv.conf; resolved publishes the stub there.
+    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf 2>/dev/null || true
+    log "DNS: systemd-resolved enabled + /etc/resolv.conf → stub (networkd DNS now reaches glibc)"
+  else
+    # No resolved in the image — leave a usable static resolver rather than
+    # shipping a box that cannot resolve anything at all.
+    printf '# sovereign-os fallback resolver (no systemd-resolved in this image)\nnameserver 1.1.1.1\nnameserver 9.9.9.9\n' \
+      > /etc/resolv.conf 2>/dev/null || true
+    log "DNS: systemd-resolved absent — wrote a static /etc/resolv.conf fallback"
+  fi
+
   # ── zfs ↔ systemd-udev-settle: bound the stall, never fail on it ─────────
   # Debian's ZFS units carry `Requires=systemd-udev-settle.service`, a
   # DEPRECATED unit whose default TimeoutStartSec is 120s. On real hardware

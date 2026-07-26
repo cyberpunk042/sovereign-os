@@ -221,3 +221,26 @@ def test_postinst_env_values_are_shell_quoted():
     assert 'SOVEREIGN_OS_ROOT_PASSWORD="{root_password}"' not in emit, (
         "the double-quoted form expands $6 and aborts the build under set -u"
     )
+
+
+def test_desktop_ships_an_x_driver_that_works_without_a_gpu():
+    """A desktop with no usable X driver is a black screen that boots fine.
+
+    The image shipped only `modesetting` (requires /dev/dri, which the profile's
+    `nomodeset` prevents) and `nvidia` (whose module fails to probe on Blackwell).
+    With no third option the X server could not start at all — sddm reported
+    "Failed to read display number from pipe" — so the box completed first boot,
+    wrote first-boot-complete, and still showed a dark screen (2026-07-26).
+
+    The operator's own Debian on the SAME board renders through fbdev over the
+    EFI framebuffer. Whenever a desktop is requested, that fallback must ship.
+    """
+    emit = MKOSI_EMIT.read_text(encoding="utf-8")
+    block = emit[emit.index("if bake_gui:"):]
+    block = block[:block.index("if bake_dev_tools:")]
+    for pkg in ("xserver-xorg-video-fbdev", "xserver-xorg-video-vesa"):
+        assert pkg in block, (
+            f"{pkg} must be installed with the desktop — without a driver that "
+            "works when no GPU binds, X cannot start and the desktop is a black "
+            "screen even though the system booted correctly"
+        )

@@ -108,3 +108,28 @@ def test_bake_reports_what_it_changed():
     assert "zfs/udev-settle" in bake, (
         "provision-bake must log that it altered the zfs/udev-settle wiring"
     )
+
+
+def test_dns_actually_resolves_on_first_boot():
+    """networkd alone gives no resolver — glibc needs /etc/resolv.conf.
+
+    The image enabled systemd-networkd but not systemd-resolved, and shipped no
+    /etc/resolv.conf. network-vlan-config.sh writes DNS= into the .network
+    files, but that only reaches applications through resolved's stub. So every
+    hostname lookup failed on first boot — "curl: (6) Could not resolve host" —
+    which is what actually failed the NVIDIA >=570 download, the Tetragon
+    download and the UPS connection (operator, 2026-07-26). Those looked like
+    three separate bugs and were one.
+    """
+    bake = PROVISION_BAKE.read_text(encoding="utf-8")
+    assert "systemd-resolved" in bake, (
+        "the bake must enable systemd-resolved — networkd's DNS= is invisible "
+        "to glibc without it"
+    )
+    assert "/etc/resolv.conf" in bake, (
+        "glibc reads /etc/resolv.conf; the image shipped none at all"
+    )
+    assert "nameserver" in bake, (
+        "there must be a static fallback for images without resolved, rather "
+        "than shipping a box that cannot resolve any hostname"
+    )

@@ -392,6 +392,19 @@ if bake_gui:
     for pkg in ("firefox-esr", "xdg-utils"):   # shared by every frontend
         if pkg not in all_packages:
             all_packages.append(pkg)
+    # X FALLBACK DRIVERS — the desktop is unusable without them on this class of
+    # hardware. The image shipped only `modesetting` (needs /dev/dri, which the
+    # profile's `nomodeset` prevents) and `nvidia` (whose module fails to probe
+    # on Blackwell). With no third option the X server could not start at all:
+    #   sddm[1346]: Failed to read display number from pipe
+    # …so the box booted fully, wrote first-boot-complete, and still showed a
+    # dark screen (operator, 2026-07-26). The operator's own working Debian on
+    # the SAME board renders through fbdev_drv.so over the EFI framebuffer —
+    # these are exactly the packages that provide it. Cheap, and the difference
+    # between a desktop and a black screen whenever no GPU driver binds.
+    for pkg in ("xserver-xorg-video-fbdev", "xserver-xorg-video-vesa"):
+        if pkg not in all_packages:
+            all_packages.append(pkg)
 if bake_dev_tools:
     # nodejs from the PINNED SNAPSHOT (trixie ships 20.19.2 — identical to the
     # build host's node), so Claude Code runs OFFLINE. The build has no external
