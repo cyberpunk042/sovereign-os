@@ -211,3 +211,47 @@ def test_the_cdd_builder_is_told_where_to_write():
         "the builder must not hardcode one profile's output directory"
     )
     assert "SOVEREIGN_OS_BUILD_OUT" in src, "honour the pipeline's output dir"
+
+
+def test_every_substrate_case_in_step_07_covers_every_substrate():
+    """Step 07 dispatches on the substrate MORE THAN ONCE.
+
+    The build arm was wired for installer-cdd, but a second `case` further down
+    ("Discover output (per substrate)") was not. The d-i ISO built fine, then
+    the step died on `output_dir: unbound variable` and the pipeline reported
+    failure for an artifact that existed (2026-07-26). Checking only the first
+    case block is how this survived three rounds of fixes.
+    """
+    text = BUILD.read_text(encoding="utf-8")
+    blocks = []
+    idx = 0
+    while True:
+        i = text.find('case "${SOVEREIGN_OS_SUBSTRATE}" in', idx)
+        if i == -1:
+            break
+        end = text.index("\nesac", i) if "\nesac" in text[i:] else len(text)
+        blocks.append(text[i:text.index("esac", i)])
+        idx = i + 1
+    assert len(blocks) >= 2, "expected step 07 to dispatch on substrate more than once"
+    for n, blk in enumerate(blocks):
+        arms = {a for arm in re.findall(r"^\s+([a-z0-9|*-]+)\)", blk, re.M)
+                for a in arm.split("|")}
+        if "*" in arms:
+            continue  # a catch-all makes the block total
+        for sub in selectable_substrates():
+            assert sub in arms, (
+                f"step 07 substrate case #{n + 1} has no arm for {sub!r} and no "
+                f"catch-all; a selectable substrate falls through leaving its "
+                f"variables unset. arms: {sorted(arms)}"
+            )
+
+
+def test_the_cdd_output_dir_matches_the_other_substrates():
+    """_out must be the artifacts dir, not the build dir one level up."""
+    text = BUILD.read_text(encoding="utf-8")
+    blk = text[text.index("installer-cdd)"):text.index("  live-build)")]
+    code = "\n".join(l for l in blk.splitlines() if not l.lstrip().startswith("#"))
+    assert '_out="${SOVEREIGN_OS_BUILD_OUT}/output"' in code, (
+        "BUILD_OUT is build/<profile>; writing the ISO there instead of its "
+        "output/ subdir hides it from the flash panel"
+    )

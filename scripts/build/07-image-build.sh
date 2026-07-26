@@ -242,7 +242,11 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     fi
     # SOVEREIGN_OS_IMAGE_DIR is not exported until AFTER this case block, so
     # referencing it here is an "unbound variable" crash under `set -u`.
-    _out="${SOVEREIGN_OS_BUILD_OUT:-${SOVEREIGN_OS_ROOT}/build/${SOVEREIGN_OS_PROFILE}/output}"
+    # BUILD_OUT is build/<profile>; the artifacts dir is its output/ subdir,
+    # exactly as the mkosi and live-build arms compute it below. Using
+    # BUILD_OUT itself put the ISO one directory too high, where the flash
+    # panel never looks (2026-07-26).
+    _out="${SOVEREIGN_OS_BUILD_OUT}/output"
     mkdir -p "${_out}"
     require_command build-simple-cdd "sudo apt install simple-cdd — or run scripts/install/bootstrap-host.sh"
     _cdd="${SOVEREIGN_OS_ROOT}/scripts/build/installer-cdd/build.sh"
@@ -375,8 +379,12 @@ esac
 
 # Discover output (per substrate)
 case "${SOVEREIGN_OS_SUBSTRATE}" in
-  mkosi)      output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
-  live-build) output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;  # ISO moved here above
+  mkosi)         output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
+  live-build)    output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;  # ISO moved here above
+  installer-cdd) output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
+  # A substrate missing from THIS case left output_dir unset and the step
+  # died on "output_dir: unbound variable" AFTER building a good 1.2G ISO.
+  *)             output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
 esac
 
 if [ -d "${output_dir}" ] && [ -z "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
