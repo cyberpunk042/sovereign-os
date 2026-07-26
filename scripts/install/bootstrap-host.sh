@@ -20,6 +20,8 @@
 #      the zfs-tiered profile's preflight demands.
 #   4. Runs the operator-deps overlay (apt/pip/npm) — best-effort; a
 #      failure there is reported, not fatal to the host toolchain.
+#   5. Symlinks `sovereign-osctl` onto PATH (/usr/local/bin) so the verb
+#      this script's own output tells you to run actually exists.
 #
 # After this, `make preflight` passes and `make dry-run` / a real build
 # run with zero manual package steps.
@@ -72,7 +74,7 @@ fi
 say "${bold}sovereign-os · host bootstrap${reset}${DRY_RUN:+  ${yellow}(dry-run — nothing will change)${reset}}"
 
 # ── (1) enable apt components ────────────────────────────────────────
-step "[1/4] apt components (contrib · non-free · non-free-firmware)"
+step "[1/5] apt components (contrib · non-free · non-free-firmware)"
 # Robust, format-aware, idempotent rewrite in Python: handles both
 # one-line (deb …) and deb822 (.sources) styles, and ONLY Debian mirrors.
 components_changed=0
@@ -168,7 +170,7 @@ else
 fi
 
 # ── (2) apt update ───────────────────────────────────────────────────
-step "[2/4] refreshing package metadata"
+step "[2/5] refreshing package metadata"
 if [ "${components_changed}" = 1 ] || [ -n "${DRY_RUN}" ]; then
   run "DEBIAN_FRONTEND=noninteractive apt-get update"
 else
@@ -176,7 +178,7 @@ else
 fi
 
 # ── (3) build-host toolchain ─────────────────────────────────────────
-step "[3/4] build-host toolchain"
+step "[3/5] build-host toolchain"
 # Union of: kernel forge (01-bootstrap-forge) + image build + signing +
 # smoke test + ZFS userland. zfsutils-linux is the package the operator
 # hit head-first — it lands cleanly now that contrib is on.
@@ -238,7 +240,7 @@ fi
 run "'${__REPO_ROOT}/scripts/install/rust-toolchain.sh'${DRY_RUN:+ --dry-run}"
 
 # ── (4) operator-deps overlay (best-effort) ──────────────────────────
-step "[4/4] operator deps (apt/pip/npm overlay)"
+step "[4/5] operator deps (apt/pip/npm overlay)"
 if [ -n "${SKIP_OPERATOR_DEPS}" ]; then
   warn "skipped (BOOTSTRAP_SKIP_OPERATOR_DEPS set)"
 else
@@ -253,6 +255,28 @@ else
     warn "operator-deps returned non-zero — build-host toolchain is still complete."
     warn "  re-run just this layer later: python3 scripts/install/operator-deps.py --deps ${deps_toml} --apply --confirm"
   fi
+fi
+
+# ── (5) operator CLI on PATH ─────────────────────────────────────────
+# The header of this script promises a host ready to BUILD *and RUN*
+# sovereign-os — and running it means typing `sovereign-osctl`. Only
+# provision.sh linked the CLI, so an operator who ran THIS script (the one the
+# docs and this project's own error messages point at) got a complete toolchain
+# and then `sovereign-osctl: command not found` (reported 2026-07-26, while
+# trying to read a stalled box's logs as root). Symlink, not copy: an edit in
+# the working tree is instantly live, and there is no stale deployed copy to
+# drift (that drift is why link-operator-cli.sh exists at all).
+step "[5/5] operator CLI on PATH"
+if [ -x "${__REPO_ROOT}/scripts/install/link-operator-cli.sh" ]; then
+  if [ -n "${DRY_RUN}" ]; then
+    say "  ${cyan}dry-run\$${reset} ${__REPO_ROOT}/scripts/install/link-operator-cli.sh"
+  elif "${__REPO_ROOT}/scripts/install/link-operator-cli.sh"; then
+    ok "sovereign-osctl on PATH → $(command -v sovereign-osctl 2>/dev/null || echo /usr/local/bin/sovereign-osctl)"
+  else
+    warn "link-operator-cli returned non-zero — run sovereign-osctl via ${__REPO_ROOT}/scripts/sovereign-osctl"
+  fi
+else
+  warn "link-operator-cli.sh missing — use ${__REPO_ROOT}/scripts/sovereign-osctl directly"
 fi
 
 # ── report ───────────────────────────────────────────────────────────

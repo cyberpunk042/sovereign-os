@@ -21,6 +21,11 @@ EnvironmentFile=-/etc/sovereign-os/open-computer.env
 # SDD-707: the hosted-Claude key (only used when backend=anthropic; operator-supplied, never baked).
 EnvironmentFile=-/etc/sovereign-os/anthropic-key.env
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# Same fix as sovereign-jobs-api: ReadWritePaths=/var/lib/sovereign-os/open-computer
+# is mandatory (no `-` prefix), so systemd must CREATE the directory or every
+# start dies at "Failed to set up mount namespacing" and Restart=on-failure
+# loops on it. See sovereign-openclaw.service for the reference shape.
+StateDirectory=sovereign-os/open-computer
 ExecStart=/usr/local/lib/sovereign-os/scripts/operator/open-computer-run.sh
 Restart=on-failure
 RestartSec=10

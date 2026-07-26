@@ -537,6 +537,17 @@ if [ "${SOVEREIGN_OS_UPS:-}" = "1" ]; then
     for u in nut-server nut-monitor nut-driver-enumerator; do
       mkdir -p "/etc/systemd/system/${u}.service.d"
       printf '[Unit]\n# no UPS in a guest — skip cleanly (real SAIN-01 detects + enables at first boot)\nConditionVirtualization=no\n' > "/etc/systemd/system/${u}.service.d/10-sovereign-vm-skip.conf"
+      # …and on REAL hardware, not until a device stanza exists. The ups.conf
+      # written just above is globals-only BY DESIGN — ups-apc-setup writes the
+      # device at first boot once it has detected the transport. upsd/upsmon
+      # cannot start without a device, so they exited 1, hit the 5-restart
+      # limit, and reported "Start request repeated too quickly" on the
+      # operator's first boot (2026-07-26) — three failed units for a UPS that
+      # simply had not been probed yet. ups-apc-setup drops this marker when it
+      # writes a real stanza; until then these stay cleanly inactive rather
+      # than failed.
+      printf '[Unit]\n# gate on a DETECTED ups (ups-apc-setup writes this marker)\nConditionPathExists=/var/lib/sovereign-os/ups-configured\n' \
+        > "/etc/systemd/system/${u}.service.d/20-sovereign-needs-device.conf"
     done
     log "NUT base laid down (apc_modbus/usbhid-ups; standalone, loopback :${SOVEREIGN_OS_NUT_LISTEN_PORT:-3493}); ups-apc-setup detects the transport at first boot"
   else

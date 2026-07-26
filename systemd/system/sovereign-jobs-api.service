@@ -13,6 +13,17 @@ Wants=sovereign-gatewayd.service
 [Service]
 Type=simple
 WorkingDirectory=/usr/local/lib/sovereign-os
+# systemd CREATES /var/lib/sovereign-os/jobs before the namespace is built.
+# Without this, ReadWritePaths=/var/lib/sovereign-os/jobs (no `-` prefix, so
+# mandatory) referenced a directory nothing ever made, and every start died at
+#   "Failed to set up mount namespacing: /var/lib/sovereign-os/jobs:
+#    No such file or directory"
+# then Restart=on-failure/RestartSec=3 retried FOREVER — ~130 failed starts
+# dominated the first-boot journal and buried every other error (operator's
+# flashed box, 2026-07-26). sovereign-openclaw.service already had the right
+# shape (StateDirectory=sovereign-os/openclaw); this unit and
+# sovereign-open-computer.service were the two that missed it.
+StateDirectory=sovereign-os/jobs
 # SOVEREIGN_OS_JOBS_TOKEN gates the jobs API when provisioned (written by
 # `sovereign-osctl setup set` / the Setup pane; integrations.yaml → jobs.env).
 EnvironmentFile=-/etc/sovereign-os/jobs.env

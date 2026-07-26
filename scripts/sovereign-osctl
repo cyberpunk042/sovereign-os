@@ -5960,7 +5960,8 @@ cmd_install() {
         # `|| true`: the image is already written and synced. NVRAM registration
         # is a convenience on top — it must never turn a good flash into ✗ exit 1.
         install_register_boot_entry "${device}" || true
-        log_info "done. consider 'sovereign-osctl install verify --to ${device}' (future) before unplugging."
+        log_info "done. after booting it, read its logs from HERE with:"
+        log_info "  sovereign-osctl install logs --from ${device}"
       else
         log_error "dd not available; cannot proceed"
         return 1
@@ -6089,6 +6090,7 @@ sovereign-osctl install — operator-side image deployment
 USAGE:
   sovereign-osctl install image  [--plan] <image-path> --to <device>
   sovereign-osctl install system [--plan] --to <disk> [--headless] [--profile <id>]
+  sovereign-osctl install logs   --from <disk>            (read-only, no writes)
 
 GATES (every byte-writing path must pass ALL):
   • image exists + non-empty + regular file
@@ -6102,6 +6104,14 @@ run, writes nothing. Recommended first step.
 
 image  — whole-disk dd of the immutable mkosi APPLIANCE onto <device>.
          Wipes the whole disk; does NOT keep /home. Boots by auto-discovery.
+
+logs   — READ the last boot off a flashed disk, from this host. Mounts its
+         root READ-ONLY (ro,noload — the ext4 journal is never replayed, so
+         the disk is not modified) and prints the first-boot markers, the
+         /var/log/sovereign-os logs, and the failed units + errors from the
+         image's PERSISTENT journal. Use it when a flashed box stalls during
+         boot and you would otherwise have to go type on its console.
+         Refuses the running root. Needs root only for the mount.
 
 system — install the MUTABLE sovereign-os SYSTEM (Debian 13 + custom znver5
          kernel + KDE; apt works, modules toggle) into the target disk's
@@ -6121,6 +6131,123 @@ EXAMPLES:
   SOVEREIGN_OS_CONFIRM_DESTROY=YES \\
     sudo -E sovereign-osctl install system --to /dev/nvme1n1
 EOF
+      ;;
+
+    logs)
+      # READ the last boot off a FLASHED disk, from the build host.
+      #
+      # Why (operator, 2026-07-26): the flashed NVMe stalled during first boot
+      # and the only way to see why was to walk to the box and type on a tty.
+      # The logs were on the disk the whole time — the image ships a PERSISTENT
+      # journal (/var/log/journal exists) — but nothing could read them from
+      # here. "lets make the install allow us to read it."
+      #
+      # STRICTLY read-only. Mounted `ro,noload`: without noload, an ext4 mount
+      # REPLAYS the journal and writes to a filesystem we are only inspecting —
+      # which would mutate the very evidence, and dirty a disk the operator may
+      # still want to boot. Never mounts the running root (hard refusal).
+      local device="" want_json=0
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --from|--to) device="${2:-}"; shift 2 ;;
+          --json)      want_json=1; shift ;;
+          -*)          log_error "unknown install logs flag: $1"; return 2 ;;
+          *)           device="${1}"; shift ;;
+        esac
+      done
+      if [ -z "${device}" ]; then
+        log_error "usage: sovereign-osctl install logs --from <disk>"
+        return 2
+      fi
+      [ -b "${device}" ] || { log_error "not a block device: ${device}"; return 1; }
+      local root_src root_parent dev_basename
+      dev_basename="$(basename "${device}")"
+      root_src="$(findmnt -n -o SOURCE / 2>/dev/null || echo unknown)"
+      root_parent="$(lsblk -no PKNAME "${root_src}" 2>/dev/null | head -1 || echo unknown)"
+      if [ "${device}" = "${root_src}" ] || [ "${dev_basename}" = "${root_parent}" ]; then
+        log_error "${device} IS the running root — read its logs with journalctl, not this verb"
+        return 1
+      fi
+
+      # Locate the root partition BY TYPE, never by number.
+      local rootpart="" part
+      for part in $(lsblk -ln -o NAME "${device}" 2>/dev/null | tail -n +2); do
+        case "$(lsblk -no PARTTYPENAME "/dev/${part}" 2>/dev/null)" in
+          "Linux root"*|"Linux filesystem") rootpart="/dev/${part}"; break ;;
+        esac
+      done
+      [ -n "${rootpart}" ] || { log_error "no Linux root partition found on ${device}"; return 1; }
+
+      local mnt; mnt="$(mktemp -d /tmp/sovereign-logs.XXXXXX)"
+      # shellcheck disable=SC2064
+      trap "sudo umount '${mnt}' 2>/dev/null || true; rmdir '${mnt}' 2>/dev/null || true" RETURN
+      if ! sudo mount -o ro,noload "${rootpart}" "${mnt}" 2>/dev/null; then
+        log_error "could not mount ${rootpart} read-only (needs root)"
+        return 1
+      fi
+      log_info "reading ${rootpart} (read-only, journal NOT replayed)"
+      echo
+
+      echo "── first-boot markers ──"
+      if sudo test -d "${mnt}/var/lib/sovereign-os"; then
+        sudo ls -1 "${mnt}/var/lib/sovereign-os" 2>/dev/null | sed 's/^/  /' || true
+        for m in first-boot-complete bake-gui-failed; do
+          sudo test -f "${mnt}/var/lib/sovereign-os/${m}" && \
+            echo "  ${m}: $(sudo cat "${mnt}/var/lib/sovereign-os/${m}" 2>/dev/null)"
+        done
+      else
+        echo "  (none — first boot never wrote /var/lib/sovereign-os)"
+      fi
+      echo
+
+      echo "── sovereign logs (/var/log/sovereign-os) ──"
+      local n=0
+      for f in $(sudo find "${mnt}/var/log/sovereign-os" -maxdepth 1 -type f 2>/dev/null | sort); do
+        n=$((n+1)); echo "  ── $(basename "${f}") ──"
+        sudo tail -n "${SOVEREIGN_OS_LOG_TAIL:-60}" "${f}" 2>/dev/null | sed 's/^/    /'
+      done
+      [ "${n}" -eq 0 ] && echo "  (empty)"
+      echo
+
+      echo "── failed units + errors (persistent journal) ──"
+      if sudo test -d "${mnt}/var/log/journal"; then
+        local jargs=(-D "${mnt}/var/log/journal" --no-pager)
+        echo "  · units that FAILED:"
+        sudo journalctl "${jargs[@]}" -b -0 -p err -o cat 2>/dev/null \
+          | grep -iE "failed to start|failed with result|start request repeated" \
+          | sort -u | sed 's/^/    /' | head -40 || true
+        echo "  · all errors this boot (tail):"
+        sudo journalctl "${jargs[@]}" -b -0 -p err -o short-monotonic 2>/dev/null \
+          | tail -n "${SOVEREIGN_OS_LOG_TAIL:-60}" | sed 's/^/    /' || true
+        # WHY each unit failed — the list of names alone sent the last round
+        # back to guessing from unit files (2026-07-26). Print each failed
+        # unit's own log lines; that is the whole point of reading the disk.
+        echo "  · why each failed unit failed:"
+        local failed_units u
+        failed_units="$(sudo journalctl "${jargs[@]}" -b -0 -o cat 2>/dev/null \
+          | grep -oE "Failed to start [a-z0-9@._-]+\.service" \
+          | sed 's/^Failed to start //' | sort -u || true)"
+        if [ -z "${failed_units}" ]; then
+          echo "    (none)"
+        else
+          for u in ${failed_units}; do
+            echo "    ── ${u} ──"
+            sudo journalctl "${jargs[@]}" -b -0 -u "${u}" -o cat 2>/dev/null \
+              | grep -vE "^(Starting|Started|Stopping|Stopped) " \
+              | tail -n "${SOVEREIGN_OS_UNIT_TAIL:-6}" | sed 's/^/      /' || true
+          done
+        fi
+        echo "  · slowest units (what stalled the boot):"
+        sudo journalctl "${jargs[@]}" -b -0 -o cat 2>/dev/null \
+          | grep -oE "Startup finished.*|Job .* running \(.*\)" | tail -10 | sed 's/^/    /' || true
+      else
+        echo "  no persistent journal on this root — the image must ship"
+        echo "  /var/log/journal (it does by default) and have booted far enough to write it."
+      fi
+      # `|| true`: a bare `[ … ]` as the last command of the case makes the
+      # whole verb exit 1 under `set -e` when the test is false — a successful
+      # read reported as a failure (2026-07-26, same class as the boot-entry bug).
+      [ "${want_json}" -eq 1 ] && log_warn "--json not implemented yet; printed human output" || true
       ;;
 
     suggest-modules)

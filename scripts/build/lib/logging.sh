@@ -11,7 +11,11 @@ if [ -n "${__SOVEREIGN_OS_LOG_LIB_LOADED:-}" ]; then
 fi
 __SOVEREIGN_OS_LOG_LIB_LOADED=1
 
-: "${SOVEREIGN_OS_LOG_DIR:=${HOME}/.sovereign-os/log}"
+# ${HOME:-/root} — see scripts/build/lib/state.sh for the full story. Here the
+# empty expansion was even quieter: HOME="" made the path "/.sovereign-os/log",
+# which under ProtectSystem=strict is a READ-ONLY filesystem, so every log write
+# failed with "Read-only file system" instead of an unbound-variable error.
+: "${SOVEREIGN_OS_LOG_DIR:=${HOME:-/root}/.sovereign-os/log}"
 : "${SOVEREIGN_OS_LOG_FILE:=${SOVEREIGN_OS_LOG_DIR}/build-$(date -u +%Y%m%dT%H%M%SZ).jsonl}"
 : "${SOVEREIGN_OS_LOG_LEVEL:=info}"   # debug | info | warn | error
 

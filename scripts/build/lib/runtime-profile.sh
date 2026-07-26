@@ -27,7 +27,7 @@ runtime_profile_active_file() {
   local active_id="${SOVEREIGN_OS_RUNTIME_PROFILE:-}"
   if [ -z "${active_id}" ]; then
     for cand in "/etc/sovereign-os/active-runtime-profile" \
-                "${HOME}/.sovereign-os/active-runtime-profile"; do
+                "${HOME:-/root}/.sovereign-os/active-runtime-profile"; do
       if [ -r "${cand}" ]; then
         active_id="$(cat "${cand}")"
         break

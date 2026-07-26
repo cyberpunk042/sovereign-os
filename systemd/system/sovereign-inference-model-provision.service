@@ -41,7 +41,16 @@ RestrictRealtime=true
 RestrictSUIDSGID=true
 RestrictNamespaces=true
 LockPersonality=true
-ReadWritePaths=/mnt/vault/models /etc/sovereign-os /var/lib/node_exporter/textfile_collector
+# `-` prefix on /mnt/vault/models: that path lives on the ZFS TANK POOL,
+# which is created at INSTALL time on the target — it does not exist on a
+# freshly flashed appliance. Without the prefix systemd treats it as
+# mandatory, fails to build the mount namespace, and the unit dies at
+# step NAMESPACE (status=226) before its script can decide anything:
+#   "Failed to set up mount namespacing: /mnt/vault/models: No such file
+#    or directory"  (operator's first boot, 2026-07-26)
+# The script already handles a missing pool; it just never got to run.
+ReadWritePaths=-/mnt/vault/models
+ReadWritePaths=/etc/sovereign-os /var/lib/node_exporter/textfile_collector
 NoNewPrivileges=true
 PrivateTmp=true
 

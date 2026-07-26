@@ -42,7 +42,15 @@ emit_install_metric() {
 
 # ---- idempotency: a running ≥570 driver means we're done ----
 if command -v nvidia-smi >/dev/null 2>&1; then
-  cur="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | cut -d. -f1)"
+  # `|| true` is load-bearing. nvidia-smi EXISTS whenever the nvidia userland is
+  # installed, but exits non-zero (9) when the kernel module never bound — which
+  # is exactly the situation this script is here to FIX. Under `set -o pipefail`
+  # that status propagated out of the command substitution and `set -e` aborted
+  # the installer at its own idempotency check, so the ≥570 driver could never
+  # be installed on the very hardware that needs it (operator's Blackwell box,
+  # 2026-07-26: "probe with driver nvidia failed with error -1", then this
+  # script died with exit 9). An unreadable current version means "not current".
+  cur="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | cut -d. -f1)" || true
   if [ -n "${cur}" ] && [ "${cur}" -ge "${MIN_MAJOR}" ] 2>/dev/null; then
     log_info "nvidia driver ${cur}.x already active (≥${MIN_MAJOR}); nothing to install"
     emit_install_metric already-current

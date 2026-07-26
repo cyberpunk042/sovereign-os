@@ -148,6 +148,15 @@ _write_ups_conf() {   # $1=driver $2=key=val ...  (extra driver lines)
 
 # ── (re)start the NUT stack and confirm the driver talks ───────────────────
 _nut_apply() {
+  # Drop the marker the baked drop-ins gate on FIRST. The image ships
+  # nut-server/nut-monitor/nut-driver-enumerator with
+  # ConditionPathExists=/var/lib/sovereign-os/ups-configured, so they stay
+  # cleanly INACTIVE on a box whose UPS has not been probed yet, instead of
+  # exiting 1 five times and reporting "Start request repeated too quickly"
+  # (operator's first boot, 2026-07-26 — three failed units for a UPS that had
+  # simply not been detected). A device stanza exists by the time we get here.
+  mkdir -p /var/lib/sovereign-os 2>/dev/null || true
+  date -u --iso-8601=seconds > /var/lib/sovereign-os/ups-configured 2>/dev/null || true
   # Debian: nut-driver-enumerator reads ups.conf → creates nut-driver@<name>.
   systemctl restart nut-driver-enumerator.service 2>/dev/null || true
   systemctl restart nut-server.service            2>/dev/null || true

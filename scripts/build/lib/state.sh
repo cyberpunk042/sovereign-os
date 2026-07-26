@@ -20,7 +20,16 @@ __SOVEREIGN_OS_STATE_LIB_LOADED=1
 # Environment-overridable state location. Default lives in the
 # operator's home so a crash + restart doesn't lose progress when the
 # build tree is cleaned.
-: "${SOVEREIGN_OS_STATE_DIR:=${HOME}/.sovereign-os/build-state}"
+# ${HOME:-/root}, NOT ${HOME}. systemd sets $HOME only when a unit declares
+# User=; these libs are sourced by ~10 sovereign-*.service units that run as
+# root WITHOUT User=, so $HOME was unset and `set -u` killed them at this line:
+#   "state.sh: line 23: HOME: unbound variable"
+# That single expansion failed memory-janitor, memory-observe,
+# memory-pressure-sample, power-shutdown-guard, session-reaper,
+# tetragon-install, thermal-watch, wattage-sample and wattage-heat-trend on the
+# operator's first boot (2026-07-26). /root matches where a root-run build
+# already puts its state (/root/.sovereign-os/build-state).
+: "${SOVEREIGN_OS_STATE_DIR:=${HOME:-/root}/.sovereign-os/build-state}"
 : "${SOVEREIGN_OS_STATE_FILE:=${SOVEREIGN_OS_STATE_DIR}/state.yaml}"
 : "${SOVEREIGN_OS_BUILD_ID:=$(date -u +%Y%m%dT%H%M%SZ)}"
 

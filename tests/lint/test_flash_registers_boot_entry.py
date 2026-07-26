@@ -41,7 +41,7 @@ def test_install_image_registers_a_boot_entry():
     )
     # it must actually be CALLED on the image-flash path, after the sync
     dump = body[body.index("image dump complete"):]
-    dump = dump[:dump.index("install verify")]
+    dump = dump[:dump.index("install logs --from")]
     assert "install_register_boot_entry" in dump, (
         "the helper must be invoked after the flash completes, or it is dead code"
     )
@@ -123,7 +123,7 @@ def test_registration_cannot_fail_the_flash():
         )
 
     body = OSCTL.read_text(encoding="utf-8")
-    call = body[body.index("sudo sync"):body.index("install verify")]
+    call = body[body.index("sudo sync"):body.index("install logs --from")]
     assert "install_register_boot_entry \"${device}\" || true" in call, (
         "the call site must be `|| true` — the image is already written, so a "
         "NVRAM hiccup must never report a failed flash"
