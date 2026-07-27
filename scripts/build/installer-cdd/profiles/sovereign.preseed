@@ -37,24 +37,45 @@ d-i passwd/user-password-again password sovereign
 d-i user-setup/allow-password-weak boolean true
 d-i user-setup/encrypt-home boolean false
 
-### Partitioning — SAFETY FIRST: pick an internal disk that is NOT the running
-### OS disk (never nvme0n1 here). Prefer the second NVMe, else the first non-boot
-### disk. Then a clean LVM: ESP + root + home.
-d-i partman/early_command string \
-  RUNDISK="$(list-devices disk | head -1)"; \
-  TGT=""; \
-  for d in $(list-devices disk); do \
-    case "$d" in *nvme0n1) continue;; esac; \
-    TGT="$d"; break; \
-  done; \
-  [ -n "$TGT" ] || TGT="$(list-devices disk | grep -v nvme0n1 | head -1)"; \
-  debconf-set partman-auto/disk "$TGT"; \
-  debconf-set grub-installer/bootdev "$TGT"
+### Partitioning — the disk picker below is DISABLED.
+###
+### It hardcoded "skip nvme0n1" on the assumption that nvme0n1 was the running
+### OS. That assumption expired: nvme0n1 is now the sovereign-os TARGET and the
+### operator's working Debian is nvme1n1 (root=/dev/nvme1n1p2, S7U7NU1YA16121D).
+### The rule therefore selected exactly the disk it was written to protect.
+###
+### A device name is not an identity. If this is ever re-enabled it must exclude
+### the RUNNING system by discovering it (the disk holding /target's parent, or
+### by serial), never by hardcoding a name. Until then d-i asks the operator,
+### which is what default.preseed already does (2026-07-27).
+### d-i partman/early_command string \
+###   RUNDISK="$(list-devices disk | head -1)"; \
+###   TGT=""; \
+###   for d in $(list-devices disk); do \
+###     case "$d" in *nvme0n1) continue;; esac; \
+###     TGT="$d"; break; \
+###   done; \
+###   [ -n "$TGT" ] || TGT="$(list-devices disk | grep -v nvme0n1 | head -1)"; \
+###   debconf-set partman-auto/disk "$TGT"; \
+###   debconf-set grub-installer/bootdev "$TGT"
+### ### DESTRUCTIVE CONFIRMATIONS ARE DELIBERATELY NOT PRESEEDED.
+### ### This file previously answered all eight of them (partman/confirm,
+### ### confirm_nooverwrite, confirm_write_new_label, device_remove_lvm,
+### ### device_remove_md, choose_partition=finish, ...) which makes the install
+### ### UNATTENDED: it repartitions whatever disk it picked without a prompt.
+### ###
+### ### Combined with the partman/early_command below that is a live hazard. That
+### ### command skips nvme0n1 and takes the NEXT disk. When it was written nvme0n1
+### ### was the running OS; today nvme0n1 is the sovereign-os TARGET and nvme1n1 is
+### ### the operator's working Debian (root=/dev/nvme1n1p2, S7U7NU1YA16121D). So if
+### ### this file ever became live -- it is currently inert, loaded only via the
+### ### simple-cdd-profiles udeb that silently no-ops -- it would wipe the working
+### ### system with no confirmation at all (2026-07-27).
+### ###
+### ### default.preseed, the file that actually runs, preseeds NONE of these and
+### ### stops for the disk pick and every destructive write. This one now matches.
+### ### Re-adding them is an explicit operator decision, not a default.
 d-i partman-auto/method string lvm
-d-i partman-lvm/device_remove_lvm boolean true
-d-i partman-md/device_remove_md boolean true
-d-i partman-lvm/confirm boolean true
-d-i partman-lvm/confirm_nooverwrite boolean true
 d-i partman-auto-lvm/new_vg_name string sovereign
 d-i partman-auto/choose_recipe select sovereign-lvm
 d-i partman-auto/expert_recipe string                                   \
@@ -75,10 +96,6 @@ d-i partman-auto/expert_recipe string                                   \
                       use_filesystem{ } filesystem{ ext4 }               \
                       mountpoint{ /home }                                \
               .
-d-i partman-partitioning/confirm_write_new_label boolean true
-d-i partman/choose_partition select finish
-d-i partman/confirm boolean true
-d-i partman/confirm_nooverwrite boolean true
 
 ### Base + KDE desktop (offline, from the CD)
 tasksel tasksel/first multiselect kde-desktop
