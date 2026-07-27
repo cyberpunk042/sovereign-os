@@ -62,8 +62,55 @@ if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
   iso="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 -name '*.iso' -type f 2>/dev/null | head -1)"
   if [ -n "${iso}" ] && [ -s "${iso}" ]; then
     log_info "artifact=installer — ISO present ($(du -h "${iso}" | cut -f1)): ${iso}"
-    log_info "  QEMU disk-boot smoke does not apply to the ISO; validate by booting it"
-    log_info "  under UEFI (OVMF) or flashing it to USB and booting."
+
+    # PRESENCE IS NOT CORRECTNESS. Two properties are cheap to check here and
+    # expensive to discover later: whether the thing can boot at all, and
+    # whether it carries the preseed this tree currently defines. Both were
+    # only caught at FLASH time, which is after the operator has already
+    # decided the build succeeded (2026-07-27).
+    _v_fail=0
+    if command -v xorriso >/dev/null 2>&1; then
+      _eltorito="$(xorriso -indev "${iso}" -report_el_torito plain 2>/dev/null \
+                     | grep -c "El Torito boot img" || true)"
+      _eltorito="${_eltorito%%$'\n'*}"; _eltorito="${_eltorito:-0}"
+      if [ "${_eltorito}" -ge 2 ]; then
+        log_info "  bootable: ${_eltorito} El Torito images (BIOS + UEFI)"
+      elif [ "${_eltorito}" -ge 1 ]; then
+        log_warn "  only ${_eltorito} El Torito image — UEFI boot may be missing"
+      else
+        log_error "  NOT BOOTABLE: no El Torito boot image on the ISO"
+        _v_fail=1
+      fi
+
+      # The ISO embeds its own preseed; compare the two settings whose absence
+      # produced the dark-screen install and the shipped credential.
+      _pd="$(mktemp -d)"
+      if xorriso -osirrox on -indev "${iso}" \
+           -cpx /simple-cdd/default.preseed "${_pd}/p" >/dev/null 2>&1; then
+        _repo="${SOVEREIGN_OS_ROOT}/scripts/build/installer-cdd/profiles/default.preseed"
+        for _k in "debian-installer/add-kernel-opts" "passwd/root-password"; do
+          _a="$(grep -c "^d-i ${_k}" "${_pd}/p" 2>/dev/null | head -1)"; _a="${_a:-0}"
+          _b="$(grep -c "^d-i ${_k}" "${_repo}" 2>/dev/null | head -1)"; _b="${_b:-0}"
+          if [ "${_a}" != "${_b}" ]; then
+            log_error "  ISO preseed disagrees with the repo on '${_k}' (iso=${_a} repo=${_b})"
+            _v_fail=1
+          fi
+        done
+      fi
+      rm -rf "${_pd}"
+    else
+      log_warn "  xorriso unavailable — cannot verify bootability or preseed vintage"
+    fi
+
+    if [ "${_v_fail}" -ne 0 ]; then
+      log_error "  do NOT flash this ISO — rebuild first"
+      emit_metric sovereign_os_build_step_image_verify_total 1 \
+        "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+      state_step_fail "${STEP_ID}" "installer-iso-unusable"
+      exit 1
+    fi
+
+    log_info "  validate the full install by booting it under UEFI (OVMF) or from USB."
     emit_metric sovereign_os_build_step_image_verify_total 1 \
       "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"skip-installer\""
     exit 0
