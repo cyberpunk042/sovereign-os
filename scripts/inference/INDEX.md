@@ -26,6 +26,10 @@ Direct-stack architecture per SDD-011 (Q-017 resolution path).
 
 Each implements a small adapter contract (`lib/backend.py`).
 
+## ChromoFold fold measurement (SDD-400/401/402)
+
+[`chromofold-fold-bench.py`](chromofold-fold-bench.py) — READ-ONLY measurement of ChromoFold's weight-fold techniques against a **real** quantized MoE expert bank, answering the question SDD-401/402 sized from ChromoFold's *synthetic* benches (which disagree 3× between themselves). Modes: `heat` (routing concentration from Colibri's `.coli_usage`), `entropy` (the M6 block-Huffman lane — H0/H1 of the int4 symbol stream + the `block`-size trade), `group` (the M20/M21 grouped-delta lane, index- and permutation-aligned), `rank` (within-expert SVD spectrum). Pure numpy, no GPU/CUDA/`libchromofold`; honest-degrades exit-3 when the container or the Warp checkout is absent. Measured 2026-07-27 on GLM-5.2 int4: entropy lane **1.350× lossless** (358 GB → 266 GB, the fit that makes VRAM+RAM residency possible), grouping lane **0.99×** (does not pay). Full record: [`docs/evaluations/chromofold-fold-measurement-glm52-2026-07-27.md`](../../docs/evaluations/chromofold-fold-measurement-glm52-2026-07-27.md).
+
 ## Why no unifying abstraction (vs LocalAI)
 
 Per SDD-011: SAIN-01's value is per-tier hardware exploitation. The router speaks OpenAI but routes deterministically; backends remain operator-readable + observable.

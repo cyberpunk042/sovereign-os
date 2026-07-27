@@ -261,6 +261,22 @@ predict — a spec-decode draft is an internal, not an operator query).
   depends on it) — the first non-self consumer, the genuine "integrated, not just present" milestone. Additive:
   `DocStore`/`Bm25Store` and every existing retrieval test are unchanged (66 pass).
 
+**Engine-state correction (2026-07-27).** This SDD's Mission section describes `../chromoFold` as
+*"specified, pre-implementation (M0/M1 roadmap; `src/cuda/*.cu` + benchmarks are the skeleton)"*. That
+is **stale**: the resident checkout carries milestone makefiles through **m21** plus
+`multigpu_cuda_runtime.h`, `production_scheduler.h`, `device_kv_dataplane.h`,
+`disaggregated_serving.h`, `adaptive_compression.h`, `qualification.h`. Much of the device-resident
+control plane later SDDs propose designing may already exist upstream — an inventory pass is owed
+before further design. The drift runs both ways: ChromoFold's own M21 doc still records
+*"SDD-401/402 are not yet written"* (they were, 2026-07-25). The stable C ABI has **not** moved,
+however: `abi_version: 0`, 11 capabilities, and `grep -n matmul include/chromofold/*.h` is still empty.
+
+**Weight-fold ratios measured (2026-07-27)** — see
+[chromofold-fold-measurement-glm52-2026-07-27.md](../evaluations/chromofold-fold-measurement-glm52-2026-07-27.md).
+Bears on the later weight lane, not on Lane A (search), which is unaffected: the block-Huffman
+entropy fold is **1.350× lossless** on a real GLM-5.2 int4 expert bank, while the grouped-delta /
+super-elastic lane returns **0.99×** and should not be pursued for MoE weights.
+
 > Note (resolved): the pre-existing F-2026-070 :8139 networking-triplet port collision that had blocked
 > `master-dashboard render` was fixed by the same merge that landed the parallel work — the full
 > panel/dashboard/systemd sweep is now green. ChromoFold's route (:8147) was never involved.

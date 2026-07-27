@@ -63,6 +63,33 @@ extern "C" cf_status cf_dense_matmul_async(
 - **Off-by-default end to end** — inherited from SDD-401; a box without ChromoFold / GPU / `libchromofold` behaves byte-identically to today, and `unsafe` stays quarantined in `sovereign-chromofold-sys` behind `linked`.
 - **Naming**: the spec recommends **promoting the existing names** (`cf_fused_matmul_async` / `cf_dense_matmul_async`) rather than the placeholder `cf_gemm_decode_async` SDD-401 Q-401-A sketched — they already carry the right shape, `cf_status` return, and `stream` arg, so promotion is lower-churn than a rename. (Open sub-question Q-402-A below.)
 
+## Measured on real weights (2026-07-27) — the contract validated, with one correction
+
+The fold ratios this SDD was written against came from ChromoFold's **synthetic** benches, which
+disagree 3× between themselves. The first measurement on a **real** MoE expert bank
+(`/nvme/glm52_i4`, GLM-5.2 int4, 201M weights) is now recorded in
+[chromofold-fold-measurement-glm52-2026-07-27.md](../evaluations/chromofold-fold-measurement-glm52-2026-07-27.md).
+Summary as it bears on this contract:
+
+- **The `cf_fused_matmul_async` / `cf_bh_decode_at` lane is confirmed worth exporting** —
+  **1.350× lossless** (2.9619 b/w aggregate), stable across layers 7–60 and both roles. It takes the
+  358 GB expert bank to **266 GB**, which is the difference between not fitting and fitting SAIN-01's
+  VRAM+RAM. And `H1 == H0` to four decimals: a **static** canonical Huffman table hits the entropy
+  floor, so the in-kernel decode needs no adaptive state — the cheapest possible `cf_bh_decode_at`.
+- **Correction to §2's argument semantics — `block` is not a free parameter.** With one shared `lut`
+  and a 32-bit `block_off` per block, small blocks destroy the win: `block=64` → 1.155×,
+  `block=256` → 1.296×, `block=4096` → 1.345×. With **per-block tables** instead of a shared LUT,
+  `block=64` measures **0.935× — it expands the data.** The contract must therefore (a) require
+  `block ≥ 1024`, and (b) state explicitly that **coding granularity (one shared LUT per tensor) is
+  decoupled from addressing granularity (`block_off`)**. Added as **Q-402-E**.
+- **The "10.6× weight VRAM" headline should be retired** — it is an fp16 comparison. Against the int4
+  container sovereign-os actually holds, the measured lossless gain is **1.35×**. The capacity case
+  survives, but at a third of the advertised size.
+- **The M20/M21 grouped-delta lane does not pay on a trained MoE bank** (0.99× vs coding each expert
+  alone; cross-expert `corrcoef ≈ 0.0007`; no permutation alignment; within-expert effective rank
+  1227/2048). A multi-layer `cf_grouped_matmul_async` (M21's proposed extension of this contract)
+  should **not** be pursued for MoE weights. Adapter libraries and tied layers remain a real target.
+
 ## Open questions (ChromoFold-side / cross-repo)
 
 | Q | Question | Recommendation |
@@ -71,6 +98,7 @@ extern "C" cf_status cf_dense_matmul_async(
 | Q-402-B | ABI-version bump (0→1) additive, or a parallel `chromofold_compute.h` split like `chromofold_search.h`? | **Additive bump in `chromofold.h`** — the KV compute entries already live there; keep the compute surface together. |
 | Q-402-C | Block-Huffman format stability: is the `words/block_off/lut/maxlen/block` layout frozen, or still moving? A moving format can't be a stable ABI. | ChromoFold to confirm the format is frozen at ABI v1 (the sovereign `QuantMatrix` producer must emit exactly this layout — a phase-5 marshalling concern, Q-401-D). |
 | Q-402-D | Does the fused kernel accept the same `QuantMatrix` block layout sovereign already produces, or is a transcode needed at upload? | Determine at phase-5 marshalling; if a transcode is needed it is upload-once (resident), per SDD-401 Q-401-D. |
+| Q-402-E | **(new, 2026-07-27, measurement-driven)** Does the contract pin `block ≥ 1024` and decouple coding granularity (one shared `lut` per tensor) from addressing granularity (`block_off`)? | **Yes — required.** Measured: `block=64` costs >40% of the ratio with a shared LUT, and **expands the data (0.935×)** with per-block tables. Without this the export contract can ship a configuration that is worse than storing the weights uncompressed. |
 
 ## Cross-references
 

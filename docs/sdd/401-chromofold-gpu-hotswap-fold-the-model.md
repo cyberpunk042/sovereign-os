@@ -89,6 +89,20 @@ Honest consequence: the **KV fold and embedding fold are wireable now**; the **w
 - **Bit-exact conformance**: `gpu_fold_with_reference_backend_is_bit_exact_with_cpu` proves that `GpuFold` + a reference backend running the same attention math is byte-identical to the CPU path — the seam plumbs identical inputs, so a real GPU backend need only match this oracle (the fused compressed-residency path, `cf_kv_attn_fused_async`, is the SAIN-gated follow-on; this dense seam is its correctness floor).
 - **Verified**: `cargo test -p sovereign-mha-block` (47 pass, incl. 4 new seam tests) + `cargo clippy -D warnings` + `cargo fmt --check` clean; dependents (`sovereign-decoder-layer`/`-stack`, `sovereign-quant-model`/`-llm`) `cargo check` clean (additive API); `tests/lint/test_gpu_fold_kv_seam_contract.py` (4) pins the seam + the honest-degrade property.
 
+**Phase-5 target measured on real weights (2026-07-27).** The fold ratios this SDD assumed came from
+ChromoFold's synthetic benches. The first measurement against a real MoE expert bank is recorded in
+[chromofold-fold-measurement-glm52-2026-07-27.md](../evaluations/chromofold-fold-measurement-glm52-2026-07-27.md):
+the **weight fold is worth 1.350× lossless** (not the 10.6× headline, which is an fp16 comparison) —
+enough to take GLM-5.2's 358 GB expert bank to 266 GB and make it VRAM+RAM-resident, which is the
+win phase 5 is actually for. Two corrections to the plan above: the **grouped-delta/super-elastic
+lane does not pay on a trained MoE bank** (0.99×; cross-expert `corrcoef ≈ 0`; no permutation
+alignment), so phase 5 should bind only the block-Huffman decode-in-GEMM entries; and the `block`
+argument must be ≥ 1024 (SDD-402 Q-402-E) or the fold expands the data. Also stale in this SDD's
+framing: ChromoFold is **not** "pre-implementation" — the checkout carries milestones through m21
+plus `multigpu_cuda_runtime.h`, `production_scheduler.h`, `device_kv_dataplane.h`,
+`disaggregated_serving.h`; an inventory pass is owed before further design. **Q-401-A is still
+genuinely open** (`grep -n matmul include/chromofold/*.h` → empty; `abi_version: 0`, 11 capabilities).
+
 **Not built (later gated phases, per the plan above):** the fused compressed-residency KV path (`cf_kv_attn_fused_async` wired into a device-resident backend — the ~8× memory win, SAIN-gated), decode-in-GEMM (phase 5, gated on Q-401-A), and the SAIN measurement (phase 6). No GPU/marshalling landed — phase 4 is the CPU-verifiable dense seam + bit-exact oracle; the live GPU link is SAIN-gated.
 
 ## Cross-references
