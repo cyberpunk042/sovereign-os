@@ -226,4 +226,26 @@ mkdir -p /var/log/sovereign-os
   done
 } > "${OUT}" 2>&1
 
+# SURFACE IT. The report is only useful if the operator learns it exists. A
+# first install that went wrong otherwise presents as a symptom — a dark screen,
+# a missing cockpit — with the explanation sitting unread in /var/log. Put the
+# problems (and only the problems) where any login sees them (2026-07-27).
+_problems="$(grep -cE "PROBLEM|MISSING|FAILED|CONFLICT" "${OUT}" 2>/dev/null || echo 0)"
+_motd=/etc/motd.d/50-sovereign-install
+mkdir -p /etc/motd.d 2>/dev/null || true
+if [ "${_problems}" -gt 0 ] 2>/dev/null; then
+  {
+    echo
+    echo "  sovereign-os: the install self-check found ${_problems} problem(s)."
+    echo "  Full report:  ${OUT}"
+    echo "  Or run:       sovereign-osctl install logs"
+    echo
+    grep -E "PROBLEM|MISSING|FAILED|CONFLICT" "${OUT}" 2>/dev/null | head -8 | sed 's/^/    /'
+    echo
+  } > "${_motd}" 2>/dev/null || true
+else
+  # A clean install must not leave a stale warning from a previous one.
+  rm -f "${_motd}" 2>/dev/null || true
+fi
+
 exit 0
