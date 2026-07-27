@@ -97,9 +97,20 @@ verify() {
     log_warn "  nvcc not on PATH (add /usr/local/cuda/bin; harmless if --no-cuda)"
   fi
 
-  grep -q nomodeset /proc/cmdline 2>/dev/null \
-    && { log_warn "  'nomodeset' still on the running cmdline — GRUB not updated or not rebooted"; rc=1; } \
-    || log_info "  nomodeset cleared"
+  # 'nomodeset' is a DISPLAY/KMS concern, not a compute one — CUDA works either way.
+  # So it never fails verification; it only distinguishes "pending reboot" from
+  # "still misconfigured", which are very different states.
+  if grep -q nomodeset /proc/cmdline 2>/dev/null; then
+    if grep -q 'nomodeset' /etc/default/grub 2>/dev/null; then
+      log_warn "  'nomodeset' still in /etc/default/grub — the cmdline edit did NOT apply"
+      rc=1
+    else
+      log_info "  'nomodeset' cleared from GRUB but still on the RUNNING cmdline"
+      log_info "    -> pending reboot. Compute is unaffected; this only gates display KMS."
+    fi
+  else
+    log_info "  nomodeset cleared"
+  fi
 
   emit_metric sovereign_os_post_install_nvidia_driver_verify_total 1 \
     "result=\"$([ ${rc} -eq 0 ] && echo pass || echo fail)\""
