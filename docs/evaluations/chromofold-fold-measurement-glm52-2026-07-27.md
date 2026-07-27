@@ -216,6 +216,96 @@ The 10× the operator asked for is inside the roofline; it needs engineering, no
 | Expert-parallel placement across PRO 6000 + 5090 | 1.3–1.8× | no NVLink → exchange activations, not tensors |
 | MTP speculation | 2–2.8× | int8 heads confirmed present |
 
+## 7. What actually happened when we ran it (same day, driver installed)
+
+Section 6's table was written **before** the NVIDIA driver was installed. Every factor in it
+was an estimate; all of them were then measured, and most were wrong. Recorded here so the
+estimates are not mistaken for results.
+
+### Measured progression
+
+| config | tok/s | cumulative |
+|---|---|---|
+| CPU-only baseline (nouveau) | 1.82 | 1.00× |
+| driver + CUDA 13.3 on 2× Blackwell | 1.82 | precondition only — **0×** |
+| `CUDA_DENSE=1 COLI_CUDA_ATTN=1` + `COLI_CUDA_MTP=1` | 2.57 | 1.41× |
+| max expert residency (`PIN_GB=195`) | **3.02** | **1.66×** |
+| `COLI_GROUP_ASYNC=1` (CPU/GPU expert overlap) | — | +1.04× |
+
+### Everything else measured negative
+
+| lever | §6 estimate | measured |
+|---|---|---|
+| driver alone | 2–4× | **0×** — it is a precondition, not a multiplier |
+| CUDA Graphs | 1.5–3× | **1.05×** — empty launch is 2.05 µs; launch overhead is not the bottleneck |
+| fused decode-in-GEMM (M6) | 2–4× | **33× SLOWER** — ChromoFold's own kernel, GLM shape, B=1, on sm_120 |
+| expert-parallel placement | 1.3–1.8× | **1.00×** — `residual P2P 0.000s / 0 hop`; the topology costs nothing |
+| MTP speculation | 2–2.8× | **~1.0×** — 2.13 tok/forward, but the S=4 expert union doubles expert work |
+
+Two hand-written replacement matvec kernels also lost (0.79× and 0.33×), and forcing the int4
+tensor-core path changed the kernel by **+1.2%** — it is gated off at r=1 by design.
+
+### The real bottleneck (`PROF=1`)
+
+```
+P0-EXEC: routed CPU 10.793s / 40.68 GB/s | routed GPU critical 1.454s
+         | router 0.691s | residual P2P 0.000s | orchestration 1.598s
+```
+
+The GPU expert kernel is **2.37s of a 30.7s decode** (H2D 168.6 ms + kernel 2007.6 ms + D2H
+198.1 ms). The CPU path runs at **40.68 GB/s — near DDR5's ceiling**, so it is not inefficient.
+**More than half of all expert work simply lands on the CPU**, because only **7,094 of 19,456
+experts fit in 130.8 GB of VRAM at int4**, and each miss costs 464 µs against 46.5 µs on the GPU.
+
+**The constraint is VRAM capacity and nothing else.**
+
+### The number that should have come first
+
+GLM-5.2 reads ~20 GB/token. This card sustains **254 GB/s** on quantised matvec (measured,
+`bench-expert-matvec.cu`). So its ceiling here is **12.7 tok/s even with perfect residency,
+zero disk and zero CPU fallback**. The 10× target (18.2 tok/s) was **above the model's roofline
+from the start** — computable on day one, before any experiment.
+
+### 2-bit was checked from the FP8 source and is dominated
+
+`bench-quant-viability.py` against one `zai-org/GLM-5.2-FP8` shard (the int4 container
+double-quantises, so it cannot answer this):
+
+```
+scheme                            MB/expert   vs int4   matvec err
+int4 per-row (production)             18.90     1.00x       0.1631
+2-bit per-row (fmt=3 today)            9.46     2.00x       0.9131
+2-bit group-64 uniform                11.80     1.60x       0.7126
+2-bit group-64 Lloyd-Max (K=4)        18.87     1.00x       0.3150
+3-bit group-64 uniform                16.52     1.14x       0.2468
+```
+
+Coarse scales give the size win but destroy quality; a codebook good enough to keep quality
+costs exactly what it saves (**18.87 MB — identical to int4**). There is no operating point
+where 2-bit helps. Colibri's `fmt=3` is per-row only, so it could not express the grouped
+variant anyway.
+
+### Conclusion
+
+**3.02 tok/s (1.66×) is the ceiling of available levers on this box for this model.** The
+model is ~3× too large for the VRAM; that is not a tuning problem. GLM-5.2's role here is the
+batch deep-synthesis tier its original evaluation called for. For interactive use, a model that
+fits VRAM is worth ~30× what any optimisation here achieved — see
+[oracle-alternatives-glm47-m3-gptoss-2026-07-19.md](oracle-alternatives-glm47-m3-gptoss-2026-07-19.md)
+(gpt-oss-120b, 63 GB, ~94 tok/s projected at the measured 254 GB/s).
+
+Best-known GLM-5.2 config:
+
+```sh
+COLI_CUDA=1 CUDA_DENSE=1 COLI_CUDA_ATTN=1 COLI_CUDA_MTP=1 \
+COLI_GROUP_ASYNC=1 DIRECT=1 PIPE=1 PIN=auto PIN_GB=195 RAM_GB=230
+```
+
+**Upstream bug found:** Colibri skips its OpenMP hot-thread tuning whenever `COLI_CUDA` is set
+(`colibri.c:6282`), assuming CUDA means experts run on GPU. Measured false here — only 32% fit
+VRAM, so ~10 s of CPU expert work happens anyway, with the thread team parking between regions.
+The code's own comment prices that at 66.9s → 20.9s on Zen 5. Not yet filed.
+
 ## Reproduce
 
 ```sh
