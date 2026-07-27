@@ -55,6 +55,17 @@ mkdir -p /var/log/sovereign-os
 
   echo "-- kernels --"
   ls /boot/vmlinuz-* 2>/dev/null || echo "  none"
+  # WHICH one boots. A desktop install pulls in Debian's stock kernel
+  # (6.12.96+deb13) alongside the custom znver5 build (6.12.0), and GRUB sorts
+  # 6.12.96 ABOVE 6.12.0 -- so without a working pin the whole custom-kernel
+  # build is unused. set-grub-default-kernel.sh writes saved_entry into grubenv;
+  # listing the kernels present says nothing about which one is chosen.
+  echo "  GRUB_DEFAULT : $(grep -m1 "^GRUB_DEFAULT=" /etc/default/grub 2>/dev/null || echo "unset")"
+  if [ -f /boot/grub/grubenv ]; then
+    echo "  saved_entry  : $(grep -m1 "^saved_entry=" /boot/grub/grubenv 2>/dev/null || echo "none -- GRUB boots the FIRST menu entry")"
+  else
+    echo "  saved_entry  : no grubenv"
+  fi
   echo
 
   # Does sovereign-os itself exist on this machine, or is it just Debian+KDE?

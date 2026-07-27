@@ -509,6 +509,20 @@ else
   info "SOVEREIGN_OS_INSTALL_GUI=0 — headless install; run scripts/install/install-gui-dashboards.sh later to add the GUI"
 fi
 
+  # ── pin the custom kernel as GRUB's default ──
+  # Today this path installs the custom kernel OR the stock one, never both, so
+  # the pin is a no-op. It is here because that is fragile: anything that later
+  # pulls linux-image-amd64 (a desktop task, an apt recommend) lands a stock
+  # 6.12.96 that GRUB sorts ABOVE the custom 6.12.0 and boots instead -- exactly
+  # what happens on the installer path. The pin is idempotent and costs nothing
+  # when there is only one kernel (2026-07-27).
+  if [ "${CUSTOM_KERNEL}" = 1 ] && [ -f "${REPO_SRC}/scripts/install/set-grub-default-kernel.sh" ]; then
+    cp "${REPO_SRC}/scripts/install/set-grub-default-kernel.sh" "${MNT}/tmp/" 2>/dev/null || true
+    chroot "${MNT}" sh /tmp/set-grub-default-kernel.sh 6.12.0 || \
+      info "kernel pin reported a problem — check which kernel grub.cfg defaults to"
+    rm -f "${MNT}/tmp/set-grub-default-kernel.sh"
+  fi
+
   # ── sovereign units: make them DISCOVERABLE, enable NOTHING ──
   # install-gui-dashboards.sh stages only the kiosk unit; the other ~113 stayed
   # in the source tree where systemd never looks, so even a deliberate
@@ -519,6 +533,7 @@ fi
   # services (nvidia-driver-install, tetragon-install, inference-model-provision)
   # and 67 units carry Restart= — enabling them before their code path is proven
   # is what produced ~130 restart-looping services (2026-07-26).
+
   if [ -d "${REPO_SRC}/systemd/system" ]; then
     step "installing sovereign units (disabled — presence is not activation)"
     mkdir -p "${MNT}/lib/systemd/system"

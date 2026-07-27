@@ -67,3 +67,37 @@ def test_the_installer_actually_calls_it():
             f"{name} must pin the custom kernel, or the install boots the stock "
             "Debian kernel that task-kde-desktop drags in"
         )
+
+
+def test_both_install_paths_pin_the_same_version():
+    """The version is hardcoded in three places; they must agree.
+
+    install-sovereign-root.sh globs linux-image-6.12.0_*.deb to find the custom
+    kernel, then pins 6.12.0; the preseeds pin 6.12.0 too. If the kernel version
+    is ever bumped and one of these is missed, the install boots a kernel nobody
+    chose — silently, because GRUB just picks the highest version (2026-07-27).
+    """
+    import re
+    direct = (REPO_ROOT / "scripts" / "install" / "install-sovereign-root.sh").read_text(encoding="utf-8")
+    globbed = set(re.findall(r"linux-image-([0-9][0-9.]*)_\*\.deb", direct))
+    pinned = set(re.findall(r"set-grub-default-kernel\.sh\s+([0-9][0-9.]*)", direct))
+    assert globbed, "could not find the custom-kernel glob"
+    assert pinned, "the direct path must pin the custom kernel it just installed"
+    assert globbed == pinned, (
+        f"the direct path installs {globbed} but pins {pinned} — it would boot "
+        "whichever kernel GRUB happens to sort highest"
+    )
+    for name in ("default.preseed", "sovereign.preseed"):
+        text = (REPO_ROOT / "scripts" / "build" / "installer-cdd"
+                / "profiles" / name).read_text(encoding="utf-8")
+        p = set(re.findall(r"set-grub-default-kernel\.sh\s+([0-9][0-9.]*)", text))
+        assert p == pinned, f"{name} pins {p}, the direct path pins {pinned}"
+
+
+def test_the_selfcheck_reports_which_kernel_boots():
+    """Listing installed kernels says nothing about which one is chosen."""
+    body = (REPO_ROOT / "scripts" / "install" / "verify-installed-system.sh").read_text(encoding="utf-8")
+    assert "saved_entry" in body and "GRUB_DEFAULT" in body, (
+        "the self-check must report the DEFAULT entry, not just which kernels "
+        "exist — grub-set-default writes saved_entry into grubenv"
+    )
