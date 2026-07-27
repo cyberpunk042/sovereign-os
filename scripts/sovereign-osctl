@@ -6080,6 +6080,18 @@ cmd_install() {
       # Gate 6 — interactive confirm
       if [ -z "${SOVEREIGN_OS_NONINTERACTIVE:-}" ]; then
         echo "  This will $([ "${reflash}" = 1 ] && echo "REBUILD the sovereign-root LV on" || echo "PARTITION") ${device} and install sovereign-os."
+        # State the FULL blast radius. On a fresh install, Phase 2 migrates
+        # /home onto the shared LV and registers it in THIS HOST's /etc/fstab —
+        # a change to the machine the operator is standing on, not just to the
+        # target disk. Confirming "partition that disk" is not informed consent
+        # for that (2026-07-27).
+        if [ "${reflash}" -eq 0 ]; then
+          echo "  It ALSO changes THIS running host:"
+          echo "    · /home is copied onto the new shared LV (source is only read)"
+          echo "    · a /home entry is added to THIS host's /etc/fstab, so after the"
+          echo "      next reboot this machine mounts the SHARED /home"
+          echo "    (an existing /home line in fstab is left untouched)"
+        fi
         read -rp "  Type the disk path (${device}) to confirm: " typed
         [ "${typed}" = "${device}" ] || { log_error "device confirmation mismatch; aborting"; return 1; }
       fi
