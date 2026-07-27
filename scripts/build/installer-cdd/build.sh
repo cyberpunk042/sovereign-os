@@ -88,6 +88,24 @@ if [ -x /opt/sovereign-os/scripts/install/install-gui-dashboards.sh ]; then
 fi
 mkdir -p /etc/sovereign-os
 [ -f /etc/sovereign-os/active-profile ] || echo sain-01 > /etc/sovereign-os/active-profile
+
+# Make the sovereign units DISCOVERABLE -- and enable NOTHING.
+# They shipped to /opt/sovereign-os/systemd/system, where systemd never looks,
+# so even a deliberate `systemctl enable sovereign-firstboot.target` failed with
+# "unit not found". Installing them to /lib/systemd/system makes that command
+# work when the operator chooses to run it.
+#
+# Deliberately NOT enabled: sovereign-firstboot.target Wants= a dozen heavy
+# services (nvidia-driver-install, tetragon-install, inference-model-provision)
+# and enabling it is exactly what hung a boot at "Reached Target
+# sovereign-firstboot.target" (2026-07-26). Presence is not activation.
+if [ -d /opt/sovereign-os/systemd/system ]; then
+  for u in /opt/sovereign-os/systemd/system/*.service /opt/sovereign-os/systemd/system/*.target; do
+    [ -f "$u" ] || continue
+    cp -a "$u" /lib/systemd/system/ 2>/dev/null || true
+  done
+  systemctl daemon-reload 2>/dev/null || true
+fi
 exit 0
 POSTINST
 chmod 0755 "${PKGROOT}/DEBIAN/postinst"
