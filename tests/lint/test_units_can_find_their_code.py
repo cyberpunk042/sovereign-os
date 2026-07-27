@@ -39,7 +39,11 @@ def test_units_really_do_reference_the_lib_path():
 
 
 def test_the_install_guarantees_that_path_exists():
-    body = postinst()
+    # The guarantee moved OUT of the postinst: a symlink created before the
+    # deploy makes install-gui-dashboards.sh copy a directory into itself, and
+    # its own code leaves a symlink alone by design (2026-07-27). It is now a
+    # FALLBACK created after the deploy, in deploy-dashboards.sh.
+    body = (REPO_ROOT / "scripts" / "install" / "deploy-dashboards.sh").read_text(encoding="utf-8")
     code = "\n".join(l for l in body.splitlines() if not l.lstrip().startswith("#"))
     assert LIB in code, (
         f"nothing in the postinst guarantees {LIB} exists. Every unit that "
@@ -53,12 +57,15 @@ def test_the_install_guarantees_that_path_exists():
 
 
 def test_the_symlink_never_clobbers_a_real_deployment():
-    """install-gui-dashboards.sh deploys the real tree there and runs FIRST.
+    """The deploy writes the real tree there and runs FIRST.
 
     The symlink is a fallback for when that deployment fails — if it ran
-    unconditionally it would replace a good tree with a link to a partial one.
+    unconditionally it would replace a good tree with a link to a partial one,
+    and if it ran BEFORE the deploy it would make the deploy copy a directory
+    into itself.
     """
-    code = [l for l in postinst().splitlines() if not l.lstrip().startswith("#")]
+    body = (REPO_ROOT / "scripts" / "install" / "deploy-dashboards.sh").read_text(encoding="utf-8")
+    code = [l for l in body.splitlines() if not l.lstrip().startswith("#")]
     ln = next((i for i, l in enumerate(code) if "ln -sfn" in l), None)
     if ln is None:
         return  # no symlink strategy in use

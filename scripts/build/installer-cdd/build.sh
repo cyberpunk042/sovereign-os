@@ -92,17 +92,14 @@ mkdir -p /etc/sovereign-os 2>/dev/null || true
 [ -f /etc/sovereign-os/active-profile ] \
   || echo sain-01 > /etc/sovereign-os/active-profile 2>/dev/null || true
 
-# The units and the payload disagree on where the code lives: 68 units
-# ExecStart from /usr/local/lib/sovereign-os while this package installs to
-# /opt/sovereign-os. Enabled, every one of those fails instantly with
-# "executable not found", and 67 of them carry Restart= -- which is exactly the
-# ~130 services in restart loops seen on the appliance (2026-07-26).
-# One compatibility symlink makes both layouts resolve. Never clobber a real
-# directory if something else already owns that path.
-if [ ! -e /usr/local/lib/sovereign-os ]; then
-  mkdir -p /usr/local/lib 2>/dev/null || true
-  ln -sfn /opt/sovereign-os /usr/local/lib/sovereign-os 2>/dev/null || true
-fi
+# The compatibility symlink (/usr/local/lib/sovereign-os -> /opt/sovereign-os)
+# is NOT created here. install-gui-dashboards.sh deploys the real app tree to
+# that path and explicitly leaves a SYMLINK alone:
+#     [ -L "${PREFIX_LIB}" ] || { [ -e "${PREFIX_LIB}" ] && rm -rf ...; }
+# so a pre-existing symlink turns its deploy into `cp -a /opt/sovereign-os/x/.`
+# into `/opt/sovereign-os/x/` -- a directory copying into itself. The symlink is
+# a FALLBACK for when the deploy did not run; it belongs after it, which is
+# where deploy-dashboards.sh now creates it (2026-07-27).
 
 # Make the sovereign units DISCOVERABLE -- and enable NOTHING.
 # They shipped to /opt/sovereign-os/systemd/system, where systemd never looks,

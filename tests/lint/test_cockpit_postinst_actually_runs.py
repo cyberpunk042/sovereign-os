@@ -86,9 +86,12 @@ def test_it_runs_to_completion_against_a_throwaway_root(tmp_path: Path):
     assert (root / "lib/systemd/system/sovereign-firstboot.service").exists(), (
         "units were not installed where systemd looks"
     )
-    assert (root / "usr/local/lib/sovereign-os").is_symlink(), (
-        "the compatibility symlink was not created; 68 units would fail with "
-        "'executable not found' and 67 of them would restart-loop"
+    # The compatibility symlink is deliberately NOT made here — creating it
+    # before the deploy makes install-gui-dashboards.sh copy a directory into
+    # itself. deploy-dashboards.sh creates it afterwards, as a fallback.
+    assert not (root / "usr/local/lib/sovereign-os").exists(), (
+        "the postinst must not pre-create the app-tree path; the deploy runs "
+        "later and its own logic leaves a symlink alone"
     )
     assert (root / "etc/sovereign-os/active-profile").read_text().strip() == "sain-01"
 

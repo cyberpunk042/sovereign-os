@@ -31,15 +31,30 @@ mkdir -p /var/log/sovereign-os /var/lib/sovereign-os 2>/dev/null || true
 _say() { { echo "sovereign: $*" > "${TTY}"; } 2>/dev/null || true; }
 _set() { echo "$1" > "${STATUS}" 2>/dev/null || true; }
 
+# Fallback: 68 units ExecStart from /usr/local/lib/sovereign-os. If no real tree
+# ends up there, point the path at the package payload so those units resolve
+# instead of failing and restart-looping. Only when nothing exists — never over
+# a real deployment.
+#
+# MUST run on EVERY exit path. Placing it after the early returns meant it was
+# skipped in precisely the cases that need it — script missing or not executable
+# — where no tree exists at all (caught by testing case A, 2026-07-27).
+_fallback_link() {
+  [ -e /usr/local/lib/sovereign-os ] && return 0
+  mkdir -p /usr/local/lib 2>/dev/null || true
+  ln -sfn "${SRC}" /usr/local/lib/sovereign-os 2>/dev/null || true
+  _say "app tree absent — linked /usr/local/lib/sovereign-os -> ${SRC}"
+}
+
 if [ ! -f "${DASH}" ]; then
   echo "MISSING: ${DASH}" > "${LOG}" 2>/dev/null || true
-  _set missing; _say "dashboards: MISSING ${DASH}"; exit 0
+  _set missing; _say "dashboards: MISSING ${DASH}"; _fallback_link; exit 0
 fi
 if [ ! -x "${DASH}" ]; then
   # A lost exec bit silently skipped this entire stage once before.
   echo "NOT EXECUTABLE: ${DASH} (mode $(stat -c %a "${DASH}" 2>/dev/null))" \
     > "${LOG}" 2>/dev/null || true
-  _set not-executable; _say "dashboards: ${DASH} is not executable"; exit 0
+  _set not-executable; _say "dashboards: ${DASH} is not executable"; _fallback_link; exit 0
 fi
 
 _say "deploying dashboards + cockpit (several minutes; output on tty4)"
@@ -53,6 +68,8 @@ _rcf=/tmp/.sovereign-dash-rc
   | { tee "${LOG}" > "${TTY}"; } 2>/dev/null || true
 _rc="$(cat "${_rcf}" 2>/dev/null || echo 1)"
 rm -f "${_rcf}" 2>/dev/null || true
+
+_fallback_link
 
 if [ "${_rc}" = 0 ]; then
   _set ok; _say "dashboards deploy OK"
