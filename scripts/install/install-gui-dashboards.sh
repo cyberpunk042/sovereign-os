@@ -283,10 +283,19 @@ enable_unit() { # <unit> — enable via systemctl, else offline wants-symlink
   if systemctl enable "${unit}" 2>/dev/null; then
     info "enabled ${unit}"
   else
-    mkdir -p /etc/systemd/system/multi-user.target.wants
+    # HONOUR the unit's own [Install] WantedBy. This hardcoded
+    # multi-user.target.wants for everything — including .timer units, which all
+    # declare WantedBy=timers.target. They still STARTED (systemd starts what a
+    # reached target wants), so it looked fine; but `systemctl disable` looks in
+    # timers.target.wants, finds nothing, and leaves the timer enabled. The
+    # operator could not turn them off by normal means (2026-07-27).
+    local _wb
+    _wb="$(sed -n 's/^WantedBy=//p' "/etc/systemd/system/${unit}" | head -1 | tr -d ' ')"
+    [ -n "${_wb}" ] || _wb="multi-user.target"
+    mkdir -p "/etc/systemd/system/${_wb}.wants"
     ln -sf "/etc/systemd/system/${unit}" \
-      "/etc/systemd/system/multi-user.target.wants/${unit}"
-    info "enabled ${unit} (offline wants-symlink)"
+      "/etc/systemd/system/${_wb}.wants/${unit}"
+    info "enabled ${unit} (offline wants-symlink → ${_wb})"
   fi
 }
 enable_unit sovereign-dashboards.service
