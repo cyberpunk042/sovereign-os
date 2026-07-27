@@ -137,29 +137,36 @@ pull_one() {
   fi
 
   if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
-    log_info "  DRY-RUN: would huggingface-cli download \\"
+    log_info "  DRY-RUN: would hf download \\"
     log_info "             ${repo} \\"
     log_info "             --local-dir ${SOVEREIGN_OS_MODELS_DIR}/${model_id}"
     emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"dry-run\""
     return 0
   fi
 
-  if ! command -v huggingface-cli >/dev/null 2>&1; then
-    log_error "huggingface-cli not installed"
-    log_error "  install via: pip install --user huggingface_hub[cli]"
+  # huggingface_hub >= 1.24 REMOVED `huggingface-cli` (the shim still exists on PATH but
+  # prints "deprecated and no longer works" and exits non-zero) and dropped
+  # --local-dir-use-symlinks (--local-dir no longer symlinks). Prefer `hf`, fall back to
+  # the legacy CLI for older installs.
+  if command -v hf >/dev/null 2>&1; then
+    HF_DL=(hf download)
+  elif command -v huggingface-cli >/dev/null 2>&1; then
+    HF_DL=(huggingface-cli download --local-dir-use-symlinks False)
+  else
+    log_error "no HuggingFace CLI found (looked for 'hf', then 'huggingface-cli')"
+    log_error "  install via: pip install --user 'huggingface_hub[cli]'"
     emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"missing-tool\""
     exit 1
   fi
 
   mkdir -p "${SOVEREIGN_OS_MODELS_DIR}/${model_id}"
-  if huggingface-cli download "${repo}" \
-       --local-dir "${SOVEREIGN_OS_MODELS_DIR}/${model_id}" \
-       --local-dir-use-symlinks False; then
+  if "${HF_DL[@]}" "${repo}" \
+       --local-dir "${SOVEREIGN_OS_MODELS_DIR}/${model_id}"; then
     log_info "  ✓ ${model_id} resident at ${SOVEREIGN_OS_MODELS_DIR}/${model_id}"
     emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"success\""
     emit_metric sovereign_os_models_pull_last_timestamp "$(date +%s)" "model=\"${model_id}\""
   else
-    log_error "  huggingface-cli download failed"
+    log_error "  model download failed"
     emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"fail\""
     exit 1
   fi
