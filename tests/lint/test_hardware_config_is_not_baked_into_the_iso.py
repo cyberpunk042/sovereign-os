@@ -89,3 +89,44 @@ def test_rendering_keeps_the_preseed_valid():
         out = subprocess.run(["debconf-set-selections", "--checkonly", str(tmp)],
                              capture_output=True, text=True)
         assert out.returncode == 0, f"rendered preseed is invalid:\n{out.stderr}"
+
+
+def test_the_profile_name_is_rendered_not_hardcoded():
+    """Building profile X must not write profile sain-01 onto the target.
+
+    The late_command wrote `echo sain-01 > /etc/sovereign-os/active-profile`
+    literally, so an ISO built for any other profile installed a system that
+    disagreed with the build that produced it (2026-07-27).
+    """
+    body = BUILD.read_text(encoding="utf-8")
+    assert "active-profile|echo ${PROFILE}" in body or "${PROFILE} > /etc/sovereign-os/active-profile" in body, (
+        "build.sh must render the profile name into the preseed"
+    )
+
+
+def test_identity_is_overridable_but_defaults_unchanged():
+    """A second machine should not have to be called sovereign-os / jfortin.
+
+    Defaults stay as they were, so a plain sain-01 build is unchanged.
+    """
+    body = BUILD.read_text(encoding="utf-8")
+    assert "SOVEREIGN_OS_HOSTNAME:-sovereign-os" in body, (
+        "hostname must be overridable, defaulting to the existing value"
+    )
+    assert "SOVEREIGN_OS_USERNAME:-jfortin" in body, (
+        "primary user must be overridable, defaulting to the existing value"
+    )
+
+
+def test_rendering_does_not_rewrite_paths():
+    """/etc/sovereign-os and /opt/sovereign-os must survive a hostname change.
+
+    A careless `s|sovereign-os|${_hostname}|g` would rewrite every path in the
+    file and destroy the install.
+    """
+    body = BUILD.read_text(encoding="utf-8")
+    for reckless in ("s|sovereign-os|", "s/sovereign-os/"):
+        assert reckless not in body, (
+            f"unanchored substitution {reckless!r} would rewrite /etc/sovereign-os "
+            "and /opt/sovereign-os as well as the hostname"
+        )

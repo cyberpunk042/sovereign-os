@@ -251,6 +251,29 @@ if [ -r "${_isd}" ]; then
       -e "s|for m in [a-z0-9 _-]*; do echo blacklist|for m in ${_blacklist}; do echo blacklist|" \
       "${WORK}/default.preseed"
   fi
+
+  # The PROFILE NAME and the machine identity are hardcoded to sain-01 too.
+  # Building profile "test-02" produced an ISO that still wrote
+  # /etc/sovereign-os/active-profile=sain-01 and set the hostname to
+  # sovereign-os, so the installed system disagreed with the build that made it
+  # (2026-07-27). Hostname and username stay overridable but default to the
+  # existing values, so a plain sain-01 build is byte-identical to before.
+  _hostname="${SOVEREIGN_OS_HOSTNAME:-sovereign-os}"
+  _username="${SOVEREIGN_OS_USERNAME:-jfortin}"
+  log "  profile        : ${PROFILE}"
+  log "  hostname       : ${_hostname}"
+  log "  primary user   : ${_username}"
+  for _f in "${WORK}/${PROFILE}.preseed" "${WORK}/default.preseed"; do
+    [ -f "${_f}" ] || continue
+    sed -i \
+      -e "s|echo sain-01 > /etc/sovereign-os/active-profile|echo ${PROFILE} > /etc/sovereign-os/active-profile|" \
+      -e "s|echo SOVEREIGN_OS_PROFILE=sain-01|echo SOVEREIGN_OS_PROFILE=${PROFILE}|" \
+      -e "s|^d-i netcfg/get_hostname string .*|d-i netcfg/get_hostname string ${_hostname}|" \
+      -e "s|^d-i netcfg/hostname string .*|d-i netcfg/hostname string ${_hostname}|" \
+      -e "s|^d-i passwd/user-fullname string .*|d-i passwd/user-fullname string ${_username}|" \
+      -e "s|^d-i passwd/username string .*|d-i passwd/username string ${_username}|" \
+      "${_f}"
+  done
 else
   log "WARNING: ${_isd} unreadable — preseed keeps its built-in hardware config"
 fi
