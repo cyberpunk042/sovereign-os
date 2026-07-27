@@ -102,12 +102,30 @@ elif [ ! -x "${_dash}" ]; then
   # A lost exec bit silently skipped this entire stage once before.
   echo "NOT EXECUTABLE: ${_dash} (mode $(stat -c %a "${_dash}" 2>/dev/null))" > "${_dlog}" 2>/dev/null || true
   echo not-executable > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
-elif SOVEREIGN_OS_SRC=/opt/sovereign-os SOVEREIGN_OS_FRONTEND=kde-plasma \
-       bash "${_dash}" > "${_dlog}" 2>&1; then
-  echo ok > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
 else
-  echo "FAILED (rc=$?) -- full output above" >> "${_dlog}" 2>/dev/null || true
-  echo failed > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
+  # STREAM it. This is a 468-line script doing apt work and can run for
+  # minutes; sending it only to a log file turned the longest phase of the
+  # install into a silent hang from the operator's side (2026-07-27).
+  # /dev/tty4 is d-i's log console (Alt-F4) -- writing there is visible without
+  # disturbing the installer UI on tty1. Everything is best-effort: a missing
+  # tty must never affect the outcome.
+  echo "sovereign: deploying dashboards + cockpit (this takes a few minutes)..." \
+    > /dev/tty4 2>/dev/null || true
+  _rcf=/tmp/.sovereign-dash-rc
+  { SOVEREIGN_OS_SRC=/opt/sovereign-os SOVEREIGN_OS_FRONTEND=kde-plasma \
+      bash "${_dash}" 2>&1; echo $? > "${_rcf}"; } \
+    | tee "${_dlog}" > /dev/tty4 2>/dev/null || true
+  _rc="$(cat "${_rcf}" 2>/dev/null || echo 1)"
+  rm -f "${_rcf}" 2>/dev/null || true
+  if [ "${_rc}" = 0 ]; then
+    echo ok > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
+    echo "sovereign: dashboards deploy OK" > /dev/tty4 2>/dev/null || true
+  else
+    echo "FAILED (rc=${_rc})" >> "${_dlog}" 2>/dev/null || true
+    echo failed > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
+    echo "sovereign: dashboards deploy FAILED (rc=${_rc}) — see ${_dlog}" \
+      > /dev/tty4 2>/dev/null || true
+  fi
 fi
 mkdir -p /etc/sovereign-os 2>/dev/null || true
 [ -f /etc/sovereign-os/active-profile ] \
@@ -254,10 +272,22 @@ cd "${WORK}"
 # sovereign.preseed (root pw, LVM recipe, tasksel KDE, late_command). Without
 # --auto-profiles the profile is merely "available" and d-i falls back to the
 # stock default.preseed → the install stalls asking for a root password, etc.
+# STREAM it. This was `| tail -60`, which buffers the ENTIRE run and prints only
+# the tail at the end -- so the longest phase of the build (mirror download,
+# ~25 min) showed the operator nothing and was indistinguishable from a hang
+# (2026-07-27). `sed -u` is unbuffered, so lines appear as produced. The full
+# log is kept because the live stream scrolls past. `set -o pipefail` is in
+# effect, so build-simple-cdd's own exit status still governs the pipeline.
+_cddlog="${WORK}/build-simple-cdd.log"
+_t0=$(date +%s)
 build-simple-cdd --dvd --dist "${DIST}" \
   --profiles "${PROFILE}" --auto-profiles "${PROFILE}" \
   --local-packages "${LOCAL_PKGS}" \
-  --conf "${WORK}/sovereign.conf" 2>&1 | tail -60
+  --conf "${WORK}/sovereign.conf" 2>&1 \
+  | tee "${_cddlog}" \
+  | sed -u 's/^/    cdd: /'
+_el=$(( $(date +%s) - _t0 ))
+log "build-simple-cdd finished in $((_el / 60))m $((_el % 60))s (full log: ${_cddlog})"
 
 # simple-cdd writes the ISO to ${simple_cdd_dir}/images (= ${HERE}/images), not
 # the CWD/WORK. Look there first, then WORK, for robustness.

@@ -156,14 +156,22 @@ d-i grub-installer/with_other_os boolean false
 ### and make sure the custom kernel's initramfs is regenerated. The packages
 ### themselves are installed by pkgsel above; this just fixes up per-machine bits.
 d-i preseed/late_command string \
+    sh -c 'echo "sovereign: blacklisting GPU modules (amdgpu, nouveau)" > /dev/tty4 2>/dev/null' || true; \
     in-target sh -c 'mkdir -p /etc/modprobe.d; for m in amdgpu nouveau; do echo blacklist $m > /etc/modprobe.d/sovereign-blacklist-$m.conf; done' || true; \
+      sh -c 'echo "sovereign: setting GRUB timeout + regenerating grub.cfg" > /dev/tty4 2>/dev/null' || true; \
       in-target sh -c 'sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/" /etc/default/grub; update-grub || true' || true; \
+    sh -c 'echo "sovereign: rebuilding initramfs (can take a minute)" > /dev/tty4 2>/dev/null' || true; \
     in-target sh -c 'update-initramfs -u -k all || true' || true; \
+    sh -c 'echo "sovereign: pinning the custom znver5 kernel as default" > /dev/tty4 2>/dev/null' || true; \
     in-target sh -c 'sh /opt/sovereign-os/scripts/install/set-grub-default-kernel.sh 6.12.0 || true' || true; \
+    sh -c 'echo "sovereign: writing the active profile" > /dev/tty4 2>/dev/null' || true; \
     in-target sh -c 'mkdir -p /etc/sovereign-os; echo sain-01 > /etc/sovereign-os/active-profile' || true; \
     in-target sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env' || true; \
+      sh -c 'echo "sovereign: writing apt sources for post-install use" > /dev/tty4 2>/dev/null' || true; \
       in-target sh -c 'sh /opt/sovereign-os/scripts/install/write-apt-sources.sh trixie' || true; \
+      sh -c 'echo "sovereign: running the install self-check" > /dev/tty4 2>/dev/null' || true; \
       in-target sh -c 'sh /opt/sovereign-os/scripts/install/verify-installed-system.sh' || true; \
+    sh -c 'echo "sovereign: enabling the display manager" > /dev/tty4 2>/dev/null' || true; \
     in-target systemctl enable sddm || true
 
 ### Finish
