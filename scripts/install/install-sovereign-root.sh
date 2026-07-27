@@ -160,7 +160,21 @@ sovereign_verify_install() {
     _v_bad "no /boot/grub/grub.cfg — nothing will boot"
   fi
 
-  # 8. the blacklist reached the target, and the initrd was built after it
+  # 8. sovereign-os ITSELF is on the disk, not just Debian + KDE.
+  # install-gui-dashboards.sh deploys the app tree to /usr/local/lib/sovereign-os
+  # and 68 units ExecStart from there (67 with Restart=). A missing tree means
+  # dozens of services failing and restarting forever rather than a cockpit.
+  if [ -e "${MNT}/usr/local/lib/sovereign-os" ]; then
+    _v_ok "sovereign-os app tree present"
+  else
+    _v_bad "no /usr/local/lib/sovereign-os — the units have no code to run"
+  fi
+  _n_units=$(ls "${MNT}/lib/systemd/system/"sovereign-*.service 2>/dev/null | wc -l)
+  [ "${_n_units}" -gt 0 ] \
+    && _v_ok "${_n_units} sovereign unit(s) installed where systemd looks" \
+    || _v_warn "no sovereign units in /lib/systemd/system — 'systemctl enable' will say 'unit not found'"
+
+  # 9. the blacklist reached the target, and the initrd was built after it
   for _m in ${SOVEREIGN_OS_MODULE_BLACKLIST}; do
     [ -f "${MNT}/etc/modprobe.d/sovereign-blacklist-${_m}.conf" ] \
       && _v_ok "${_m} blacklisted" \

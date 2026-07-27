@@ -55,6 +55,33 @@ mkdir -p /var/log/sovereign-os
 
   echo "-- kernels --"
   ls /boot/vmlinuz-* 2>/dev/null || echo "  none"
+  echo
+
+  # Does sovereign-os itself exist on this machine, or is it just Debian+KDE?
+  # The cockpit postinst runs install-gui-dashboards.sh behind `|| true`, so a
+  # total failure there is invisible: the install still "succeeds" and the
+  # operator gets a desktop with no sovereign-os in it (2026-07-26).
+  echo "-- sovereign-os itself --"
+  if [ -L /usr/local/lib/sovereign-os ]; then
+    echo "  app tree: SYMLINK -> $(readlink /usr/local/lib/sovereign-os)"
+    echo "    (the dashboards deploy did not run; units resolve via the fallback)"
+  elif [ -d /usr/local/lib/sovereign-os ]; then
+    echo "  app tree: deployed at /usr/local/lib/sovereign-os"
+  else
+    echo "  app tree: MISSING -- every unit ExecStarting from there will fail"
+  fi
+  # 68 units exec from that path and 67 carry Restart=; a missing path means
+  # dozens of services failing and restarting forever.
+  echo "  units present : $(ls /lib/systemd/system/sovereign-*.service 2>/dev/null | wc -l)"
+  echo "  units enabled : $(ls /etc/systemd/system/*.wants/sovereign-*.service 2>/dev/null | wc -l)"
+  echo "  dashboards hub:"
+  for u in sovereign-dashboards.service sovereign-master-dashboard-api.service; do
+    if [ -e "/etc/systemd/system/multi-user.target.wants/${u}" ]; then
+      echo "    enabled  ${u}"
+    else
+      echo "    off      ${u}"
+    fi
+  done
 } > "${OUT}" 2>&1
 
 exit 0

@@ -46,6 +46,15 @@ def _entry_point_scripts() -> list[Path]:
         parts = set(p.parts)
         if "lib" in parts or "templates" in parts:
             continue
+        # Skip build SCRATCH. scripts/build/installer-cdd/tmp/ holds a checkout
+        # of Debian's debian-cd plus a multi-GB mirror, created by running a
+        # d-i build. It is gitignored and not ours: this lint began failing on
+        # debian-cd's own build.sh and tools/*/upgrade.sh, demanding a
+        # sovereign-os shell convention of upstream Debian code (2026-07-26).
+        # It also made the full sweep 5x slower by walking thousands of
+        # generated files.
+        if "tmp" in parts and "installer-cdd" in parts:
+            continue
         if not os.access(p, os.X_OK):
             continue
         out.append(p)

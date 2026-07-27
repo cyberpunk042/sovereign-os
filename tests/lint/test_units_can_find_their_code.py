@@ -105,8 +105,16 @@ def test_units_are_installed_outside_the_gui_branch():
     anything that reads from it silently does nothing on a headless install.
     """
     text = (REPO_ROOT / "scripts" / "install" / "install-sovereign-root.sh").read_text(encoding="utf-8")
-    i = text.index("/lib/systemd/system")
-    window = text[max(0, i - 1200):i]
-    assert "SOVEREIGN_OS_INSTALL_GUI=0" in window or "REPO_SRC" in text[i-400:i], (
-        "the unit install must not depend on the GUI-only STAGE directory"
+    # Anchor on the INSTALL step, not the first mention of the path — the
+    # verifier also references /lib/systemd/system, and adding that check made
+    # this test read the wrong block entirely (2026-07-26, my own test).
+    i = text.index("installing sovereign units")
+    block = text[i:i + 800]
+    assert "REPO_SRC" in block, (
+        "the unit install must read from REPO_SRC, not the GUI-only STAGE "
+        "directory — STAGE exists only when SOVEREIGN_OS_INSTALL_GUI=1, so a "
+        "headless install would silently get no units"
+    )
+    assert "STAGE" not in block, (
+        f"the unit install references STAGE: {block[:200]!r}"
     )
