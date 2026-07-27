@@ -26,8 +26,17 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# Every script that can select a destructive target.
 SCRIPTS = ("scripts/install/install-sovereign-root.sh",
-           "scripts/install/setup-lvm-dualboot.sh")
+           "scripts/install/setup-lvm-dualboot.sh",
+           "scripts/install/installer-tui.sh")
+
+# The non-interactive ones must REFUSE when no target is named. installer-tui.sh
+# is excluded from that contract on purpose: it presents a picker, so "no target
+# named" is its normal starting state, not an error. It is still held to the
+# no-hardcoded-default and no-stale-role-claim rules above.
+NONINTERACTIVE = ("scripts/install/install-sovereign-root.sh",
+                  "scripts/install/setup-lvm-dualboot.sh")
 
 
 @pytest.mark.parametrize("rel", SCRIPTS)
@@ -41,7 +50,7 @@ def test_no_hardcoded_device_default(rel: str):
     )
 
 
-@pytest.mark.parametrize("rel", SCRIPTS)
+@pytest.mark.parametrize("rel", NONINTERACTIVE)
 def test_it_refuses_and_helps_instead_of_guessing(rel: str):
     text = (REPO_ROOT / rel).read_text(encoding="utf-8")
     assert "ABORT: no target disk" in text, (
@@ -53,7 +62,7 @@ def test_it_refuses_and_helps_instead_of_guessing(rel: str):
     )
 
 
-@pytest.mark.parametrize("rel", SCRIPTS)
+@pytest.mark.parametrize("rel", NONINTERACTIVE)
 def test_the_refusal_precedes_any_destructive_work(rel: str):
     text = (REPO_ROOT / rel).read_text(encoding="utf-8")
     abort = text.index("ABORT: no target disk")
@@ -61,3 +70,40 @@ def test_the_refusal_precedes_any_destructive_work(rel: str):
         i = text.find(op)
         if i != -1:
             assert abort < i, f"{rel}: {op} appears before the empty-target check"
+
+
+@pytest.mark.parametrize("rel", SCRIPTS)
+def test_no_stale_role_claims_in_comments(rel: str):
+    """Comments that name a disk's ROLE go stale silently.
+
+    installer-tui.sh said "your dev Debian on nvme0n1" and the preseed said
+    "never nvme0n1 -- that is the running OS". The two NVMes swapped roles at
+    some point, so both statements became exactly backwards, and the preseed's
+    rule then selected the disk it was written to protect (2026-07-27).
+    """
+    import re
+    text = (REPO_ROOT / rel).read_text(encoding="utf-8")
+    for line in text.splitlines():
+        s = line.strip()
+        if not s.startswith("#"):
+            continue
+        # A comment may MENTION a device while explaining history; it must not
+        # assert what currently lives there.
+        if re.search(r"(dev|running|your)\s+\w*\s*(Debian|OS|system)\s+(on|is)\s+/?dev/\w+", s, re.I):
+            raise AssertionError(
+                f"{rel}: comment claims a disk's current role, which goes stale: {s!r}"
+            )
+
+
+def test_the_tui_still_refuses_when_reflash_discovery_fails():
+    """Its interactive picker covers the fresh path; the REFLASH path is where
+    it used to fall back to a hardcoded device name — at the one moment it had
+    just failed to determine anything (2026-07-27)."""
+    text = (REPO_ROOT / "scripts/install/installer-tui.sh").read_text(encoding="utf-8")
+    assert "could not be resolved" in text, (
+        "the reflash path must refuse when the sovereign VG's disk cannot be "
+        "resolved, rather than guess a device name"
+    )
+    assert "SOVEREIGN_OS_TARGET_DISK:-}" in text, (
+        "an explicit override must still be honoured"
+    )

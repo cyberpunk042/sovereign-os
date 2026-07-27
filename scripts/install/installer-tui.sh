@@ -71,7 +71,7 @@ info "boot medium : ${_medium_dev:-unknown}  (disk ${FORBID_DISK:-unknown} — p
 
 # ── 2. reflash-root FIRST: if the `sovereign` VG already exists (box prepared
 #      with setup-lvm), REUSE it — rebuild the root LV, keep /home. No disk
-#      picking, and NO OTHER OS DISK (e.g. your dev Debian on nvme0n1) is ever
+#      picking, and NO OTHER OS DISK (the operator's own Debian) is ever
 #      touched: we only write the sovereign LVs + the ESP on the VG's own disk. ──
 REFLASH=0
 TARGET=""
@@ -79,7 +79,25 @@ if vgs sovereign >/dev/null 2>&1; then
   REFLASH=1
   _pv="$(pvs --noheadings -o pv_name -S vg_name=sovereign 2>/dev/null | awk 'NF{print $1; exit}')"
   [ -n "${_pv}" ] && TARGET="$(_whole_disk "${_pv}")"
-  [ -b "${TARGET}" ] || TARGET="${SOVEREIGN_OS_TARGET_DISK:-/dev/nvme1n1}"
+    # Discovery failed: a `sovereign` VG exists but its PV could not be resolved.
+    # Falling back to a hardcoded /dev/nvme1n1 guessed at the worst possible
+    # moment -- and on the operator's box that name is the RUNNING Debian. The
+    # comment above used to say the dev system lived on nvme0n1; the roles have
+    # since swapped, which is exactly why no device name belongs here
+    # (2026-07-27). Honour an explicit override, otherwise refuse.
+    if [ ! -b "${TARGET}" ]; then
+      TARGET="${SOVEREIGN_OS_TARGET_DISK:-}"
+      if [ ! -b "${TARGET}" ]; then
+        red "a 'sovereign' volume group exists but its disk could not be resolved."
+        red "  Name it explicitly: SOVEREIGN_OS_TARGET_DISK=/dev/..."
+        red "  Disks with nothing mounted:"
+        lsblk -dno NAME,SIZE,MODEL 2>/dev/null | while read -r _n _rest; do
+          [ "$(lsblk -nro MOUNTPOINTS "/dev/${_n}" 2>/dev/null | grep -c .)" = 0 ] \
+            && red "    /dev/${_n}  ${_rest}"
+        done
+        exit 1
+      fi
+    fi
 else
   # ── FRESH: offer ONLY internal (non-removable, RM=0) whole disks that are not
   #    the boot medium. The USB stick (RM=1) is excluded automatically; lsblk
