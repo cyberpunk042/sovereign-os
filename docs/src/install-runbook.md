@@ -6,6 +6,14 @@ checkpoints. Substrate-aware: uses mkosi (primary per SDD-003); the
 live-build path swaps the `05/07` build steps but the lifecycle is
 identical.
 
+**Three substrates, two of which install:**
+
+| `SOVEREIGN_OS_ARTIFACT` | substrate | what you get |
+|---|---|---|
+| `image` (default) | `mkosi` | whole-disk appliance `.raw` — dd it, immutable |
+| `installer` | `installer-cdd` | **a real Debian 13 installer ISO** (simple-cdd → debian-cd): the normal d-i experience, offline from the CD's own mirror. See [the 2026-07-26 directive](../standing-directives/2026-07-26-the-normal-debian-13-installer.md). |
+| `installer-live` | `live-build` | the older live ISO + bespoke TUI — retained, not the default |
+
 ## Prerequisites
 
 | Item | How to confirm |
@@ -165,8 +173,22 @@ Creates `tank` (RAID 0) + `tank/models` (1M lz4) + `tank/context`
 
 ## 3. POST-INSTALL — first-boot hooks
 
-These run automatically once at first boot if the live-build hook
-wired them as a systemd `oneshot`. Otherwise invoke manually:
+**They do NOT run automatically on the debian-installer path.** The ~114
+sovereign units are installed to `/lib/systemd/system` so `systemctl enable`
+can find them, and deliberately left DISABLED: `sovereign-firstboot.target`
+pulls in a dozen heavy services (nvidia-driver-install, tetragon-install,
+inference-model-provision) and enabling them before their code path is proven
+is what produced ~130 restart-looping services on the appliance. Enable them
+deliberately, once the desktop is known good.
+
+Check what the install actually did first:
+
+```sh
+sovereign-osctl install logs              # this machine, right after first boot
+sovereign-osctl install logs --from /dev/nvme0n1   # or read an unbootable disk
+```
+
+Then invoke the hooks manually, or enable the units you want:
 
 ```sh
 sudo scripts/hooks/post-install/friction-audit-runtime.sh      # validate real hardware
