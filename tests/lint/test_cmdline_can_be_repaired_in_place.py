@@ -42,7 +42,11 @@ def test_it_reads_the_shared_definition():
 def test_its_fallback_matches_the_shared_definition():
     """The fallback only fires when the payload is absent — it must still agree."""
     shared = re.search(
-        r'SOVEREIGN_OS_KERNEL_CMDLINE="\$\{SOVEREIGN_OS_KERNEL_CMDLINE:-([^}]*)\}"',
+        # `:?-` so this matches BOTH ${VAR:-d} and ${VAR-d}. installed-system.sh
+        # moved to the colon-less form so an explicitly EMPTY value survives
+        # (blacklist nothing / no extra cmdline); three lints parsed the old
+        # spelling and broke (2026-07-27).
+        r'SOVEREIGN_OS_KERNEL_CMDLINE="\$\{SOVEREIGN_OS_KERNEL_CMDLINE:?-([^}]*)\}"',
         LIB.read_text(encoding="utf-8"))
     assert shared, "installed-system.sh must define the cmdline"
     for opt in shared.group(1).split():

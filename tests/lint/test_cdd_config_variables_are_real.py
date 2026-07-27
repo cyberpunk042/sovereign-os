@@ -96,7 +96,12 @@ def test_the_generated_conf_survives_set_u():
     pre-flight, 2026-07-26).
     """
     text = BUILD.read_text(encoding="utf-8")
-    start = text.index("cat > ")
+    # Anchor on the sovereign.conf heredoc specifically. `text.index("cat > ")`
+    # finds the FIRST one in the file — which is the postinst, written with
+    # <<'POSTINST' (QUOTED), where a `${VAR}` in a comment is literal and
+    # harmless. Its sibling test was corrected the same way; this one was
+    # missed, and it then failed on a perfectly safe comment (2026-07-27).
+    start = text.rindex("cat > ", 0, text.index("sovereign.conf"))
     body = text[start:text.index("\nCONF\n", start)]
     bad = [l for l in body.splitlines()
            if l.lstrip().startswith("#") and "$" in l]

@@ -69,13 +69,17 @@ def test_the_dashboards_outcome_is_recorded_not_swallowed():
     before), and the script failing behind `|| true`. Each produced an install
     that "succeeded" with no sovereign-os on it (2026-07-27).
     """
-    build = (REPO_ROOT / "scripts" / "build" / "installer-cdd" / "build.sh").read_text(encoding="utf-8")
-    post = build[build.index("DEBIAN/postinst"):build.index("\nPOSTINST")]
-    assert "dashboards-install.status" in post, (
-        "the postinst must record whether the dashboards deploy succeeded"
+    # The deploy MOVED OUT of the postinst: install-gui-dashboards.sh calls
+    # apt-get, and dpkg holds its lock while running maintainer scripts, so it
+    # deadlocked there. It now runs from d-i's late_command via
+    # deploy-dashboards.sh — which is where the outcome must be recorded
+    # (2026-07-27).
+    deploy = (REPO_ROOT / "scripts" / "install" / "deploy-dashboards.sh").read_text(encoding="utf-8")
+    assert "dashboards-install.status" in deploy, (
+        "the deploy must record whether it succeeded"
     )
     for mode in ("MISSING", "NOT EXECUTABLE", "FAILED"):
-        assert mode in post, f"the {mode} case is still silent"
+        assert mode in deploy, f"the {mode} case is still silent"
 
 
 def test_the_postinst_cannot_abort_the_install():

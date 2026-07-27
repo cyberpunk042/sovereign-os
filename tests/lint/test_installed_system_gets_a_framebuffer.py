@@ -33,7 +33,11 @@ PRESEEDS = ("default.preseed", "sovereign.preseed")
 
 def shared_cmdline() -> str:
     text = INSTALLED.read_text(encoding="utf-8")
-    m = re.search(r'SOVEREIGN_OS_KERNEL_CMDLINE="\$\{SOVEREIGN_OS_KERNEL_CMDLINE:-([^}]*)\}"', text)
+    # `:?-` so this matches BOTH ${VAR:-d} and ${VAR-d}. installed-system.sh
+    # moved to the colon-less form so an explicitly EMPTY value survives
+    # (blacklist nothing / no extra cmdline); three lints parsed the old
+    # spelling and broke (2026-07-27).
+    m = re.search(r'SOVEREIGN_OS_KERNEL_CMDLINE="\$\{SOVEREIGN_OS_KERNEL_CMDLINE:?-([^}]*)\}"', text)
     assert m, "installed-system.sh must define the installed kernel cmdline"
     return m.group(1)
 
