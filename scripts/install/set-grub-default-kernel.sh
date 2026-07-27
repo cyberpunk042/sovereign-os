@@ -38,7 +38,14 @@ update-grub
 
 # Find the menuentry id for our kernel (prefer the plain/advanced entry, not the
 # recovery one) and pin it as the saved default.
-id=$(awk -F"'" '/\$menuentry_id_option/ && /'"${KVER}"'/ && !/recovery/ {print $2; exit}' "${GRUBCFG}" 2>/dev/null || true)
+# Field 4, not 2. With -F"'" the fields of a menuentry line are:
+#   $1 "menuentry "  $2 <title>  $3 " ... $menuentry_id_option "  $4 <id>
+# $2 is the human title ("Debian GNU/Linux, with Linux 6.12.0") -- commas and
+# all -- not the id this script's own comment says to use (2026-07-26).
+# KVER is also interpolated into a REGEX, where '.' matches any character, so
+# escape it before matching on a version number.
+KVER_RE=$(printf '%s' "${KVER}" | sed 's/[.[\*^$]/\\&/g')
+id=$(awk -F"'" '/\$menuentry_id_option/ && /'"${KVER_RE}"'/ && !/recovery/ {print $4; exit}' "${GRUBCFG}" 2>/dev/null || true)
 if [ -n "${id}" ]; then
   grub-set-default "${id}"
   echo "set-grub-default-kernel: GRUB default → ${KVER}  (id=${id})"

@@ -6250,7 +6250,20 @@ EOF
         echo "  kernels installed:"
         sudo find "${mnt}/boot" -maxdepth 1 -name "vmlinuz-*" 2>/dev/null \
           | sed "s|${mnt}/boot/|    |" | sort || true
-        echo "  kernel cmdline GRUB will use:"
+        # WHICH kernel actually boots. The first `linux` lines in grub.cfg are
+        # simply the highest VERSION (6.12.96+deb13 sorts above a custom 6.12.0),
+        # which says nothing about the default -- reading only those led me to
+        # tell the operator the wrong kernel was booting (2026-07-26).
+        # grub-set-default writes saved_entry into grubenv; that is the answer.
+        echo "  GRUB default entry:"
+        sudo grep -hE "^GRUB_DEFAULT=" "${mnt}/etc/default/grub" 2>/dev/null \
+          | sed 's/^/    /' || echo "    (GRUB_DEFAULT unset)"
+        sudo grep -hE "^saved_entry=" "${mnt}/boot/grub/grubenv" 2>/dev/null \
+          | sed 's/^/    grubenv /' || echo "    grubenv: no saved_entry — GRUB falls back to the FIRST menu entry"
+        echo "  all kernel entries (in menu order — first one wins unless saved_entry says otherwise):"
+        sudo grep -hoE "vmlinuz-[0-9][^ ]*" "${mnt}/boot/grub/grub.cfg" 2>/dev/null \
+          | awk '!seen[$0]++' | sed 's/^/    /' || true
+        echo "  kernel cmdline on those entries:"
         sudo grep -hE "^[[:space:]]*linux[[:space:]]" "${mnt}/boot/grub/grub.cfg" 2>/dev/null \
           | head -2 | sed 's/^/    /' || true
         echo "  sovereign payload:"
