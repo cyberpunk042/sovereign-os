@@ -51,6 +51,44 @@ fn main() {
     println!(
         "PASS — safe sovereign_chromofold::HostFmSearch ran FM-search on the GPU (invariant holds)."
     );
+
+    // Corrupt-input honesty (never fabricate): the engine parses/validates the .cffm on the
+    // host before any device work, so malformed input must return a clean Err — not a panic,
+    // not a fabricated index.
+    use sovereign_chromofold::HostSearchError;
+
+    // (a) bad magic → rejected immediately.
+    let mut bad_magic = blob.clone();
+    bad_magic[0] ^= 0xFF;
+    assert!(
+        matches!(
+            HostFmSearch::load(&bad_magic),
+            Err(HostSearchError::Engine(_))
+        ),
+        "bad-magic blob must be rejected, not accepted"
+    );
+
+    // (b) truncated INTO the index arrays → incomplete index → rejected. NB: the loader only
+    // consumes the index prefix (header + RRR-wavelet + C-table + sampled SA); it never reads
+    // the trailing golden test vectors, so lopping off that tail is legitimately ACCEPTED (the
+    // index is still whole). Hence we truncate just past the 72-byte header, cutting the arrays.
+    let into_index = &blob[..80];
+    assert!(
+        matches!(
+            HostFmSearch::load(into_index),
+            Err(HostSearchError::Engine(_))
+        ),
+        "blob truncated into the index must be rejected, not accepted"
+    );
+
+    // (c) empty input → rejected at the null/short-buffer guard.
+    assert!(
+        HostFmSearch::load(&[]).is_err(),
+        "empty blob must be rejected"
+    );
+    println!(
+        "PASS — bad-magic / index-truncated / empty .cffm all rejected with a clean Err (no fabricated index)."
+    );
 }
 
 #[cfg(not(feature = "linked"))]
