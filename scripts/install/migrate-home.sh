@@ -26,7 +26,16 @@ info() { printf '  %s\n' "$*"; }
 [ "$(id -u)" -eq 0 ] || { red "must run as root: sudo $0"; exit 1; }
 [ -b "${HOME_LV}" ] || { red "ABORT: ${HOME_LV} not found — run setup-lvm-dualboot.sh first"; exit 1; }
 
-if findmnt -no SOURCE /home 2>/dev/null | grep -q "$(readlink -f "${HOME_LV}")"; then
+# Compare RESOLVED devices on both sides. The two tools spell the same LV
+# differently: `findmnt` reports /dev/mapper/<vg>-<lv> while `readlink -f` on
+# /dev/<vg>/<lv> yields /dev/dm-N, so a substring match between them fails and
+# this guard silently does not fire. That matters: without it the script mounts
+# the LV a second time and rsyncs /home INTO a subdirectory of itself
+# (2026-07-27).
+_resolve() { readlink -f "$1" 2>/dev/null || printf '%s' "$1"; }
+_home_src="$(findmnt -no SOURCE /home 2>/dev/null || true)"
+if [ -n "${_home_src}" ] \
+   && [ "$(_resolve "${_home_src}")" = "$(_resolve "${HOME_LV}")" ]; then
   grn "/home is already the shared LV — migration already done."
   exit 0
 fi
