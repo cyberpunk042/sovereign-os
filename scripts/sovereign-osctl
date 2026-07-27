@@ -6249,13 +6249,18 @@ EOF
 
       echo "── sovereign logs (/var/log/sovereign-os) ──"
       local n=0
-      for f in $(sudo find "${mnt}/var/log/sovereign-os" -maxdepth 1 -type f 2>/dev/null | sort); do
+      # Unprivileged first. verify-installed-system.sh creates this directory
+      # 755 with 644 files, so the operator CAN read their own install
+      # report — but reading it through sudo meant that right after first
+      # boot, on the machine itself, the most useful section printed
+      # "(empty)" (2026-07-27).
+      for f in $(_try find "${mnt}/var/log/sovereign-os" -maxdepth 1 -type f | sort); do
         n=$((n+1)); echo "  ── $(basename "${f}") ──"
         # Guarded: this verb runs under `set -euo pipefail`, so ONE failing
         # pipeline aborts the whole report and every section after it is lost.
         # A log that vanished or became unreadable between the find and the
         # tail must cost one file, not the diagnostic (2026-07-27).
-        sudo tail -n "${SOVEREIGN_OS_LOG_TAIL:-60}" "${f}" 2>/dev/null | sed 's/^/    /' || true
+        _try tail -n "${SOVEREIGN_OS_LOG_TAIL:-60}" "${f}" | sed 's/^/    /' || true
       done
       [ "${n}" -eq 0 ] && echo "  (empty)"
       echo
