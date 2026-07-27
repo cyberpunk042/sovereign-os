@@ -62,3 +62,33 @@ def test_the_local_report_actually_runs_and_is_accurate():
         assert "[MISSING]" not in line, (
             f"{pkg} is installed on this machine but the report says: {line.strip()!r}"
         )
+
+
+def test_unprivileged_reads_come_first():
+    """Reaching for sudo first turns "cannot authenticate" into "does not exist".
+
+    The report announced `display-manager: <NOT SET -- nothing will ever start
+    X>` on a machine running KDE, because it used `sudo readlink` on a
+    world-readable path and the sudo prompt failed (2026-07-27).
+    """
+    body = OSCTL.read_text(encoding="utf-8")
+    assert "_try()" in body, (
+        "the report needs a helper that tries an unprivileged read before sudo"
+    )
+    # The loudest false alarms must use it.
+    for probe in ("display-manager.service", "default.target"):
+        line = next((l for l in body.splitlines()
+                     if probe in l and "readlink" in l), "")
+        assert "_try" in line, f"{probe} is still read via sudo first: {line.strip()!r}"
+
+
+def test_the_report_names_the_display_manager_on_this_machine():
+    """Execute it: this machine has sddm registered, so the report must say so."""
+    out = subprocess.run([str(OSCTL), "install", "logs"],
+                         capture_output=True, text=True, timeout=120, cwd=REPO_ROOT)
+    assert out.returncode == 0, out.stderr[-500:]
+    line = next((l for l in out.stdout.splitlines() if "display-manager:" in l), "")
+    assert "NOT SET" not in line, (
+        f"the report claims no display manager on a machine running KDE: {line.strip()!r}"
+    )
+    assert "sddm" in line, f"expected sddm in: {line.strip()!r}"

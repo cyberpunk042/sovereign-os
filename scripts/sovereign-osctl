@@ -6227,6 +6227,14 @@ EOF
         fi   # end remote-disk setup; local mode leaves mnt="" so every
              # path below resolves against / unchanged.
 
+      # Read WITHOUT privilege first. Almost everything this report inspects
+      # (/etc/systemd/system, /var/lib/dpkg/status, /usr/share/xsessions) is
+      # world-readable; only the journal, grub.cfg and /var/lib/sovereign-os
+      # need root. Reaching for sudo FIRST turned "cannot authenticate" into
+      # "does not exist" — the report announced "nothing will ever start X"
+      # on a machine running KDE at that moment (2026-07-27).
+      _try() { "$@" 2>/dev/null || sudo -n "$@" 2>/dev/null; }
+
       echo "── first-boot markers ──"
       if sudo test -d "${mnt}/var/lib/sovereign-os"; then
         sudo ls -1 "${mnt}/var/lib/sovereign-os" 2>/dev/null | sed 's/^/  /' || true
@@ -6276,9 +6284,9 @@ EOF
         # `set -e` would abort the whole diagnostic.
         echo "-- desktop stack (why X was never asked to start) --"
         local dflt dm _pkg
-        dflt="$(sudo readlink "${mnt}/etc/systemd/system/default.target" 2>/dev/null || true)"
+        dflt="$(_try readlink "${mnt}/etc/systemd/system/default.target" || true)"
         echo "  default.target : ${dflt:-<unset>}"
-        dm="$(sudo readlink "${mnt}/etc/systemd/system/display-manager.service" 2>/dev/null || true)"
+        dm="$(_try readlink "${mnt}/etc/systemd/system/display-manager.service" || true)"
         echo "  display-manager: ${dm:-<NOT SET -- nothing will ever start X>}"
         echo "  packages that must be present:"
         for _pkg in sddm plasma-desktop kde-plasma-desktop xserver-xorg-core \
@@ -6299,7 +6307,7 @@ EOF
           fi
         done
         echo "  kernels installed:"
-        sudo find "${mnt}/boot" -maxdepth 1 -name "vmlinuz-*" 2>/dev/null \
+        _try find "${mnt}/boot" -maxdepth 1 -name "vmlinuz-*" 2>/dev/null \
           | sed "s|${mnt}/boot/|    |" | sort || true
         # WHICH kernel actually boots. The first `linux` lines in grub.cfg are
         # simply the highest VERSION (6.12.96+deb13 sorts above a custom 6.12.0),
@@ -6324,7 +6332,7 @@ EOF
           echo "    [MISSING] /opt/sovereign-os -- the cockpit deb never landed"
         fi
         echo "  module blacklists:"
-        sudo find "${mnt}/etc/modprobe.d" -name "*.conf" 2>/dev/null \
+        _try find "${mnt}/etc/modprobe.d" -name "*.conf" 2>/dev/null \
           | sed "s|${mnt}|    |" | head -6 || true
         echo
 
