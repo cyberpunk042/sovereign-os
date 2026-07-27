@@ -81,13 +81,37 @@ CTRL
 cat > "${PKGROOT}/DEBIAN/postinst" <<'POSTINST'
 #!/bin/sh
 set -e
-# best-effort: wire the dashboards launcher (the desktop is installed by the task)
-if [ -x /opt/sovereign-os/scripts/install/install-gui-dashboards.sh ]; then
-  SOVEREIGN_OS_SRC=/opt/sovereign-os SOVEREIGN_OS_FRONTEND=kde-plasma \
-    bash /opt/sovereign-os/scripts/install/install-gui-dashboards.sh || true
+# Deploy the dashboards + cockpit. This CANNOT abort the install -- a failing
+# postinst makes dpkg fail the package, which fails the whole d-i run and leaves
+# a half-installed disk. But it must not vanish either: all three failure modes
+# here were previously silent (script not executable -> [ -x ] false -> skipped;
+# script fails -> || true; script absent -> skipped), producing an install that
+# "succeeded" with no sovereign-os on it and nothing to explain why
+# (2026-07-27). Record what happened so first boot can say so.
+# Every write below is guarded. This runs under `set -e`: an unguarded mkdir on
+# a full or read-only /var would exit non-zero, dpkg would fail the package, and
+# d-i would abort the install -- the exact outcome this block exists to prevent.
+# Caught by the postinst execution test before it shipped (2026-07-27).
+mkdir -p /var/log/sovereign-os /var/lib/sovereign-os 2>/dev/null || true
+_dash=/opt/sovereign-os/scripts/install/install-gui-dashboards.sh
+_dlog=/var/log/sovereign-os/dashboards-install.log
+if [ ! -f "${_dash}" ]; then
+  echo "MISSING: ${_dash} is not in the package" > "${_dlog}" 2>/dev/null || true
+  echo missing > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
+elif [ ! -x "${_dash}" ]; then
+  # A lost exec bit silently skipped this entire stage once before.
+  echo "NOT EXECUTABLE: ${_dash} (mode $(stat -c %a "${_dash}" 2>/dev/null))" > "${_dlog}" 2>/dev/null || true
+  echo not-executable > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
+elif SOVEREIGN_OS_SRC=/opt/sovereign-os SOVEREIGN_OS_FRONTEND=kde-plasma \
+       bash "${_dash}" > "${_dlog}" 2>&1; then
+  echo ok > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
+else
+  echo "FAILED (rc=$?) -- full output above" >> "${_dlog}" 2>/dev/null || true
+  echo failed > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
 fi
-mkdir -p /etc/sovereign-os
-[ -f /etc/sovereign-os/active-profile ] || echo sain-01 > /etc/sovereign-os/active-profile
+mkdir -p /etc/sovereign-os 2>/dev/null || true
+[ -f /etc/sovereign-os/active-profile ] \
+  || echo sain-01 > /etc/sovereign-os/active-profile 2>/dev/null || true
 
 # The units and the payload disagree on where the code lives: 68 units
 # ExecStart from /usr/local/lib/sovereign-os while this package installs to
@@ -97,8 +121,8 @@ mkdir -p /etc/sovereign-os
 # One compatibility symlink makes both layouts resolve. Never clobber a real
 # directory if something else already owns that path.
 if [ ! -e /usr/local/lib/sovereign-os ]; then
-  mkdir -p /usr/local/lib
-  ln -sfn /opt/sovereign-os /usr/local/lib/sovereign-os
+  mkdir -p /usr/local/lib 2>/dev/null || true
+  ln -sfn /opt/sovereign-os /usr/local/lib/sovereign-os 2>/dev/null || true
 fi
 
 # Make the sovereign units DISCOVERABLE -- and enable NOTHING.

@@ -70,8 +70,11 @@ def test_it_runs_to_completion_against_a_throwaway_root(tmp_path: Path):
     shutil.copy(unit, root / "opt/sovereign-os/systemd/system/")
 
     src = postinst_source()
-    for real in ("/opt/sovereign-os", "/etc/sovereign-os",
-                 "/usr/local/lib", "/lib/systemd/system"):
+    # Sandbox /var too — the postinst writes status and logs there, and the
+    # test was executing those against the developer's real filesystem.
+    for real in ("/opt/sovereign-os", "/etc/sovereign-os", "/usr/local/lib",
+                 "/lib/systemd/system", "/var/log/sovereign-os",
+                 "/var/lib/sovereign-os"):
         src = src.replace(real, f"{root}{real}")
 
     out = subprocess.run(["sh"], input=src, capture_output=True, text=True,

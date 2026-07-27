@@ -137,6 +137,20 @@ mkdir -p /var/log/sovereign-os
   echo
 
   echo "-- sovereign-os itself --"
+  # The dashboards deploy is the difference between "Debian + KDE" and a
+  # sovereign-os. It cannot abort the install, so its outcome is recorded
+  # instead — say so plainly here rather than let a silent no-op look like
+  # success (2026-07-27).
+  _dstat="$(cat /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || echo "not recorded")"
+  case "${_dstat}" in
+    ok) echo "  dashboards deploy: ok" ;;
+    *)  echo "  dashboards deploy: ${_dstat}  <-- PROBLEM"
+        echo "    log: /var/log/sovereign-os/dashboards-install.log"
+        echo "    fix: sudo SOVEREIGN_OS_SRC=/opt/sovereign-os \\"
+        echo "           SOVEREIGN_OS_FRONTEND=kde-plasma \\"
+        echo "           bash /opt/sovereign-os/scripts/install/install-gui-dashboards.sh"
+        ;;
+  esac
   if [ -L /usr/local/lib/sovereign-os ]; then
     echo "  app tree: SYMLINK -> $(readlink /usr/local/lib/sovereign-os)"
     echo "    (the dashboards deploy did not run; units resolve via the fallback)"
