@@ -5957,6 +5957,41 @@ cmd_install() {
             log_warn "SOVEREIGN_OS_FLASH_ANY_IMAGE=1 — writing anyway" ;;
         esac
 
+        # STALENESS. An installer ISO carries its own preseed; if that preseed
+        # disagrees with the repo's, the ISO predates fixes that are already in
+        # the tree. The ISO sitting in output/ on 2026-07-27 still had
+        # `passwd/root-password password sovereign` and NO add-kernel-opts —
+        # flashing it reproduced the dark-screen failure that had just cost a
+        # day, and nothing stopped it: the build-time gate cannot help once the
+        # artifact exists.
+        if command -v xorriso >/dev/null 2>&1 \
+           && [ "${_img_kind#*ISO 9660}" != "${_img_kind}" ]; then
+          _pdir="$(mktemp -d)"
+          if xorriso -osirrox on -indev "${image}" \
+               -cpx /simple-cdd/default.preseed "${_pdir}/p" >/dev/null 2>&1; then
+            _repo_preseed="${__REPO_ROOT}/scripts/build/installer-cdd/profiles/default.preseed"
+            for _k in "debian-installer/add-kernel-opts" "passwd/root-password"; do
+              # `grep -c` PRINTS 0 and EXITS 1 when nothing matches, so
+              # `|| echo 0` appends a second zero and the values never compare
+              # equal — every image would look stale (caught pre-flight,
+              # 2026-07-27). Pipe through head so the exit status is head's.
+              _iso_has="$(grep -c "^d-i ${_k}" "${_pdir}/p" 2>/dev/null | head -1)"
+              _repo_has="$(grep -c "^d-i ${_k}" "${_repo_preseed}" 2>/dev/null | head -1)"
+              _iso_has="${_iso_has:-0}"; _repo_has="${_repo_has:-0}"
+              if [ "${_iso_has}" != "${_repo_has}" ]; then
+                log_warn "STALE IMAGE: its preseed disagrees with the repo on '${_k}'"
+                log_warn "  (image: ${_iso_has} line(s), repo: ${_repo_has})"
+                log_warn "  This ISO predates fixes already in the tree. Rebuild before flashing,"
+                log_warn "  or set SOVEREIGN_OS_FLASH_STALE=1 to write it anyway."
+                if [ "${SOVEREIGN_OS_FLASH_STALE:-0}" != 1 ]; then
+                  rm -rf "${_pdir}"; return 1
+                fi
+              fi
+            done
+          fi
+          rm -rf "${_pdir}"
+        fi
+
         dd_ok=0
         if sudo dd if="${image}" of="${device}" bs=4M status=progress oflag=direct conv=fsync; then
           dd_ok=1
