@@ -71,13 +71,23 @@ d-i partman-auto/choose_recipe select sovereign-lvm
 ### sizing prompt — the recipe already sizes root/home). Keeps guided to just the
 ### disk pick + the write confirmations.
 d-i partman-auto-lvm/guided_size string max
+### ROOT SIZING. Fields are <min> <priority> <max> in MB.
+### root was capped at 15360 (15 GB) on a 1.8 TB disk. That must hold KDE
+### Plasma, Firefox, the custom kernel AND its headers, /opt/sovereign-os (the
+### whole repo payload), /usr/local/lib/sovereign-os, the apt cache, and later
+### an NVIDIA driver plus whatever inference-model-provision pulls down. A full
+### root is an OS that cannot log in, update, or be repaired -- on a disk with
+### 1.7 TB sitting idle next to it (2026-07-27).
+### min stays 8192 so the recipe still fits a small disk; priority and max are
+### raised so root takes a real share before home (priority 10000, max -1)
+### claims everything left.
 d-i partman-auto/expert_recipe string                                   \
       sovereign-lvm ::                                                   \
               538 538 1075 free                                         \
                       $iflabel{ gpt } $reusemethod{ }                    \
                       method{ efi } format{ }                           \
               .                                                          \
-              4096 8192 15360 ext4                                       \
+              8192 30000 81920 ext4                                      \
                       $lvmok{ } lv_name{ root }                          \
                       method{ format } format{ }                        \
                       use_filesystem{ } filesystem{ ext4 }               \
