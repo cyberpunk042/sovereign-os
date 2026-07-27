@@ -30,6 +30,16 @@ Each implements a small adapter contract (`lib/backend.py`).
 
 [`chromofold-fold-bench.py`](chromofold-fold-bench.py) — READ-ONLY measurement of ChromoFold's weight-fold techniques against a **real** quantized MoE expert bank, answering the question SDD-401/402 sized from ChromoFold's *synthetic* benches (which disagree 3× between themselves). Modes: `heat` (routing concentration from Colibri's `.coli_usage`), `entropy` (the M6 block-Huffman lane — H0/H1 of the int4 symbol stream + the `block`-size trade), `group` (the M20/M21 grouped-delta lane, index- and permutation-aligned), `rank` (within-expert SVD spectrum). Pure numpy, no GPU/CUDA/`libchromofold`; honest-degrades exit-3 when the container or the Warp checkout is absent. Measured 2026-07-27 on GLM-5.2 int4: entropy lane **1.350× lossless** (358 GB → 266 GB, the fit that makes VRAM+RAM residency possible), grouping lane **0.99×** (does not pay). Full record: [`docs/evaluations/chromofold-fold-measurement-glm52-2026-07-27.md`](../../docs/evaluations/chromofold-fold-measurement-glm52-2026-07-27.md).
 
+### Decode-path microbenchmarks (2026-07-27 investigation)
+
+Three standalone benchmarks that isolated the GLM-5.2 decode bottleneck. All read-only; the `.cu` pair needs `nvcc -O3 -arch=sm_120`.
+
+- [`bench-expert-matvec.cu`](bench-expert-matvec.cu) — Colibri's `quant_matmul` vs two optimised rewrites at GLM expert shape (int4, I=6144, O=2048, B=1). **Result: Colibri's kernel wins at 254 GB/s (14% of roofline); both rewrites lost (0.79×, 0.33×).**
+- [`bench-launch-overhead.cu`](bench-launch-overhead.cu) — per-expert launch cost and CUDA Graph capture vs plain stream launches, at the real 4-launches-per-expert pattern. **Result: empty launch 2.05 µs; graph replay only 1.05×** — launch overhead is not the bottleneck.
+- [`bench-quant-viability.py`](bench-quant-viability.py) — 2-bit/3-bit quantisation error measured from the **FP8 source** (not the int4 container, which double-quantises). **Result: 2-bit is dominated at every operating point** — uniform grouping is 4.4× worse than production int4, and a Lloyd-Max codebook that reaches acceptable error costs exactly what it saves (18.87 MB = int4 size).
+
+Full record: [`docs/evaluations/chromofold-fold-measurement-glm52-2026-07-27.md`](../../docs/evaluations/chromofold-fold-measurement-glm52-2026-07-27.md).
+
 ## Why no unifying abstraction (vs LocalAI)
 
 Per SDD-011: SAIN-01's value is per-tier hardware exploitation. The router speaks OpenAI but routes deterministically; backends remain operator-readable + observable.
