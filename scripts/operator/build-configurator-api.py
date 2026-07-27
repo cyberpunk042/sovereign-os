@@ -1272,6 +1272,39 @@ class Handler(BaseHTTPRequestHandler):
                         {"error": f"unknown frontend {frontend!r}",
                          "allowed": sorted(FRONTEND_CHOICES)}))
                 bake_env["SOVEREIGN_OS_FRONTEND"] = frontend
+            # ── TARGET MACHINE ──────────────────────────────────────────────
+            # Everything above configures WHAT is baked in. These configure WHO
+            # it is for. Without them every ISO carried the sain-01 box's
+            # identity and GPU workarounds: hostname sovereign-os, user jfortin,
+            # nomodeset, amdgpu+nouveau blacklisted. On hardware whose GPU driver
+            # actually binds, those cost acceleration for no benefit, and the
+            # panel offered no way to change them (2026-07-27).
+            #
+            # Each is optional: omitted or blank means "keep the built-in
+            # default", so an unchanged panel produces an unchanged build.
+            # MODULE_BLACKLIST is deliberately allowed to be EMPTY — "blacklist
+            # nothing" is a meaningful choice on other hardware, so it is
+            # forwarded whenever the key is present rather than only when truthy.
+            for _key, _env, _pattern in (
+                ("hostname",         "SOVEREIGN_OS_HOSTNAME",         r"^[a-z0-9][a-z0-9-]{0,62}$"),
+                ("username",         "SOVEREIGN_OS_USERNAME",         r"^[a-z_][a-z0-9_-]{0,31}$"),
+                ("kernel_cmdline",   "SOVEREIGN_OS_KERNEL_CMDLINE",   r"^[A-Za-z0-9=_.,:/ -]{0,200}$"),
+                ("module_blacklist", "SOVEREIGN_OS_MODULE_BLACKLIST", r"^[a-z0-9_ -]{0,200}$"),
+                ("kernel_debs_dir",  "SOVEREIGN_OS_KERNEL_DEBS_DIR",  r"^/[A-Za-z0-9._/-]{0,200}$"),
+            ):
+                if _key not in body:
+                    continue
+                _val = str(body.get(_key) or "").strip()
+                if _val == "" and _key != "module_blacklist":
+                    continue
+                # These land in a preseed and in shell; reject anything that
+                # could break out of either rather than quoting after the fact.
+                if not re.match(_pattern, _val):
+                    return self._send(400, json.dumps(
+                        {"error": f"invalid {_key}: {_val!r}",
+                         "expected": _pattern}))
+                bake_env[_env] = _val
+
             # Artifact shape: build a bootable INSTALLER ISO (installs the mutable
             # OS onto an internal disk) instead of the whole-disk appliance image.
             # orchestrate.sh forces the live-build substrate for installer.

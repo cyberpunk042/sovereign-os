@@ -2653,6 +2653,42 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Build the STANDARD debian-installer ISO (simple-cdd): the normal Debian 13 install experience, fully offline (the CD carries its own package mirror), installing Debian 13 + KDE + the custom znver5 kernel + the sovereign-os cockpit onto the target NVMe. This replaced the old live-build ISO, whose bespoke whiptail TUI was not what an operator means by an installer.">
         <label class="chk" style="margin:0"><input type="checkbox" id="build-installer"> 🖴 build INSTALLER <span class="muted small">(standard Debian 13 installer ISO — normal d-i install onto the NVMe, offline; vs the whole-disk appliance)</span></label>
       </div>
+        <!-- TARGET MACHINE. Everything else configures WHAT is baked in; this
+             configures WHO it is for. Without it every ISO carried the sain-01
+             box's identity and GPU workarounds (hostname sovereign-os, user
+             jfortin, nomodeset, amdgpu+nouveau blacklisted) - which on hardware
+             whose GPU driver binds costs acceleration for nothing. Blank = keep
+             the built-in default, so an untouched panel builds what it always
+             did. (2026-07-27) -->
+        <details style="margin-bottom:.5rem">
+          <summary class="small" style="cursor:pointer">&#128421; target machine <span class="muted">&mdash; leave blank to build for this box (sain-01)</span></summary>
+          <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin:.5rem 0 0 .25rem">
+            <label class="chk" style="margin:0">hostname
+              <input type="text" id="tgt-hostname" placeholder="sovereign-os"
+                     pattern="[a-z0-9][a-z0-9-]*" style="margin-left:.4rem; width:9rem">
+            </label>
+            <label class="chk" style="margin:0">primary user
+              <input type="text" id="tgt-username" placeholder="jfortin"
+                     pattern="[a-z_][a-z0-9_-]*" style="margin-left:.4rem; width:8rem">
+            </label>
+            <label class="chk" style="margin:0" title="Appended to the installed system's kernel command line. nomodeset is REQUIRED on the sain-01 box: no GPU driver binds there, so KMS leaves no framebuffer and X cannot start. On hardware whose driver DOES bind, clear this.">kernel cmdline
+              <input type="text" id="tgt-cmdline" placeholder="nomodeset"
+                     style="margin-left:.4rem; width:13rem">
+            </label>
+            <label class="chk" style="margin:0" title="Modules blocked on the installed system. amdgpu+nouveau are blacklisted on sain-01 because neither can drive its GPUs. On other hardware this disables a working driver - set to 'none' to blacklist nothing.">blacklist modules
+              <input type="text" id="tgt-blacklist" placeholder="amdgpu nouveau"
+                     style="margin-left:.4rem; width:13rem">
+            </label>
+            <label class="chk" style="margin:0" title="Where the custom kernel .debs live. The package lists REQUIRE linux-image-6.12.0, so the build refuses immediately if they are not found there.">kernel .debs
+              <input type="text" id="tgt-kdebs" placeholder="/mnt/kernel_forge/kernel-debs"
+                     style="margin-left:.4rem; width:16rem">
+            </label>
+          </div>
+          <div class="small muted" style="margin:.4rem 0 0 .25rem">
+            Building for a different machine? Clear <em>kernel cmdline</em> and set
+            <em>blacklist modules</em> to <code>none</code> &mdash; those two exist for this box only.
+          </div>
+        </details>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-bottom:.5rem" title="REQUIRED by the image build: without it mkosi locks root and the image boots to a login prompt nobody can satisfy. Sent once, hashed server-side (openssl passwd -6) before it reaches the build — the plaintext is never stored, logged, or placed in a command line. The first-login assistant rotates it on first boot.">
         <label class="chk" style="margin:0">🔑 root bootstrap password
           <input type="password" id="root-password" autocomplete="new-password"
@@ -3792,6 +3828,22 @@ function runAction(action){
                           bake_firstboot: document.getElementById("bake-firstboot").checked,
                           bake_root_modules: document.getElementById("bake-root_modules").checked,
                           build_installer: (document.getElementById("build-installer")||{}).checked || false,
+                          // TARGET MACHINE. Sent only when the operator filled something in, so an
+                          // untouched panel produces exactly the build it always did. The single
+                          // exception is module_blacklist: "none" means blacklist NOTHING, which is
+                          // a real choice on hardware whose GPU driver binds — it is forwarded as an
+                          // empty string rather than dropped (2026-07-27).
+                          ...(function () {
+                            const v = id => ((document.getElementById(id) || {}).value || "").trim();
+                            const out = {};
+                            const host = v("tgt-hostname");   if (host) out.hostname = host;
+                            const user = v("tgt-username");   if (user) out.username = user;
+                            const cmd  = v("tgt-cmdline");    if (cmd)  out.kernel_cmdline = cmd;
+                            const kdb  = v("tgt-kdebs");      if (kdb)  out.kernel_debs_dir = kdb;
+                            const bl   = v("tgt-blacklist");
+                            if (bl) out.module_blacklist = (bl.toLowerCase() === "none") ? "" : bl;
+                            return out;
+                          })(),
                           // Bootstrap root password — mkosi-emit hard-fails without
                           // it (a locked-root image boots to an unsatisfiable login
                           // prompt). The API hashes it before it ever reaches an
