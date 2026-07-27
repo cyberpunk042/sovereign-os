@@ -13,6 +13,8 @@ work on?".
 | 2026-07-11 | [plan-mode-user-approval.md](./2026-07-11-plan-mode-user-approval.md) | active | safety framework — Plan Mode + User Approval + permission modes (manual/auto/bypass) (E4 UX / E5 AI / E6 Health) |
 | 2026-07-12 | [deliberate-reasoning.md](./2026-07-12-deliberate-reasoning.md) | active | reasoning framework — CoT → ToT → MCTS → C-MCTS → CoAT (centerpiece); maps onto branch-tree + value-plane + cortex.deliberate + Memory-OS recall (E5 AI) |
 | 2026-07-19 | [root-modules-rename.md](./2026-07-19-root-modules-rename.md) | active | upstream rename root-ghostproxy → root-modules; SDD-046 binding tracks it (D-026 — lockstep renames + kept wire identifiers) |
+| 2026-07-25 | [installer-onto-nvme.md](./2026-07-25-installer-onto-nvme.md) | active | sovereign-os is INSTALLED onto the NVMe (mutable Debian in sovereign-root), not dd'd as an appliance; two install surfaces — from-host verb + bootable installer USB (E1 Hardware / E4 UX) |
+| 2026-07-26 | [the-normal-debian-13-installer.md](./2026-07-26-the-normal-debian-13-installer.md) | active | ARTIFACT=installer means debian-installer (simple-cdd), NOT live-build + a bespoke whiptail TUI; supersedes the delivery form in the 2026-07-25 directive and in SDD-013 (E1 Hardware / E4 UX) |
 
 ## Re-arming /goal autopilot
 
