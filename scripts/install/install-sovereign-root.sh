@@ -67,6 +67,23 @@ step() { printf '\n\033[36m━━━ %s\033[0m\n' "$*"; }
 #
 # Runs while ${MNT} is still mounted. Hard failures FAIL the install; the
 # operator should learn here, not at the firmware boot menu.
+# ── refuse to ship a known password ────────────────────────────────────────
+# Both chpasswd sites default to the literal "sovereign" when
+# SOVEREIGN_OS_ROOT_PASS / _USER_PASS are unset, so an install run without them
+# produces root:sovereign on a machine the operator believes is theirs alone.
+# The d-i preseeds carried the identical credential in cleartext and had it
+# removed; installer-tui.sh already refuses this default unless the operator
+# opts in. Same gate, same variable name (2026-07-27).
+if [ -z "${SOVEREIGN_OS_ROOT_PASS:-}" ] || [ -z "${SOVEREIGN_OS_USER_PASS:-}" ]; then
+  if [ "${SOVEREIGN_OS_ALLOW_DEFAULT_PASSWORD:-0}" != 1 ]; then
+    red "REFUSING to install with the built-in default password."
+    red "  set SOVEREIGN_OS_ROOT_PASS and SOVEREIGN_OS_USER_PASS,"
+    red "  or SOVEREIGN_OS_ALLOW_DEFAULT_PASSWORD=1 to accept 'sovereign' deliberately."
+    exit 1
+  fi
+  red "using the built-in default password — SOVEREIGN_OS_ALLOW_DEFAULT_PASSWORD=1 was set."
+fi
+
 sovereign_verify_install() {
   local fail=0 warn=0
   step "verifying the installed system"

@@ -26,15 +26,28 @@ d-i apt-setup/services-select multiselect
 d-i apt-setup/enable-source-repositories boolean false
 
 ### Accounts (operator; change the passwords after first login)
+### PASSWORDS ARE NOT PRESEEDED — d-i asks the operator during the install.
+###
+### This file previously carried, in cleartext:
+###     d-i passwd/root-password      password sovereign
+###     d-i passwd/user-password      password sovereign
+### Those ship inside every ISO (/simple-cdd/default.preseed on the disc, world
+### readable) and produced an installed system with root:sovereign. Anyone
+### holding the image knows the root password of every machine built from it.
+### The TUI installer was fixed to refuse this same default earlier; this path
+### still had it (2026-07-27).
+###
+### d-i prompts for both passwords, immediately after the disk pick the operator
+### already answers. Nothing else in the install depends on knowing them.
+###
+### To automate this later, preseed passwd/root-password-crypted with a HASH
+### generated at build time (openssl passwd -6, fed on stdin, never argv) —
+### never a plaintext value committed to the repo. See SDD-015: secrets live in
+### /etc/sovereign-os/*.env, never in tracked files.
 d-i passwd/root-login boolean true
-d-i passwd/root-password password sovereign
-d-i passwd/root-password-again password sovereign
 d-i passwd/make-user boolean true
 d-i passwd/user-fullname string jfortin
 d-i passwd/username string jfortin
-d-i passwd/user-password password sovereign
-d-i passwd/user-password-again password sovereign
-d-i user-setup/allow-password-weak boolean true
 d-i user-setup/encrypt-home boolean false
 
 ### Partitioning — the disk picker below is DISABLED.
