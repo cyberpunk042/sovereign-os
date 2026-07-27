@@ -48,10 +48,43 @@ fi
 require_root
 require_command mkfs.ext4
 
-# Refuse if device looks mounted
-if mount | grep -q "^${SOVEREIGN_OS_ROOTFS_DEV} "; then
-  log_error "device ${SOVEREIGN_OS_ROOTFS_DEV} is currently mounted; refusing to format"
+# Refuse if the device -- OR ANYTHING STACKED ON IT -- is in use.
+#
+# `mount | grep "^${dev} "` only catches a device mounted DIRECTLY. It misses:
+#   * a whole disk whose PARTITIONS are mounted (mount never names the disk), and
+#   * a PV partition beneath a mounted LVM root (mount shows
+#     /dev/mapper/sovereign-root, never the partition underneath).
+# Verified on this hardware: `mount | grep "^/dev/nvme1n1 "` returns nothing
+# while that disk carries /, /boot/efi and swap -- so mkfs on the live disk
+# passed the guard cleanly (2026-07-27).
+#
+# lsblk reports mountpoints for the device AND its descendants, which is the
+# question actually being asked.
+_in_use="$(lsblk -nro MOUNTPOINTS "${SOVEREIGN_OS_ROOTFS_DEV}" 2>/dev/null | grep -c . || true)"
+if [ "${_in_use:-0}" -gt 0 ]; then
+  log_error "device ${SOVEREIGN_OS_ROOTFS_DEV} (or something on it) is mounted; refusing to format"
+  lsblk -nro NAME,MOUNTPOINTS "${SOVEREIGN_OS_ROOTFS_DEV}" 2>/dev/null | grep . | sed 's/^/  /' || true
   emit_format_metric refuse-mounted
+  exit 1
+fi
+
+# ...and never the disk hosting the running root, even if nothing is mounted
+# from it right now. Resolution walks the full chain: PKNAME is the IMMEDIATE
+# parent, so a single hop stops at the PV partition on an LVM root.
+_parent_disk_of() {
+  _d="$1"
+  while :; do
+    _p="$(lsblk -no PKNAME "${_d}" 2>/dev/null | head -1 | tr -d ' ')"
+    [ -n "${_p}" ] || break
+    _d="/dev/${_p}"
+  done
+  printf '%s\n' "${_d}"
+}
+_run_root_disk="$(_parent_disk_of "$(findmnt -no SOURCE / 2>/dev/null)" 2>/dev/null || true)"
+if [ -n "${_run_root_disk}" ] && \
+   [ "$(_parent_disk_of "${SOVEREIGN_OS_ROOTFS_DEV}")" = "${_run_root_disk}" ]; then
+  log_error "device ${SOVEREIGN_OS_ROOTFS_DEV} is on the RUNNING root disk (${_run_root_disk}); refusing"
+  emit_format_metric refuse-running-root
   exit 1
 fi
 

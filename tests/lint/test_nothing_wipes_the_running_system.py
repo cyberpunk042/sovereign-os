@@ -38,6 +38,7 @@ SURFACES = (
     "scripts/install/setup-lvm-dualboot.sh",
     "scripts/install/install-sovereign-root.sh",
     "scripts/hooks/decommission/secure-wipe.sh",
+    "scripts/hooks/during-install/rootfs-format-ext4.sh",
 )
 
 
@@ -84,3 +85,36 @@ r="$(_parent_disk_of "$(findmnt -no SOURCE /)")"
 '''
     out = subprocess.run(["sh", "-c", script], capture_output=True, text=True)
     assert out.stdout.strip() == "REFUSED", f"gate did not fire: {out.stdout!r} {out.stderr!r}"
+
+
+def test_in_use_detection_sees_through_the_stack():
+    """`mount | grep "^<dev> "` only catches a DIRECTLY mounted device.
+
+    It misses a whole disk whose partitions are mounted (mount never names the
+    disk) and a PV partition beneath a mounted LVM root (mount shows
+    /dev/mapper/..., not the partition). Verified on this hardware:
+    `mount | grep "^/dev/nvme1n1 "` returned nothing while that disk carried /,
+    /boot/efi and swap — so mkfs on the live disk passed the guard cleanly
+    (2026-07-27). lsblk reports the device AND its descendants.
+    """
+    body = (REPO_ROOT / "scripts/hooks/during-install/rootfs-format-ext4.sh").read_text(encoding="utf-8")
+    code = "\n".join(l for l in body.splitlines() if not l.lstrip().startswith("#"))
+    assert "MOUNTPOINTS" in code, (
+        "in-use detection must ask lsblk for the device and everything stacked "
+        "on it, not grep the mount table for an exact device string"
+    )
+    assert 'mount | grep -q "^${SOVEREIGN_OS_ROOTFS_DEV} "' not in code, (
+        "the direct-mount grep is not a sufficient in-use check"
+    )
+
+
+def test_the_in_use_gate_fires_on_this_machine():
+    """Execute it: the disk carrying / must be seen as in use."""
+    out = subprocess.run(
+        ["sh", "-c", 'lsblk -nro MOUNTPOINTS "$(lsblk -no PKNAME '
+                     '"$(findmnt -no SOURCE /)" | head -1 | sed "s|^|/dev/|")" '
+                     '2>/dev/null | grep -c .'],
+        capture_output=True, text=True)
+    assert int(out.stdout.strip() or 0) > 0, (
+        "the disk hosting / reports no mountpoints — the in-use gate would not fire"
+    )
