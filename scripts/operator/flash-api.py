@@ -136,7 +136,22 @@ def protected_disks() -> set[str]:
     system depends on — never offered as a flash target. Built from the
     live mount table + swap, resolved to parent disks."""
     disks: set[str] = set()
-    for mp in ("/", "/boot", "/boot/efi", "/home", "/usr", "/var", "/etc"):
+    # FAIL CLOSED on the root probe. _run() returns "" for ANY failure — a
+    # timeout, a missing binary, an OSError — and an empty result here silently
+    # drops a disk from the protected set. For "/" that means the disk hosting
+    # the RUNNING system becomes flashable, offered in the panel like any spare
+    # drive. Every other mountpoint may legitimately be absent; "/" never is, so
+    # its absence means the probe failed, not that nothing is mounted there
+    # (2026-07-27).
+    root_src = _run(["findmnt", "-nr", "-o", "SOURCE", "--target", "/"]).strip().splitlines()
+    if not (root_src and root_src[0].strip()):
+        raise RuntimeError(
+            "cannot determine the running system's root device; refusing to "
+            "compute flash targets rather than risk offering it"
+        )
+    disks.add(_parent_disk(root_src[0].strip()))
+
+    for mp in ("/boot", "/boot/efi", "/home", "/usr", "/var", "/etc"):
         src = _run(["findmnt", "-nr", "-o", "SOURCE", "--target", mp]).strip().splitlines()
         if src and src[0].strip():
             disks.add(_parent_disk(src[0].strip()))
@@ -160,7 +175,18 @@ def list_block_devices() -> list[dict]:
         data = json.loads(raw) if raw else {"blockdevices": []}
     except json.JSONDecodeError:
         data = {"blockdevices": []}
-    protected = protected_disks()
+    # protected_disks() raises when it cannot identify the running root. Let
+    # that stop the LISTING rather than the request thread: an uncaught
+    # exception here kills the handler and the browser shows only
+    # "NetworkError", which cost an hour to diagnose earlier in this same
+    # session. Fail closed AND stay explainable — every disk comes back
+    # unflashable with the reason attached (2026-07-27).
+    try:
+        protected = protected_disks()
+        protection_failed = ""
+    except RuntimeError as exc:
+        protected = set()
+        protection_failed = str(exc)
     # mounts anywhere in each disk's subtree (whole tree, not just -d)
     tree_raw = _run(["lsblk", "-J", "-o", "NAME,MOUNTPOINTS"])
     mounts_by_disk: dict[str, list[str]] = {}
@@ -203,6 +229,13 @@ def list_block_devices() -> list[dict]:
         elif not removable:
             # Flashable, but the operator should see that this is not a USB key.
             reason = "internal fixed disk — allowed, and it will be ERASED"
+        # LAST WORD. Placed before the branches above, this override was
+        # overwritten by them: disks came back flashable=False carrying the
+        # reason "allowed, and it will be ERASED" — a flat contradiction for the
+        # operator to resolve at the riskiest moment (2026-07-27).
+        if protection_failed:
+            flashable = False
+            reason = f"safety check unavailable: {protection_failed}"
         size_b = int(d.get("size") or 0)
         devs.append({
             "path": path,
