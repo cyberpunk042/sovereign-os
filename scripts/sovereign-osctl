@@ -6204,7 +6204,11 @@ EOF
       local n=0
       for f in $(sudo find "${mnt}/var/log/sovereign-os" -maxdepth 1 -type f 2>/dev/null | sort); do
         n=$((n+1)); echo "  ── $(basename "${f}") ──"
-        sudo tail -n "${SOVEREIGN_OS_LOG_TAIL:-60}" "${f}" 2>/dev/null | sed 's/^/    /'
+        # Guarded: this verb runs under `set -euo pipefail`, so ONE failing
+        # pipeline aborts the whole report and every section after it is lost.
+        # A log that vanished or became unreadable between the find and the
+        # tail must cost one file, not the diagnostic (2026-07-27).
+        sudo tail -n "${SOVEREIGN_OS_LOG_TAIL:-60}" "${f}" 2>/dev/null | sed 's/^/    /' || true
       done
       [ "${n}" -eq 0 ] && echo "  (empty)"
       echo
