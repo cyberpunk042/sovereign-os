@@ -169,6 +169,11 @@ def list_block_devices() -> list[dict]:
     RUNNING system depends on it — internal disks included, since installing
     onto the internal NVMe is the panel's purpose. `risk` is "removable" or
     "internal" so the UI can shout about the latter."""
+    # "lsblk failed" and "no disks attached" are opposite situations calling for
+    # opposite responses — investigate vs plug one in — and they rendered
+    # identically as an empty list. Record which it was; the payload carries the
+    # flag so the panel can say (2026-07-27).
+    list_block_devices.probe_failed = False
     raw = _run(["lsblk", "-J", "-d", "-b", "-o",
                 "NAME,SIZE,MODEL,SERIAL,TYPE,RM,HOTPLUG,TRAN,MOUNTPOINTS"])
     try:
@@ -181,6 +186,13 @@ def list_block_devices() -> list[dict]:
     # "NetworkError", which cost an hour to diagnose earlier in this same
     # session. Fail closed AND stay explainable — every disk comes back
     # unflashable with the reason attached (2026-07-27).
+    # An empty/unparseable lsblk means the PROBE failed, which is a different
+    # situation from "no disks attached" — they call for opposite responses
+    # (investigate vs plug one in) and rendered identically as an empty list.
+    if not (raw or "").strip():
+        list_block_devices.probe_failed = True
+        return []
+
     try:
         protected = protected_disks()
         protection_failed = ""
@@ -319,6 +331,11 @@ def assemble_flash() -> dict:
     return {
         "images": list_images(),
         "devices": list_block_devices(),
+        # Empty because lsblk failed, or because nothing is attached? Those
+        # call for opposite responses; the panel must be able to say which
+        # (2026-07-27).
+        "devices_probe_failed": bool(
+            getattr(list_block_devices, "probe_failed", False)),
         "running_as_root": os.geteuid() == 0,
         # Elevation posture from the shared resolver, so the panel reports the
         # SAME truth the FLASH button will act on (they diverged before).
