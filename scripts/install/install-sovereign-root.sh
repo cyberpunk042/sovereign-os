@@ -221,8 +221,22 @@ IDENTITY_MODE="${SOVEREIGN_OS_IDENTITY_MODE:-inherit}"
 for d in "${ROOT_LV}" "${HOME_LV}" "${ESP_PART}"; do
   [ -b "$d" ] || { red "ABORT: ${d} missing — run setup-lvm-dualboot.sh + migrate-home.sh first"; exit 1; }
 done
-RUN_ROOT_DISK="/dev/$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" | head -1)"
-ESP_DISK="/dev/$(lsblk -no PKNAME "${ESP_PART}" | head -1)"
+# Resolve to the PHYSICAL disk, not the immediate parent. PKNAME of an LVM root
+# (/dev/mapper/sovereign-root) is the PV PARTITION, so this gate silently
+# compared a partition against a disk and could never match -- on exactly the
+# LVM layout sovereign-os installs (2026-07-27). Same walker as
+# setup-lvm-dualboot.sh; also covers LUKS and md.
+_parent_disk_of() {
+  _d="$1"
+  while :; do
+    _p="$(lsblk -no PKNAME "${_d}" 2>/dev/null | head -1 | tr -d ' ')"
+    [ -n "${_p}" ] || break
+    _d="/dev/${_p}"
+  done
+  printf '%s\n' "${_d}"
+}
+RUN_ROOT_DISK="$(_parent_disk_of "$(findmnt -no SOURCE /)")"
+ESP_DISK="$(_parent_disk_of "${ESP_PART}")"
 if [ "${ESP_DISK}" = "${RUN_ROOT_DISK}" ]; then
   red "ABORT: sovereign ESP ${ESP_PART} is on the RUNNING OS disk — wrong target."; exit 1
 fi

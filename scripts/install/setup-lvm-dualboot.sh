@@ -40,8 +40,24 @@ echo
 # ── SAFETY GATES — refuse to touch the wrong disk ──
 [ -b "${TARGET}" ] || { red "ABORT: ${TARGET} is not a block device"; exit 1; }
 
+# Walk UP to the physical disk. PKNAME is the IMMEDIATE parent, so for a plain
+# partition root (/dev/nvme1n1p2) it yields the disk -- but this script CREATES
+# an LVM root, and for /dev/mapper/sovereign-root PKNAME yields the PV
+# PARTITION (nvme0n1p2), which never equals a TARGET of /dev/nvme0n1. The gate
+# meant to protect the running system would have passed and let the disk hosting
+# it be zapped -- precisely the "reflash" case this script exists for
+# (2026-07-27). Loop until there is no parent left; this also covers LUKS and md.
+_parent_disk_of() {
+  _d="$1"
+  while :; do
+    _p="$(lsblk -no PKNAME "${_d}" 2>/dev/null | head -1 | tr -d ' ')"
+    [ -n "${_p}" ] || break
+    _d="/dev/${_p}"
+  done
+  printf '%s\n' "${_d}"
+}
 ROOT_SRC="$(findmnt -no SOURCE / )"
-ROOT_DISK="/dev/$(lsblk -no PKNAME "${ROOT_SRC}" | head -1)"
+ROOT_DISK="$(_parent_disk_of "${ROOT_SRC}")"
 if [ "${ROOT_DISK}" = "${TARGET}" ]; then
   red "ABORT: ${TARGET} hosts the RUNNING root (${ROOT_SRC}). Never."
   exit 1
