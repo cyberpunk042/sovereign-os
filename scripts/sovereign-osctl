@@ -6173,10 +6173,29 @@ EOF
           *)           device="${1}"; shift ;;
         esac
       done
-      if [ -z "${device}" ]; then
-        log_error "usage: sovereign-osctl install logs --from <disk>"
-        return 2
+        # No --from now means THIS machine. The verb required a disk, so the
+        # most common question — "I just installed and rebooted; did it work?" —
+        # could only be answered by booting a DIFFERENT system and pointing at
+        # the disk. The sovereign-specific sections (dashboards deploy status,
+        # app tree, units, session vs nomodeset, apt sources) are exactly what an
+        # operator wants right after first boot, and journalctl shows none of
+        # them (2026-07-27).
+        local mnt="" local_mode=0
+        if [ -z "${device}" ]; then
+          local_mode=1
+          log_info "reading THIS system (no --from given)"
+          # Say so ONCE, up front. Several sections read root-only paths
+          # (/boot/grub/grub.cfg, /var/log/journal, /var/lib/sovereign-os); with
+          # no usable sudo they come back empty, which reads exactly like "that
+          # thing is not there". Attribute the gaps rather than let the operator
+          # chase them (2026-07-27).
+          if ! sudo -n true 2>/dev/null; then
+            log_warn "no passwordless sudo — root-only paths will read as empty."
+            log_warn "  Re-run with: sudo sovereign-osctl install logs"
+          fi
+          echo
       fi
+        if [ "${local_mode}" -eq 0 ]; then
       [ -b "${device}" ] || { log_error "not a block device: ${device}"; return 1; }
       local root_src root_parent dev_basename
       dev_basename="$(basename "${device}")"
@@ -6196,7 +6215,7 @@ EOF
       done
       [ -n "${rootpart}" ] || { log_error "no Linux root partition found on ${device}"; return 1; }
 
-      local mnt; mnt="$(mktemp -d /tmp/sovereign-logs.XXXXXX)"
+      mnt="$(mktemp -d /tmp/sovereign-logs.XXXXXX)"
       # shellcheck disable=SC2064
       trap "sudo umount '${mnt}' 2>/dev/null || true; rmdir '${mnt}' 2>/dev/null || true" RETURN
       if ! sudo mount -o ro,noload "${rootpart}" "${mnt}" 2>/dev/null; then
@@ -6205,6 +6224,8 @@ EOF
       fi
       log_info "reading ${rootpart} (read-only, journal NOT replayed)"
       echo
+        fi   # end remote-disk setup; local mode leaves mnt="" so every
+             # path below resolves against / unchanged.
 
       echo "── first-boot markers ──"
       if sudo test -d "${mnt}/var/lib/sovereign-os"; then
@@ -6263,7 +6284,15 @@ EOF
         for _pkg in sddm plasma-desktop kde-plasma-desktop xserver-xorg-core \
                     xserver-xorg-video-fbdev xserver-xorg-video-vesa \
                     firmware-amd-graphics sovereign-os-cockpit; do
-          if sudo grep -qE "^Package: ${_pkg}$" "${mnt}/var/lib/dpkg/status" 2>/dev/null; then
+          # Distinguish ABSENT from UNREADABLE. This grepped the dpkg status
+          # file through sudo; when sudo could not authenticate (no tty, no
+          # cached credential) every package reported [MISSING] on a machine
+          # that had them all. A diagnostic that reports false absence is worse
+          # than one that says nothing (2026-07-27).
+          if [ ! -r "${mnt}/var/lib/dpkg/status" ] && ! sudo -n true 2>/dev/null; then
+            echo "    [UNREADABLE] ${_pkg}  (need root to inspect this root)"
+          elif grep -qE "^Package: ${_pkg}$" "${mnt}/var/lib/dpkg/status" 2>/dev/null \
+             || sudo -n grep -qE "^Package: ${_pkg}$" "${mnt}/var/lib/dpkg/status" 2>/dev/null; then
             echo "    [ok] ${_pkg}"
           else
             echo "    [MISSING] ${_pkg}"
