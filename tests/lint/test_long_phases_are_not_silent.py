@@ -20,6 +20,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CDD_BUILD = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "build.sh"
 PROFILES = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "profiles"
@@ -110,3 +112,50 @@ def test_no_unbounded_device_walk_can_hang():
         body = (REPO_ROOT / rel).read_text(encoding="utf-8")
         fn = body[body.index("def _parent_disk"):body.index("def protected_disks")]
         assert "range(" in fn, f"{rel}: the device walk must be bounded"
+
+
+WALKERS = ("scripts/install/install-sovereign-root.sh",
+           "scripts/install/setup-lvm-dualboot.sh",
+           "scripts/hooks/decommission/secure-wipe.sh",
+           "scripts/hooks/during-install/rootfs-format-ext4.sh")
+
+
+@pytest.mark.parametrize("rel", WALKERS)
+def test_the_shell_device_walkers_are_bounded(rel: str):
+    """`while :; do` with no counter can spin forever, as root, mid-install.
+
+    The Python twin in flash-api.py was capped at 16 hops and had a lint saying
+    so; the four SHELL copies were written as unbounded loops. A device whose
+    PKNAME resolves to itself — or any cycle — never terminates (2026-07-27).
+    """
+    body = (REPO_ROOT / rel).read_text(encoding="utf-8")
+    if "_parent_disk_of" not in body:
+        return
+    fn = body[body.index("_parent_disk_of() {"):]
+    fn = fn[:fn.index("\n}\n") + 3]
+    # Read CODE, not comments. The fix's own comment quotes the `while :; do`
+    # it removed — five lints this session tripped on their own prose, so
+    # stripping comments is the default now, not an afterthought.
+    fn = "\n".join(l for l in fn.splitlines() if not l.lstrip().startswith("#"))
+    assert "while :;" not in fn, (
+        f"{rel}: the device walk is unbounded; a cyclic device tree hangs the "
+        "installer with no output at all"
+    )
+    assert "_hops" in fn and "-lt" in fn, f"{rel}: no hop counter found"
+
+
+@pytest.mark.parametrize("rel", (
+    "scripts/hooks/post-install/openclaw-install.sh",
+    "scripts/hooks/post-install/open-computer-install.sh",
+))
+def test_package_installs_at_first_boot_are_not_silenced(rel: str):
+    """These fetch node/qemu — minutes of download with nothing on screen.
+
+    `apt-get install ... >/dev/null 2>&1` at first boot is indistinguishable
+    from a hung service.
+    """
+    for line in (REPO_ROOT / rel).read_text(encoding="utf-8").splitlines():
+        if "apt-get install" in line and not line.lstrip().startswith("#"):
+            assert ">/dev/null" not in line, (
+                f"{rel}: silenced package install: {line.strip()!r}"
+            )

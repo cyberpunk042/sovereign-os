@@ -246,7 +246,14 @@ done
 # setup-lvm-dualboot.sh; also covers LUKS and md.
 _parent_disk_of() {
   _d="$1"
-  while :; do
+  # BOUNDED. The Python twin in flash-api.py caps this at 16 hops; these shell
+  # copies were `while :; do` with no counter. A device whose PKNAME resolves to
+  # itself — or any cycle in the tree — spins forever, as root, mid-install.
+  # Real stacks are 2-3 deep (disk → partition → LV); 16 is far past any of them
+  # (2026-07-27).
+  _hops=0
+  while [ "${_hops}" -lt 16 ]; do
+    _hops=$((_hops + 1))
     _p="$(lsblk -no PKNAME "${_d}" 2>/dev/null | head -1 | tr -d ' ')"
     [ -n "${_p}" ] || break
     _d="/dev/${_p}"

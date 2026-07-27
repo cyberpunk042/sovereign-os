@@ -90,7 +90,7 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then
   log_info "installing QEMU/KVM + OVMF"
-  apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf git >/dev/null 2>&1 \
+  apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf git 2>&1 | sed -u "s/^/    apt: /" \
     || { log_warn "qemu/ovmf install failed (no network?) — deferred (resumable post-flash)"; emit_oc_metric no-qemu; exit 0; }
 fi
 if [ ! -e /dev/kvm ]; then
@@ -105,7 +105,7 @@ if ! command -v node >/dev/null 2>&1; then
   if command -v curl >/dev/null 2>&1 \
        && curl -fsSL "https://deb.nodesource.com/setup_${node_major}.x" -o /tmp/oc-node.sh 2>/dev/null \
        && bash /tmp/oc-node.sh >/dev/null 2>&1 \
-       && apt-get install -y nodejs >/dev/null 2>&1; then
+       && apt-get install -y nodejs 2>&1 | sed -u "s/^/    apt: /"; then
     rm -f /tmp/oc-node.sh
   else
     log_warn "node install failed — deferred (resumable post-flash)"; emit_oc_metric no-node; exit 0

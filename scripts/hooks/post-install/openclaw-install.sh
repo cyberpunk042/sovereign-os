@@ -81,7 +81,7 @@ ensure_node() {
   if ! command -v curl >/dev/null 2>&1; then log_warn "curl missing — cannot fetch NodeSource; skipping"; return 1; fi
   if curl -fsSL "https://deb.nodesource.com/setup_${node_major}.x" -o /tmp/nodesource-setup.sh 2>/dev/null \
        && bash /tmp/nodesource-setup.sh >/dev/null 2>&1 \
-       && apt-get install -y nodejs >/dev/null 2>&1; then
+       && apt-get install -y nodejs 2>&1 | sed -u "s/^/    apt: /"; then
     rm -f /tmp/nodesource-setup.sh
     node_ok && { log_info "node $(node --version) installed"; return 0; }
     log_warn "installed node $(node --version 2>/dev/null) still outside the OpenClaw band"; return 1
