@@ -89,6 +89,18 @@ fi
 mkdir -p /etc/sovereign-os
 [ -f /etc/sovereign-os/active-profile ] || echo sain-01 > /etc/sovereign-os/active-profile
 
+# The units and the payload disagree on where the code lives: 68 units
+# ExecStart from /usr/local/lib/sovereign-os while this package installs to
+# /opt/sovereign-os. Enabled, every one of those fails instantly with
+# "executable not found", and 67 of them carry Restart= -- which is exactly the
+# ~130 services in restart loops seen on the appliance (2026-07-26).
+# One compatibility symlink makes both layouts resolve. Never clobber a real
+# directory if something else already owns that path.
+if [ ! -e /usr/local/lib/sovereign-os ]; then
+  mkdir -p /usr/local/lib
+  ln -sfn /opt/sovereign-os /usr/local/lib/sovereign-os
+fi
+
 # Make the sovereign units DISCOVERABLE -- and enable NOTHING.
 # They shipped to /opt/sovereign-os/systemd/system, where systemd never looks,
 # so even a deliberate `systemctl enable sovereign-firstboot.target` failed with
