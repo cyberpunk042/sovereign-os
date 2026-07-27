@@ -8,6 +8,24 @@
 > (initial profiles), `config/cloud-init/` + `config/preseed/` existing
 > configs.
 
+> **AMENDMENT 2026-07-26 (operator directive — see
+> `docs/standing-directives/2026-07-26-the-normal-debian-13-installer.md`).**
+> The 2026-07-25 amendment below specifies form (b) as a **live-build ISO running
+> a guided TUI**. That is SUPERSEDED. The operator booted it and rejected it:
+> *"it should be the normal debian 13 installer..."* and *"a different path ? the
+> right path you mean.. the current installr is crap"*.
+>
+> `SOVEREIGN_OS_ARTIFACT=installer` now maps to the **`installer-cdd`** substrate
+> (simple-cdd → debian-cd → a genuine debian-installer ISO), NOT to live-build.
+> The operator gets the standard Debian 13 install experience — the normal
+> partitioner, the normal prompts — offline from the CD's own mirror.
+> `scripts/install/installer-tui.sh` survives as the reflash driver on an
+> already-sovereign machine; it is no longer what "installer" builds.
+> `SOVEREIGN_OS_ARTIFACT=installer-live` retains the old live-build ISO.
+>
+> "Standard" is a hard requirement, not a preference: a bespoke-but-working
+> replacement does not satisfy this amendment.
+
 > **AMENDMENT 2026-07-25 (operator directive — see
 > `docs/standing-directives/2026-07-25-installer-onto-nvme.md`).** The original
 > "image-only, NO installer UI" decision below is SUPERSEDED as the sole path.
