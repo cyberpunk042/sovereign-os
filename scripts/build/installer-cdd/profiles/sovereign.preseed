@@ -128,7 +128,7 @@ d-i pkgsel/include string sudo lvm2 grub-efi-amd64 efibootmgr network-manager sd
     rsync wget file tree lsof iputils-ping bind9-dnsutils ncdu \
     xserver-xorg-video-fbdev xserver-xorg-video-vesa amd64-microcode \
     firmware-amd-graphics firmware-nvidia-graphics firmware-linux-free \
-    firmware-misc-nonfree
+    firmware-misc-nonfree mokutil
 d-i pkgsel/upgrade select none
 d-i pkgsel/update-policy select none
 popularity-contest popularity-contest/participate boolean false

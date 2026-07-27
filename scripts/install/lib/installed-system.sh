@@ -66,7 +66,10 @@ ca-certificates curl nano less}"
 #              exact packages the operator's working Debian 13 carries on this
 #              same hardware. non-free-firmware is already in the CD mirror.
 _sovos_ws_console="konsole xterm tmux vim bash-completion man-db"
-_sovos_ws_hardware="pciutils usbutils nvme-cli smartmontools lshw dmidecode lm-sensors htop"
+# mokutil: step 08-image-sign tells the operator to "enroll the MOK cert via
+# mokutil post-install" -- and it was never installed, so that instruction
+# could not be followed on any machine we built (2026-07-27).
+_sovos_ws_hardware="pciutils usbutils nvme-cli smartmontools lshw dmidecode lm-sensors htop mokutil"
 _sovos_ws_fsnet="rsync wget git file tree lsof iputils-ping bind9-dnsutils ncdu"
 _sovos_ws_xfallback="xserver-xorg-video-fbdev xserver-xorg-video-vesa"
 _sovos_ws_firmware="amd64-microcode firmware-amd-graphics firmware-nvidia-graphics firmware-linux-free firmware-misc-nonfree"

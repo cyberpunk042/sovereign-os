@@ -78,6 +78,39 @@ mkdir -p /var/log/sovereign-os
   # desktop cannot change networks and Wi-Fi is unreachable. The operator's
   # working Debian 13 has only `lo` there and lets NM own the rest. Report the
   # truth rather than guess at it (2026-07-27).
+  # Secure Boot vs an unsigned custom kernel. The profile declares
+  # secure_boot=signed, but step 08 skips MOK signing for the ISO artifact (the
+  # disc rides Debian's signed shim/grub chain) and the znver5 kernel .deb
+  # carries no signature table at all. That is fine while SB is off -- it is off
+  # on this hardware, in Setup Mode -- and becomes an unbootable machine the day
+  # somebody turns it on, with nothing to explain why (2026-07-27).
+  echo "-- secure boot --"
+  if [ -d /sys/firmware/efi ]; then
+    _sb=$(mokutil --sb-state 2>/dev/null | head -1)
+    if [ -z "${_sb}" ]; then
+      # No mokutil: read the EFI variable directly. Its last byte is 1 when
+      # Secure Boot is enabled. A diagnostic must not go blind because a
+      # convenience tool is missing.
+      _sbvar=$(od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-* 2>/dev/null \
+                 | tr -s " " | tail -1 | awk "{print \$NF}")
+      case "${_sbvar}" in
+        1) _sb="SecureBoot enabled (read from efivars)" ;;
+        0) _sb="SecureBoot disabled (read from efivars)" ;;
+        *) _sb="unknown (no mokutil, efivars unreadable)" ;;
+      esac
+    fi
+    echo "  state: ${_sb}"
+    case "${_sb}" in
+      *enabled*)
+        echo "  NOTE: the custom znver5 kernel is UNSIGNED. With Secure Boot on it"
+        echo "        will not load; enroll a MOK or boot the stock Debian kernel."
+        ;;
+    esac
+  else
+    echo "  legacy/BIOS boot -- Secure Boot does not apply"
+  fi
+  echo
+
   echo "-- networking (who owns the interface?) --"
   echo "  /etc/network/interfaces (non-comment):"
   grep -vE "^\s*#|^\s*$" /etc/network/interfaces 2>/dev/null | sed 's/^/    /' \

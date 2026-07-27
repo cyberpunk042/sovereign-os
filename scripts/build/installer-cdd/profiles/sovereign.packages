@@ -87,3 +87,7 @@ wget
 xserver-xorg-video-fbdev
 xserver-xorg-video-vesa
 xterm
+
+# Step 08-image-sign instructs the operator to enroll the MOK cert with
+# mokutil after install; it must therefore be ON the disc (2026-07-27).
+mokutil
