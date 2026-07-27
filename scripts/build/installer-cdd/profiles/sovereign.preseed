@@ -155,12 +155,12 @@ d-i preseed/late_command string \
     mkdir -p /target/opt/sovereign-os /target/etc/sovereign-os; \
     cp -a /cdrom/sovereign/repo/. /target/opt/sovereign-os/ 2>/dev/null || true; \
     cp /cdrom/sovereign/kernel/linux-*.deb /target/tmp/ 2>/dev/null || true; \
-    in-target sh -c 'dpkg -i /tmp/linux-image-*.deb /tmp/linux-headers-*.deb 2>/dev/null || apt-get -f install -y || true'; \
-    in-target sh -c 'mkdir -p /etc/modprobe.d; for m in amdgpu nouveau; do echo blacklist $m > /etc/modprobe.d/sovereign-blacklist-$m.conf; done'; \
-      in-target sh -c 'sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/" /etc/default/grub; update-grub || true'; \
-    in-target sh -c 'update-initramfs -u -k all || true'; \
-    in-target sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env'; \
-    in-target sh -c 'echo sain-01 > /etc/sovereign-os/active-profile'; \
+    in-target sh -c 'dpkg -i /tmp/linux-image-*.deb /tmp/linux-headers-*.deb 2>/dev/null || apt-get -f install -y || true' || true; \
+    in-target sh -c 'mkdir -p /etc/modprobe.d; for m in amdgpu nouveau; do echo blacklist $m > /etc/modprobe.d/sovereign-blacklist-$m.conf; done' || true; \
+      in-target sh -c 'sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/" /etc/default/grub; update-grub || true' || true; \
+    in-target sh -c 'update-initramfs -u -k all || true' || true; \
+    in-target sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env' || true; \
+    in-target sh -c 'echo sain-01 > /etc/sovereign-os/active-profile' || true; \
     in-target env SOVEREIGN_OS_SRC=/opt/sovereign-os SOVEREIGN_OS_FRONTEND=kde-plasma bash /opt/sovereign-os/scripts/install/install-gui-dashboards.sh || true; \
       in-target sh -c 'sh /opt/sovereign-os/scripts/install/set-grub-default-kernel.sh 6.12.0' || true; \
       in-target sh -c 'sh /opt/sovereign-os/scripts/install/write-apt-sources.sh trixie' || true; \
