@@ -5939,6 +5939,24 @@ cmd_install() {
         # matters at THE most destructive moment: the target is now PARTIALLY
         # WRITTEN and must NOT be booted. Surface that explicitly, and don't
         # claim "complete" on a failed dump.
+        # SANITY-CHECK THE IMAGE FIRST. dd will faithfully write anything: a
+        # truncated download, a half-finished build, or the 8.6G appliance .raw
+        # picked when the 1.2G installer .iso was meant. Every one of those
+        # fails at the boot menu with no clue as to why, an hour later. `file`
+        # costs milliseconds and names the artifact (2026-07-27).
+        _img_kind="$(file -bs "${image}" 2>/dev/null || echo unknown)"
+        case "${_img_kind}" in
+          *"ISO 9660"*|*"DOS/MBR boot sector"*|*"GPT partition table"*)
+            log_info "image looks bootable: ${_img_kind%%,*}" ;;
+          *)
+            log_error "${image} does not look like a bootable image:"
+            log_error "  ${_img_kind}"
+            log_error "  Refusing to write it — dd would succeed and the target would not boot."
+            log_error "  (override with SOVEREIGN_OS_FLASH_ANY_IMAGE=1 if this is deliberate)"
+            [ "${SOVEREIGN_OS_FLASH_ANY_IMAGE:-0}" = 1 ] || return 1
+            log_warn "SOVEREIGN_OS_FLASH_ANY_IMAGE=1 — writing anyway" ;;
+        esac
+
         dd_ok=0
         if sudo dd if="${image}" of="${device}" bs=4M status=progress oflag=direct conv=fsync; then
           dd_ok=1
