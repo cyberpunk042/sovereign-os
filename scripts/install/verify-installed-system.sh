@@ -72,6 +72,28 @@ mkdir -p /var/log/sovereign-os
   # The cockpit postinst runs install-gui-dashboards.sh behind `|| true`, so a
   # total failure there is invisible: the install still "succeeds" and the
   # operator gets a desktop with no sovereign-os in it (2026-07-26).
+  # Sources are useless without a network, and the two managers can fight.
+  # d-i's netcfg writes an interface stanza into /etc/network/interfaces when it
+  # configured a link; NetworkManager then marks that device UNMANAGED, so the
+  # desktop cannot change networks and Wi-Fi is unreachable. The operator's
+  # working Debian 13 has only `lo` there and lets NM own the rest. Report the
+  # truth rather than guess at it (2026-07-27).
+  echo "-- networking (who owns the interface?) --"
+  echo "  /etc/network/interfaces (non-comment):"
+  grep -vE "^\s*#|^\s*$" /etc/network/interfaces 2>/dev/null | sed 's/^/    /' \
+    || echo "    (file absent)"
+  if [ -e /etc/systemd/system/multi-user.target.wants/NetworkManager.service ]; then
+    echo "  NetworkManager: enabled"
+  else
+    echo "  NetworkManager: NOT enabled"
+  fi
+  if grep -qE "^\s*(auto|iface)\s+(en|wl)" /etc/network/interfaces 2>/dev/null; then
+    echo "  NOTE: an interface is claimed by ifupdown. Networking will work, but"
+    echo "        NetworkManager will show it as unmanaged and the desktop cannot"
+    echo "        switch networks or join Wi-Fi."
+  fi
+  echo
+
   echo "-- apt sources (can this system install anything, ever?) --"
   if grep -qE "^deb .*deb\.debian\.org" /etc/apt/sources.list 2>/dev/null; then
     echo "  OK: network sources present"
