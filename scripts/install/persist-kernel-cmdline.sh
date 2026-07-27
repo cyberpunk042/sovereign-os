@@ -29,6 +29,23 @@ if [ -z "${WANT}" ] && [ -r /opt/sovereign-os/scripts/install/lib/installed-syst
 fi
 [ -n "${WANT}" ] || WANT="nomodeset"
 
+# nomodeset and the NVIDIA DRM driver are MUTUALLY EXCLUSIVE.
+# nvidia-blackwell-driver-install.sh deliberately strips nomodeset and adds
+# nvidia-drm.modeset=1; re-adding nomodeset here would silently undo that and
+# put the machine back on the framebuffer — the exact repair this script exists
+# to perform, applied at the one moment it is wrong (2026-07-27).
+if grep -q 'nvidia-drm\.modeset=1' "${DEFAULT}" 2>/dev/null \
+   || grep -q 'nvidia-drm\.modeset=1' /proc/cmdline 2>/dev/null; then
+  case " ${SOVEREIGN_OS_KERNEL_CMDLINE:-nomodeset} " in
+    *" nomodeset "*)
+      echo "REFUSING: this system runs the NVIDIA DRM driver (nvidia-drm.modeset=1)." >&2
+      echo "  Adding 'nomodeset' would disable it and return the box to the" >&2
+      echo "  framebuffer. If that is really what you want, re-run with:" >&2
+      echo "    SOVEREIGN_OS_KERNEL_CMDLINE='' $0" >&2
+      exit 1 ;;
+  esac
+fi
+
 cur="$(sed -n 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"$/\1/p' "${DEFAULT}" | head -1)"
 new="${cur}"
 changed=0

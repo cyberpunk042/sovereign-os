@@ -44,6 +44,20 @@ mkdir -p /var/log/sovereign-os
   # carries NO sddm config at all and lands on X11 — so nothing here pins the
   # session, deliberately. Record what is available, so a login loop is
   # diagnosable in one look instead of another day (2026-07-27).
+  # nomodeset and the NVIDIA DRM driver are mutually exclusive. If BOTH appear
+  # the machine will not use the driver it just installed, and the symptom
+  # (framebuffer graphics, no acceleration) looks like the driver failed rather
+  # than like a cmdline conflict (2026-07-27).
+  if grep -qE "^[[:space:]]*linux.*nvidia-drm\.modeset=1" /boot/grub/grub.cfg 2>/dev/null \
+     && grep -qE "^[[:space:]]*linux.*[[:space:]]nomodeset" /boot/grub/grub.cfg 2>/dev/null; then
+    echo "-- CONFLICT --"
+    echo "  both nomodeset AND nvidia-drm.modeset=1 are on the kernel line."
+    echo "  They are mutually exclusive: nomodeset wins and the NVIDIA driver"
+    echo "  will not drive the display. Remove nomodeset:"
+    echo "    sudo sed -i 's/\\bnomodeset\\b//g' /etc/default/grub && sudo update-grub"
+    echo
+  fi
+
   echo "-- desktop sessions --"
   echo "  X11     : $(ls /usr/share/xsessions/ 2>/dev/null | tr '\n' ' ')"
   echo "  Wayland : $(ls /usr/share/wayland-sessions/ 2>/dev/null | tr '\n' ' ')"
