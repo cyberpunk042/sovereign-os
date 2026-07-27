@@ -392,6 +392,27 @@ install -Dm644 "${LAUNCHER}" "${SKEL}/.config/autostart/sovereign-dashboards.des
 info "autostart   : ${SKEL}/.config/autostart/ (opens the hub at login)"
 install -Dm755 "${LAUNCHER}" "${SKEL}/Desktop/sovereign-dashboards.desktop"
 info "desktop icon: ${SKEL}/Desktop/"
+
+# /etc/skel is copied into a home at CREATION time — so skel alone reaches
+# nobody who already exists. On the debian-installer path d-i creates the
+# operator's account during pkgsel and this script runs later, from
+# late_command: the account never received the autostart entry or the desktop
+# icon, and the hub sat on :8100 with nothing to open it (2026-07-27).
+# Seed the humans who are already here, too.
+_seeded=0
+while IFS=: read -r _u _x _uid _gid _gecos _home _shell; do
+  [ "${_uid}" -ge 1000 ] 2>/dev/null || continue
+  [ "${_uid}" -lt 65534 ] 2>/dev/null || continue      # skip nobody
+  case "${_shell}" in */nologin|*/false) continue ;; esac
+  [ -d "${_home}" ] || continue
+  install -Dm644 -o "${_uid}" -g "${_gid}" "${LAUNCHER}" \
+    "${_home}/.config/autostart/sovereign-dashboards.desktop" 2>/dev/null || continue
+  install -Dm755 -o "${_uid}" -g "${_gid}" "${LAUNCHER}" \
+    "${_home}/Desktop/sovereign-dashboards.desktop" 2>/dev/null || true
+  _seeded=$((_seeded + 1))
+  info "seeded existing user: ${_u} (${_home})"
+done < /etc/passwd
+[ "${_seeded}" -gt 0 ] || info "no existing human accounts to seed (skel covers future ones)"
 # refresh the app-menu cache when running on a live system
 command -v update-desktop-database >/dev/null 2>&1 \
   && update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
