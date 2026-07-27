@@ -38,6 +38,25 @@ mkdir -p /var/log/sovereign-os
   [ -n "${dm}" ] && echo "  ${dm}" || echo "  PROBLEM: none registered -- nothing starts a session"
   echo
 
+  # Session type vs nomodeset. KWin's WAYLAND session needs a DRM device;
+  # nomodeset removes exactly that, so a Wayland login cannot start and loops
+  # back to the greeter, while X11-on-fbdev works. The operator's proven machine
+  # carries NO sddm config at all and lands on X11 — so nothing here pins the
+  # session, deliberately. Record what is available, so a login loop is
+  # diagnosable in one look instead of another day (2026-07-27).
+  echo "-- desktop sessions --"
+  echo "  X11     : $(ls /usr/share/xsessions/ 2>/dev/null | tr '\n' ' ')"
+  echo "  Wayland : $(ls /usr/share/wayland-sessions/ 2>/dev/null | tr '\n' ' ')"
+  if [ -n "$(ls /usr/share/wayland-sessions/ 2>/dev/null)" ] \
+     && grep -qE "^[[:space:]]*linux.*nomodeset" /boot/grub/grub.cfg 2>/dev/null; then
+    echo "  NOTE: a Wayland session is offered but nomodeset is on. KWin/Wayland"
+    echo "        needs a DRM device that nomodeset prevents — if the greeter"
+    echo "        loops back after entering a password, pick the X11 session."
+  fi
+  echo "  sddm config: $(ls /etc/sddm.conf.d/*.conf /etc/sddm.conf 2>/dev/null | tr '\n' ' ')"
+  echo "  sddm last  : $(grep -hE "^Session=" /var/lib/sddm/state.conf 2>/dev/null || echo "(none recorded)")"
+  echo
+
   echo "-- module blacklists --"
   ls /etc/modprobe.d/sovereign-blacklist-* 2>/dev/null || echo "  none"
   echo
