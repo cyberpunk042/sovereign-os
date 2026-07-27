@@ -13,9 +13,14 @@
 fn main() {
     use sovereign_chromofold_sys::HostFmIndex;
 
-    let path = std::env::args().nth(1).expect("usage: host_fm_smoke <path>.cffm");
+    let path = std::env::args()
+        .nth(1)
+        .expect("usage: host_fm_smoke <path>.cffm");
     let blob = std::fs::read(&path).expect("read .cffm");
-    assert!(blob.len() >= 28 && &blob[0..4] == b"CFFM", "not a .cffm blob");
+    assert!(
+        blob.len() >= 28 && &blob[0..4] == b"CFFM",
+        "not a .cffm blob"
+    );
     // header: magic[4] version[4] n[8] bits[4] vocab[4] sigma[4] ...
     let n = u64::from_le_bytes(blob[8..16].try_into().unwrap());
     let sigma = u32::from_le_bytes(blob[24..28].try_into().unwrap());
@@ -32,10 +37,16 @@ fn main() {
 
     let total: u64 = counts.iter().map(|&c| c as u64).sum();
     println!("HostFmIndex smoke through libchromofold.so — {path}");
-    println!("  index: n={n}  sigma={sigma}  (loaded {} bytes)", blob.len());
+    println!(
+        "  index: n={n}  sigma={sigma}  (loaded {} bytes)",
+        blob.len()
+    );
     println!("  sum of single-symbol counts = {total}  (expected n = {n})");
     // every one of the n positions starts exactly one suffix => counts sum to n.
-    assert_eq!(total, n, "FM count invariant violated — GPU search returned wrong results");
+    assert_eq!(
+        total, n,
+        "FM count invariant violated — GPU search returned wrong results"
+    );
     println!("PASS — safe HostFmIndex ran FM-search on the GPU and satisfies the count invariant.");
 }
 
