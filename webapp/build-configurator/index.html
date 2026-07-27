@@ -111,6 +111,16 @@
   section.card > .body { padding:.7rem .85rem; }
   .muted { color:var(--muted); }
   .small { font-size:.76rem; }
+  /* Build-area grouping. The build controls were six flat flex rows of
+     checkboxes at identical visual weight — including "build INSTALLER", which
+     switches between two entirely different artifacts and read as just another
+     toggle. These give the rows headings without restructuring the DOM, so
+     every existing id and handler keeps working (2026-07-27). */
+  .bgrp { margin:.75rem 0 .35rem; display:flex; align-items:center; gap:.5rem; }
+  .bgrp::after { content:""; flex:1; height:1px; background:currentColor; opacity:.18; }
+  .bgrp > span { font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; opacity:.62; white-space:nowrap; }
+  /* The artifact switch is the most consequential control on the panel. */
+  .bkey { border-left:3px solid currentColor; padding-left:.6rem; }
   .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
   label.chk, label.profile {
     display:inline-flex; align-items:center; gap:.45rem; cursor:pointer;
@@ -2650,9 +2660,11 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         <button class="btn" id="run-cancel" disabled>■ cancel</button>
         <span class="small muted" id="run-status" style="align-self:center"></span>
       </div>
-      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Build the STANDARD debian-installer ISO (simple-cdd): the normal Debian 13 install experience, fully offline (the CD carries its own package mirror), installing Debian 13 + KDE + the custom znver5 kernel + the sovereign-os cockpit onto the target NVMe. This replaced the old live-build ISO, whose bespoke whiptail TUI was not what an operator means by an installer.">
+        <div class="bgrp"><span>artifact</span></div>
+      <div class="bkey" style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Build the STANDARD debian-installer ISO (simple-cdd): the normal Debian 13 install experience, fully offline (the CD carries its own package mirror), installing Debian 13 + KDE + the custom znver5 kernel + the sovereign-os cockpit onto the target NVMe. This replaced the old live-build ISO, whose bespoke whiptail TUI was not what an operator means by an installer.">
         <label class="chk" style="margin:0"><input type="checkbox" id="build-installer"> 🖴 build INSTALLER <span class="muted small">(standard Debian 13 installer ISO — normal d-i install onto the NVMe, offline; vs the whole-disk appliance)</span></label>
       </div>
+        <div class="bgrp"><span>target machine</span></div>
         <!-- TARGET MACHINE. Everything else configures WHAT is baked in; this
              configures WHO it is for. Without it every ISO carried the sain-01
              box's identity and GPU workarounds (hostname sovereign-os, user
@@ -2689,6 +2701,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
             <em>blacklist modules</em> to <code>none</code> &mdash; those two exist for this box only.
           </div>
         </details>
+        <div class="bgrp"><span>credentials</span></div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-bottom:.5rem" title="REQUIRED by the image build: without it mkosi locks root and the image boots to a login prompt nobody can satisfy. Sent once, hashed server-side (openssl passwd -6) before it reaches the build — the plaintext is never stored, logged, or placed in a command line. The first-login assistant rotates it on first boot.">
         <label class="chk" style="margin:0">🔑 root bootstrap password
           <input type="password" id="root-password" autocomplete="new-password"
@@ -2696,11 +2709,13 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         </label>
         <label class="chk" style="margin:0"><input type="checkbox" id="allow-locked-root"> ship LOCKED root <span class="muted small">(no console login — SSH keys / autologin only)</span></label>
       </div>
+        <div class="bgrp"><span>operator software</span></div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Bake operator software INTO the image so a flashed box is self-contained (bigger image, zero-touch after flash)">
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-dev"> bake dev tools <span class="muted small">(node 22 + Claude Code)</span></label>
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-selfdef"> bake selfdef <span class="muted small">(built + ready to enable)</span></label>
         <label class="chk" style="margin:0" title="UPS monitoring (NUT apc_modbus) + the staged graceful soft-exit (drain inference · finish in-flight · unload models · warn all mediums) armed at the profile's shutdown_minutes. A good default — uncheck to build without it."><input type="checkbox" id="bake-graceful" checked> UPS + graceful shutdown <span class="muted small">(default on)</span></label>
       </div>
+        <div class="bgrp"><span>agent layer</span></div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem; align-items:center" title="The agent layer (SDD-703..709): pick the desktop the box boots into, and optionally bake the agent runtimes in so a flashed box has them staged (installed-off — enable with sovereign-osctl openclaw/open-computer on).">
         <label class="chk" style="margin:0">frontend&nbsp;
           <select id="bake-frontend" style="font:inherit; padding:.15rem .3rem">
@@ -2715,6 +2730,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-openclaw"> bake OpenClaw <span class="muted small">(agent runtime, installed-off)</span></label>
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-open_computer"> bake open-computer <span class="muted small">(QEMU AI sandbox, installed-off)</span></label>
       </div>
+        <div class="bgrp"><span>bake into the image</span></div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem; align-items:center" title="Bake more of the OS INTO the image. Force-on: checked bakes it in, unchecked inherits the profile default (these never force a profile bake OFF — edit the profile for that). The compiled brain + gateway model make a flashed box generate out-of-box instead of building post-flash via 'make provision'.">
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-intelligence"> bake intelligence <span class="muted small">(compiled brain: gatewayd/cortex/chat + chromofold CLI)</span></label>
         <label class="chk" style="margin:0"><input type="checkbox" id="bake-model"> bake gateway model <span class="muted small">(SmolLM-135M ~0.5GB; Oracle stays first-boot)</span></label>
