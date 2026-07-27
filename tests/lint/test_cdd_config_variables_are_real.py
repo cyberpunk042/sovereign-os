@@ -51,7 +51,12 @@ def test_no_command_substitution_in_the_generated_conf():
     while writing the config (caught before it shipped, 2026-07-26).
     """
     text = BUILD.read_text(encoding="utf-8")
-    start = text.index("cat > ")
+    # Target THIS heredoc, not merely the first `cat >` in the file. build.sh
+    # writes several; the postinst one is <<'POSTINST' (quoted) and is allowed
+    # backticks. Anchoring on "cat > " alone made this test fail on an
+    # unrelated, perfectly safe heredoc (2026-07-26).
+    start = text.index("sovereign.conf")
+    start = text.rindex("cat > ", 0, start)
     body = text[start:text.index("\nCONF\n", start)]
     assert "`" not in body, (
         "backticks inside the unquoted sovereign.conf heredoc run as commands; "

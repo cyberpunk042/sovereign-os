@@ -70,12 +70,22 @@ def test_every_initramfs_site_is_preceded_by_the_blacklist():
 @pytest.mark.parametrize("name", PRESEEDS)
 def test_the_installer_writes_it_before_the_initramfs(name: str):
     text = (PROFILES / name).read_text(encoding="utf-8")
-    # The late_command loops over the module set, so the literal string
-    # "blacklist amdgpu" no longer appears — match the loop instead.
-    assert "for m in amdgpu nouveau" in text, (
-        "the d-i late_command must blacklist amdgpu AND nouveau — neither can "
-        "drive this hardware, and this is the path the operator installs from"
-    )
-    assert text.index("for m in amdgpu nouveau") < text.index("update-initramfs"), (
+    # DERIVE the expected modules from the shared definition. Hardcoding
+    # "amdgpu nouveau" here would let a third module be added to
+    # SOVEREIGN_OS_MODULE_BLACKLIST and silently never reach the installer —
+    # the same declared-but-not-applied bug as everything else this session.
+    import subprocess
+    mods = subprocess.run(
+        ["bash", "-c", '. scripts/install/lib/installed-system.sh; '
+                       'echo "${SOVEREIGN_OS_MODULE_BLACKLIST}"'],
+        capture_output=True, text=True, check=True, cwd=REPO_ROOT).stdout.split()
+    assert mods, "the shared definition declares no modules to blacklist"
+    loop = next((l for l in text.splitlines() if "for m in" in l), "")
+    for m in mods:
+        assert m in loop, (
+            f"{name}: {m!r} is in SOVEREIGN_OS_MODULE_BLACKLIST but not in the "
+            f"late_command blacklist loop: {loop.strip()!r}"
+        )
+    assert text.index("for m in") < text.index("update-initramfs"), (
         "same ordering requirement as the direct path: the initrd must carry it"
     )
