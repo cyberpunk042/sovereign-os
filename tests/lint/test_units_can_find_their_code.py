@@ -73,3 +73,40 @@ def test_the_symlink_never_clobbers_a_real_deployment():
             "the dashboards deployment must run BEFORE the fallback symlink, "
             "or the guard sees an empty path and links over the real tree"
         )
+
+
+def test_the_direct_install_path_installs_the_units_too():
+    """Both install paths, one behaviour.
+
+    install-gui-dashboards.sh stages exactly ONE unit (the kiosk); the other
+    ~113 stayed in the source tree where systemd never looks. The installer
+    path was fixed first — leaving the two paths disagreeing is how the amdgpu
+    fix ended up in a preseed that never runs (2026-07-26).
+    """
+    text = (REPO_ROOT / "scripts" / "install" / "install-sovereign-root.sh").read_text(encoding="utf-8")
+    code = [l for l in text.splitlines() if not l.lstrip().startswith("#")]
+    body = "\n".join(code)
+    assert "/lib/systemd/system" in body, (
+        "the direct path must install the sovereign units where systemd looks"
+    )
+    # ...and must not switch any of them on.
+    import re
+    for l in code:
+        if "systemctl" in l and "sovereign-" in l:
+            assert not re.search(r"systemctl\s+(enable|start)\s+sovereign-", l), (
+                f"the direct path activates a sovereign unit: {l.strip()!r}"
+            )
+
+
+def test_units_are_installed_outside_the_gui_branch():
+    """A headless install needs them discoverable too.
+
+    STAGE=/opt/sovereign-os-src only exists when SOVEREIGN_OS_INSTALL_GUI=1, so
+    anything that reads from it silently does nothing on a headless install.
+    """
+    text = (REPO_ROOT / "scripts" / "install" / "install-sovereign-root.sh").read_text(encoding="utf-8")
+    i = text.index("/lib/systemd/system")
+    window = text[max(0, i - 1200):i]
+    assert "SOVEREIGN_OS_INSTALL_GUI=0" in window or "REPO_SRC" in text[i-400:i], (
+        "the unit install must not depend on the GUI-only STAGE directory"
+    )

@@ -495,6 +495,25 @@ else
   info "SOVEREIGN_OS_INSTALL_GUI=0 — headless install; run scripts/install/install-gui-dashboards.sh later to add the GUI"
 fi
 
+  # ── sovereign units: make them DISCOVERABLE, enable NOTHING ──
+  # install-gui-dashboards.sh stages only the kiosk unit; the other ~113 stayed
+  # in the source tree where systemd never looks, so even a deliberate
+  # `systemctl enable sovereign-firstboot.target` fails with "unit not found".
+  # Done outside the GUI branch: a headless install needs them discoverable too.
+  #
+  # NOT enabled, deliberately. sovereign-firstboot.target Wants= a dozen heavy
+  # services (nvidia-driver-install, tetragon-install, inference-model-provision)
+  # and 67 units carry Restart= — enabling them before their code path is proven
+  # is what produced ~130 restart-looping services (2026-07-26).
+  if [ -d "${REPO_SRC}/systemd/system" ]; then
+    step "installing sovereign units (disabled — presence is not activation)"
+    mkdir -p "${MNT}/lib/systemd/system"
+    find "${REPO_SRC}/systemd/system" -maxdepth 1 \
+         \( -name '*.service' -o -name '*.target' \) -exec \
+         cp -a {} "${MNT}/lib/systemd/system/" \; 2>/dev/null || true
+    info "sovereign units installed to /lib/systemd/system (none enabled)"
+  fi
+
 # ── cleanup ──
 step "unmounting"
 sync
