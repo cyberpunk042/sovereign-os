@@ -390,13 +390,34 @@ def _host_kconfig() -> dict[str, str]:
 def _host_units() -> dict[str, dict]:
     """sovereign-* unit state on the running host: installed/enabled/active."""
     units: dict[str, dict] = {}
-    listed = _run(["systemctl", "list-unit-files", "sovereign-*",
-                   "--no-legend", "--plain", "--no-pager"]) or ""
+    # _run returns None when the PROBE failed (tool absent, timeout, non-zero)
+    # and "" when it genuinely found nothing. `or ""` collapses the two, so a
+    # failed systemctl reported "no sovereign units installed" — the panel
+    # telling the operator their host lacks something it never managed to check.
+    # Same false-negative shape as three other bugs the same day; here it is
+    # merely misleading, but it is the panel people trust to describe the host
+    # (2026-07-27).
+    listed_raw = _run(["systemctl", "list-unit-files", "sovereign-*",
+                       "--no-legend", "--plain", "--no-pager"])
+    # Distinguishing "no units" from "could not tell" cannot be done from the
+    # exit code: `systemctl list-unit-files <pattern>` exits 1 when NOTHING
+    # MATCHES, exactly as it does when the invocation is broken. Treating
+    # non-zero as failure produced the opposite error — a clean machine with no
+    # sovereign units reported "probe failed" (2026-07-27).
+    #
+    # Probe usability once instead. If systemctl answers --version it works, and
+    # an empty pattern result then genuinely means no units are installed.
+    _host_units.probe_failed = _run(["systemctl", "--version"]) is None
+    if _host_units.probe_failed:
+        return {}
+    listed = listed_raw or ""
     for line in listed.splitlines():
         parts = line.split()
         if len(parts) >= 2:
             units[parts[0]] = {"installed": True, "enabled": parts[1],
                                "active": "inactive"}
+    # probe-failure handled: systemctl usability was established above, so an
+    # empty result here genuinely means "no active units", not "could not tell".
     active = _run(["systemctl", "list-units", "sovereign-*", "--all",
                    "--no-legend", "--plain", "--no-pager"]) or ""
     for line in active.splitlines():
@@ -436,14 +457,21 @@ def assemble_host() -> dict:
         host["modules"] = []
     host["kconfig"] = _host_kconfig()
 
-    dpkg = _run(["dpkg-query", "-W", "-f", "${Package}\t${Status}\n"],
-                timeout=15) or ""
+    # Same distinction as _host_units: None means the probe failed, not that
+    # nothing is installed. Reporting "absent" for every package because
+    # dpkg-query timed out sends the operator installing things they already
+    # have (2026-07-27).
+    dpkg_raw = _run(["dpkg-query", "-W", "-f", "${Package}\t${Status}\n"],
+                    timeout=15)
+    dpkg = dpkg_raw if dpkg_raw is not None else ""
     host["packages"] = sorted(
         line.split("\t")[0] for line in dpkg.splitlines()
         if line.endswith("install ok installed")
     )
 
     host["units"] = _host_units()
+    # "no units" and "could not tell" must not render identically.
+    host["units_probe_failed"] = bool(getattr(_host_units, "probe_failed", False))
     host["osctl"] = (shutil.which("sovereign-osctl")
                      or (str(REPO / "scripts" / "sovereign-osctl")
                          if (REPO / "scripts" / "sovereign-osctl").exists()
