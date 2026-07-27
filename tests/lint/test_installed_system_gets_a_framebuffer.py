@@ -59,3 +59,26 @@ def test_the_installer_applies_it_to_the_installed_system(name: str):
             f"{name}: add-kernel-opts is missing {opt!r}, which "
             "installed-system.sh requires for the installed system"
         )
+
+
+def test_the_direct_path_verifies_the_cmdline_reached_grub_cfg():
+    """Declaring the cmdline is not applying it.
+
+    The installed system had every package, a registered display-manager and
+    zero failed units — and booted without nomodeset, so it had no framebuffer
+    and X could never start. The verifier checked the X DRIVER but not whether
+    the option that makes that driver usable ever reached grub.cfg
+    (2026-07-26).
+    """
+    text = (REPO_ROOT / "scripts" / "install" / "install-sovereign-root.sh").read_text(encoding="utf-8")
+    assert "boot/grub/grub.cfg" in text, (
+        "the verifier must read the GENERATED grub.cfg — /etc/default/grub only "
+        "says what was requested, not what a kernel will actually receive"
+    )
+    v = text[text.index("sovereign_verify_install()"):]
+    assert "SOVEREIGN_OS_KERNEL_CMDLINE" in v, (
+        "the verifier must confirm every declared cmdline option is present"
+    )
+    assert "SOVEREIGN_OS_MODULE_BLACKLIST" in v, (
+        "the verifier must confirm the blacklist reached the target"
+    )

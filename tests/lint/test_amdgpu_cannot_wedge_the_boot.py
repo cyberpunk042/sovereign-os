@@ -44,15 +44,27 @@ def test_the_shared_definition_blacklists_amdgpu():
     assert "amdgpu" in text
 
 
-def test_the_direct_install_path_writes_it_before_the_initramfs():
-    text = ROOT_INSTALL.read_text(encoding="utf-8")
-    assert "SOVEREIGN_OS_MODULE_BLACKLIST" in text, "must use the shared list"
-    where = text.index("SOVEREIGN_OS_MODULE_BLACKLIST")
-    initramfs = text.index("update-initramfs")
-    assert where < initramfs, (
-        "the blacklist must be written BEFORE update-initramfs; amdgpu probes "
-        "from the initrd, where a later /etc/modprobe.d file is never seen"
+def test_every_initramfs_site_is_preceded_by_the_blacklist():
+    """There are TWO writers: the offline (squashfs) and online (debootstrap)
+    paths. Checking only the first one passed while the second shipped an
+    initrd with no blacklist at all — the same two-writers drift that had the
+    d-i preseed and installed-system.sh disagreeing all session (2026-07-26).
+    """
+    lines = ROOT_INSTALL.read_text(encoding="utf-8").splitlines()
+    initramfs_lines = [n for n, l in enumerate(lines) if "update-initramfs" in l]
+    blacklist_lines = [n for n, l in enumerate(lines)
+                       if "SOVEREIGN_OS_MODULE_BLACKLIST" in l and "for " in l]
+    assert initramfs_lines, "no update-initramfs call found"
+    assert len(blacklist_lines) >= len(initramfs_lines), (
+        f"{len(initramfs_lines)} update-initramfs site(s) but only "
+        f"{len(blacklist_lines)} blacklist writer(s) — at least one path builds "
+        "an initrd that still lets amdgpu/nouveau probe"
     )
+    for n in initramfs_lines:
+        assert any(b < n for b in blacklist_lines), (
+            f"update-initramfs at line {n + 1} has no blacklist written before "
+            "it; the initrd probes before /etc/modprobe.d is ever consulted"
+        )
 
 
 @pytest.mark.parametrize("name", PRESEEDS)

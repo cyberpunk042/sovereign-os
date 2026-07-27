@@ -139,6 +139,34 @@ sovereign_verify_install() {
     && _v_ok "/etc/resolv.conf present" \
     || _v_warn "no /etc/resolv.conf — hostname lookups will fail on first boot"
 
+  # 7. THE KERNEL CMDLINE ACTUALLY REACHED grub.cfg. This is the failure that
+  # cost the operator a day: every package installed, sddm registered as
+  # display-manager, zero failed units, boot completed in 1m47 — and a dark
+  # screen, because the installed system booted without nomodeset. No GPU
+  # driver binds on this hardware, so without nomodeset there is no EFI
+  # framebuffer, no /dev/fb0, and X has no device to open. Declaring the
+  # cmdline is not applying it: verify it in the GENERATED grub.cfg, not in
+  # /etc/default/grub.
+  if [ -f "${MNT}/boot/grub/grub.cfg" ]; then
+    for _opt in ${SOVEREIGN_OS_KERNEL_CMDLINE}; do
+      if grep -qE "^[[:space:]]*linux.*[[:space:]]${_opt}([[:space:]]|\$)" \
+           "${MNT}/boot/grub/grub.cfg" 2>/dev/null; then
+        _v_ok "kernel cmdline carries '${_opt}'"
+      else
+        _v_bad "grub.cfg has NO '${_opt}' — declared in installed-system.sh and never applied"
+      fi
+    done
+  else
+    _v_bad "no /boot/grub/grub.cfg — nothing will boot"
+  fi
+
+  # 8. the blacklist reached the target, and the initrd was built after it
+  for _m in ${SOVEREIGN_OS_MODULE_BLACKLIST}; do
+    [ -f "${MNT}/etc/modprobe.d/sovereign-blacklist-${_m}.conf" ] \
+      && _v_ok "${_m} blacklisted" \
+      || _v_bad "${_m} NOT blacklisted — it will probe and can take the console"
+  done
+
   echo
   if [ "${fail}" -gt 0 ]; then
     red "verification FAILED: ${fail} blocking problem(s), ${warn} warning(s)."
@@ -427,6 +455,13 @@ ${CHROOT_USER_SETUP}
 usermod -aG sudo ${PRIMARY_USER} || true
 
 # initramfs WITH lvm (so it can find root on /dev/mapper/sovereign-root)
+# The ONLINE (debootstrap) path needs the same blacklist as the offline one.
+# Two writers, one fix: the offline path got it and this one did not -- the same
+# drift that had the d-i preseed and installed-system.sh disagreeing all session.
+mkdir -p /etc/modprobe.d
+for _m in ${SOVEREIGN_OS_MODULE_BLACKLIST}; do
+  echo "blacklist ${_m}" > "/etc/modprobe.d/sovereign-blacklist-${_m}.conf"
+done
 update-initramfs -u -k all
 
 # GRUB: root=lv_root, install to sovereign's own ESP, own bootloader id
