@@ -93,7 +93,13 @@ SOVEREIGN_OS_WORKSTATION_PACKAGES="${SOVEREIGN_OS_WORKSTATION_PACKAGES-${_sovos_
 # unplugged serial port and left the monitor on the bootloader's cursor — the
 # "frozen underscore" that cost several build-and-flash cycles. With none set,
 # /dev/console is tty0: the physical screen.
-SOVEREIGN_OS_KERNEL_CMDLINE="${SOVEREIGN_OS_KERNEL_CMDLINE:-nomodeset}"
+# `${VAR-default}` NOT `${VAR:-default}`. The colon form substitutes when the
+# variable is unset OR EMPTY, so an explicitly empty value is silently replaced
+# by the default — making "blacklist nothing" and "no extra cmdline"
+# inexpressible. The panel offers exactly those choices for other hardware, the
+# API forwards them, and this line quietly overrode both (2026-07-27).
+# SOVEREIGN_OS_WORKSTATION_PACKAGES below already uses the correct form.
+SOVEREIGN_OS_KERNEL_CMDLINE="${SOVEREIGN_OS_KERNEL_CMDLINE-nomodeset}"
 
 # ── MODULE BLACKLIST for the installed system ────────────────────────────────
 # A Ryzen 9 9900X carries a Granite Ridge iGPU [1002:13c0]. This kernel's amdgpu
@@ -109,7 +115,7 @@ SOVEREIGN_OS_KERNEL_CMDLINE="${SOVEREIGN_OS_KERNEL_CMDLINE:-nomodeset}"
 # nouveau is here for the same reason: it logs "unknown chipset (1b2000a1)"
 # on BOTH Blackwell cards -- it cannot drive them. Letting it probe risks it
 # claiming the console away from the EFI framebuffer that actually works.
-SOVEREIGN_OS_MODULE_BLACKLIST="${SOVEREIGN_OS_MODULE_BLACKLIST:-amdgpu nouveau}"
+SOVEREIGN_OS_MODULE_BLACKLIST="${SOVEREIGN_OS_MODULE_BLACKLIST-amdgpu nouveau}"
 
 # All packages to install into an installed root, base first.
 sovereign_os_installed_packages() {

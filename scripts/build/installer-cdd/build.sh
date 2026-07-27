@@ -275,6 +275,17 @@ if [ -r "${_isd}" ]; then
       "${_f}"
   done
 else
+  # If the operator ASKED for a different target, silently shipping the built-in
+  # sain-01 config is a wrong answer, not a degraded one: the panel would accept
+  # hostname=lab-box, report success, and hand back an ISO that installs
+  # "sovereign-os". Fail loudly in that case; warn only when nothing was asked
+  # for (2026-07-27).
+  if [ -n "${SOVEREIGN_OS_HOSTNAME:-}${SOVEREIGN_OS_USERNAME:-}${SOVEREIGN_OS_KERNEL_CMDLINE:-}${SOVEREIGN_OS_MODULE_BLACKLIST+set}" ]; then
+    echo "‼ target-machine settings were supplied but ${_isd} is unreadable," >&2
+    echo "  so they cannot be applied. Refusing to build an ISO that silently" >&2
+    echo "  carries this box's hostname, user and GPU workarounds instead." >&2
+    exit 1
+  fi
   log "WARNING: ${_isd} unreadable — preseed keeps its built-in hardware config"
 fi
 
