@@ -72,6 +72,15 @@ mkdir -p /var/log/sovereign-os
   # The cockpit postinst runs install-gui-dashboards.sh behind `|| true`, so a
   # total failure there is invisible: the install still "succeeds" and the
   # operator gets a desktop with no sovereign-os in it (2026-07-26).
+  echo "-- apt sources (can this system install anything, ever?) --"
+  if grep -qE "^deb .*deb\.debian\.org" /etc/apt/sources.list 2>/dev/null; then
+    echo "  OK: network sources present"
+  else
+    echo "  PROBLEM: no network apt sources -- apt install will fail and no"
+    echo "           security update will ever arrive"
+  fi
+  echo
+
   echo "-- sovereign-os itself --"
   if [ -L /usr/local/lib/sovereign-os ]; then
     echo "  app tree: SYMLINK -> $(readlink /usr/local/lib/sovereign-os)"
