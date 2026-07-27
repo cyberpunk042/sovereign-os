@@ -110,11 +110,25 @@ def _basename(dev: str) -> str:
 
 def _parent_disk(source: str) -> str:
     """Resolve a mount SOURCE (partition / dm / lvm / zfs member) to the
-    whole-disk kernel name backing it (e.g. /dev/nvme0n1p2 → nvme0n1)."""
-    pk = _run(["lsblk", "-no", "PKNAME", source]).strip().splitlines()
-    if pk and pk[0].strip():
-        return pk[0].strip()
-    return _basename(source)
+    whole-disk kernel name backing it (e.g. /dev/nvme0n1p2 → nvme0n1).
+
+    Walks the whole chain. PKNAME is the IMMEDIATE parent, and a single hop is
+    wrong on exactly the layout sovereign-os installs: for an LVM root,
+    PKNAME(/dev/mapper/sovereign-root) is the PV PARTITION (nvme0n1p2), not the
+    disk. protected_disks() is built from this, so the disk hosting the RUNNING
+    system was absent from the protected set and the panel would have offered it
+    as a flash target — with internal disks now flashable (2026-07-27).
+
+    Also covers LUKS and md, which stack the same way.
+    """
+    dev = source
+    for _ in range(16):  # bounded: a cycle must never hang the panel
+        pk = _run(["lsblk", "-no", "PKNAME", dev]).splitlines()
+        parent = pk[0].strip() if pk else ""
+        if not parent:
+            break
+        dev = "/dev/" + parent
+    return _basename(dev)
 
 
 def protected_disks() -> set[str]:

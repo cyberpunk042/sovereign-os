@@ -61,3 +61,60 @@ def test_the_walker_actually_reaches_a_disk():
     assert first == "", (
         f"{disk} still has a parent ({first!r}) — the walk stopped short"
     )
+
+
+def test_the_flash_panel_protects_the_running_disk_through_lvm():
+    """The panel writes raw images to disks, and internal disks are flashable.
+
+    protected_disks() is built from _parent_disk(). A single PKNAME hop on an
+    LVM root yields the PV partition, so the disk hosting the RUNNING system was
+    absent from the protected set and would have been offered as a target
+    (2026-07-27).
+    """
+    body = (REPO_ROOT / "scripts" / "operator" / "flash-api.py").read_text(encoding="utf-8")
+    fn = body[body.index("def _parent_disk"):body.index("def protected_disks")]
+    code = "\n".join(l for l in fn.splitlines() if not l.strip().startswith("#"))
+    assert "for _" in code or "while" in code, (
+        "_parent_disk must WALK the device chain; one PKNAME hop stops at the "
+        "PV partition and leaves the running disk unprotected"
+    )
+
+
+def test_the_flash_walk_is_bounded():
+    """A malformed device tree must not hang the panel."""
+    body = (REPO_ROOT / "scripts" / "operator" / "flash-api.py").read_text(encoding="utf-8")
+    fn = body[body.index("def _parent_disk"):body.index("def protected_disks")]
+    assert "range(" in fn, (
+        "bound the walk — an unbounded loop over a cyclic device tree would "
+        "hang the request thread and the panel with it"
+    )
+
+
+def test_the_running_disk_is_actually_in_the_protected_set():
+    """Execute it: the disk holding / must be protected on THIS machine."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "flash_api", REPO_ROOT / "scripts" / "operator" / "flash-api.py")
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except SystemExit:
+        pass
+    root_src = subprocess.run(["findmnt", "-no", "SOURCE", "/"],
+                              capture_output=True, text=True).stdout.strip()
+    expected = mod._parent_disk(root_src)
+    assert expected in mod.protected_disks(), (
+        f"{expected} hosts / but is not in protected_disks() — the flash panel "
+        "would offer the running system's disk as a target"
+    )
+
+
+def test_the_tui_solved_this_already_and_stayed_solved():
+    """installer-tui.sh uses sysfs, which is exact. Keep it that way."""
+    body = (REPO_ROOT / "scripts" / "install" / "installer-tui.sh").read_text(encoding="utf-8")
+    fn = body[body.index("_whole_disk()"):]
+    fn = fn[:fn.index("\n}\n") + 3]
+    assert "/sys/class/block" in fn, (
+        "the TUI resolved this correctly via sysfs before the other three sites "
+        "were fixed; do not regress it to a single PKNAME hop"
+    )
