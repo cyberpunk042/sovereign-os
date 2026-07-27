@@ -111,6 +111,26 @@ mkdir -p /var/log/sovereign-os
   fi
   echo
 
+  # These workarounds were chosen for ONE machine. On different hardware they
+  # are not neutral: nomodeset disables KMS, and blacklisting amdgpu/nouveau
+  # turns off a GPU driver that might work perfectly well there. The system
+  # still boots -- on the EFI framebuffer -- but with no acceleration and no
+  # external-display switching. Say so, rather than let it look like a fault
+  # (2026-07-27, operator testing on a second machine).
+  echo "-- hardware workarounds active (tuned for the sain-01 box) --"
+  _bl="$(ls /etc/modprobe.d/sovereign-blacklist-*.conf 2>/dev/null | wc -l)"
+  echo "  blacklisted GPU modules: ${_bl}"
+  if grep -qE "^[[:space:]]*linux.*nomodeset" /boot/grub/grub.cfg 2>/dev/null; then
+    echo "  nomodeset: ON (KMS disabled -- framebuffer graphics only)"
+  fi
+  if [ "${_bl}" -gt 0 ] || grep -qE "^[[:space:]]*linux.*nomodeset" /boot/grub/grub.cfg 2>/dev/null; then
+    echo "  NOTE: on hardware whose GPU driver DOES bind, these cost you"
+    echo "        acceleration for no benefit. To undo on this machine:"
+    echo "          rm /etc/modprobe.d/sovereign-blacklist-*.conf"
+    echo "          edit GRUB_CMDLINE_LINUX_DEFAULT in /etc/default/grub, update-grub"
+  fi
+  echo
+
   echo "-- networking (who owns the interface?) --"
   echo "  /etc/network/interfaces (non-comment):"
   grep -vE "^\s*#|^\s*$" /etc/network/interfaces 2>/dev/null | sed 's/^/    /' \

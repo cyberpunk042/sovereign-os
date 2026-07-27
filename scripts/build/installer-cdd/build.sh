@@ -47,7 +47,20 @@ log "staging custom kernel .debs"
 if ls "${KDIR}"/linux-image-6.12.0_*.deb >/dev/null 2>&1; then
   cp -v "${KDIR}"/linux-{image,headers}-6.12.0_*.deb "${LOCAL_PKGS}/"
 else
-  echo "‼ custom kernel .debs not in ${KDIR} — the install will use the stock kernel" >&2
+  # FAIL NOW, not in 25 minutes. The old behaviour was to warn "the install will
+  # use the stock kernel" and continue -- but linux-image-6.12.0 and
+  # linux-headers-6.12.0 are REQUIRED entries in profiles/sovereign.packages and
+  # in pkgsel/include, so the build does not fall back: it downloads the whole
+  # mirror and then dies with "missing required packages from profile sovereign".
+  # That warning was simply wrong, and it costs a full mirror build to discover
+  # on any machine that is not the one the kernel was compiled on (2026-07-27).
+  echo "‼ custom kernel .debs not found in ${KDIR}" >&2
+  echo "  The package lists REQUIRE linux-image-6.12.0 and linux-headers-6.12.0," >&2
+  echo "  so this build cannot succeed without them. Either:" >&2
+  echo "    • point at them:  SOVEREIGN_OS_KERNEL_DEBS_DIR=/path/to/kernel-debs" >&2
+  echo "    • or build them:  scripts/build/orchestrate.sh run   (steps 02-04)" >&2
+  echo "  Refusing now rather than after the mirror download." >&2
+  exit 1
 fi
 
 # ── 2. build the sovereign-os-cockpit .deb from this repo ──
