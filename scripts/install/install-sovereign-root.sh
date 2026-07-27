@@ -25,7 +25,25 @@ HOME_LV="${SOVEREIGN_OS_HOME_LV:-/dev/sovereign/home}"
 # ESP = sovereign's own ESP partition (Phase 1 created it as <target-disk>p1).
 # Derive it from the target disk so `install system --to <disk>` works for ANY
 # NVMe, not just the historical /dev/nvme1n1 default.
-_TARGET_DISK="${SOVEREIGN_OS_TARGET_DISK:-/dev/nvme1n1}"
+# NO DEFAULT TARGET DISK. This used to default to /dev/nvme1n1, which on this
+# very machine is the RUNNING Debian (root=/dev/nvme1n1p2) — the default was
+# stale, left over from when the two NVMes had the opposite roles. Only the
+# safety gates stopped it, and on any other machine that device name means
+# something else entirely.
+#
+# A device name is not an identity. The same stale-name assumption sat in the
+# d-i preseed, where a rule written to protect nvme0n1 ended up selecting the
+# operator's working system (2026-07-27). Refuse to guess: name the disk.
+_TARGET_DISK="${SOVEREIGN_OS_TARGET_DISK:-}"
+if [ -z "${_TARGET_DISK}" ]; then
+  red "ABORT: no target disk. Set SOVEREIGN_OS_TARGET_DISK=/dev/... (or use 'install system --to <disk>')."
+  red "  Candidates on this machine (whole disks, no mounted filesystems):"
+  lsblk -dno NAME,SIZE,MODEL 2>/dev/null | while read -r _n _rest; do
+    [ "$(lsblk -nro MOUNTPOINTS "/dev/${_n}" 2>/dev/null | grep -c .)" = 0 ] \
+      && red "    /dev/${_n}  ${_rest}"
+  done
+  exit 1
+fi
 case "${_TARGET_DISK}" in
   *[0-9]) _ESP_DEFAULT="${_TARGET_DISK}p1" ;;
   *)      _ESP_DEFAULT="${_TARGET_DISK}1"  ;;

@@ -18,7 +18,25 @@
 set -euo pipefail
 
 # ── tunables (override via env) ──
-TARGET="${SOVEREIGN_OS_LVM_DISK:-/dev/nvme1n1}"   # the EMPTY disk to consume
+# NO DEFAULT TARGET DISK. This used to default to /dev/nvme1n1, which on this
+# very machine is the RUNNING Debian (root=/dev/nvme1n1p2) — the default was
+# stale, left over from when the two NVMes had the opposite roles. Only the
+# safety gates stopped it, and on any other machine that device name means
+# something else entirely.
+#
+# A device name is not an identity. The same stale-name assumption sat in the
+# d-i preseed, where a rule written to protect nvme0n1 ended up selecting the
+# operator's working system (2026-07-27). Refuse to guess: name the disk.
+TARGET="${SOVEREIGN_OS_LVM_DISK:-}"   # the EMPTY disk to consume
+if [ -z "${TARGET}" ]; then
+  red "ABORT: no target disk. Set SOVEREIGN_OS_LVM_DISK=/dev/..."
+  red "  Candidates (whole disks with nothing mounted):"
+  lsblk -dno NAME,SIZE,MODEL 2>/dev/null | while read -r _n _rest; do
+    [ "$(lsblk -nro MOUNTPOINTS "/dev/${_n}" 2>/dev/null | grep -c .)" = 0 ] \
+      && red "    /dev/${_n}  ${_rest}"
+  done
+  exit 1
+fi
 VG="${SOVEREIGN_OS_VG:-sovereign}"
 LV_ROOT_SIZE="${SOVEREIGN_OS_LV_ROOT_SIZE:-100G}" # sovereign-os root (reflashable)
 LV_HOME_SIZE="${SOVEREIGN_OS_LV_HOME_SIZE:-1.4T}" # the ONE shared /home
