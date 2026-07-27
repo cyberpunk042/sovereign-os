@@ -41,6 +41,15 @@ pub use fm::FmIndex;
 pub mod host;
 pub use host::{HostFmSearch, HostSearchError};
 
+/// Device-native (P5) search surface — resident device buffers, zero host round-trip in the
+/// query loop. Only available with the `linked` feature: operating on device buffers is
+/// inherently a GPU-resident path, so there is no honest-degrade stub (use [`FmIndex`] for the
+/// no-engine path, or [`HostFmSearch`] for the host-array path). These re-exports are safe
+/// (RAII, no `unsafe` crosses their API); the engine owns all CUDA. See the `device_search`
+/// and `bench_search_device` examples.
+#[cfg(feature = "linked")]
+pub use sovereign_chromofold_sys::{DeviceBuffer, DeviceFmIndex, Stream};
+
 pub mod span_cache;
 pub use span_cache::{SpanCache, SpanHit};
 

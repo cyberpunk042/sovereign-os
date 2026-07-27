@@ -356,6 +356,19 @@ unsafe extern "C" {
     ) -> i32;
 
     fn cf_fm_host_free(ix: *mut CfFmHostIndex);
+
+    // --- chromofold_search.h: device-native path (P5) — resident buffers, zero host round-trip ---
+
+    fn cf_fm_host_view(ix: *const CfFmHostIndex, out: *mut CfFmView) -> i32;
+
+    fn cf_device_alloc(nbytes: usize, out: *mut *mut c_void) -> i32;
+    fn cf_device_free(dptr: *mut c_void);
+    fn cf_device_h2d(ddst: *mut c_void, hsrc: *const c_void, nbytes: usize) -> i32;
+    fn cf_device_d2h(hdst: *mut c_void, dsrc: *const c_void, nbytes: usize) -> i32;
+
+    fn cf_stream_create(out: *mut *mut c_void) -> i32;
+    fn cf_stream_destroy(stream: *mut c_void);
+    fn cf_stream_sync(stream: *mut c_void) -> i32;
 }
 
 /// Device-native batched `access`: decode token IDs at `device_positions` into
@@ -789,6 +802,281 @@ impl Drop for HostFmIndex {
     fn drop(&mut self) {
         // Safety: `raw` came from a successful `fm_host_load` and is freed exactly once.
         unsafe { fm_host_free(self.raw) };
+    }
+}
+
+// ---- Device-native path (P5): resident device buffers, zero host round-trip in the query loop ----
+
+/// A resident device buffer of `len` elements of `T`, owned via the engine's
+/// `cf_device_*` ABI helpers (so the caller links no cudart). Allocated on the device,
+/// freed on drop. Upload/download move data host↔device explicitly — a device-resident
+/// consumer keeps the buffer and skips the download. Not `Send`/`Sync`: it names device
+/// memory bound to the engine's context.
+#[cfg(feature = "linked")]
+pub struct DeviceBuffer<T: Copy> {
+    ptr: *mut c_void,
+    len: usize,
+    _t: core::marker::PhantomData<T>,
+}
+
+#[cfg(feature = "linked")]
+impl<T: Copy> DeviceBuffer<T> {
+    /// Allocate an (uninitialized) device buffer of `len` elements.
+    pub fn with_len(len: usize) -> Result<Self, CfStatus> {
+        let mut ptr: *mut c_void = core::ptr::null_mut();
+        // Safety: `&mut ptr` is a valid out-pointer; the engine allocates device memory.
+        let st = CfStatus::from_raw(unsafe {
+            cf_device_alloc(len * core::mem::size_of::<T>(), &mut ptr)
+        });
+        match st {
+            CfStatus::Ok if !ptr.is_null() => Ok(Self {
+                ptr,
+                len,
+                _t: core::marker::PhantomData,
+            }),
+            CfStatus::Ok => Err(CfStatus::Cuda), // Ok but null: engine failure, never fabricate
+            other => Err(other),
+        }
+    }
+
+    /// Allocate and upload `host` in one step.
+    pub fn from_host(host: &[T]) -> Result<Self, CfStatus> {
+        let mut b = Self::with_len(host.len())?;
+        b.upload(host)?;
+        Ok(b)
+    }
+
+    /// Upload `host` (length must equal the buffer) host→device.
+    pub fn upload(&mut self, host: &[T]) -> Result<(), CfStatus> {
+        if host.len() != self.len {
+            return Err(CfStatus::InvalidArgument);
+        }
+        if self.len == 0 {
+            return Ok(());
+        }
+        // Safety: `ptr` is our live buffer of `len*size_of::<T>()` bytes; `host` is that long.
+        let st = CfStatus::from_raw(unsafe {
+            cf_device_h2d(
+                self.ptr,
+                host.as_ptr() as *const c_void,
+                self.len * core::mem::size_of::<T>(),
+            )
+        });
+        if st == CfStatus::Ok { Ok(()) } else { Err(st) }
+    }
+
+    /// Download the buffer device→host into a fresh `Vec`.
+    pub fn to_vec(&self) -> Result<Vec<T>, CfStatus>
+    where
+        T: Default,
+    {
+        let mut out = vec![T::default(); self.len];
+        if self.len > 0 {
+            // Safety: `out` is `len` elements; `ptr` is our live buffer of the same byte length.
+            let st = CfStatus::from_raw(unsafe {
+                cf_device_d2h(
+                    out.as_mut_ptr() as *mut c_void,
+                    self.ptr,
+                    self.len * core::mem::size_of::<T>(),
+                )
+            });
+            if st != CfStatus::Ok {
+                return Err(st);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Element count.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    /// Whether the buffer holds zero elements.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    fn dptr(&self) -> *mut c_void {
+        self.ptr
+    }
+}
+
+#[cfg(feature = "linked")]
+impl<T: Copy> Drop for DeviceBuffer<T> {
+    fn drop(&mut self) {
+        // Safety: `ptr` came from a successful `cf_device_alloc`, freed exactly once.
+        unsafe { cf_device_free(self.ptr) };
+    }
+}
+
+/// A device stream owned via the engine ABI. Drops via `cf_stream_destroy`. Queries run
+/// on it asynchronously; call [`Stream::sync`] before reading a result buffer back.
+#[cfg(feature = "linked")]
+pub struct Stream {
+    ptr: *mut c_void,
+}
+
+#[cfg(feature = "linked")]
+impl Stream {
+    /// Create a fresh device stream.
+    pub fn new() -> Result<Self, CfStatus> {
+        let mut ptr: *mut c_void = core::ptr::null_mut();
+        // Safety: `&mut ptr` is a valid out-pointer.
+        let st = CfStatus::from_raw(unsafe { cf_stream_create(&mut ptr) });
+        match st {
+            CfStatus::Ok if !ptr.is_null() => Ok(Self { ptr }),
+            CfStatus::Ok => Err(CfStatus::Cuda),
+            other => Err(other),
+        }
+    }
+
+    /// Block until all work previously enqueued on this stream has finished.
+    pub fn sync(&self) -> Result<(), CfStatus> {
+        // Safety: `ptr` is a live stream from `cf_stream_create`.
+        let st = CfStatus::from_raw(unsafe { cf_stream_sync(self.ptr) });
+        if st == CfStatus::Ok { Ok(()) } else { Err(st) }
+    }
+
+    fn raw(&self) -> *mut c_void {
+        self.ptr
+    }
+}
+
+#[cfg(feature = "linked")]
+impl Drop for Stream {
+    fn drop(&mut self) {
+        // Safety: `ptr` came from a successful `cf_stream_create`, destroyed exactly once.
+        unsafe { cf_stream_destroy(self.ptr) };
+    }
+}
+
+/// A device-resident FM-index exposing the **device-native** search path (P5): queries run
+/// over caller-owned resident [`DeviceBuffer`]s on a [`Stream`], writing results to a
+/// resident buffer — no host round-trip in the loop. Owns a [`HostFmIndex`] (the resident
+/// index) and caches its [`CfFmView`], whose device pointers stay valid for `self`.
+#[cfg(feature = "linked")]
+pub struct DeviceFmIndex {
+    /// Keep-alive guard: owns the resident index, so every device pointer in `view` stays
+    /// valid for `self`. Read only at construction; its `Drop` frees the index.
+    #[allow(dead_code)]
+    inner: HostFmIndex,
+    view: CfFmView,
+}
+
+#[cfg(feature = "linked")]
+impl DeviceFmIndex {
+    /// Build from a `.cffm` blob and take the resident device view.
+    pub fn load(cffm: &[u8]) -> Result<Self, CfStatus> {
+        let inner = HostFmIndex::load(cffm)?;
+        let mut view = core::mem::MaybeUninit::<CfFmView>::uninit();
+        // Safety: `inner.raw` is a live host index; `view` is a valid out-pointer.
+        let st = CfStatus::from_raw(unsafe { cf_fm_host_view(inner.raw, view.as_mut_ptr()) });
+        if st != CfStatus::Ok {
+            return Err(st);
+        }
+        // Safety: on Ok, cf_fm_host_view wrote a fully-initialized CfFmView.
+        Ok(Self {
+            inner,
+            view: unsafe { view.assume_init() },
+        })
+    }
+
+    /// BWT length `n` (`|s|`) of the resident index.
+    #[must_use]
+    pub fn n(&self) -> i32 {
+        self.view.n
+    }
+    /// Alphabet size (incl. sentinel).
+    #[must_use]
+    pub fn sigma(&self) -> i32 {
+        self.view.sigma
+    }
+
+    /// Count each of `npat` patterns (device-resident `pat`/`pstart`/`plen`), writing
+    /// `npat` counts into `out` on `stream`. Asynchronous: `stream.sync()` before reading
+    /// `out`. No host copy.
+    pub fn count_into(
+        &self,
+        pat: &DeviceBuffer<i32>,
+        pstart: &DeviceBuffer<i32>,
+        plen: &DeviceBuffer<i32>,
+        out: &mut DeviceBuffer<u32>,
+        npat: usize,
+        stream: &Stream,
+    ) -> Result<(), CfStatus> {
+        if pstart.len() < npat || plen.len() < npat || out.len() < npat {
+            return Err(CfStatus::InvalidArgument);
+        }
+        // Safety: view pointers owned by `self.inner`; buffers live for the call; stream valid.
+        let st = CfStatus::from_raw(unsafe {
+            cf_fm_count_async(
+                self.view,
+                pat.dptr() as *const i32,
+                pstart.dptr() as *const i32,
+                plen.dptr() as *const i32,
+                out.dptr() as *mut u32,
+                npat,
+                stream.raw(),
+            )
+        });
+        if st == CfStatus::Ok { Ok(()) } else { Err(st) }
+    }
+
+    /// Suffix-array `[lo, hi)` per pattern into resident `lo_out`/`hi_out` on `stream`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn ranges_into(
+        &self,
+        pat: &DeviceBuffer<i32>,
+        pstart: &DeviceBuffer<i32>,
+        plen: &DeviceBuffer<i32>,
+        lo_out: &mut DeviceBuffer<i32>,
+        hi_out: &mut DeviceBuffer<i32>,
+        npat: usize,
+        stream: &Stream,
+    ) -> Result<(), CfStatus> {
+        if pstart.len() < npat || plen.len() < npat || lo_out.len() < npat || hi_out.len() < npat {
+            return Err(CfStatus::InvalidArgument);
+        }
+        // Safety: as `count_into`.
+        let st = CfStatus::from_raw(unsafe {
+            cf_fm_ranges_async(
+                self.view,
+                pat.dptr() as *const i32,
+                pstart.dptr() as *const i32,
+                plen.dptr() as *const i32,
+                lo_out.dptr() as *mut i32,
+                hi_out.dptr() as *mut i32,
+                npat,
+                stream.raw(),
+            )
+        });
+        if st == CfStatus::Ok { Ok(()) } else { Err(st) }
+    }
+
+    /// Text position of each of `nocc` suffix-array rows (`rows`) into `out` on `stream`.
+    pub fn locate_into(
+        &self,
+        rows: &DeviceBuffer<i32>,
+        out: &mut DeviceBuffer<i32>,
+        nocc: usize,
+        stream: &Stream,
+    ) -> Result<(), CfStatus> {
+        if rows.len() < nocc || out.len() < nocc {
+            return Err(CfStatus::InvalidArgument);
+        }
+        // Safety: as `count_into`.
+        let st = CfStatus::from_raw(unsafe {
+            cf_fm_locate_async(
+                self.view,
+                rows.dptr() as *const i32,
+                out.dptr() as *mut i32,
+                nocc,
+                stream.raw(),
+            )
+        });
+        if st == CfStatus::Ok { Ok(()) } else { Err(st) }
     }
 }
 
