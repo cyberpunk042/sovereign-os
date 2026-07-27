@@ -23,9 +23,38 @@ fi
 
 if [ -z "${SOVEREIGN_OS_WIPE_DEVICES}" ]; then
   log_error "SOVEREIGN_OS_WIPE_DEVICES env var must list devices to wipe"
-  log_error "  Example: SOVEREIGN_OS_WIPE_DEVICES='/dev/nvme0n1 /dev/nvme1n1'"
+  log_error "  Example: SOVEREIGN_OS_WIPE_DEVICES='/dev/sdb'"
+  log_error "  (name ONLY the disks you mean; an example listing every NVMe in a"
+  log_error "   two-disk box is a copy-paste away from erasing the live system)"
   exit 1
 fi
+
+# REFUSE the disk hosting the running root. Wiping the disk you booted from is
+# not a decommission, it is a crash: the dd corrupts the filesystem underneath
+# the running tool, which then dies partway through. Decommissioning that disk
+# is legitimate -- from a live USB, where it no longer hosts /.
+#
+# Resolution walks the whole device chain. PKNAME is only the IMMEDIATE parent,
+# so on an LVM root a single hop yields the PV partition and never matches a
+# whole-disk argument -- the same flaw found in both installers and the flash
+# panel the same day (2026-07-27).
+_parent_disk_of() {
+  _d="$1"
+  while :; do
+    _p="$(lsblk -no PKNAME "${_d}" 2>/dev/null | head -1 | tr -d ' ')"
+    [ -n "${_p}" ] || break
+    _d="/dev/${_p}"
+  done
+  printf '%s\n' "${_d}"
+}
+_run_root_disk="$(_parent_disk_of "$(findmnt -no SOURCE / 2>/dev/null)" 2>/dev/null || true)"
+for dev in ${SOVEREIGN_OS_WIPE_DEVICES}; do
+  if [ -n "${_run_root_disk}" ] && [ "$(_parent_disk_of "${dev}")" = "${_run_root_disk}" ]; then
+    log_error "REFUSING: ${dev} hosts the RUNNING root (${_run_root_disk})."
+    log_error "  Boot a live medium to decommission this disk."
+    exit 1
+  fi
+done
 
 if ! confirm "Wipe devices: ${SOVEREIGN_OS_WIPE_DEVICES}? ALL DATA UNRECOVERABLE." default-no; then
   log_info "aborted by operator"
