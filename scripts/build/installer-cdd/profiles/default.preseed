@@ -169,6 +169,8 @@ d-i preseed/late_command string \
     in-target sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env' || true; \
       sh -c 'echo "sovereign: writing apt sources for post-install use" > /dev/tty4 2>/dev/null' || true; \
       in-target sh -c 'sh /opt/sovereign-os/scripts/install/write-apt-sources.sh trixie' || true; \
+      sh -c 'echo "sovereign: deploying dashboards + cockpit (several minutes)" > /dev/tty4 2>/dev/null' || true; \
+      in-target sh -c 'sh /opt/sovereign-os/scripts/install/deploy-dashboards.sh' || true; \
       sh -c 'echo "sovereign: running the install self-check" > /dev/tty4 2>/dev/null' || true; \
       in-target sh -c 'sh /opt/sovereign-os/scripts/install/verify-installed-system.sh' || true; \
     sh -c 'echo "sovereign: enabling the display manager" > /dev/tty4 2>/dev/null' || true; \

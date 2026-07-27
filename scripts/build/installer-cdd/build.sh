@@ -81,52 +81,13 @@ CTRL
 cat > "${PKGROOT}/DEBIAN/postinst" <<'POSTINST'
 #!/bin/sh
 set -e
-# Deploy the dashboards + cockpit. This CANNOT abort the install -- a failing
-# postinst makes dpkg fail the package, which fails the whole d-i run and leaves
-# a half-installed disk. But it must not vanish either: all three failure modes
-# here were previously silent (script not executable -> [ -x ] false -> skipped;
-# script fails -> || true; script absent -> skipped), producing an install that
-# "succeeded" with no sovereign-os on it and nothing to explain why
-# (2026-07-27). Record what happened so first boot can say so.
-# Every write below is guarded. This runs under `set -e`: an unguarded mkdir on
-# a full or read-only /var would exit non-zero, dpkg would fail the package, and
-# d-i would abort the install -- the exact outcome this block exists to prevent.
-# Caught by the postinst execution test before it shipped (2026-07-27).
-mkdir -p /var/log/sovereign-os /var/lib/sovereign-os 2>/dev/null || true
-_dash=/opt/sovereign-os/scripts/install/install-gui-dashboards.sh
-_dlog=/var/log/sovereign-os/dashboards-install.log
-if [ ! -f "${_dash}" ]; then
-  echo "MISSING: ${_dash} is not in the package" > "${_dlog}" 2>/dev/null || true
-  echo missing > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
-elif [ ! -x "${_dash}" ]; then
-  # A lost exec bit silently skipped this entire stage once before.
-  echo "NOT EXECUTABLE: ${_dash} (mode $(stat -c %a "${_dash}" 2>/dev/null))" > "${_dlog}" 2>/dev/null || true
-  echo not-executable > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
-else
-  # STREAM it. This is a 468-line script doing apt work and can run for
-  # minutes; sending it only to a log file turned the longest phase of the
-  # install into a silent hang from the operator's side (2026-07-27).
-  # /dev/tty4 is d-i's log console (Alt-F4) -- writing there is visible without
-  # disturbing the installer UI on tty1. Everything is best-effort: a missing
-  # tty must never affect the outcome.
-  echo "sovereign: deploying dashboards + cockpit (this takes a few minutes)..." \
-    > /dev/tty4 2>/dev/null || true
-  _rcf=/tmp/.sovereign-dash-rc
-  { SOVEREIGN_OS_SRC=/opt/sovereign-os SOVEREIGN_OS_FRONTEND=kde-plasma \
-      bash "${_dash}" 2>&1; echo $? > "${_rcf}"; } \
-    | tee "${_dlog}" > /dev/tty4 2>/dev/null || true
-  _rc="$(cat "${_rcf}" 2>/dev/null || echo 1)"
-  rm -f "${_rcf}" 2>/dev/null || true
-  if [ "${_rc}" = 0 ]; then
-    echo ok > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
-    echo "sovereign: dashboards deploy OK" > /dev/tty4 2>/dev/null || true
-  else
-    echo "FAILED (rc=${_rc})" >> "${_dlog}" 2>/dev/null || true
-    echo failed > /var/lib/sovereign-os/dashboards-install.status 2>/dev/null || true
-    echo "sovereign: dashboards deploy FAILED (rc=${_rc}) — see ${_dlog}" \
-      > /dev/tty4 2>/dev/null || true
-  fi
-fi
+# The dashboards deploy is NOT run here. install-gui-dashboards.sh calls
+# `apt-get install`, and dpkg runs maintainer scripts while holding the dpkg
+# lock — Debian Policy forbids apt from a maintainer script for exactly that
+# reason. Running it here meant its first pkg_ensure would fail on the lock and
+# the cockpit would never land (2026-07-27).
+# d-i's late_command runs it instead, after pkgsel and outside dpkg:
+#   scripts/install/deploy-dashboards.sh
 mkdir -p /etc/sovereign-os 2>/dev/null || true
 [ -f /etc/sovereign-os/active-profile ] \
   || echo sain-01 > /etc/sovereign-os/active-profile 2>/dev/null || true

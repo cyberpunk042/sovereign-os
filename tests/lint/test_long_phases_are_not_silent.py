@@ -62,13 +62,35 @@ def test_the_mirror_build_reports_how_long_it_took():
 
 
 def test_the_dashboards_deploy_streams_during_install():
+    """It moved out of the postinst — apt under dpkg deadlocks on the dpkg lock,
+    which Debian Policy forbids — into late_command via deploy-dashboards.sh."""
+    deploy = REPO_ROOT / "scripts" / "install" / "deploy-dashboards.sh"
+    assert deploy.exists() and deploy.stat().st_mode & 0o111
+    body = deploy.read_text(encoding="utf-8")
+    assert "/dev/tty4" in body, (
+        "the deploy must stream to d-i's log console; redirecting it into a "
+        "file makes the longest phase of the install look like a hang"
+    )
+    assert "tee" in body, "keep the log AND show it live"
+
+
+def test_apt_is_never_called_from_a_maintainer_script():
+    """dpkg holds its lock while running maintainer scripts.
+
+    install-gui-dashboards.sh calls apt-get. Running it from the cockpit
+    postinst meant its first pkg_ensure would fail on the dpkg lock, so the
+    cockpit never landed — silently, because the deploy was best-effort
+    (2026-07-27).
+    """
     body = CDD_BUILD.read_text(encoding="utf-8")
     post = body[body.index("DEBIAN/postinst"):body.index("\nPOSTINST")]
-    assert "/dev/tty4" in post, (
-        "the dashboards deploy must stream to d-i's log console; redirecting it "
-        "into a file makes the longest phase of the install look like a hang"
+    code = "\n".join(l for l in post.splitlines() if not l.lstrip().startswith("#"))
+    assert "install-gui-dashboards.sh" not in code, (
+        "the postinst must not run a script that calls apt-get; dpkg holds the "
+        "lock while maintainer scripts run"
     )
-    assert "tee" in post, "keep the log AND show it live"
+    for direct in ("apt-get ", "apt-cache ", "aptitude "):
+        assert direct not in code, f"postinst calls {direct.strip()!r} under dpkg"
 
 
 def test_the_install_announces_each_step():
