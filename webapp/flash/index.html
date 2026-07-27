@@ -2856,7 +2856,17 @@ function showImageMeta() {
 
 function renderDevices() {
   const box = el("devices");
-  if (!DATA.devices.length) { box.innerHTML = '<div class="muted">no block devices found</div>'; return; }
+  if (!DATA.devices.length) {
+    // "lsblk failed" and "no disks attached" are opposite situations calling
+    // for opposite responses — investigate vs plug one in — and both used to
+    // render as "no block devices found" (2026-07-27).
+    box.innerHTML = DATA.devices_probe_failed
+      ? '<div class="muted">could NOT read the disk list — the lsblk probe failed.'
+        + ' This is not "no disks attached": nothing can be offered safely until'
+        + ' it works. Check <code>lsblk -J -d</code> on this host.</div>'
+      : '<div class="muted">no block devices found (nothing attached)</div>';
+    return;
+  }
   box.innerHTML = "";
   DATA.devices.forEach(d => {
     const div = document.createElement("div");

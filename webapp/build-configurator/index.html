@@ -3729,7 +3729,9 @@ function regenerate(){
   document.getElementById("sel-summary").textContent = hostMode
     ? "Managing " + ((D.host&&D.host.hostname)||"this host") + " · profile " + state.profile +
       (D.host && D.host.active_profile === state.profile ? " (active)" : "") +
-      " · " + Object.keys((D.host&&D.host.units)||{}).length + " sovereign unit(s) installed"
+      " · " + ((D.host && D.host.units_probe_failed)
+                 ? "sovereign unit state UNKNOWN (systemctl probe failed)"
+                 : Object.keys((D.host&&D.host.units)||{}).length + " sovereign unit(s) installed")
     : "Building " + state.profile + " · " + state.substrate +
       " · " + on(state.pkgProfile).length + " profile pkgs · tuning: " + state.tuning +
       " · " + (aiOn.length ? aiOn.join(" + ") : "no AI assistant selected");
