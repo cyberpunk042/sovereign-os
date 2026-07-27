@@ -313,6 +313,23 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
         exit 1
       fi
       log_info "d-i ISO produced: ${_iso_now} ($(du -h "${_iso_now}" 2>/dev/null | cut -f1))"
+      # The ISO must be able to satisfy its OWN install list. pkgsel/include is
+      # fatal in d-i: one package missing from the offline pool and the install
+      # aborts AFTER partitioning, formatting and unpacking. A stock Debian
+      # installer never hits this because it resolves against a network mirror;
+      # ours cannot. Check it here, where failing costs seconds (2026-07-27).
+      _vchk="${SOVEREIGN_OS_ROOT}/scripts/build/installer-cdd/verify-iso-has-packages.sh"
+      _vpre="${SOVEREIGN_OS_ROOT}/scripts/build/installer-cdd/profiles/default.preseed"
+      if [ -x "${_vchk}" ] && [ -r "${_vpre}" ]; then
+        if ! "${_vchk}" "${_iso_now}" "${_vpre}"; then
+          log_error "the ISO cannot install its own package list — do NOT flash it"
+          emit_build_metric fail
+          state_step_fail "${STEP_ID}" "installer-cdd-incomplete-pool"
+          exit 1
+        fi
+      else
+        log_warn "pool completeness check unavailable (${_vchk}) — skipping"
+      fi
       emit_build_metric success
     else
       rc=${PIPESTATUS[0]}
