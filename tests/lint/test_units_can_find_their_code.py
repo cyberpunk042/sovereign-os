@@ -59,26 +59,55 @@ def test_the_install_guarantees_that_path_exists():
 def test_the_symlink_never_clobbers_a_real_deployment():
     """The deploy writes the real tree there and runs FIRST.
 
-    The symlink is a fallback for when that deployment fails — if it ran
-    unconditionally it would replace a good tree with a link to a partial one,
-    and if it ran BEFORE the deploy it would make the deploy copy a directory
-    into itself.
+    The symlink is a fallback for when that deployment fails. If it ran
+    unconditionally it would replace a good tree with a link to a partial one;
+    if it ran BEFORE the deploy, install-gui-dashboards.sh (which leaves a
+    symlink alone by design) would copy a directory into itself.
+
+    Checks the SEMANTICS, not one syntax: an early-return guard
+    (`[ -e X ] && return 0`) is as valid as `if [ ! -e X ]` — matching only the
+    latter failed on correct code (2026-07-27, my own lint).
     """
     body = (REPO_ROOT / "scripts" / "install" / "deploy-dashboards.sh").read_text(encoding="utf-8")
     code = [l for l in body.splitlines() if not l.lstrip().startswith("#")]
     ln = next((i for i, l in enumerate(code) if "ln -sfn" in l), None)
-    if ln is None:
-        return  # no symlink strategy in use
-    guard = next((i for i, l in enumerate(code) if re.search(r"if \[ ! -e .*sovereign-os", l)), None)
-    assert guard is not None and guard < ln, (
+    assert ln is not None, "no fallback symlink found"
+
+    # Some existence check on that path must precede the link, in either form.
+    guard = next((i for i, l in enumerate(code[:ln])
+                  if "sovereign-os" in l and ("-e " in l or "-L " in l)), None)
+    assert guard is not None, (
         "the symlink must be guarded by an existence check, or it overwrites a "
-        "real deployment of the app tree"
+        f"real deployment; lines before it: {code[max(0, ln-4):ln]}"
     )
-    deploy = next((i for i, l in enumerate(code) if "install-gui-dashboards" in l), None)
+
+    # On the path that RUNS the deploy, the fallback must come after it. Calls
+    # on the early-exit paths legitimately appear earlier in the file — the
+    # deploy never runs there. Requiring ALL calls to follow the deploy flagged
+    # correct code (2026-07-27, my own lint, again).
+    deploy = next((i for i, l in enumerate(code) if 'bash "${DASH}"' in l), None)
+    calls = [i for i, l in enumerate(code)
+             if "_fallback_link" in l and "()" not in l]
     if deploy is not None:
-        assert deploy < ln, (
-            "the dashboards deployment must run BEFORE the fallback symlink, "
-            "or the guard sees an empty path and links over the real tree"
+        assert any(c > deploy for c in calls), (
+            "no fallback call follows the deploy; on the path where the deploy "
+            "runs and produces nothing, the units would have no code path"
+        )
+
+
+def test_the_fallback_runs_on_every_exit_path():
+    """It was placed after the early returns, so it was skipped in exactly the
+    cases that need it — script missing or not executable, where no tree exists
+    at all (caught by testing, 2026-07-27)."""
+    body = (REPO_ROOT / "scripts" / "install" / "deploy-dashboards.sh").read_text(encoding="utf-8")
+    code = [l for l in body.splitlines() if not l.lstrip().startswith("#")]
+    exits = [i for i, l in enumerate(code) if "exit 0" in l and "_fallback_link" not in l]
+    calls = [i for i, l in enumerate(code) if "_fallback_link" in l and "()" not in l]
+    inline = [i for i, l in enumerate(code) if "_fallback_link" in l and "exit 0" in l]
+    assert calls, "the fallback is never invoked"
+    for e in exits:
+        assert any(c <= e for c in calls) or e in inline, (
+            f"exit at line {e} is reachable without the fallback having run"
         )
 
 

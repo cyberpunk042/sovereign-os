@@ -77,18 +77,31 @@ export DEBIAN_FRONTEND=noninteractive
 # Missing packages with no way to install them is a hard error — never a
 # silent headless image again.
 pkg_ensure() {
-  if command -v apt-get >/dev/null 2>&1; then
-    apt-get install -y --no-install-recommends "$@"
-    return $?
-  fi
+  # ASK DPKG FIRST, then apt only for what is genuinely missing.
+  #
+  # Trying apt first breaks the offline case. The d-i profile installs
+  # everything from the CD and deliberately configures NO network mirror
+  # (apt-setup/use_mirror=false), so on a machine with no network `apt-get
+  # install kde-plasma-desktop sddm ...` fails to locate packages that are
+  # ALREADY INSTALLED -- and the whole dashboards deploy fails with it, taking
+  # the cockpit with it, on exactly the offline install this ISO is built for
+  # (2026-07-27).
+  #
+  # Checking dpkg first makes the common case (pkgsel already installed these)
+  # a no-op that needs no network at all.
   local missing=()
   for pkg in "$@"; do
     dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q "ok installed" \
       || missing+=("${pkg}")
   done
   if [ "${#missing[@]}" -eq 0 ]; then
-    info "no apt in this root — packages already provided by the image build: $*"
+    info "already installed: $*"
     return 0
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    info "installing ${#missing[@]} missing package(s): ${missing[*]}"
+    apt-get install -y --no-install-recommends "${missing[@]}"
+    return $?
   fi
   red "no apt in this root AND these packages are missing: ${missing[*]}"
   red "  the image build must install them (mkosi Packages= via bake_gui in mkosi-emit.sh)"
