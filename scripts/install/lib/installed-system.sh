@@ -103,7 +103,10 @@ SOVEREIGN_OS_KERNEL_CMDLINE="${SOVEREIGN_OS_KERNEL_CMDLINE:-nomodeset}"
 # to ANY of its three GPUs (two NVIDIA + this iGPU) and runs the desktop on the
 # EFI framebuffer via xserver-xorg-video-fbdev/vesa. Matching that proven
 # configuration means keeping amdgpu out of the way entirely.
-SOVEREIGN_OS_MODULE_BLACKLIST="${SOVEREIGN_OS_MODULE_BLACKLIST:-amdgpu}"
+# nouveau is here for the same reason: it logs "unknown chipset (1b2000a1)"
+# on BOTH Blackwell cards -- it cannot drive them. Letting it probe risks it
+# claiming the console away from the EFI framebuffer that actually works.
+SOVEREIGN_OS_MODULE_BLACKLIST="${SOVEREIGN_OS_MODULE_BLACKLIST:-amdgpu nouveau}"
 
 # All packages to install into an installed root, base first.
 sovereign_os_installed_packages() {

@@ -58,10 +58,12 @@ def test_the_direct_install_path_writes_it_before_the_initramfs():
 @pytest.mark.parametrize("name", PRESEEDS)
 def test_the_installer_writes_it_before_the_initramfs(name: str):
     text = (PROFILES / name).read_text(encoding="utf-8")
-    assert "blacklist amdgpu" in text, (
-        "the d-i late_command must blacklist amdgpu — this is the path the "
-        "operator actually installs from"
+    # The late_command loops over the module set, so the literal string
+    # "blacklist amdgpu" no longer appears — match the loop instead.
+    assert "for m in amdgpu nouveau" in text, (
+        "the d-i late_command must blacklist amdgpu AND nouveau — neither can "
+        "drive this hardware, and this is the path the operator installs from"
     )
-    assert text.index("blacklist amdgpu") < text.index("update-initramfs"), (
+    assert text.index("for m in amdgpu nouveau") < text.index("update-initramfs"), (
         "same ordering requirement as the direct path: the initrd must carry it"
     )

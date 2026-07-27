@@ -113,6 +113,18 @@ d-i pkgsel/upgrade select none
 d-i pkgsel/update-policy select none
 popularity-contest popularity-contest/participate boolean false
 
+### KERNEL CMDLINE for the INSTALLED system.
+### Without nomodeset, nouveau attempts KMS on the Blackwell cards, fails with
+### "unknown chipset (1b2000a1)", and no EFI framebuffer is ever established.
+### With no /dev/fb0 the X server has no device to open, so sddm never starts a
+### session and never writes an Xorg log -- a clean install, zero failed units,
+### boot completed in 1m47, and a dark screen (2026-07-26).
+### The operator's working Debian 13 on this same machine boots with
+###   root=UUID=... ro nomodeset      -> /dev/fb0 = "EFI VGA" -> X on fbdev
+### which is the ONLY display configuration proven on this hardware.
+### Mirrors SOVEREIGN_OS_KERNEL_CMDLINE in scripts/install/lib/installed-system.sh.
+d-i debian-installer/add-kernel-opts string nomodeset
+
 ### Boot loader
 d-i grub-installer/only_debian boolean true
 d-i grub-installer/with_other_os boolean false
@@ -121,7 +133,8 @@ d-i grub-installer/with_other_os boolean false
 ### and make sure the custom kernel's initramfs is regenerated. The packages
 ### themselves are installed by pkgsel above; this just fixes up per-machine bits.
 d-i preseed/late_command string \
-    in-target sh -c 'mkdir -p /etc/modprobe.d; echo blacklist amdgpu > /etc/modprobe.d/sovereign-blacklist-amdgpu.conf'; \
+    in-target sh -c 'mkdir -p /etc/modprobe.d; for m in amdgpu nouveau; do echo blacklist $m > /etc/modprobe.d/sovereign-blacklist-$m.conf; done'; \
+      in-target sh -c 'sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/" /etc/default/grub; update-grub || true'; \
     in-target sh -c 'update-initramfs -u -k all || true'; \
     in-target sh -c 'sh /opt/sovereign-os/scripts/install/set-grub-default-kernel.sh 6.12.0 || true'; \
     in-target sh -c 'mkdir -p /etc/sovereign-os; echo sain-01 > /etc/sovereign-os/active-profile'; \
