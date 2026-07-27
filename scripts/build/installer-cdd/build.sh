@@ -219,6 +219,42 @@ CONF
 cp "${HERE}/profiles/${PROFILE}.preseed"  "${WORK}/"
 cp "${HERE}/profiles/${PROFILE}.packages" "${WORK}/"
 
+# ── render the HARDWARE-SPECIFIC bits from the shared definition ──
+# nomodeset and the amdgpu/nouveau blacklist were chosen for ONE machine, where
+# no GPU driver binds at all. On different hardware they are not neutral: they
+# disable a driver that may work perfectly well, costing acceleration for no
+# benefit. Baking them into the repo preseed made every ISO carry one box's
+# workarounds (2026-07-27).
+#
+# installed-system.sh is the ONE definition of these; both values are
+# overridable by environment. Render the WORK copy so a different profile or a
+# different machine produces a correct ISO without editing a preseed by hand.
+# The repo files keep the sain-01 values, so they stay valid and lint-checkable.
+_isd="${REPO}/scripts/install/lib/installed-system.sh"
+if [ -r "${_isd}" ]; then
+  # shellcheck disable=SC1090
+  . "${_isd}"
+  _cmdline="${SOVEREIGN_OS_KERNEL_CMDLINE}"
+  _blacklist="${SOVEREIGN_OS_MODULE_BLACKLIST}"
+  log "rendering hardware config into the preseed:"
+  log "  kernel cmdline : ${_cmdline}"
+  log "  module blacklist: ${_blacklist}"
+  sed -i \
+    -e "s|^d-i debian-installer/add-kernel-opts string .*|d-i debian-installer/add-kernel-opts string ${_cmdline}|" \
+    -e "s|for m in [a-z0-9 _-]*; do echo blacklist|for m in ${_blacklist}; do echo blacklist|" \
+    "${WORK}/${PROFILE}.preseed"
+  # default.preseed is the file d-i actually loads; render it the same way.
+  if [ -f "${HERE}/profiles/default.preseed" ]; then
+    cp "${HERE}/profiles/default.preseed" "${WORK}/"
+    sed -i \
+      -e "s|^d-i debian-installer/add-kernel-opts string .*|d-i debian-installer/add-kernel-opts string ${_cmdline}|" \
+      -e "s|for m in [a-z0-9 _-]*; do echo blacklist|for m in ${_blacklist}; do echo blacklist|" \
+      "${WORK}/default.preseed"
+  fi
+else
+  log "WARNING: ${_isd} unreadable — preseed keeps its built-in hardware config"
+fi
+
 # ── 4. build ──
 # When reusing tmp (KEEP_TMP), the reprepro db already has the prior run's LOCAL
 # packages; a freshly-built cockpit .deb (new DEBIAN/* mtimes → new checksum)
