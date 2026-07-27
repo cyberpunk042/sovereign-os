@@ -298,6 +298,17 @@ enable_unit() { # <unit> — enable via systemctl, else offline wants-symlink
     info "enabled ${unit} (offline wants-symlink → ${_wb})"
   fi
 }
+# The unit hardcodes Environment=BUILD_CONFIGURATOR_API_PORT=8100 while
+# DASH_PORT is overridable. Rendering only the LAUNCHER would point the icon at
+# a port nothing listens on — a new mismatch in place of the old one. Override
+# the service too, via a drop-in, so the port is consistent end to end
+# (2026-07-27).
+if [ "${DASH_PORT}" != "8100" ]; then
+  install -d /etc/systemd/system/sovereign-dashboards.service.d
+  printf '[Service]\nEnvironment=BUILD_CONFIGURATOR_API_PORT=%s\n' "${DASH_PORT}" \
+    > /etc/systemd/system/sovereign-dashboards.service.d/10-port.conf
+  info "dashboards port drop-in: ${DASH_PORT}"
+fi
 enable_unit sovereign-dashboards.service
 [ -f "${SRC}/systemd/system/sovereign-master-dashboard-api.service" ] \
   && enable_unit sovereign-master-dashboard-api.service
@@ -394,6 +405,17 @@ fi
 # ── (4) discoverable launcher: app menu + desktop + login autostart ──
 step "4/5 discoverable launcher (app menu · desktop · autostart)"
 LAUNCHER="${SRC}/share/applications/sovereign-dashboards.desktop"
+# The shipped .desktop hardcodes http://127.0.0.1:8100/, but the port is
+# overridable (SOVEREIGN_OS_DASHBOARD_PORT). On a non-default port the service
+# binds where it was told and the icon still opened 8100 — a dead page with
+# nothing to explain it (2026-07-27). Render the Exec line to match.
+if [ "${DASH_PORT}" != "8100" ]; then
+  _rendered="$(mktemp)"
+  sed "s|^Exec=xdg-open http://127.0.0.1:8100/|Exec=xdg-open http://127.0.0.1:${DASH_PORT}/|" \
+    "${LAUNCHER}" > "${_rendered}"
+  LAUNCHER="${_rendered}"
+  info "launcher URL rendered for port ${DASH_PORT}"
+fi
 install -Dm644 "${LAUNCHER}" /usr/share/applications/sovereign-dashboards.desktop
 info "app menu    : /usr/share/applications/sovereign-dashboards.desktop"
 # every new user gets it auto-opened at login + an icon on the desktop
