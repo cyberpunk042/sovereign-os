@@ -266,6 +266,36 @@ reference. Irrelevant against weights already carrying ~20% quantisation error, 
 a strict bit-exactness gate like `tests/test_e8_kernel.c`, so landing it upstream needs that
 tolerance agreed.
 
+### What integration actually requires (scoped 2026-07-28, NOT built)
+
+The standalone kernel is done and correct. Landing it in Colibri needs four more pieces, one of
+which was not in the original scope:
+
+| # | change | site | note |
+|---|---|---|---|
+| 1 | port `mv_e8_multi` into the backend | `backend_cuda.cu` | done standalone; needs the grid as `__constant__` + shared copy |
+| 2 | make `fmt=6` CUDA-eligible | `colibri.c:294` | one-line flip, but gated on 3 and 4 |
+| 3 | **CUDA FWHT kernel** | new | **not previously scoped** — see below |
+| 4 | rotation placement in the CUDA path | `colibri.c:3330,3347` + group path | x once per layer; `gg` per expert |
+
+**Why (3) appeared.** `fmt=6` stores `W@Q`, so activations must be rotated by `Qᵀ` first. On the CPU
+path the engine does this in two places: the layer input `x` **once** (`colibri.c:3330`, cached in
+`xe`), and the `down_proj` input `gg` **per expert** (`colibri.c:3347`). In the CUDA path `gg` is a
+device buffer, so the per-expert rotation needs a **GPU FWHT** — a kernel that does not exist. `x`
+could be rotated host-side once and uploaded, but `gg` cannot without a round-trip that would cost
+more than the win.
+
+**Revised cost/benefit.** Measured end-to-end gain is **~1.13×** (≈3.4 tok/s). Against that:
+a several-hundred-line patch to a third-party CUDA backend, a new FWHT kernel, rotation plumbing in
+two dispatch paths, and an agreed error tolerance (the multi-row kernel is 1.90e-03 vs float64,
+3× the CPU reference, which would fail `tests/test_e8_kernel.c` as written).
+
+**Recommendation: do not integrate.** Not because the lane failed — it works, it is correct, and
+the standalone numbers are real — but because 1.13× on a model whose ceiling is 12.7 tok/s does not
+justify a maintained fork of someone else's engine, when `gpt-oss-120b` measured **199.76 tok/s**
+on the same card for zero engine changes. The kernel and its measurements are committed so the work
+is recoverable if GLM-5.2 specifically becomes required.
+
 ### Sequencing correction
 
 This SDD ordered phase 3 (end-to-end quality gate) before phase 4 (the `fmt=5` format). That is
