@@ -1528,15 +1528,31 @@ catalog:
       quantization: nvfp4
       size_class: xl
       purpose: [reasoning, agent, code, chat]
-      status: operator-must-confirm
+      status: verified-real
       license: apache-2.0
       hf_repo_id: openai/gpt-oss-120b
+      hf_revision: b5c939de8f754692c1647ca79fbf85e8c1e70f8a
       parameters_millions: 116830
       vram_gib_min: 63
       context_window_tokens: 131072
       master_spec_section: "operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)"
       runtime_profile_bindings: []
       operator_note: |
+        PROMOTED to verified-real 2026-07-28 — weights pulled and served on
+        SAIN-01, bench gate passed. Measured on the RTX PRO 6000 Blackwell
+        (driver 590.48.01, CUDA 13.3, vLLM 0.26.0, MXFP4/Marlin):
+          throughput  199.76 tok/s decode, TTFT 0.036 s (R232 gate, 3/3 prompts)
+          concurrency 918 tok/s aggregate at 16 streams (57 tok/s each,
+                      TTFT p50 0.085 s); 5x aggregate scaling 1->16
+          quality     5/5 verifiable-answer smoke test (exact arithmetic,
+                      popcount one-liner, instruction following)
+          footprint   85.8 GB VRAM, 288,679-token KV cache, whole model resident
+        Context for the ladder: the same box measured 3.02 tok/s on GLM-5.2 via
+        Colibri — a model 3x too large for its VRAM (docs/evaluations/
+        chromofold-fold-measurement-glm52-2026-07-27.md). Serving recipe and its
+        four footguns: scripts/inference/INDEX.md.
+        Revision pinned to the sha actually downloaded and benchmarked.
+
         Evaluation 2026-07-19 — the adopt-ready shape: ~117B total /
         5.1B active MoE, native MXFP4 checkpoint ~63 GB, 131K context,
         Apache-2.0 (OpenAI open-weights, Aug 2025). The ONLY candidate
