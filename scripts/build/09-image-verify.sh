@@ -89,8 +89,13 @@ if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
            -cpx /simple-cdd/default.preseed "${_pd}/p" >/dev/null 2>&1; then
         _repo="${SOVEREIGN_OS_ROOT}/scripts/build/installer-cdd/profiles/default.preseed"
         for _k in "debian-installer/add-kernel-opts" "passwd/root-password"; do
-          _a="$(grep -c "^d-i ${_k}" "${_pd}/p" 2>/dev/null | head -1)"; _a="${_a:-0}"
-          _b="$(grep -c "^d-i ${_k}" "${_repo}" 2>/dev/null | head -1)"; _b="${_b:-0}"
+          # `set -o pipefail` is in effect: `grep -c ... | head -1` returns GREP's
+          # status, and grep -c exits 1 when nothing matches — so the assignment
+          # failed and `set -e` aborted a step whose build had SUCCEEDED
+          # (2026-07-28). Neutralise grep inside the group; head then sees the
+          # "0" grep already printed.
+          _a="$( { grep -c "^d-i ${_k}" "${_pd}/p" 2>/dev/null || true; } | head -1 )"; _a="${_a:-0}"
+          _b="$( { grep -c "^d-i ${_k}" "${_repo}" 2>/dev/null || true; } | head -1 )"; _b="${_b:-0}"
           if [ "${_a}" != "${_b}" ]; then
             log_error "  ISO preseed disagrees with the repo on '${_k}' (iso=${_a} repo=${_b})"
             _v_fail=1

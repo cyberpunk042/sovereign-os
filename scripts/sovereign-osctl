@@ -2854,7 +2854,8 @@ print(len(all_pkgs))
 ")"
       if command -v dpkg >/dev/null 2>&1; then
         local installed_count
-        installed_count="$(dpkg -l 2>/dev/null | grep -c '^ii' || echo 0)"
+        installed_count="$( { dpkg -l 2>/dev/null | grep -c '^ii' || true; } | head -1 )"
+        installed_count="${installed_count:-0}"
         if [ "${installed_count}" -ge "${declared_pkgs}" ]; then
           add_check pass "package-count" "≥${declared_pkgs} (declared)" "${installed_count} (installed)"
         else
@@ -5691,7 +5692,14 @@ EOF
       fi
       if command -v mokutil >/dev/null 2>&1; then
         echo "    MOK:        $(mokutil --sb-state 2>/dev/null || echo unknown)"
-        local mok_count; mok_count="$(mokutil --list-enrolled 2>/dev/null | grep -c '^---' || echo 0)"
+        # `grep -c` already PRINTS 0 when nothing matches and then exits 1, so
+        # `|| echo 0` appends a SECOND zero: the value becomes "0\n0" and any
+        # numeric use fails with "integer expression expected". With no MOK
+        # enrolled — the common case — this printed a two-line count
+        # (2026-07-28, found by the lint written for the same bug in step 09).
+        local mok_count
+        mok_count="$( { mokutil --list-enrolled 2>/dev/null | grep -c '^---' || true; } | head -1 )"
+        mok_count="${mok_count:-0}"
         echo "    MOK keys enrolled: ${mok_count}"
       else
         echo "    MOK:        mokutil not installed"
@@ -5975,8 +5983,8 @@ cmd_install() {
               # `|| echo 0` appends a second zero and the values never compare
               # equal — every image would look stale (caught pre-flight,
               # 2026-07-27). Pipe through head so the exit status is head's.
-              _iso_has="$(grep -c "^d-i ${_k}" "${_pdir}/p" 2>/dev/null | head -1)"
-              _repo_has="$(grep -c "^d-i ${_k}" "${_repo_preseed}" 2>/dev/null | head -1)"
+              _iso_has="$( { grep -c "^d-i ${_k}" "${_pdir}/p" 2>/dev/null || true; } | head -1 )"
+              _repo_has="$( { grep -c "^d-i ${_k}" "${_repo_preseed}" 2>/dev/null || true; } | head -1 )"
               _iso_has="${_iso_has:-0}"; _repo_has="${_repo_has:-0}"
               if [ "${_iso_has}" != "${_repo_has}" ]; then
                 log_warn "STALE IMAGE: its preseed disagrees with the repo on '${_k}'"
