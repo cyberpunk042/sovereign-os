@@ -79,6 +79,27 @@ def dequant_fp8(q, sinv, block=128):
     return W * S
 
 
+def load_calib(container, layer):
+    """Per-input-channel activation scale for the MoE experts, without running the model.
+
+    The expert input is RMSNorm(h) * post_attention_layernorm.weight. RMSNorm output is
+    ~unit-variance per channel by construction, so the per-channel activation SCALE is
+    proportional to |ln_weight|. That is the AWQ/GPTQ weighting signal, recoverable from
+    the checkpoint alone. Returns None (unweighted fit) if unavailable -- honest-degrade.
+    """
+    import glob as _glob
+    import os as _os
+    key = f"model.layers.{layer}.post_attention_layernorm.weight"
+    for f in sorted(_glob.glob(_os.path.join(container, "out-*.safetensors"))):
+        try:
+            hdr, base = read_header(f)
+        except OSError:
+            continue
+        if key in hdr:
+            return np.abs(read_tensor(f, hdr, base, key).astype(np.float32))
+    return None
+
+
 # ----------------------------------------------------------------- VQ core
 def assign(X, C, chunk=500_000):
     """argmin_k ||x - c_k||^2, via matmul (||x||^2 is constant per row)."""
@@ -146,6 +167,14 @@ def vq_encode(W, d, K, stages=1, group=0, iters=15, fit_n=200_000, seed=0, calib
     Ks = list(K) if isinstance(K, (list, tuple)) else [K] * stages
     stages = len(Ks)
     R, C = W.shape
+    # AWQ scale-folding. Minimising ||W - W'||^2 is the wrong objective; the goal is
+    # ||(W - W')x||^2. Scaling column j by s_j before the fit makes plain Euclidean
+    # k-means minimise the weighted objective, and the scale divides back out at decode.
+    chan = None
+    if calib is not None and calib.shape[0] == C:
+        chan = np.asarray(calib, dtype=np.float32)
+        chan = np.maximum(chan / chan.mean(), 1e-3)     # normalise; keep the SHAPE
+        W = W * chan[None, :]
     flat = W.reshape(-1).astype(np.float32)
     scales = None
     if group:
@@ -160,7 +189,7 @@ def vq_encode(W, d, K, stages=1, group=0, iters=15, fit_n=200_000, seed=0, calib
     books, idxs = [], []
     for Ki in Ks:
         sub = resid[rng.choice(len(resid), min(fit_n, len(resid)), replace=False)]
-        CB, _ = weighted_fit(sub, Ki, iters, rng, calib)
+        CB, _ = weighted_fit(sub, Ki, iters, rng, None)
         ix = assign(resid, CB)
         resid = resid - CB[ix]                     # stage n+1 fits what stage n missed
         books.append(CB)
@@ -172,6 +201,10 @@ def vq_encode(W, d, K, stages=1, group=0, iters=15, fit_n=200_000, seed=0, calib
     Q = Q.reshape(-1)
     if group:
         Q = (Q.reshape(-1, group) * scales).reshape(-1)
+    Q = Q.reshape(R, C)
+    if chan is not None:
+        Q = Q / chan[None, :]                            # undo the fold
+    Q = Q.reshape(-1)
     bw = sum(np.log2(k) for k in Ks) / d + (32.0 / group if group else 0.0)
     return Q.reshape(R, C), books, idxs, bw
 
@@ -196,6 +229,9 @@ def main() -> int:
     ap.add_argument("--stages", type=int, default=1)
     ap.add_argument("--group", type=int, default=0)
     ap.add_argument("--iters", type=int, default=15)
+    ap.add_argument("--calib", metavar="CONTAINER",
+                    help="int4 container to read post_attention_layernorm from, as the "
+                         "per-channel activation-scale proxy (AWQ-style weighting)")
     ap.add_argument("--report", action="store_true",
                     help="sweep the configurations SDD-403 tabulates")
     a = ap.parse_args()
@@ -214,7 +250,16 @@ def main() -> int:
         return EXIT_OFFLINE
 
     rng = np.random.default_rng(0)
+    calib = load_calib(a.calib, a.layer) if a.calib else None
+    if a.calib:
+        print(f"  calibration: {'loaded' if calib is not None else 'UNAVAILABLE (unweighted fit)'}"
+              f" from {a.calib}")
+    # Probe with a realistic activation profile: unit-variance normalised input scaled by
+    # the layernorm gain. With x ~ N(0,1) the error metric silently assumes every input
+    # channel matters equally, which is exactly the assumption AWQ says is wrong.
     x = rng.standard_normal(6144).astype(np.float32)
+    if calib is not None:
+        x = x * calib
 
     # Frontier sweep: find the SMALLEST size that still matches production int4
     # quality. Asymmetric stages (fine then coarse) fill in the 2-4 b/w range that
@@ -250,7 +295,7 @@ def main() -> int:
 
         for d, K, st, grp in configs:
             t0 = time.perf_counter()
-            Wv, books, _, bw = vq_encode(W, d, K, st, grp, a.iters, seed=eid)
+            Wv, books, _, bw = vq_encode(W, d, K, st, grp, a.iters, seed=eid, calib=calib)
             dt = time.perf_counter() - t0
             err = float(np.linalg.norm(Wv @ x - ref) / nref)
             mb = mb_per_expert(d, K, st, grp)

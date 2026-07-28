@@ -80,6 +80,49 @@ VQ 1.00 b/w      19,456    100.0%       0.0%    7.00s     9.14      3.03x
   **191.42 tok/s** on the same card the same day — 63× GLM-5.2's current 3.02, versus the ~3× this SDD
   proposes. This lane is worth building only if **GLM-5.2 specifically** is required.
 
+## Phase 2 + 2b — BUILT and measured (2026-07-28)
+
+`scripts/inference/vq-quantize-experts.py`. Three improvements over this SDD's prototype:
+k-means++ init, residual (N-stage) VQ, and asymmetric per-stage `K`.
+
+```
+config                       b/w      err   MB/exp   inVRAM  vs int4    tok/s  vs now
+int4 per-row (PRODUCTION)   4.00   0.1638    18.90    6,460    1.00x     3.28   1.09x
+VQ d=4 K=[256,256] x2       4.00   0.1075    18.90    6,460    0.66x        -       -
+VQ d=4 K=[256,64]  x2       3.50   0.1439    16.53    7,386    0.88x     3.75   1.24x
+VQ d=4 K=[256,16]  x2       3.00   0.1880    14.17    8,617    1.15x     4.47   1.48x
+VQ d=4 K=[256,4]   x2       2.50   0.2542    11.81   10,339    1.55x     5.62   1.86x
+VQ d=4 K=256       x1       2.00   0.3127     9.45   12,921    1.91x     7.45   2.47x
+```
+
+**Two findings that reframe the lane:**
+
+1. **At equal size, VQ is ~1.6× more accurate than int4** (0.1075 vs 0.1638 at 4 b/w). So the
+   question is not "how much quality do we give up" — int4's *current* quality is purchasable
+   at ~15.5 b/w-equivalent bytes instead of 18.90 MB. The iso-quality crossover is ~3.2–3.4 b/w.
+2. **The knee is 3.00 b/w**: 15% worse weight error buys 33% more experts resident → 4.47 tok/s.
+
+### Phase 2b (activation-aware weighting) — NEGATIVE, with the reason
+
+AWQ/GPTQ minimise `||(W−W')x||²` rather than `||W−W'||²`. Implemented as scale-folding, using
+`post_attention_layernorm.weight` as the per-channel activation-scale proxy (the expert input is
+`RMSNorm(h) · ln_weight`, and RMSNorm output is unit-variance by construction, so the gain *is*
+the channel scale — recoverable from the checkpoint, no model run needed).
+
+**It changed nothing (~1%).** The reason is measurable:
+
+```
+layer 19 post_attention_layernorm.weight:  p99/p50 = 1.05, coeff of variation = 0.056
+```
+
+99% of channels are within 5% of the median — **there are no outlier channels to protect**. The
+50× max/min comes from a few near-*zero* channels, which are low-importance. AWQ pays when a few
+channels dominate (outlier layers show p99/p50 of 10–100×); this layer is not one.
+
+**Caveat on the negative:** this is the checkpoint-derivable proxy, not measured activations. The
+"massive activations" phenomenon is a *runtime* per-token effect that a layernorm gain cannot
+show. A real activation capture could still differ, and remains the only untried quality lever.
+
 ## Way forward (phased; each phase its own PR + gate)
 
 1. **This SDD** — design-lock. *(this session)*
