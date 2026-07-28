@@ -197,6 +197,7 @@ sudo scripts/hooks/post-install/network-vlan-config.sh         # VLAN 100/200 sp
 sudo scripts/hooks/post-install/tetragon-policy-load.sh        # load sovereign-kernel-fence
 sudo scripts/hooks/post-install/zfs-arc-clamp.sh               # clamp ARC to 128 GB
 sudo scripts/hooks/post-install/nvidia-driver-bind.sh          # nouveau blacklist + nvidia check
+sudo scripts/hooks/post-install/inference-tiers-install.sh    # units + JIT cache dirs + model-storage fstab
 sudo scripts/hooks/post-install/workstation-shell-setup.sh     # bash-completion + /etc/skel
 sudo scripts/hooks/post-install/first-login-assistant.sh       # interactive customization
 ```
@@ -205,6 +206,25 @@ If the VFIO sandbox is opted into (`role: vfio` on the 4090), reboot once
 after `vfio-bind-4090.sh` so the VFIO module owns the 4090 from initramfs.
 By default the 4090 is host-resident (bare-metal) and the bind hook is a
 no-op — no reboot needed for that (SDD-993).
+
+### 3.x Inference tier host prerequisites
+
+`inference-tiers-install.sh` handles what the systemd units cannot express themselves.
+Dry-run by default; `--apply` to execute, `--verify` afterwards.
+
+Three things it sets up, each of which broke a real bring-up on 2026-07-28:
+
+- **JIT cache dirs.** `ProtectSystem=strict` plus `ReadWritePaths` leaves Triton and
+  inductor nowhere to write, and FlashInfer writes to `HOME/.cache` — which `HOME=/root`
+  under `ProtectHome=read-only` makes read-only. `XDG_CACHE_HOME` does **not** cover it.
+  The failure surfaces as an unrelated *sampler* init error, three imports from the cause.
+- **`/opt/sovereign-os`.** `ExecStart` hardcodes the image layout; a symlink satisfies it
+  without relocating a developer checkout.
+- **Model-storage fstab.** Autodetects the largest spare ext4 partition and pins it by
+  UUID, so weights do not sit on the same device as root and swap.
+
+The `.env` files are operator-owned: if one already exists the hook leaves it alone, and
+a fresh copy still needs its model block uncommented before the tier will start.
 
 ## 4. POST-INSTALL — inference stack
 
