@@ -215,6 +215,57 @@ shared-memory codebook lookup holds the int4 path's throughput.
 This also makes the work **upstream-shaped** rather than a fork: it fills a gap Colibri documents
 in its own comment, and benefits anyone running a model larger than their VRAM.
 
+### Phase 4 BUILT — the E8/IQ3 CUDA kernel (2026-07-28)
+
+`scripts/inference/bench-e8-matvec.cu`. A CUDA port of `matmul_e8`, validated before touching
+`backend_cuda.cu`.
+
+**Correctness — confirmed.** Against a float64 reference of the *same* decode, the port is **more
+accurate than Colibri's own CPU kernel** (3.57e-04 vs 6.44e-04); the difference is summation order
+(tree vs sequential), not decode. `compute-sanitizer`: 0 errors.
+
+**Throughput — 0.55× of the int4 nibble path** after optimisation:
+
+```
+kernel                                ms        GB/s   vs int4
+int4 nibble (baseline)            0.0153       410.5     1.00x
+fmt=6 E8/IQ3 (1 row/block)        0.0418       115.2     0.37x
+fmt=6 E8/IQ3 (8 rows/block)       0.0276       174.4     0.56x
+```
+
+The lever that mattered was **not** the decode. Per matvec, `x` is re-read once per output row:
+**50.33 MB of traffic against 4.82 MB of E8 weights — 10.4×**. Tiling `x` in shared memory across
+8 output rows (one warp per row; the E8 layout maps exactly — 8 sub-blocks × 4 lanes = 32 groups
+of 8 weights = one superblock per warp-pass) gave 1.5×. Shared-memory grid gave 1.5× before that.
+Branchless parity via `__popc` and thread-count sweeps gave nothing. R=8 is optimal; R=16/32
+regress on occupancy.
+
+**Net on the expert path — 1.29× better:**
+
+```
+                          GPU      CPU     total
+int4 today               1.45s   10.79s   12.24s   1.00x
+E8 naive kernel          4.34s    6.61s   10.95s   1.12x
+E8 multi-row R=8         2.89s    6.61s    9.50s   1.29x
+```
+
+Residency rises 78.6% → 86.9% of routings; the decode is 1.8× dearer but the CPU fallback nearly
+halves. End-to-end this is roughly **1.13×**, i.e. ~3.4 tok/s.
+
+**Three portability traps, recorded because they will recur:**
+
+- `E8_BBYTES` is **98** — *not* 4-byte aligned. `memcpy(&word, blk+64+ib*4, 4)` faults on device;
+  multi-byte values must be assembled from bytes.
+- `__constant__` memory is a **broadcast** path and serialises on divergent indices, which is
+  exactly the grid-lookup pattern. The grid belongs in shared memory.
+- int4 rows (I/2) are **larger** than E8 rows (98 B per 256 weights), so a shared host buffer
+  overruns.
+
+**Caveat:** the multi-row variant measures 1.90e-03 max relative error vs float64 — 3× the CPU
+reference. Irrelevant against weights already carrying ~20% quantisation error, but it would fail
+a strict bit-exactness gate like `tests/test_e8_kernel.c`, so landing it upstream needs that
+tolerance agreed.
+
 ### Sequencing correction
 
 This SDD ordered phase 3 (end-to-end quality gate) before phase 4 (the `fmt=5` format). That is
