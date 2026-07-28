@@ -30,6 +30,38 @@ Each implements a small adapter contract (`lib/backend.py`).
 
 [`chromofold-fold-bench.py`](chromofold-fold-bench.py) — READ-ONLY measurement of ChromoFold's weight-fold techniques against a **real** quantized MoE expert bank, answering the question SDD-401/402 sized from ChromoFold's *synthetic* benches (which disagree 3× between themselves). Modes: `heat` (routing concentration from Colibri's `.coli_usage`), `entropy` (the M6 block-Huffman lane — H0/H1 of the int4 symbol stream + the `block`-size trade), `group` (the M20/M21 grouped-delta lane, index- and permutation-aligned), `rank` (within-expert SVD spectrum). Pure numpy, no GPU/CUDA/`libchromofold`; honest-degrades exit-3 when the container or the Warp checkout is absent. Measured 2026-07-27 on GLM-5.2 int4: entropy lane **1.350× lossless** (358 GB → 266 GB, the fit that makes VRAM+RAM residency possible), grouping lane **0.99×** (does not pay). Full record: [`docs/evaluations/chromofold-fold-measurement-glm52-2026-07-27.md`](../../docs/evaluations/chromofold-fold-measurement-glm52-2026-07-27.md).
 
+### Serving gpt-oss-120b on the Blackwell tier (measured 2026-07-28)
+
+`start-oracle-core.sh` serves it with **no code change** — environment only. Measured on the
+RTX PRO 6000 Blackwell: **199.76 tok/s decode, TTFT 0.036 s** (R232 throughput gate, 3/3 prompts),
+85.8 GB VRAM, 288,679-token KV cache.
+
+```sh
+PYTHONPATH=/home/jfortin/vllm-env PATH=/home/jfortin/vllm-env/bin:$PATH \
+ORACLE_MODEL=<models-dir>/gpt-oss-120b \
+scripts/inference/start-oracle-core.sh
+```
+
+Four things that are easy to trip over, all hit during the first bring-up:
+
+- **vLLM lives in a `pip --target` directory** (`/home/jfortin/vllm-env`) because PEP 668 blocks a
+  system install and `python3-venv` isn't present. Both `PYTHONPATH` **and** `PATH` are required —
+  torch shells out to `ninja` to JIT the Marlin MXFP4 kernels, and a `--target` install leaves
+  `bin/ninja` off `PATH`. Without it the engine dies with `FileNotFoundError: 'ninja'`.
+- **The HF repo ships 196 GB in three formats** (root safetensors 65 GB + `original/` 65 GB +
+  `metal/` 65 GB). Only the root set is usable here; pull with `--exclude "metal/*" --exclude
+  "original/*"` (one pattern per flag — two after a single `--exclude` makes the second a positional
+  filename). `pull.sh` has no exclude support yet, so this needs a direct `hf download`.
+- **`start-oracle-core.sh` doesn't pass `--served-model-name`**, so the served id is the full weights
+  path. The R232 gate derives its model name from the catalog `hf_repo_id`, so it needs
+  `SOVEREIGN_OS_BENCH_MODEL` to match, else vLLM 404s.
+- **It sets `--kv-cache-dtype fp8`**, untested with MXFP4 weights. The measured run above used `auto`.
+
+Requires NVIDIA driver ≥ 570 for Blackwell — see
+[`post-install/nvidia-blackwell-driver-install.sh`](../hooks/post-install/nvidia-blackwell-driver-install.sh).
+Catalog entry is still `operator-must-confirm`; the bench gate its evaluation names as the promotion
+condition has now passed.
+
 ### Decode-path microbenchmarks (2026-07-27 investigation)
 
 Three standalone benchmarks that isolated the GLM-5.2 decode bottleneck. All read-only; the `.cu` pair needs `nvcc -O3 -arch=sm_120`.
