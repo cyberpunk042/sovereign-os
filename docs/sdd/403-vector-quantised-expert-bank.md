@@ -150,6 +150,35 @@ VQ d=4 K=256       x1             0.3127      0.5109     1.63x     9.45
 
 **This is the strongest gate available before phase 4.** It is still not model quality.
 
+### Phase 4 gate — the VQ decode kernel HOLDS (2026-07-28)
+
+`scripts/inference/bench-vq-matvec.cu`. The lane rested on one unmeasured assumption: that
+decoding a fixed-width codebook index is at least as cheap as extracting an int4 nibble.
+Measured on the RTX PRO 6000 Blackwell at GLM expert shape (I=6144, O=2048, B=1):
+
+```
+kernel                                  ms        GB/s % roofline   vs int4
+int4 nibble (Colibri baseline)      0.0153       411.3      23.0%     1.00x
+VQ d=4 K=256 x1  (2.0 b/w)          0.0134       235.2      13.1%     1.14x
+VQ d=4 K=256 x2  (4.0 b/w)          0.0175       360.1      20.1%     0.88x
+```
+
+Read the **wall-clock** column: VQ shows lower GB/s because it moves less data, not because
+it is slower.
+
+- **2 b/w VQ is 1.14× FASTER than int4** — it reads half the bytes per row (1536 index bytes
+  vs 3072 nibble bytes). Residency *and* throughput from the same change.
+- **4 b/w VQ is 12% slower** at identical byte count — two lookups plus an add — while being
+  1.6× more accurate.
+
+**The assumption holds; the lane survives its cheapest kill-gate.** The codebook (K·d·4 B =
+4 KB for d=4 K=256) sits in shared memory, loaded once per block.
+
+Caveats: this is a first-attempt kernel using the same naive structure as Colibri's (one block
+per output, shared-memory reduction), so there is unchased headroom. It uses synthetic
+codebook/index data, so it does not model real cache pressure. And it measures the kernel only —
+not loader integration or correctness.
+
 ### Sequencing correction
 
 This SDD ordered phase 3 (end-to-end quality gate) before phase 4 (the `fmt=5` format). That is
