@@ -14,7 +14,7 @@ gh issue create --repo <upstream> --title "<title line>" \
 
 | draft | upstream | status |
 |---|---|---|
-| [colibri-omp-cuda-gate.md](colibri-omp-cuda-gate.md) | [JustVugg/colibri](https://github.com/JustVugg/colibri) | **not filed** |
+| [colibri-omp-cuda-gate.md](colibri-omp-cuda-gate.md) | [JustVugg/colibri](https://github.com/JustVugg/colibri) | **filed 2026-07-28 → [#669](https://github.com/JustVugg/colibri/issues/669)** |
 
 ## colibri-omp-cuda-gate
 
