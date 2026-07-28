@@ -42,6 +42,19 @@ ORACLE_MODEL=<models-dir>/gpt-oss-120b \
 scripts/inference/start-oracle-core.sh
 ```
 
+**Concurrency (measured 2026-07-28)** — continuous batching holds up well; per-stream degrades
+gracefully rather than collapsing, and TTFT stays under 100 ms throughout:
+
+```
+ streams   agg tok/s  per-stream   TTFT p50
+       1       182.0       182.0      0.057
+       4       419.9       105.0      0.067
+      16       918.2        57.4      0.085
+```
+
+16 agents sharing the endpoint still get 57 tok/s each. For contrast, GLM-5.2's MoE batch-union
+means a batch of 4 touches 30.5 of 256 experts, so its expert reads barely amortise (~1.17x).
+
 Four things that are easy to trip over, all hit during the first bring-up:
 
 - **vLLM lives in a `pip --target` directory** (`/home/jfortin/vllm-env`) because PEP 668 blocks a
