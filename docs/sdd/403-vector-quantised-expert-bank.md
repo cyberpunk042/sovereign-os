@@ -123,6 +123,39 @@ channels dominate (outlier layers show p99/p50 of 10–100×); this layer is not
 "massive activations" phenomenon is a *runtime* per-token effect that a layernorm gain cannot
 show. A real activation capture could still differ, and remains the only untried quality lever.
 
+### Phase 3a — whole-expert-block error (2026-07-28)
+
+`scripts/inference/vq-expert-block-error.py`. Everything above is single-matmul error on
+`gate_proj`, which is not the quantity that matters: a routed expert computes
+`y = down(silu(gate(x)) * up(x))`, so error passes through a nonlinearity and a second matmul.
+
+```
+config                        matmul err   BLOCK err   amplify   MB/exp
+int4 per-row (PRODUCTION)         0.1612      0.2724     1.69x    18.90
+VQ d=4 K=[256,256] x2             0.1057      0.1757     1.66x    18.90
+VQ d=4 K=[256,64]  x2             0.1421      0.2387     1.68x    16.53
+VQ d=4 K=[256,16]  x2             0.1872      0.3141     1.68x    14.17
+VQ d=4 K=[256,4]   x2             0.2529      0.4183     1.65x    11.81
+VQ d=4 K=256       x1             0.3127      0.5109     1.63x     9.45
+```
+
+**Amplification is ~1.67× and constant** (1.63–1.69×) across every configuration. Two consequences:
+
+1. **The single-matmul metric is a valid proxy for *ranking***, so the frontier and
+   operating-point analysis above stand. It understates absolute magnitude by ~1.67×.
+2. **Production int4 already runs at 0.2724 block error.** A working model tolerates 27%
+   relative error at the expert output, so the tolerance is demonstrably not tight. That makes
+   **3.00 b/w (0.3141 — only 1.15× production) look very likely safe**, and 2.50 b/w
+   (0.4183, 1.54×) plausible rather than reckless.
+
+**This is the strongest gate available before phase 4.** It is still not model quality.
+
+### Sequencing correction
+
+This SDD ordered phase 3 (end-to-end quality gate) before phase 4 (the `fmt=5` format). That is
+wrong: an end-to-end eval needs Colibri to *load* VQ weights, which the format provides. The
+corrected order is **2 → 2b → 3a (this) → 4 (format + kernel) → 3 (end-to-end gate) → 5 (measure)**.
+
 ## Way forward (phased; each phase its own PR + gate)
 
 1. **This SDD** — design-lock. *(this session)*
