@@ -179,6 +179,42 @@ per output, shared-memory reduction), so there is unchased headroom. It uses syn
 codebook/index data, so it does not model real cache pressure. And it measures the kernel only —
 not loader integration or correctness.
 
+### Phase 4 PIVOT — Colibri already has the codec; it just has no CUDA kernel (2026-07-28)
+
+Reading `colibri.c` before writing the format revealed that **`fmt=5` and `fmt=6` are already
+taken**, and `fmt=6` is **E8/IQ3** — a lattice quantiser (the QuIP# family) ported from ggml's
+IQ3_XXS at 3.06 b/w, with a CPU kernel (`matmul_e8`), a packer (`tools/iq3_pack.py`), and tests
+(`tests/test_e8_kernel.c`, `tests/test_iq3_pack.py`).
+
+The reason it does not help today is one line — `colibri.c:294`:
+
+```c
+if(t->fmt==5||t->fmt==6) return 0;   /* int3-g64 / E8: no CUDA kernel yet — tensor stays CPU-side */
+```
+
+**Both sub-4-bit formats are stranded on the CPU for want of a CUDA kernel** — precisely the wrong
+side of this SDD's bottleneck, where a miss costs ~10× per expert.
+
+Measured against the format this SDD proposed (`scripts/inference/bench-e8-vs-vq.py`):
+
+```
+format                               b/w      err   MB/exp   inVRAM  vs int4
+int4 per-row (PRODUCTION)           4.00   0.1642    18.90    6,460    1.00x
+fmt=6 E8/IQ3  (EXISTS, CPU-only)    3.06   0.1982    14.45    8,449    1.21x
+SDD-403 VQ d=4 K=[256,16] x2        3.00   0.1874    14.17    8,617    1.14x
+```
+
+Within **6% on error and 2% on residency**. The custom format buys nothing worth its cost.
+
+**Revised phase 4: port `matmul_e8` to CUDA. That is the whole task.** No new format, no packer,
+no loader or container changes, and a CPU reference to validate bit-exactness against. The E8
+decode is GPU-friendly: a 1 KB `e8_grid[256][4]` table (shared memory), sign expansion, and a
+fixed 32-point Walsh–Hadamard per sub-block. The phase-4 gate above already showed a
+shared-memory codebook lookup holds the int4 path's throughput.
+
+This also makes the work **upstream-shaped** rather than a fork: it fills a gap Colibri documents
+in its own comment, and benefits anyone running a model larger than their VRAM.
+
 ### Sequencing correction
 
 This SDD ordered phase 3 (end-to-end quality gate) before phase 4 (the `fmt=5` format). That is
