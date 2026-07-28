@@ -3,7 +3,12 @@ Description=sovereign-os Oracle Core — vLLM + DFlash on Blackwell (host-reside
 Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/docs/sdd/011-inference-backend-stack.md
 After=network-online.target nvidia-persistenced.service tetragon.service
 Wants=network-online.target
-Requires=tetragon.service
+# Wants=, not Requires=: Tetragon is the security perimeter, not a functional
+# dependency of inference. A hard Requires makes this tier UNSTARTABLE on any box
+# without Tetragon installed (measured 2026-07-28: "Unit tetragon.service not
+# found" on a partially-provisioned dev host). After= still orders us behind it
+# when it is present.
+Wants=tetragon.service
 
 [Service]
 Type=simple
@@ -15,6 +20,16 @@ RestartSec=20s
 TimeoutStartSec=600s
 # Memory pressure: vLLM uses GPU VRAM, but host buffers also; leave headroom
 MemoryHigh=32G
+
+# HOME must point somewhere writable. This unit runs as root, so HOME=/root, and
+# ProtectHome=read-only makes it read-only — any library that hardcodes ~/.cache
+# then dies. FlashInfer does exactly that, and the failure surfaces three imports
+# away from the cause (it appeared as a *sampler* init error, not a cache error):
+#   OSError: [Errno 30] Read-only file system: '/root/.cache/flashinfer'
+# XDG_CACHE_HOME does NOT cover this — FlashInfer uses HOME/.cache directly.
+# The env file sets HOME; this default keeps the unit working without one.
+Environment=HOME=/var/lib/sovereign-os/oracle-cache
+
 # Security — defense in depth (R160 hardening pass)
 # Same caveats as logic-engine: this service runs vLLM on Blackwell and
 # needs CUDA / NVIDIA driver access; we cannot fully lock down /sys or
@@ -30,13 +45,25 @@ RestrictSUIDSGID=true
 ProtectHome=read-only
 ProtectKernelTunables=true
 ProtectControlGroups=true
-RestrictNamespaces=false  # vLLM internals + podman compatibility
+# NOTE: systemd does NOT support trailing comments on directive lines. Writing
+# "RestrictNamespaces=false  # reason" makes systemd log "Failed to parse
+# namespace type string, ignoring" and DROP the directive. Keep reasons above.
+# vLLM internals + podman compatibility
+RestrictNamespaces=false
 RestrictRealtime=true
 LockPersonality=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-MemoryDenyWriteExecute=false  # vLLM/Triton + DFlash speculative-decode draft JIT-compile kernels; W^X would break codegen
+# vLLM/Triton + DFlash speculative-decode draft JIT-compile kernels; W^X breaks codegen
+MemoryDenyWriteExecute=false
+# These must EXIST or namespace setup fails with 226/NAMESPACE. StateDirectory and
+# LogsDirectory create them for us rather than requiring a manual mkdir.
+StateDirectory=sovereign-os
+LogsDirectory=sovereign-os
 ReadWritePaths=/var/log/sovereign-os /var/lib/sovereign-os
-ReadOnlyPaths=/mnt/vault/models
+# '-' prefix: tolerate a missing path. /mnt/vault/models is the image's layout;
+# without the prefix a box that keeps models elsewhere fails 226/NAMESPACE before
+# the service ever runs.
+ReadOnlyPaths=-/mnt/vault/models
 PrivateTmp=true
 
 [Install]

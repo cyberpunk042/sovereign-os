@@ -143,10 +143,20 @@ def test_every_service_has_restrict_namespaces():
         )
         value = m.group(1).strip()
         if value.lower() in ("false", "no", "0"):
-            # If explicitly false, MUST have a justifying comment on
-            # the same line (operator-discoverable: WHY is this off?)
+            # If explicitly false, MUST carry a justifying comment
+            # (operator-discoverable: WHY is this off?).
+            #
+            # The comment belongs on the PRECEDING line. systemd does NOT support
+            # trailing comments on directive lines: `RestrictNamespaces=false  # why`
+            # makes systemd log "Failed to parse namespace type string, ignoring" and
+            # DROP the directive, silently losing the hardening it was documenting.
+            # This lint used to require that inline form, which is how four shipped
+            # units ended up with dropped directives (found 2026-07-28 on a live
+            # deploy). Inline is still accepted so older units keep passing.
             comment_match = re.search(
-                r"^RestrictNamespaces=(?:false|no|0)\s*#.+",
+                r"^RestrictNamespaces=(?:false|no|0)\s*#.+", body, re.M
+            ) or re.search(
+                r"^[ \t]*#.*\n(?:[ \t]*\n)*RestrictNamespaces=(?:false|no|0)\s*$",
                 body, re.M
             )
             assert comment_match, (

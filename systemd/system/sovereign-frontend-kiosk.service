@@ -38,7 +38,8 @@ StandardError=journal
 #   only runs when the operator explicitly selects a kiosk frontend (disabled otherwise).
 # R171 defense-in-depth (carried in full; the two waived aspects noted inline):
 ProtectSystem=full
-ProtectHome=tmpfs            # ephemeral browser profile; real /home + /root stay hidden
+# ephemeral browser profile; real /home + /root stay hidden
+ProtectHome=tmpfs
 ProtectControlGroups=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
@@ -46,7 +47,8 @@ ProtectClock=true
 ProtectHostname=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
-RestrictNamespaces=false     # the kiosk browser needs user namespaces for its content-process sandbox
+# the kiosk browser needs user namespaces for its content-process sandbox
+RestrictNamespaces=false
 LockPersonality=true
 NoNewPrivileges=true
 PrivateTmp=true

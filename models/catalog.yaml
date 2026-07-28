@@ -136,25 +136,27 @@ catalog:
       tier: pulse
       engine: llama.cpp
       class: slm
-      quantization: bf16
+      quantization: gguf-q5_k_m
       size_class: s
       purpose: [chat, code, function-calling]
       status: verified-real
       license: mit
-      hf_repo_id: microsoft/Phi-4-mini-instruct
+      hf_repo_id: bartowski/microsoft_Phi-4-mini-instruct-GGUF
       parameters_millions: 3800
-      vram_gib_min: 7
+      vram_gib_min: 3.5
       context_window_tokens: 131072
       master_spec_section: "R212 operator addition — high-context SLM for tool use"
       runtime_profile_bindings: []
       operator_note: |
-        CORRECTION 2026-07-28 — entry declared quantization=gguf-q5_k_m /
-        vram_gib_min=3.5, but microsoft/Phi-4-mini-instruct ships
-        ZERO .gguf files (verified via the HF tree API); it is BF16
-        safetensors at ~7 GiB. Pulling it yields BF16 at ~2.0x the
-        declared size and vLLM then fails on VRAM. For an actual Q5_K_M
-        build, point at a dedicated -GGUF repo instead of this one.
-        Found by scripts/models/audit-sizes.py.
+        CORRECTION 2026-07-28 — hf_repo_id pointed at microsoft/Phi-4-mini-instruct,
+        which ships ZERO .gguf files (verified via the HF tree API); it is the
+        BF16 base repo. The declared Q5_K_M build is real but lives in a
+        dedicated GGUF repo, so the entry named the right artifact and the wrong
+        source. Repointed to bartowski/microsoft_Phi-4-mini-instruct-GGUF
+        (Q5_K_M = 2.65 GiB, measured). An earlier pass mistakenly 'corrected'
+        the metadata to bf16 to match the wrong repo — the pointer was the bug.
+        Caught by tests/lint/test_tier_intent_selection.py, which depends on this
+        entry resolving. Found by scripts/models/audit-sizes.py.
         R212 — Phi-4-mini-instruct (3.8B). 128k context window at a
         small footprint; ideal for code-heavy agent loops with a long
         instruction buffer. GGUF Q5_K_M ships well-quantized.
@@ -230,25 +232,27 @@ catalog:
       tier: oracle
       engine: llama.cpp
       class: rlm
-      quantization: bf16
+      quantization: gguf-q4_k_m
       size_class: xl
       purpose: [reasoning]
       status: verified-real
       license: mit
-      hf_repo_id: deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+      hf_repo_id: unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF
       parameters_millions: 70553.7
-      vram_gib_min: 131
+      vram_gib_min: 40
       context_window_tokens: 131072
       master_spec_section: "R212 operator addition — RLM at GGUF quant for dual-GPU sharing"
       runtime_profile_bindings: []
       operator_note: |
-        CORRECTION 2026-07-28 — entry declared quantization=gguf-q4_k_m /
-        vram_gib_min=42, but deepseek-ai/DeepSeek-R1-Distill-Llama-70B ships
-        ZERO .gguf files (verified via the HF tree API); it is BF16
-        safetensors at ~131 GiB. Pulling it yields BF16 at ~3.1x the
-        declared size and vLLM then fails on VRAM. For an actual Q4_K_M
-        build, point at a dedicated -GGUF repo instead of this one.
-        Found by scripts/models/audit-sizes.py.
+        CORRECTION 2026-07-28 — hf_repo_id pointed at deepseek-ai/DeepSeek-R1-Distill-Llama-70B,
+        which ships ZERO .gguf files (verified via the HF tree API); it is the
+        BF16 base repo. The declared Q4_K_M build is real but lives in a
+        dedicated GGUF repo, so the entry named the right artifact and the wrong
+        source. Repointed to unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF
+        (Q4_K_M = 39.6 GiB, measured). An earlier pass mistakenly 'corrected'
+        the metadata to bf16 to match the wrong repo — the pointer was the bug.
+        Caught by tests/lint/test_tier_intent_selection.py, which depends on this
+        entry resolving. Found by scripts/models/audit-sizes.py.
         R212 — Same upstream as the FP16 entry, declared as the
         GGUF-Q4_K_M variant for hosts that need to share VRAM with
         a concurrent vllm workload. Lands cleanly on a single 4090.

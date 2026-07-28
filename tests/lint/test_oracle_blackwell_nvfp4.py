@@ -57,6 +57,13 @@ def _dry_run_env(**overrides) -> dict:
     env["SOVEREIGN_OS_RUNTIME_PROFILE"] = "__hermetic_test_no_profile__"
     env["HOME"] = "/nonexistent"      # no ~/.sovereign-os/active-runtime-profile
     env["SOVEREIGN_OS_DRY_RUN"] = "1"
+    # start-oracle-core.sh no-ops when its port is already LISTENING ("oracle core
+    # appears up"). On a box actually RUNNING the service — which is the normal
+    # state once sovereign-oracle-core.service is enabled — that guard fires before
+    # any quantization/model selection is logged and these tests fail for an
+    # environmental reason, not a code one. Same class as the runtime-profile leak
+    # above: pin a port nothing will be serving.
+    env["ORACLE_PORT"] = "18083"
     env.update(overrides)
     return env
 

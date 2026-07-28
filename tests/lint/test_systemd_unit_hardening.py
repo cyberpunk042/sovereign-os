@@ -36,6 +36,34 @@ def _service_units() -> list[pathlib.Path]:
     return sorted(UNIT_DIR.glob("*.service"))
 
 
+
+def _has_rationale(unit_text: str, key: str, raw_val: str) -> bool:
+    """True when a rationale comment accompanies `key`.
+
+    IMPORTANT: systemd does NOT support trailing comments on directive lines. Writing
+    `RestrictNamespaces=false  # reason` makes systemd log "Failed to parse namespace
+    type string, ignoring" and DROP the directive entirely — so the hardening intent is
+    silently lost. This lint used to REQUIRE that inline form, which is how four units
+    ended up with dropped directives (found 2026-07-28 on a live deploy).
+
+    The correct placement is a comment on the PRECEDING line. Inline is still accepted so
+    older units do not break, but it is no longer the only accepted form and new units
+    should use the preceding-line style.
+    """
+    if "#" in raw_val:                                    # legacy inline form
+        return True
+    lines = unit_text.split("\n")
+    for i, line in enumerate(lines):
+        if line.strip().startswith(f"{key}="):
+            for prev in reversed(lines[:i]):              # skip blanks, take comments
+                t = prev.strip()
+                if not t:
+                    continue
+                return t.startswith("#")
+            return False
+    return False
+
+
 def _parse_service(path: pathlib.Path) -> dict:
     """Returns Service-section key→value dict (later assignments win,
     case-preserving keys)."""
@@ -185,7 +213,7 @@ def test_r171_defense_in_depth_baseline(unit: pathlib.Path):
         # (logic-engine + oracle-core). Accept "false" only when an
         # inline rationale comment appears on the assignment line.
         if k == "RestrictNamespaces" and val == "false":
-            if "#" in raw_val:
+            if _has_rationale(text, k, raw_val):
                 continue
             missing.append(f"{k}=false (no rationale comment)")
             continue
@@ -274,6 +302,9 @@ def test_inference_service_harder_posture(unit: pathlib.Path):
             missing.append(f"{key} (absent)")
             continue
         raw_val, has_comment = parsed[key]
+        # Preceding-line comments are the systemd-valid way to carry a rationale;
+        # inline tails make systemd drop the directive. Accept either.
+        has_comment = has_comment or _has_rationale(text, key, raw_val)
         val = raw_val.split("#", 1)[0].strip()
         if not val:
             missing.append(f"{key}= (empty value)")

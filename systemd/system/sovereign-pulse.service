@@ -29,10 +29,11 @@ ProtectControlGroups=true
 RestrictNamespaces=true
 RestrictRealtime=true
 LockPersonality=true
-MemoryDenyWriteExecute=false  # bitnet.cpp JIT-loads .so; must allow
+# bitnet.cpp JIT-loads .so; must allow
+MemoryDenyWriteExecute=false
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 ReadWritePaths=/var/log/sovereign-os /var/lib/sovereign-os
-ReadOnlyPaths=/mnt/vault/models
+ReadOnlyPaths=-/mnt/vault/models
 PrivateTmp=true
 
 [Install]

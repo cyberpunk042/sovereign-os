@@ -49,7 +49,8 @@ ProtectClock=true
 ProtectHostname=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
-RestrictNamespaces=false     # QEMU/KVM VM host — user-net + device setup may need namespaces
+# QEMU/KVM VM host — user-net + device setup may need namespaces
+RestrictNamespaces=false
 LockPersonality=true
 ReadWritePaths=/var/lib/sovereign-os/open-computer
 NoNewPrivileges=true

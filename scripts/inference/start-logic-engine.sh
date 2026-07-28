@@ -7,13 +7,18 @@
 # Logic card) is now the OcuLink eGPU / opt-in VFIO sandbox and the
 # DSpark speculative-decode draft target. Backend pluggable:
 #   - vllm (default; podman-launched)
+#   - vllm_host (host-resident vLLM, no podman — mirrors the Oracle Core path)
 #   - llama_cpp (fallback for hardware constraints / debugging)
 #
 # Per SDD-011 routing rule 4 + default, the router sends json_object /
 # tools / general requests here.
 #
 # Env vars (all overridable; sain-01 defaults shown):
-#   SOVEREIGN_OS_LOGIC_BACKEND  vllm | llama_cpp (default: vllm)
+#   SOVEREIGN_OS_LOGIC_BACKEND  vllm | vllm_host | llama_cpp (default: vllm)
+#   LOGIC_GPU_MEMORY_UTILIZATION  vllm_host only (default: 0.90)
+#   LOGIC_MAX_MODEL_LEN           vllm_host only (default: 32768)
+#   LOGIC_SERVED_MODEL_NAME       vllm_host only; else the served id is the weights path
+#   LOGIC_TRUST_REMOTE_CODE       vllm_host only; set for models shipping custom code
 #   LOGIC_MODEL                 Path to weights (default: /mnt/vault/models/qwen3-coder)
 #   LOGIC_HOST                  Listen host (default: 127.0.0.1)
 #   LOGIC_PORT                  Listen port (default: 8082 — router routes here)
@@ -37,6 +42,8 @@ TIER="logic_engine"
 runtime_profile_override LOGIC_MODEL logic model
 
 : "${SOVEREIGN_OS_LOGIC_BACKEND:=vllm}"
+: "${LOGIC_GPU_MEMORY_UTILIZATION:=0.90}"
+: "${LOGIC_MAX_MODEL_LEN:=32768}"
 : "${LOGIC_MODEL:=/mnt/vault/models/qwen3-coder}"
 : "${LOGIC_HOST:=127.0.0.1}"
 : "${LOGIC_PORT:=8082}"
@@ -72,6 +79,21 @@ b.config.port = int(os.environ["LOGIC_PORT"])
 print(" ".join(b.start_command()))
 PY
 )
+    ;;
+  vllm_host)
+    # Host-resident vLLM: same engine as `vllm` but launched directly instead of
+    # through podman, mirroring how the Oracle Core runs. For boxes without podman,
+    # or where the container image is not built. Measured 2026-07-28 on the RTX 5090
+    # with Nemotron-3-Nano-Omni-30B NVFP4: 314.41 tok/s decode, TTFT 0.173s.
+    # CUDA_VISIBLE_DEVICES pins the tier to its card; set it in the env file.
+    require_command python3
+    argv="python3 -m vllm.entrypoints.openai.api_server"
+    argv="${argv} --model ${LOGIC_MODEL}"
+    argv="${argv} --host ${LOGIC_HOST} --port ${LOGIC_PORT}"
+    argv="${argv} --gpu-memory-utilization ${LOGIC_GPU_MEMORY_UTILIZATION}"
+    argv="${argv} --max-model-len ${LOGIC_MAX_MODEL_LEN}"
+    [ -n "${LOGIC_SERVED_MODEL_NAME:-}" ] && argv="${argv} --served-model-name ${LOGIC_SERVED_MODEL_NAME}"
+    [ -n "${LOGIC_TRUST_REMOTE_CODE:-}" ] && argv="${argv} --trust-remote-code"
     ;;
   llama_cpp)
     argv=$(python3 - <<PY
