@@ -258,14 +258,20 @@ if [ -n "${SKIP_OPERATOR_DEPS}" ]; then
 else
   deps_toml="/etc/sovereign-os/operator-deps.toml"
   [ -f "${deps_toml}" ] || deps_toml="${__REPO_ROOT}/config/operator-deps.toml.example"
+  # operator-deps.py takes a SUBCOMMAND (list|plan|apply) and spells its config
+  # flag --config. This called it as `--deps <toml> --apply --confirm`, which
+  # argparse rejects outright ("invalid choice: <toml>") -- so layer 4 could
+  # never run, and the failure hint printed the same broken command back at the
+  # operator, who then re-ran it and hit the identical error (2026-07-28).
   if [ -n "${DRY_RUN}" ]; then
-    say "  ${cyan}dry-run\$${reset} python3 ${__REPO_ROOT}/scripts/install/operator-deps.py --deps ${deps_toml} --apply --confirm"
+    say "  ${cyan}dry-run\$${reset} python3 ${__REPO_ROOT}/scripts/install/operator-deps.py --config ${deps_toml} apply --confirm"
   elif python3 "${__REPO_ROOT}/scripts/install/operator-deps.py" \
-        --deps "${deps_toml}" --apply --confirm; then
+        --config "${deps_toml}" apply --confirm; then
     ok "operator deps applied"
   else
     warn "operator-deps returned non-zero — build-host toolchain is still complete."
-    warn "  re-run just this layer later: python3 scripts/install/operator-deps.py --deps ${deps_toml} --apply --confirm"
+    warn "  re-run just this layer later:"
+    warn "    python3 ${__REPO_ROOT}/scripts/install/operator-deps.py --config ${deps_toml} apply --confirm"
   fi
 fi
 

@@ -49,6 +49,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import shutil
@@ -96,6 +97,45 @@ def _is_pkg_installed_apt(pkg: str) -> bool:
     return "install ok installed" in r.stdout
 
 
+@functools.lru_cache(maxsize=4)
+def _pip_supports_break_system_packages(pip_bin: str) -> bool:
+    """Does this pip understand --break-system-packages?
+
+    Debian 13 (trixie) marks the system python as externally-managed (PEP 668),
+    so a bare `pip install` aborts with 'error: externally-managed-environment'
+    and installs NOTHING. Every pip entry in operator-deps.toml failed that way
+    on a clean trixie host -- 8 of 8, including the whole model toolchain
+    (huggingface_hub, transformers, vllm) -- while apt and npm succeeded, so the
+    run looked partially fine (2026-07-28).
+
+    Installing the operator's declared toolchain into the OS is exactly the
+    intentional override PEP 668 reserves this flag for. This mirrors what
+    scripts/hooks/post-install/warp-setup.sh already does; that hook solved this
+    and the shared runner never picked it up. Detected, not assumed, so a pip
+    predating the flag still gets a plain `pip install`.
+    """
+    try:
+        r = subprocess.run(
+            [pip_bin, "install", "--help"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return "--break-system-packages" in r.stdout
+
+
+def _pip_install_cmd(pkg: str) -> list[str] | None:
+    """The argv for installing `pkg`, or None when no pip is on PATH."""
+    pip_bin = shutil.which("pip3") or shutil.which("pip")
+    if not pip_bin:
+        return None
+    cmd = [pip_bin, "install"]
+    if _pip_supports_break_system_packages(pip_bin):
+        cmd.append("--break-system-packages")
+    cmd.append(pkg)
+    return cmd
+
+
 def _is_pkg_installed_pip(pkg: str) -> bool:
     if not shutil.which("pip") and not shutil.which("pip3"):
         return False
@@ -138,10 +178,13 @@ def plan_steps(cfg: dict[str, Any]) -> list[dict[str, Any]]:
         })
     pip_pkgs = (cfg.get("pip") or {}).get("install") or []
     for pkg in pip_pkgs:
+        # Show the command apply will really run (incl. --break-system-packages
+        # on a PEP 668 host), so `plan` cannot disagree with `apply`.
+        _pip_cmd = _pip_install_cmd(pkg)
         steps.append({
             "kind": "pip",
             "name": pkg,
-            "command": f"pip install {pkg}",
+            "command": " ".join(_pip_cmd) if _pip_cmd else f"pip install {pkg}",
             "currently_installed": _is_pkg_installed_pip(pkg),
         })
     npm_pkgs = (cfg.get("npm") or {}).get("global") or []
@@ -192,12 +235,11 @@ def execute_step(step: dict[str, Any], dry_run: bool, allow_curl_shell: bool) ->
     if kind == "apt":
         cmd = ["apt-get", "install", "-y", step["name"]]
     elif kind == "pip":
-        pip_bin = shutil.which("pip3") or shutil.which("pip")
-        if not pip_bin:
+        cmd = _pip_install_cmd(step["name"])
+        if cmd is None:
             out["outcome"] = "failed"
             out["detail"] = "pip not on PATH"
             return out
-        cmd = [pip_bin, "install", step["name"]]
     elif kind == "npm":
         if not shutil.which("npm"):
             out["outcome"] = "failed"
