@@ -1572,18 +1572,29 @@ catalog:
       tier: logic
       engine: vllm
       class: mixture
-      quantization: fp8
+      quantization: bf16
       size_class: l
       purpose: [code, agent, chat, function-calling]
       status: operator-must-confirm
       license: mit
       hf_repo_id: zai-org/GLM-4.7-Flash
       parameters_millions: 31221.5
-      vram_gib_min: 32
+      vram_gib_min: 58
       context_window_tokens: 200000
       master_spec_section: "operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)"
       runtime_profile_bindings: []
       operator_note: |
+        CORRECTION 2026-07-28 — the entry previously read quantization=fp8 /
+        vram_gib_min=32, describing a checkpoint that does NOT exist at this
+        repo. Verified against the HF API and config.json: `dtype: bfloat16`,
+        no quantization_config, and the repo is 62.47 GB — which is exactly
+        31.22B params x 2 bytes. The "32 GB" was the FP8 size the 2026-07-19
+        evaluation projected, not a published artifact.
+        CONSEQUENCE: it does NOT fit the RTX 5090 (31.84 GiB) as published, and
+        the "FP8 fits the 5090 secondary, freeing the primary" plan needs an
+        FP8 or int4 conversion step first (int4 ~16 GB would be comfortable).
+        It does fit the RTX PRO 6000 at BF16 with room.
+
         Evaluation 2026-07-19 — GLM flavor at the interactive Logic
         tier: 31.2B total / ~3B active MoE (glm4_moe_lite), MIT, 200K
         context, Jan 2026, 9.5M HF downloads. Open-source SOTA in the
