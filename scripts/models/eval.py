@@ -285,7 +285,15 @@ def run_throughput_bench(
                         usage_tokens = int(usage["completion_tokens"])
                     choices = obj.get("choices") or []
                     delta = (choices[0].get("delta") or {}) if choices else {}
-                    if delta.get("content"):
+                    # Reasoning models (gpt-oss, and the o1-style harmony format
+                    # generally) stream their chain-of-thought as `reasoning` /
+                    # `reasoning_content` deltas BEFORE any `content` delta. Counting
+                    # only `content` reports zero tokens and the whole benchmark fails
+                    # with "no successful streamed completion" even though the endpoint
+                    # is healthy and generating. Those are real decoded tokens and the
+                    # server spends real time on them, so they count toward throughput.
+                    if (delta.get("content") or delta.get("reasoning_content")
+                            or delta.get("reasoning")):
                         now = time.time()
                         if t_first is None:
                             t_first = now
