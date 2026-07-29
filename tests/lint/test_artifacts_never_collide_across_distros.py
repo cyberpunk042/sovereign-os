@@ -165,18 +165,75 @@ def test_the_build_steps_scope_discovery_to_this_distro(step, anchor):
     )
 
 
-def test_no_build_step_uses_a_bare_iso_glob_in_the_output_dir():
-    """The specific shape of the bug."""
+def test_every_bare_artifact_glob_is_justified_in_place():
+    """A bare `*.iso` / `*.raw` glob must carry a reason, on the spot.
+
+    Not every bare glob is wrong: chowning every ISO in a directory, or listing
+    what a build produced, is exactly right. What is wrong is SELECTING "the"
+    artifact that way, because output/ holds both distros — step 07 reported
+    "the .iso is UNCHANGED" while naming the other distro's file, and step 09
+    would have "verified" an artifact this build never produced.
+
+    Distinguishing those two cases mechanically is guesswork. Requiring a
+    one-line justification is not: it makes each bare glob a decision someone
+    made on purpose, and the next person can see which kind it is.
+
+    Mark a deliberate one with `bare-glob-ok: <reason>` on the line or the line
+    above.
+    """
     offenders = []
     for step in ("07-image-build.sh", "09-image-verify.sh"):
-        for line in (REPO_ROOT / "scripts/build" / step).read_text(encoding="utf-8").splitlines():
+        lines = (REPO_ROOT / "scripts/build" / step).read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
             s = line.strip()
             if s.startswith("#"):
                 continue
-            # a bare *.iso glob rooted at the shared output dir
-            if re.search(r"(IMAGE_DIR|_out|output)\S*/?\s*[\"']?\*\.iso", s):
-                offenders.append(f"{step}: {s}")
+            if not re.search(r"-name\s+'\*\.(iso|raw|img|qcow2)'", s):
+                continue
+            context = "\n".join(lines[max(0, i - 3):i + 1])
+            if "bare-glob-ok:" in context:
+                continue
+            offenders.append(f"{step}:{i + 1}: {s}")
     assert not offenders, (
-        "bare '*.iso' glob over the shared output dir — it matches the other "
-        "distro's artifact:\n  " + "\n  ".join(offenders)
+        "bare artifact glob with no justification. output/ holds BOTH distros, "
+        "so selecting 'the' artifact this way picks the wrong one. Either scope "
+        "it with distro_artifact_basename, or annotate it `bare-glob-ok: "
+        "<reason>` if it genuinely operates on all of them:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+# ── the docs must not name an artifact the build cannot produce ─────────────
+# Found 2026-07-29, auditing what the rename touched: the operator journey and
+# the sain-01 profile page both still said
+#     sovereign-osctl install image ... build/sain-01/output/sain-01.raw
+# which after the rename is a file that does not exist. A wrong path in a
+# dd-to-a-block-device instruction is not a typo.
+
+OPERATOR_DOCS = [
+    REPO_ROOT / "docs/src/operator-journey.md",
+    REPO_ROOT / "docs/src/profiles/sain-01.md",
+    REPO_ROOT / "docs/man/sovereign-osctl.1.md",
+    REPO_ROOT / "docs/man/sovereign-osctl-install.1.md",
+]
+
+
+@pytest.mark.parametrize("doc", OPERATOR_DOCS, ids=lambda p: p.name)
+def test_operator_docs_name_an_artifact_the_build_can_produce(doc):
+    """Every `install image <path>` example must name a real artifact shape."""
+    if not doc.is_file():
+        pytest.skip(f"{doc.name} not present")
+    valid = {f"{basename(d, a)}.{ext}"
+             for d in DISTROS for a in ARTIFACTS
+             for ext in (("iso",) if a == "installer" else ("raw", "img", "qcow2"))}
+    bad = []
+    for line in doc.read_text(encoding="utf-8").splitlines():
+        if "install image" not in line:
+            continue
+        for m in re.finditer(r"build/[\w.-]+/output/([\w.-]+\.(?:raw|img|qcow2|iso))", line):
+            if m.group(1) not in valid:
+                bad.append(f"{m.group(1)!r} in: {line.strip()}")
+    assert not bad, (
+        f"{doc.name} tells the operator to flash an artifact no build produces. "
+        f"Valid shapes: {sorted(valid)}\n  " + "\n  ".join(bad)
     )

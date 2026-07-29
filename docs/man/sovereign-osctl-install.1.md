@@ -41,7 +41,7 @@ operator use.
 
     sovereign-osctl profiles validate
     sovereign-osctl init
-    sovereign-osctl install image --plan build/sain-01/output/sain-01.raw --to /dev/nvme1n1
+    sovereign-osctl install image --plan build/sain-01/output/sain-01-debian.raw --to /dev/nvme1n1
     sovereign-osctl decommission --plan
     sovereign-osctl config-snapshot
 

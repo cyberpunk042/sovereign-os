@@ -259,8 +259,16 @@ By the end you have:
 
 ### 3.2 Preview before writing (always do this first)
 
+> **The artifact name carries the distro** (2026-07-29). `mkosi` emits
+> `<profile>-<distro>.raw` and the installers emit
+> `<profile>-<distro>-installer.iso`, because both distros write into the
+> same `output/` directory and the undecorated names silently overwrote
+> each other. Substitute the distro you built — `sain-01-debian.raw` or
+> `sain-01-ubuntu.raw`. `sovereign-osctl install image` and the flash
+> panel both show the distro, so you can confirm before arming.
+
 ```sh
-sovereign-osctl install image --plan build/sain-01/output/sain-01.raw --to /dev/nvme1n1
+sovereign-osctl install image --plan build/sain-01/output/sain-01-debian.raw --to /dev/nvme1n1
 ```
 
 Shows the device fingerprint (model · serial · size · current mounts) +
@@ -270,7 +278,7 @@ the dd command that WOULD run. Writes nothing.
 
 ```sh
 SOVEREIGN_OS_CONFIRM_DESTROY=YES \
-  sudo sovereign-osctl install image build/sain-01/output/sain-01.raw --to /dev/nvme1n1
+  sudo sovereign-osctl install image build/sain-01/output/sain-01-debian.raw --to /dev/nvme1n1
 ```
 
 The 6 hard gates (any failure = abort):

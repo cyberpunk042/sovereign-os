@@ -268,6 +268,9 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       # writing, so a root-owned mode-664 artifact from a previous root-run
       # build denies the operator write access and the copy fails with
       # "Permission denied" even though the dir is now theirs (2026-07-26).
+      # bare-glob-ok: hands EVERY existing ISO to the build user — this is a
+      # chown over all of them, not a selection. A leftover from either
+      # distro must be writable or the dropped-privilege copy fails on it.
       find "${_out}" -maxdepth 1 -type f -name '*.iso' \
         -exec chown "${_asuser}" {} + 2>/dev/null || true
       # Pass ONLY what the builder needs. --preserve-environment carried
@@ -473,6 +476,9 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       # live-build writes its ISO at the top of BUILD_OUT with its own name;
       # output/ may already hold the OTHER distro's artifact, so restrict the
       # search to the build root and never descend into output/.
+      # bare-glob-ok: searches the BUILD ROOT, not output/. live-build drops
+      # exactly one ISO there and it is this run's; output/ (which holds
+      # both distros) is a subdirectory and maxdepth 1 excludes it.
       _iso="$(find "${SOVEREIGN_OS_BUILD_OUT}" -maxdepth 1 -name '*.iso' -type f 2>/dev/null | head -1 || true)"
       if [ -n "${_iso}" ]; then
         # Distro-qualified: live-build can target EITHER distro, and this used
@@ -520,6 +526,8 @@ esac
 
 if [ -d "${output_dir}" ] && [ -z "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
   log_info "image artifacts in ${output_dir}:"
+  # bare-glob-ok: the closing INVENTORY. Listing every artifact is the
+  # point; showing only this distro's would hide the other one.
   find "${output_dir}" -maxdepth 1 -type f \( -name '*.raw' -o -name '*.img' -o -name '*.iso' -o -name '*.qcow2' \) \
     -exec ls -lh {} \; | while read -r line; do
     log_info "  ${line}"

@@ -37,6 +37,19 @@ WORK="${SOVEREIGN_OS_CDD_WORK:-/var/tmp/sovereign-cdd}"
 # profile silently wrote its ISO into sain-01's output (2026-07-26).
 OUT="${SOVEREIGN_OS_BUILD_OUT:-${REPO}/build/${SOVEREIGN_OS_PROFILE:-sain-01}/output}"
 LOCAL_PKGS="${WORK}/local-packages"
+# simple-cdd's scratch. It DEFAULTS to ${simple_cdd_dir}/tmp — i.e. inside the
+# checkout — and simple_cdd_dir must stay ${HERE} because that is where
+# find_profile_files() looks for profiles/*.{preseed,packages,conf}. But
+# simple_cdd_temp is an INDEPENDENT variable (simple_cdd/variables.py:9) and
+# the mirror, logs and debian-cd basedir all derive from it, so pointing it
+# out of the repo moves everything.
+#
+# WHY IT MATTERS (2026-07-29): a completed build left 4.0 GB in 10,081 files
+# under scripts/build/installer-cdd/tmp/. It is gitignored, so `git status` was
+# clean and nothing complained — but every repo-walking lint traverses it, and
+# the lint sweep went from ~29 min to roughly triple that. Editors and greps
+# pay the same tax. Build scratch does not belong in a source tree.
+CDD_TMP="${SOVEREIGN_OS_CDD_TMP:-${WORK}/simple-cdd-tmp}"
 
 log() { printf '\033[36m━━ cdd: %s\033[0m\n' "$*" >&2; }
 [ "$(id -u)" -ne 0 ] || { echo "run as a NON-root user — simple-cdd refuses to run as root" >&2; exit 1; }
@@ -44,12 +57,21 @@ command -v build-simple-cdd >/dev/null || { echo "install simple-cdd" >&2; exit 
 
 rm -rf "${WORK}"; mkdir -p "${WORK}" "${LOCAL_PKGS}" "${OUT}"
 
-# simple-cdd writes its scratch (partial mirror + reprepro db) to ${HERE}/tmp —
-# INSIDE the repo. A stale/partial tree from a failed prior run causes reprepro
-# checksum collisions and confusing debian-cd errors, so start clean by default.
-# The (expensive) d-i images live in their own cache, untouched. Keep the mirror
+# A stale/partial scratch tree from a failed prior run causes reprepro checksum
+# collisions and confusing debian-cd errors, so start clean by default. The
+# (expensive) d-i images live in their own cache, untouched. Keep the mirror
 # across runs only when explicitly iterating: SOVEREIGN_OS_CDD_KEEP_TMP=1.
+#
+# NOTE ${WORK} was already wiped above, which takes CDD_TMP with it when it
+# lives under ${WORK} (the default). The explicit rm covers an operator-set
+# SOVEREIGN_OS_CDD_TMP pointing elsewhere.
 if [ "${SOVEREIGN_OS_CDD_KEEP_TMP:-0}" != "1" ]; then
+  rm -rf "${CDD_TMP}"
+fi
+mkdir -p "${CDD_TMP}"
+# Sweep up the pre-2026-07-29 in-repo location if a previous build left it.
+if [ -d "${HERE}/tmp" ]; then
+  log "removing $(du -sh "${HERE}/tmp" 2>/dev/null | cut -f1) of legacy scratch from the checkout"
   rm -rf "${HERE}/tmp"
 fi
 
@@ -121,6 +143,8 @@ dist="${DIST}"
 export mirror_components="main contrib non-free-firmware"
 local_packages="${LOCAL_PKGS}"
 simple_cdd_dir="${HERE}"
+# keep the multi-GB scratch OUT of the git checkout (see CDD_TMP above)
+simple_cdd_temp="${CDD_TMP}"
 # local d-i images (bypass simple-cdd's broken i386 auto-fetch on trixie)
 custom_installer="${CI}"
 export custom_installer="${CI}"

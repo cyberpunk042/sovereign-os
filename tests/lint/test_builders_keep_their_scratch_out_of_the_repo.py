@@ -81,3 +81,51 @@ def test_the_cockpit_payload_is_still_size_guarded():
     assert re.search(r"_cksz.*-lt 200|200.*cockpit payload", lib), (
         "the cockpit .deb builder must keep its payload-size guard"
     )
+
+
+# ── simple-cdd's scratch specifically (2026-07-29) ──────────────────────────
+
+CDD_BUILD = REPO_ROOT / "scripts/build/installer-cdd/build.sh"
+
+
+def test_simple_cdd_temp_is_pointed_out_of_the_checkout():
+    """simple_cdd_temp defaults to ${simple_cdd_dir}/tmp — inside the repo.
+
+    simple_cdd_dir must stay ${HERE}, because that is where find_profile_files()
+    looks for profiles/*.{preseed,packages,conf}. But simple_cdd_temp is an
+    INDEPENDENT variable (simple_cdd/variables.py:9), and simple_cdd_mirror,
+    simple_cdd_logs and simple_cdd_basedir all derive from it — so setting it
+    moves the whole scratch tree.
+
+    A completed build left 4.0 GB in 10,081 files under
+    scripts/build/installer-cdd/tmp/. Gitignored, so `git status` stayed clean
+    and nothing complained — but every repo-walking lint traverses it and the
+    lint sweep slowed to roughly triple its usual time. Editors and greps pay
+    the same tax.
+    """
+    body = CDD_BUILD.read_text(encoding="utf-8")
+    code = "\n".join(l for l in body.splitlines() if not l.lstrip().startswith("#"))
+    assert "simple_cdd_temp=" in code, (
+        "installer-cdd/build.sh must set simple_cdd_temp, or simple-cdd writes "
+        "multi-GB scratch into the git checkout"
+    )
+    line = next(l for l in code.splitlines() if l.strip().startswith("simple_cdd_temp="))
+    assert "${HERE}" not in line, (
+        f"simple_cdd_temp still resolves inside the checkout: {line.strip()!r}"
+    )
+    assert "CDD_TMP" in line or "/var/tmp" in line or "${WORK}" in line, (
+        f"simple_cdd_temp must point outside the repo, got {line.strip()!r}"
+    )
+
+
+def test_the_legacy_in_repo_scratch_is_cleaned_up():
+    """A tree built before the fix still has the old directory.
+
+    Leaving it means the slowdown persists for anyone who built once with the
+    old layout, and they would have no reason to suspect it.
+    """
+    body = CDD_BUILD.read_text(encoding="utf-8")
+    assert 'rm -rf "${HERE}/tmp"' in body, (
+        "build.sh should remove a pre-2026-07-29 in-repo scratch tree if it "
+        "finds one, so an existing checkout heals itself on the next build"
+    )

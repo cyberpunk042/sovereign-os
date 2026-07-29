@@ -138,7 +138,18 @@ if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
 fi
 
 # Find the produced image file
-image_file="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 \( -name '*.img' -o -name '*.qcow2' -o -name '*.raw' -o -name "${SOVEREIGN_OS_PROFILE}" \) -type f 2>/dev/null | head -1)"
+# SCOPED TO THIS DISTRO, same reason as the installer path above: both distros
+# write into output/, so a bare '*.raw' verifies whichever file sorts first —
+# possibly the OTHER distro's appliance, which this build never produced.
+# mkosi's Output is now <profile>-<distro>; the extensionless and undecorated
+# forms are the pre-2026-07-29 names, kept so an older artifact still verifies.
+_v_base="$(distro_artifact_basename "${SOVEREIGN_OS_PROFILE}" image)"
+image_file="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 \
+  \( -name "${_v_base}.raw"   -o -name "${_v_base}.img" \
+  -o -name "${_v_base}.qcow2"  -o -name "${_v_base}" \
+  -o -name "${SOVEREIGN_OS_PROFILE}.raw" -o -name "${SOVEREIGN_OS_PROFILE}.img" \
+  -o -name "${SOVEREIGN_OS_PROFILE}.qcow2" -o -name "${SOVEREIGN_OS_PROFILE}" \) \
+  -type f 2>/dev/null | head -1)"
 
 if [ -z "${image_file}" ]; then
   log_error "no image artifact found in ${SOVEREIGN_OS_IMAGE_DIR}"

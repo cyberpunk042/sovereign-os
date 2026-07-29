@@ -191,6 +191,47 @@ and a VM has no Blackwell GPU. What the VM cannot answer is whether the display
 comes up on that hardware — only that everything the installer controls is now
 correct.
 
+## BOTH installers verified end to end in a VM, 2026-07-29
+
+Run via `sovereign-osctl install verify-iso [--distro debian|ubuntu]`, against
+the SHIPPED ISOs, after both were rebuilt under the distro-qualified naming rule
+([2026-07-29-artifacts-must-name-their-distro.md](2026-07-29-artifacts-must-name-their-distro.md)):
+
+| | Debian 13 | Ubuntu 26.04 |
+|---|---|---|
+| artifact | `sain-01-debian-installer.iso` (1.3 GB) | `sain-01-ubuntu-installer.iso` (6.2 GB) |
+| seat route | `nomodeset` (udev 23/28) | `nvidia-drm.modeset=1` (udev rule 35) |
+| result | **15 passed, 0 failed** | **16 passed, 0 failed** |
+
+Both carry a cockpit byte-identical to the repo, so the on-box self-check is the
+current one. Both report `install self-check ran, and found no problems` and
+`dashboards deploy: ok` — the latter closes the 2026-07-28 one-second bail.
+
+Ubuntu's run confirms the whole NVIDIA decision on a real install:
+`nomodeset correctly ABSENT`, `nvidia-drm.modeset=1` on the installed cmdline,
+and an `nvidia-driver-*` package actually installed — the option is inert
+without the module, so all three had to be true together.
+
+**Three checker bugs the real installs found that no synthetic test had**, all
+now regression-tested:
+
+  * GRUB's RECOVERY menuentry always carries `nomodeset` (Ubuntu) or `single`
+    (Debian) — that is what recovery mode IS. Grepping every `linux` line
+    therefore reported `nomodeset IS SET — FATAL` on a PERFECTLY CORRECT Ubuntu
+    install. A checker that cries wolf on correct installs is how real signals
+    get ignored.
+  * `grep -c` exits 1 when the count is zero while still printing "0", so a
+    `|| echo 0` fallback appended a second line and the arithmetic died —
+    reporting a FAIL on a clean self-check. Same trap as 440f65b8.
+  * `/etc/os-release` is a SYMLINK and debugfs `dump` does not follow it, so the
+    distro read back "unknown" and silently defaulted to Debian — which on an
+    Ubuntu disk reports the CORRECT configuration as a failure.
+
+**What a VM still cannot answer.** There is no Blackwell GPU in qemu. Everything
+the installer controls is verified on both distros; whether the RTX 5090 lights
+up on SAIN-01 — Ubuntu's whole display strategy depends on it — is open until
+the box is flashed and booted.
+
 ## nomodeset is a DEBIAN-ONLY workaround — it is fatal on Ubuntu 26.04
 
 Established 2026-07-29 by a controlled experiment on one installed disk.

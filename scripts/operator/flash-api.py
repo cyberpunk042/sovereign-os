@@ -41,7 +41,7 @@ Endpoints:
   GET  /healthz             — liveness (always 200)
   POST /api/run             — EXECUTE a flash job and stream its log:
                                 {"action":"plan"|"flash",
-                                 "image":"build/…/sain-01.raw",
+                                 "image":"build/…/sain-01-debian.raw",
                                  "device":"/dev/sda"}
                               One job at a time (409 if busy). "flash"
                               needs root (pkexec when not root).

@@ -145,3 +145,43 @@ def test_the_all_mode_aggregates_instead_of_reporting_the_last_path(tmp_path: Pa
     assert r.returncode != 0 and "NOT READY" in r.stdout, (
         "--all reported READY while individual paths were blocked:\n" + r.stdout[-2000:]
     )
+
+
+def test_it_reports_the_verify_iso_prerequisites():
+    """qemu/OVMF missing must be discovered here, not 40 minutes into a run.
+
+    The alternative to verifying an install in a VM is verifying it on the real
+    machine, and that cost three 18-minute black-screen boots and a corrupted
+    bootloader on the other NVMe (2026-07-28). A missing package should not be
+    what stands between the operator and finding that out cheaply.
+    """
+    body = READY.read_text(encoding="utf-8")
+    assert "check_verify_iso" in body, (
+        "build-readiness must report whether `sovereign-osctl install "
+        "verify-iso` can actually run"
+    )
+    for tool in ("qemu-system-x86_64", "OVMF"):
+        assert tool in body, f"the readiness check must look for {tool}"
+    # It must NOT be a blocker: an ISO builds perfectly well without qemu.
+    seg = body[body.index("check_verify_iso() {"):]
+    seg = seg[: seg.index("\n}\n")]
+    assert "blocker " not in seg, (
+        "missing qemu must be a WARNING, not a blocker — the build itself does "
+        "not need it, and blocking a valid build on a test-only tool is wrong"
+    )
+    assert "/dev/kvm" in seg, (
+        "report whether KVM is usable — tcg emulation turns a 15-minute "
+        "verification into hours, and the operator should know before starting"
+    )
+
+
+def test_both_installer_substrates_get_the_verification_row():
+    body = READY.read_text(encoding="utf-8")
+    for substrate in ("installer-cdd", "ubuntu-autoinstall"):
+        line = next((l for l in body.splitlines()
+                     if l.strip().startswith(f"{substrate})")), None)
+        assert line, f"no dispatch line for {substrate}"
+        assert "check_verify_iso" in line, (
+            f"{substrate} must also report the verification prerequisites — "
+            "both installers have a VM harness now"
+        )

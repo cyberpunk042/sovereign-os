@@ -163,6 +163,38 @@ PY
   esac
 }
 
+# The VM verification harness. NOT a build blocker — an ISO builds fine without
+# qemu — but the operator should learn the prerequisite is missing HERE, in a
+# check that takes a second, rather than 40 minutes into
+# `sovereign-osctl install verify-iso`.
+#
+# This matters because the alternative to verifying in a VM is verifying on the
+# real machine, and that cost the operator three 18-minute black-screen boots
+# and a corrupted bootloader on the other NVMe (2026-07-28).
+check_verify_iso() {
+  head_ "verification (sovereign-osctl install verify-iso)"
+  local missing=""
+  for t in qemu-system-x86_64 qemu-img xorriso openssl; do
+    command -v "${t}" >/dev/null 2>&1 || missing="${missing} ${t}"
+  done
+  [ -r /usr/share/OVMF/OVMF_CODE_4M.fd ] || missing="${missing} ovmf"
+  if [ -n "${missing}" ]; then
+    warn "cannot install the ISO in a VM — missing:${missing}" \
+         "sudo apt install qemu-system-x86 qemu-utils xorriso ovmf"
+    warn "  without it, the only way to test an install is the real machine" \
+         "which is how 2026-07-28 cost three 18-minute boots to diagnose"
+  else
+    ok "qemu + OVMF present — 'sovereign-osctl install verify-iso' can run"
+  fi
+  # KVM is not required (tcg works) but the difference is ~15 min vs hours.
+  if [ -w /dev/kvm ]; then
+    ok "/dev/kvm writable — the VM install runs at native speed"
+  else
+    warn "no writable /dev/kvm — a VM install falls back to emulation and is far slower" \
+         "add yourself to the 'kvm' group, or run the verification with sudo"
+  fi
+}
+
 check_installer_cdd() {
   head_ "substrate: installer-cdd (Debian d-i ISO)"
   need_tool build-simple-cdd simple-cdd "builds the d-i ISO"
@@ -211,8 +243,8 @@ run_one() {
   check_kernel
   case "${SUBSTRATE}" in
     mkosi)              check_mkosi ;;
-    installer-cdd)      check_installer_cdd; check_secureboot ;;
-    ubuntu-autoinstall) check_ubuntu_autoinstall; check_secureboot ;;
+    installer-cdd)      check_installer_cdd; check_secureboot; check_verify_iso ;;
+    ubuntu-autoinstall) check_ubuntu_autoinstall; check_secureboot; check_verify_iso ;;
     live-build)         check_live_build ;;
   esac
 }

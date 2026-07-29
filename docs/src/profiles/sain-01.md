@@ -73,10 +73,18 @@ sovereign-osctl audit provenance --deep build/sain-01/output/build-provenance.js
 
 ## Install + boot
 
+> **The artifact name carries the distro** (2026-07-29). `mkosi` emits
+> `<profile>-<distro>.raw` and the installers emit
+> `<profile>-<distro>-installer.iso`, because both distros write into the
+> same `output/` directory and the undecorated names silently overwrote
+> each other. Substitute the distro you built — `sain-01-debian.raw` or
+> `sain-01-ubuntu.raw`. `sovereign-osctl install image` and the flash
+> panel both show the distro, so you can confirm before arming.
+
 ```sh
-sovereign-osctl install image --plan build/sain-01/output/sain-01.raw --to /dev/nvme1n1
+sovereign-osctl install image --plan build/sain-01/output/sain-01-debian.raw --to /dev/nvme1n1
 SOVEREIGN_OS_CONFIRM_DESTROY=YES \
-  sudo sovereign-osctl install image build/sain-01/output/sain-01.raw --to /dev/nvme1n1
+  sudo sovereign-osctl install image build/sain-01/output/sain-01-debian.raw --to /dev/nvme1n1
 ```
 
 First-boot hook order:
