@@ -155,8 +155,19 @@ distro_map_packages() {
   awk -v desktop="$(distro_desktop_task)" \
       -v browser="$(distro_browser)" \
       -v fw_new="$(distro_firmware_packages)" \
-      -v fw_old="$(distro_debian_firmware_packages)" '
-    BEGIN { n = split(fw_old, a, " "); for (i = 1; i <= n; i++) isfw[a[i]] = 1 }
+      -v fw_old="$(distro_debian_firmware_packages)" \
+      -v gpu="$(distro_gpu_driver_package)" '
+    BEGIN { n = split(fw_old, a, " "); for (i = 1; i <= n; i++) isfw[a[i]] = 1
+            # The NVIDIA stack. Debian names these three separately; Ubuntu
+            # ships one versioned metapackage that pulls the kernel module and
+            # the utilities together, and NONE of the Debian names exist in the
+            # Ubuntu archive at all:
+            #   firefox-esr, nvidia-driver, nvidia-open-kernel-dkms, nvidia-smi
+            # A mkosi Ubuntu appliance carrying them fails at package install
+            # (verified against the live resolute index, 2026-07-29).
+            isgpu["nvidia-driver"] = 1
+            isgpu["nvidia-open-kernel-dkms"] = 1
+            isgpu["nvidia-smi"] = 1 }
     {
       out = ""
       for (i = 1; i <= NF; i++) {
@@ -164,6 +175,13 @@ distro_map_packages() {
         if (t == "task-kde-desktop")   t = desktop
         else if (t == "firefox-esr")   t = browser
         else if (isfw[t])              t = fw_new
+        else if (isgpu[t]) {
+          # Empty gpu means "this distro has no packaged driver" (Debian uses
+          # the .run installer for Blackwell); drop the token rather than emit
+          # an empty field.
+          if (gpu == "") continue
+          t = gpu
+        }
         if (seen[t]++) continue
         out = (out == "" ? t : out " " t)
       }

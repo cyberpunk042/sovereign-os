@@ -441,6 +441,43 @@ if bake_dev_tools:
         if tool not in all_packages:
             all_packages.append(tool)
 
+# ── TRANSLATE THE PACKAGE NAMES FOR THIS DISTRO ─────────────────────────────
+#
+# The profile is written in DEBIAN package names. Four of them do not exist in
+# the Ubuntu archive at all, so a Ubuntu appliance build fails at package
+# install (checked against the live resolute index, 2026-07-29):
+#
+#   firefox-esr              -> firefox
+#   nvidia-driver            -\
+#   nvidia-open-kernel-dkms  --> nvidia-driver-570-open   (one versioned
+#   nvidia-smi               -/   metapackage pulls module + utilities)
+#
+# plus task-kde-desktop -> kubuntu-desktop and the firmware-* split -> one
+# linux-firmware, which the INSTALLERS have translated since 2026-07-28 while
+# this adapter did not — both configs emitted a byte-identical 45-package list
+# regardless of distro.
+#
+# Shell out to distro_map_packages() rather than reimplement it here. A second
+# copy of a mapping is a second thing to forget: that is precisely how this
+# adapter came to lack the first one.
+if all_packages:
+    _mapped = subprocess.run(
+        ["sh", "-c",
+         f'. "{os.environ["SOVEREIGN_OS_ROOT"]}/scripts/build/lib/distro.sh"; distro_map_packages'],
+        input=" ".join(all_packages), capture_output=True, text=True,
+        env={**os.environ, "SOVEREIGN_OS_DISTRO": distro, "PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+    )
+    if _mapped.returncode == 0 and _mapped.stdout.split():
+        _before, _after = set(all_packages), set(_mapped.stdout.split())
+        all_packages = _mapped.stdout.split()
+        for _gone in sorted(_before - _after):
+            print(f"mkosi-emit: {distro}: dropped/renamed {_gone}", file=sys.stderr)
+        for _new in sorted(_after - _before):
+            print(f"mkosi-emit: {distro}: now installs {_new}", file=sys.stderr)
+    else:
+        print(f"mkosi-emit: WARNING package-name translation failed; shipping "
+              f"Debian names on {distro}", file=sys.stderr)
+
 cfg = textwrap.dedent(f"""\
     # auto-generated profile-specific config for {profile_id}
     [Distribution]

@@ -186,9 +186,57 @@ fi
 
 # ----------- result ---------------
 
+# ----------- THE UBUNTU RENDER ---------------
+# Everything above validates the DEFAULT (debian) render, which is the right
+# contract — "nothing about Debian changes". But it meant the Ubuntu path was
+# never exercised here at all, and that path shipped a byte-identical
+# 45-package Debian list until 2026-07-29, four of whose names do not exist in
+# the Ubuntu archive.
+utmp="$(mktemp -d)"
+if SOVEREIGN_OS_DISTRO=ubuntu \
+   "${__REPO_ROOT}/scripts/build/adapters/mkosi-emit.sh" "${profile_file}" "${utmp}" >/dev/null 2>&1; then
+  uconf="$(cat "${utmp}/mkosi.conf" "${utmp}"/mkosi.conf.d/*.conf 2>/dev/null)"
+  case "${uconf}" in
+    *"Distribution=ubuntu"*) ok "ubuntu render: Distribution=ubuntu" ;;
+    *) ko "ubuntu render: Distribution is not ubuntu" ;;
+  esac
+  case "${uconf}" in
+    *"Release=resolute"*) ok "ubuntu render: Release=resolute" ;;
+    *) ko "ubuntu render: Release is not resolute" ;;
+  esac
+  # The artifact name must carry the distro or the two appliances overwrite
+  # each other in the shared output/ dir.
+  case "${uconf}" in
+    *"Output=${PROFILE}-ubuntu"*) ok "ubuntu render: Output is distro-qualified" ;;
+    *) ko "ubuntu render: Output does not name the distro" ;;
+  esac
+  # Package names must be TRANSLATED. These four do not exist in Ubuntu.
+  _leaked=""
+  for _p in firefox-esr nvidia-driver nvidia-open-kernel-dkms nvidia-smi; do
+    case "${uconf}" in
+      *"
+    ${_p}
+"*) _leaked="${_leaked} ${_p}" ;;
+    esac
+  done
+  if [ -z "${_leaked}" ]; then
+    ok "ubuntu render: no Debian-only package names survive"
+  else
+    ko "ubuntu render: Debian-only packages leaked:${_leaked}"
+  fi
+  case "${uconf}" in
+    *nvidia-driver-*-open*) ok "ubuntu render: the versioned -open driver is installed" ;;
+    *) ko "ubuntu render: no nvidia-driver-<ver>-open package" ;;
+  esac
+else
+  ko "ubuntu render: mkosi-emit failed outright"
+fi
+rm -rf "${utmp}"
+
 echo
 total=$((pass + fail))
 echo "test_mkosi_adapter: ${pass}/${total} passed"
+
 if [ "${fail}" -ne 0 ]; then
   echo "FAIL"
   exit 1
