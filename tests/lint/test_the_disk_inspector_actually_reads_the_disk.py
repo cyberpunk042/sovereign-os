@@ -339,3 +339,74 @@ def test_real_problems_in_the_self_check_are_still_surfaced(tmp_path):
     assert "self-check reported 2 problem(s)" in out, (
         f"real problems in the on-disk report must still be surfaced.\n{out}"
     )
+
+
+# ── the GRUB recovery-entry trap (2026-07-29, first full Ubuntu install) ────
+# Every Debian-family grub.cfg ends each menuentry group with a RECOVERY entry
+# that carries `nomodeset` (Ubuntu) or `single` (Debian) — that is what recovery
+# mode IS. Grepping all `linux` lines therefore finds nomodeset on a PERFECTLY
+# CORRECT Ubuntu install and reports it FATAL. The real install read:
+#     linux … ro nvidia-drm.modeset=1 quiet splash            <- what boots
+#     linux … ro recovery nomodeset dis_ucode_ldr nvidia-drm.modeset=1
+# Only the entry the machine actually boots counts.
+
+GRUB_UBU_WITH_RECOVERY = (
+    "  linux /boot/vmlinuz-7.0.0-28-generic root=UUID=x ro nvidia-drm.modeset=1 quiet splash\n"
+    "  linux /boot/vmlinuz-7.0.0-28-generic root=UUID=x ro recovery nomodeset "
+    "dis_ucode_ldr nvidia-drm.modeset=1\n"
+)
+GRUB_DEB_WITH_RECOVERY = (
+    "  linux /boot/vmlinuz-6.12.0 root=/dev/mapper/sovereign-root ro quiet nomodeset\n"
+    "  linux /boot/vmlinuz-6.12.0 root=/dev/mapper/sovereign-root ro single dis_ucode_ldr\n"
+)
+
+
+def test_grubs_recovery_entry_does_not_fake_a_fatal_on_ubuntu(tmp_path):
+    """The exact grub.cfg produced by the first real Ubuntu install."""
+    disk = build_disk(tmp_path, {
+        "/usr/lib/os-release": OSREL_UBU,
+        "/boot/grub/grub.cfg": GRUB_UBU_WITH_RECOVERY,
+        "/var/lib/dpkg/status": "Package: nvidia-driver-570-open\nStatus: install ok installed\n",
+    })
+    _, out = inspect(disk)
+    assert "FATAL" not in out, (
+        "the inspector read nomodeset out of GRUB's RECOVERY entry and called a "
+        f"correct Ubuntu install fatal. Only the primary entry counts.\n{out}"
+    )
+    assert "nomodeset correctly ABSENT" in out, out
+    assert "nvidia-drm.modeset=1 on the installed kernel command line" in out, out
+
+
+def test_a_real_nomodeset_on_ubuntu_is_still_caught(tmp_path):
+    """The counterpart — the fix must not blind the check.
+
+    Here nomodeset is on the PRIMARY entry, which is the shipping failure.
+    """
+    disk = build_disk(tmp_path, {
+        "/usr/lib/os-release": OSREL_UBU,
+        "/boot/grub/grub.cfg":
+            "  linux /boot/vmlinuz-7.0.0 root=UUID=x ro nomodeset quiet splash\n"
+            "  linux /boot/vmlinuz-7.0.0 root=UUID=x ro recovery nomodeset dis_ucode_ldr\n",
+    })
+    rc, out = inspect(disk)
+    assert "FATAL" in out, (
+        f"nomodeset on the PRIMARY entry must still be reported fatal.\n{out}"
+    )
+    assert rc != 0
+
+
+def test_debians_single_recovery_entry_is_ignored_too(tmp_path):
+    """Debian's recovery entry uses `single` and carries no nomodeset.
+
+    Counting it would make a correct Debian install look like it had lost
+    nomodeset from half its entries.
+    """
+    disk = build_disk(tmp_path, {
+        "/usr/lib/os-release": OSREL_DEB,
+        "/boot/grub/grub.cfg": GRUB_DEB_WITH_RECOVERY,
+    })
+    _, out = inspect(disk)
+    assert "nomodeset IS on the installed kernel command line" in out, (
+        f"the primary Debian entry has nomodeset; the `single` recovery entry "
+        f"must not confuse the verdict.\n{out}"
+    )

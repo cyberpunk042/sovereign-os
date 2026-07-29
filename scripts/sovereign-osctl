@@ -358,6 +358,11 @@ COMMANDS:
   install image <img> --to <dev>  Safely dd a built image to a target device
                                   (gates: not-mounted-root + fingerprint + SOVEREIGN_OS_CONFIRM_DESTROY=YES)
   install image --plan <img> --to <dev>  Show fingerprint + plan, do nothing
+  install verify-iso [iso]     Install a built ISO in a VM and assert on the result
+                               (throwaway qcow2; answers the disk pick + password in
+                               scratch only. ~40-60 min. Nothing on this host is touched)
+  install inspect-disk <img>   Read an installed disk (qcow2 or /dev/sdX) and report
+                               the seat / kernel / cockpit invariants (read-only)
 
   init [--non-interactive]     Interactive setup wizard — walk through 6 decisions
                                (profile · substrate · secure-boot · encryption · whitelabel · agent layer)
@@ -6435,6 +6440,79 @@ EOF
       # whole verb exit 1 under `set -e` when the test is false — a successful
       # read reported as a failure (2026-07-26, same class as the boot-entry bug).
       [ "${want_json}" -eq 1 ] && log_warn "--json not implemented yet; printed human output" || true
+      ;;
+
+    verify-iso)
+      # Install a BUILT ISO to completion in a VM and assert on the result.
+      #
+      # WHY THIS IS A VERB and not just a script: three sovereign-os installs
+      # booted on the operator's real machine — custom kernel, 24 CPUs, 261 GB
+      # RAM, zero failed units — and showed nothing, at 18 minutes a try. The
+      # fourth attempt corrupted the other NVMe's bootloader. Every one of those
+      # was a question a VM could answer unattended (2026-07-29).
+      #
+      # Per-distro, because the two installers are genuinely different
+      # mechanisms (d-i + preseed vs Subiquity + autoinstall), but they share
+      # one inspector so "a working install" cannot mean two different things.
+      local _vi_iso="" _vi_distro="${SOVEREIGN_OS_DISTRO:-}"
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --distro) _vi_distro="${2:-}"; shift 2 ;;
+          --)       shift; break ;;
+          -*)       log_error "unknown install verify-iso flag: $1"; return 2 ;;
+          *)        [ -z "${_vi_iso}" ] && _vi_iso="$1"; shift ;;
+        esac
+      done
+
+      # Infer the distro from the ISO NAME when not told. The Ubuntu builder
+      # emits <profile>-ubuntu-installer.iso and the Debian one
+      # <profile>-installer.iso, so a bare filename is unambiguous — and running
+      # the wrong harness against an ISO wastes an hour before saying so.
+      if [ -z "${_vi_distro}" ] && [ -n "${_vi_iso}" ]; then
+        case "${_vi_iso}" in
+          *-ubuntu-installer.iso) _vi_distro=ubuntu ;;
+          *)                      _vi_distro=debian ;;
+        esac
+      fi
+      _vi_distro="${_vi_distro:-debian}"
+
+      local _vi_h
+      case "${_vi_distro}" in
+        ubuntu) _vi_h="${__REPO_ROOT}/scripts/build/ubuntu-autoinstall/verify-full-install-in-vm.sh" ;;
+        debian) _vi_h="${__REPO_ROOT}/scripts/build/installer-cdd/verify-full-install-in-vm.sh" ;;
+        *) log_error "unknown distro '${_vi_distro}' (expected debian | ubuntu)"; return 2 ;;
+      esac
+      [ -x "${_vi_h}" ] || { log_error "harness not found: ${_vi_h}"; return 1; }
+
+      # Fail on the missing prerequisite NOW, not 40 minutes in.
+      local _vi_missing=""
+      for _t in qemu-system-x86_64 xorriso qemu-img openssl; do
+        command -v "${_t}" >/dev/null 2>&1 || _vi_missing="${_vi_missing} ${_t}"
+      done
+      [ -r /usr/share/OVMF/OVMF_CODE_4M.fd ] || _vi_missing="${_vi_missing} ovmf"
+      if [ -n "${_vi_missing}" ]; then
+        log_error "missing:${_vi_missing}"
+        log_error "  sudo apt install qemu-system-x86 xorriso qemu-utils ovmf"
+        return 1
+      fi
+
+      log_info "verifying the ${_vi_distro} installer end to end (this takes 40-60 min)"
+      log_info "  nothing on this host is written; the install targets a throwaway qcow2"
+      "${_vi_h}" ${_vi_iso:+"${_vi_iso}"}
+      ;;
+
+    inspect-disk)
+      # Read an ALREADY-installed disk and report the invariants. Unprivileged
+      # (debugfs against the extracted root), read-only, and it understands both
+      # layouts — Ubuntu's plain ext4 partition and Debian's LVM `root` LV.
+      local _id_img="${1:-}"
+      if [ -z "${_id_img}" ]; then
+        log_error "usage: sovereign-osctl install inspect-disk <disk.qcow2|/dev/sdX>"
+        return 2
+      fi
+      local _id_h="${__REPO_ROOT}/scripts/build/lib/inspect-installed-disk.sh"
+      [ -x "${_id_h}" ] || { log_error "inspector not found: ${_id_h}"; return 1; }
+      "${_id_h}" "${_id_img}"
       ;;
 
     suggest-modules)

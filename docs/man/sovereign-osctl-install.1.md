@@ -144,6 +144,12 @@ operator use.
 **sovereign-osctl install image --plan <img> --to <dev>**
 :   Show fingerprint + plan, do nothing
 
+**sovereign-osctl install verify-iso [iso] [--distro debian|ubuntu]**
+:   Install a BUILT installer ISO to completion in a throwaway VM and assert on the resulting disk. This exists because three sovereign-os installs booted on real hardware with zero failed units and showed nothing, at 18 minutes a try, and the fourth corrupted the other NVMe's bootloader. The distro is inferred from the ISO name when not given (`*-ubuntu-installer.iso` is Ubuntu). Takes 40-60 minutes. Nothing on the host is written: the install targets a throwaway qcow2, and the destructive confirmations plus a per-run throwaway password are generated into scratch, never into the repo or the shipped ISO.
+
+**sovereign-osctl install inspect-disk <disk.qcow2|/dev/sdX>**
+:   Read an already-installed disk and report the invariants that decide whether it is usable: is there a route to a graphical seat (per-distro — `nomodeset` on Debian, a bound KMS driver on Ubuntu), did the custom kernel land, is the cockpit present, did the dashboards deploy. Read-only and unprivileged; understands both Ubuntu's plain ext4 partition and Debian's LVM `root` LV.
+
 ## bootstrap
 
 **sovereign-osctl bootstrap [arguments]**

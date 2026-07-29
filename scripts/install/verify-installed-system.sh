@@ -46,16 +46,25 @@ mkdir -p /var/log/sovereign-os
   _route="$(target_seat_route 2>/dev/null || echo nomodeset)"
   _want="$(target_seat_cmdline_option 2>/dev/null || echo nomodeset)"
 
+  # GRUB's RECOVERY entry always carries `nomodeset` (Ubuntu) or `single`
+  # (Debian) — that is what recovery mode IS, on every Debian-family grub.cfg
+  # ever generated. Grepping all `linux` lines therefore finds nomodeset on a
+  # PERFECTLY CORRECT Ubuntu install and reports it FATAL.
+  #
+  # Caught 2026-07-29 by the first full Ubuntu install: the normal entry read
+  #   ro nvidia-drm.modeset=1 quiet splash
+  # and the recovery entry read
+  #   ro recovery nomodeset dis_ucode_ldr nvidia-drm.modeset=1
+  # Only the entry the machine actually boots counts.
+  _primary_linux() {
+    grep -E "^[[:space:]]*linux[[:space:]]" /boot/grub/grub.cfg 2>/dev/null \
+      | grep -vE "[[:space:]](recovery|single)([[:space:]]|$)"
+  }
   _has_nomodeset=no
-  if grep -qE "^[[:space:]]*linux.*[[:space:]]nomodeset([[:space:]]|$)" \
-       /boot/grub/grub.cfg 2>/dev/null; then
-    _has_nomodeset=yes
-  fi
+  _primary_linux | grep -qE "[[:space:]]nomodeset([[:space:]]|$)" && _has_nomodeset=yes
   _has_want=no
-  if grep -qE "^[[:space:]]*linux.*[[:space:]]$(printf '%s' "${_want}" \
-       | sed 's/[.[\*^$]/\\&/g')([[:space:]]|$)" /boot/grub/grub.cfg 2>/dev/null; then
-    _has_want=yes
-  fi
+  _wantre="$(printf '%s' "${_want}" | sed 's/[.[\*^$]/\\&/g')"
+  _primary_linux | grep -qE "[[:space:]]${_wantre}([[:space:]]|$)" && _has_want=yes
 
   if [ "${_has_want}" = yes ]; then
     echo "  OK: ${_want} present (the ${_route} route for this distro)"
@@ -194,8 +203,10 @@ mkdir -p /var/log/sovereign-os
   # the machine will not use the driver it just installed, and the symptom
   # (framebuffer graphics, no acceleration) looks like the driver failed rather
   # than like a cmdline conflict (2026-07-27).
-  if grep -qE "^[[:space:]]*linux.*nvidia-drm\.modeset=1" /boot/grub/grub.cfg 2>/dev/null \
-     && grep -qE "^[[:space:]]*linux.*[[:space:]]nomodeset" /boot/grub/grub.cfg 2>/dev/null; then
+  # Same recovery-entry trap as above: GRUB's recovery menuentry carries
+  # nomodeset by construction, so comparing raw greps flags a CONFLICT on a
+  # correct Ubuntu install (2026-07-29).
+  if [ "${_has_want}" = yes ] && [ "${_route}" = drm ] && [ "${_has_nomodeset}" = yes ]; then
     echo "-- CONFLICT --"
     echo "  both nomodeset AND nvidia-drm.modeset=1 are on the kernel line."
     echo "  They are mutually exclusive: nomodeset wins and the NVIDIA driver"

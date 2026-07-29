@@ -297,12 +297,24 @@ if [ ! -s "${GRUBCFG}" ]; then
   bad "no /boot/grub/grub.cfg on the installed disk — nothing will boot, and"
   info "the seat invariant cannot be judged. Not reporting a route either way."
 else
+# GRUB's RECOVERY entry always carries `nomodeset` (Ubuntu) or `single`
+# (Debian) — that is what recovery mode IS, on every Debian-family grub.cfg
+# ever generated. Grepping all `linux` lines therefore finds nomodeset on a
+# PERFECTLY CORRECT Ubuntu install and reports it FATAL.
+#
+# Caught 2026-07-29 by the first full Ubuntu install: the normal entry read
+#   ro nvidia-drm.modeset=1 quiet splash
+# and the recovery entry read
+#   ro recovery nomodeset dis_ucode_ldr nvidia-drm.modeset=1
+# Only the entry the machine actually boots counts.
+  _primary_linux() {
+    grep -E '^[[:space:]]*linux[[:space:]]' "${GRUBCFG}" 2>/dev/null \
+      | grep -vE '[[:space:]](recovery|single)([[:space:]]|$)'
+  }
   _nomodeset=no
-  grep -qE '^[[:space:]]*linux.*[[:space:]]nomodeset([[:space:]]|$)' "${GRUBCFG}" 2>/dev/null \
-    && _nomodeset=yes
+  _primary_linux | grep -qE '[[:space:]]nomodeset([[:space:]]|$)' && _nomodeset=yes
   _drm=no
-  grep -qE '^[[:space:]]*linux.*[[:space:]]nvidia-drm\.modeset=1([[:space:]]|$)' "${GRUBCFG}" 2>/dev/null \
-    && _drm=yes
+  _primary_linux | grep -qE '[[:space:]]nvidia-drm\.modeset=1([[:space:]]|$)' && _drm=yes
 
   _bl=""
   for m in nouveau amdgpu i915 radeon nvidia; do

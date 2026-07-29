@@ -167,3 +167,70 @@ def test_the_inspector_handles_both_disk_layouts():
         "installer uses partman-auto/method=lvm, and the old 'largest "
         "partition' rule picked the PV and read nothing at all"
     )
+
+
+# ── reachable from the operator's actual interface ──────────────────────────
+# A harness the operator has to know a script path to run is a harness they
+# will not run. The osctl verb is what makes it part of the workflow.
+
+OSCTL = REPO_ROOT / "scripts/sovereign-osctl"
+MANPAGE_MD = REPO_ROOT / "docs/man/sovereign-osctl-install.1.md"
+
+
+def test_the_harnesses_are_reachable_from_osctl():
+    body = OSCTL.read_text(encoding="utf-8")
+    assert "verify-iso)" in body, (
+        "`sovereign-osctl install verify-iso` must exist — otherwise the only "
+        "way to verify an ISO is to know two script paths and which one "
+        "matches the distro"
+    )
+    assert "inspect-disk)" in body, (
+        "`sovereign-osctl install inspect-disk` must exist so an already-"
+        "installed disk can be read without hunting for the inspector"
+    )
+
+
+def test_the_verb_routes_to_the_right_harness_per_distro():
+    """Running the d-i harness against an Ubuntu ISO wastes an hour."""
+    body = OSCTL.read_text(encoding="utf-8")
+    for distro, path in (
+        ("ubuntu", "ubuntu-autoinstall/verify-full-install-in-vm.sh"),
+        ("debian", "installer-cdd/verify-full-install-in-vm.sh"),
+    ):
+        assert path in body, (
+            f"the verb must route {distro} to {path}"
+        )
+    assert "-ubuntu-installer.iso" in body, (
+        "the verb should infer the distro from the ISO name, so a bare "
+        "filename cannot silently select the wrong harness"
+    )
+
+
+def test_the_verb_checks_its_prerequisites_before_the_long_run():
+    body = OSCTL.read_text(encoding="utf-8")
+    seg = body[body.index("verify-iso)"):]
+    seg = seg[: seg.index("inspect-disk)")]
+    assert "qemu-system-x86_64" in seg and "OVMF" in seg, (
+        "the verb must check for qemu/OVMF up front. Discovering a missing "
+        "package 40 minutes in is the same class of waste the harness exists "
+        "to eliminate."
+    )
+
+
+def test_the_verb_is_documented():
+    md = MANPAGE_MD.read_text(encoding="utf-8")
+    for verb in ("install verify-iso", "install inspect-disk"):
+        assert verb in md, (
+            f"`{verb}` must be documented in {MANPAGE_MD.name} — a new osctl "
+            "verb carries a chain (dispatch + help + man topic)"
+        )
+
+
+def test_the_verb_is_in_the_help_text():
+    body = OSCTL.read_text(encoding="utf-8")
+    head = body[: body.index("cmd_install()")]
+    for verb in ("install verify-iso", "install inspect-disk"):
+        assert verb in head, (
+            f"`{verb}` must appear in `sovereign-osctl help`, not only in the "
+            "dispatch case — an undiscoverable verb is an unused one"
+        )
