@@ -201,9 +201,11 @@ PY
     # below is byte-identical between the two modes — no second code path to
     # drift.
     mkdir -p "${MNT}"/boot/grub "${MNT}"/etc/modprobe.d "${MNT}"/etc/sovereign-os \
+             "${MNT}"/usr/lib \
              "${MNT}"/var/lib/dpkg "${MNT}"/var/lib/sovereign-os \
              "${MNT}"/var/log/sovereign-os "${MNT}"/opt
-    for f in /boot/grub/grub.cfg /boot/grub/grubenv /etc/os-release \
+    for f in /boot/grub/grub.cfg /boot/grub/grubenv \
+             /usr/lib/os-release /etc/os-release \
              /etc/sovereign-os/active-profile \
              /var/lib/dpkg/status /var/lib/sovereign-os/dashboards-install.status \
              /var/log/sovereign-os/install-verify.log \
@@ -271,11 +273,20 @@ fi
 #           the NVIDIA driver with nvidia-drm.modeset=1 (rule 35).
 GRUBCFG="${MNT}/boot/grub/grub.cfg"
 
+# /etc/os-release is a SYMLINK to ../usr/lib/os-release on both distros, and
+# debugfs `dump` does NOT follow symlinks — it wrote a 21-byte link target and
+# the distro read back "unknown", silently defaulting to Debian. On an Ubuntu
+# disk that means reporting the CORRECT configuration as a failure. Read the
+# real file (2026-07-29, found by the first real VM install).
+_osrel=""
+for _c in "${MNT}/usr/lib/os-release" "${MNT}/etc/os-release"; do
+  [ -s "${_c}" ] && grep -q '^ID=' "${_c}" 2>/dev/null && { _osrel="${_c}"; break; }
+done
 _distro=debian
-if grep -qE '^ID=ubuntu' "${MNT}/etc/os-release" 2>/dev/null; then
+if [ -n "${_osrel}" ] && grep -qE '^ID=ubuntu' "${_osrel}" 2>/dev/null; then
   _distro=ubuntu
 fi
-_prettyid="$(sed -n 's/^PRETTY_NAME="\(.*\)"/\1/p' "${MNT}/etc/os-release" 2>/dev/null)"
+_prettyid="$(sed -n 's/^PRETTY_NAME="\(.*\)"/\1/p' "${_osrel}" 2>/dev/null)"
 info "installed distro: ${_prettyid:-unknown} (route: $([ "${_distro}" = ubuntu ] && echo DRM || echo nomodeset))"
 
 # REFUSE TO JUDGE WITHOUT EVIDENCE. On a disk with no grub.cfg at all the old
@@ -411,8 +422,14 @@ done
 # ── what the install said about itself ─────────────────────────────────────
 if [ -f "${MNT}/var/log/sovereign-os/install-verify.log" ]; then
   ok "install self-check ran (report on disk)"
+  # `grep -c` EXITS 1 when the count is zero while still printing "0", so a
+  # `|| echo 0` fallback appends a SECOND line and the arithmetic test below
+  # dies with "[: 0\n0: integer expression expected" — reported as a FAIL on an
+  # install whose self-check was clean. Same trap as 440f65b8; use `|| true` and
+  # take only the first line (2026-07-29, found by the first real VM install).
   _probs=$(grep -cE 'PROBLEM|MISSING|FAILED|CONFLICT' \
-             "${MNT}/var/log/sovereign-os/install-verify.log" 2>/dev/null || echo 0)
+             "${MNT}/var/log/sovereign-os/install-verify.log" 2>/dev/null | head -1 || true)
+  _probs="${_probs:-0}"
   [ "${_probs}" -eq 0 ] && ok "self-check found no problems" \
                         || { bad "self-check reported ${_probs} problem(s):"
                              grep -E 'PROBLEM|MISSING|FAILED|CONFLICT' \

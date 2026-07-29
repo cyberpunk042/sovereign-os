@@ -20,7 +20,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "${HERE}/../../.." && pwd)"
 PROFILE="sovereign"
 DIST="${SOVEREIGN_OS_SUITE:-trixie}"
-KDIR="${SOVEREIGN_OS_KERNEL_DEBS_DIR:-/mnt/kernel_forge/kernel-debs}"
+# Single-sourced: the two builders once had DIFFERENT hardcoded fallbacks,
+# neither of which existed on the operator's machine (2026-07-29).
+# shellcheck disable=SC1090,SC1091
+. "$(dirname "$(dirname "$(readlink -f "$0")")")/lib/kernel-debs.sh"
+KDIR="$(kernel_debs_dir)"
 WORK="${SOVEREIGN_OS_CDD_WORK:-/var/tmp/sovereign-cdd}"
 # Honour the pipeline's output dir. Hardcoding sain-01 meant any other
 # profile silently wrote its ISO into sain-01's output (2026-07-26).

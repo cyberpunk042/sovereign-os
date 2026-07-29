@@ -65,20 +65,45 @@ def test_no_command_substitution_in_the_generated_conf():
 
 
 def test_debian_cd_gets_the_env_it_needs_for_non_free_firmware():
-    """Two vars are read by debian-cd, not simple-cdd, and both were unset.
+    """CORRECTED 2026-07-29, after eight failed builds disproved this test.
 
-    NONFREE_COMPONENTS: tools/which_deb splits it into the component list only
-    when NONFREE is set. Unset, it split undef and silently DROPPED the non-free
-    components, leaving just an "uninitialized value" warning.
+    This used to assert:
 
-    DEP11: make_disc_trees.pl defaults it to 1 and then runs
-    generate_firmware_patterns against dep11/Components-<arch>.yml.gz. A
-    reprepro-built offline mirror carries no DEP-11 metadata, so the build died
-    with "generate_firmware_patterns failed: 512" (2026-07-26).
+        export NONFREE_COMPONENTS="non-free non-free-firmware"   in build.sh
+
+    Both halves of that are wrong, and each is wrong for its own reason:
+
+      * SETTING IT IN build.sh DOES NOTHING. build-simple-cdd line 119 does
+        `self.env.set("NONFREE", "")`, unconditionally clobbering the inherited
+        environment, and line 144 only flips NONFREE back on for the LITERAL
+        component `non-free` — `non-free-firmware` has been a separate component
+        since Debian 12 and never matches. which_deb then gates the non-free
+        components on a falsy $ENV{NONFREE} and the firmware is never PLACED on
+        CD1, with all five packages sitting correctly in the mirror.
+
+      * LISTING BARE `non-free` KILLS THE BUILD A DIFFERENT WAY. It does flip
+        the flag, but nothing in this profile pulls a package from it, so the
+        component mirrors EMPTY, CD1 gets no non-free/Packages.gz, and
+        simple-cdd's dose3 distcheck dies on the missing input file.
+
+    The working arrangement is profiles/sovereign.conf — read at line 121-124,
+    AFTER the clobber — with build.sh setting NEITHER variable, because
+    simple_cdd/env.py:365-367 skips a conf value that is EQUAL to the ambient
+    environment. Full derivation lives in that file and in
+    tests/lint/test_simple_cdd_actually_receives_our_component_config.py.
+
+    Verified end to end: sain-01-installer.iso carries
+    /dists/trixie/{main,contrib,non-free-firmware} and all five firmware and
+    microcode .debs, and an install from it reports `firmware-amd-graphics ok`.
     """
     text = BUILD.read_text(encoding="utf-8")
-    assert 'export NONFREE_COMPONENTS="non-free non-free-firmware"' in text, (
-        "which_deb drops the non-free components without this"
+    code = "\n".join(
+        l for l in text.splitlines() if not l.lstrip().startswith("#")
+    )
+    assert "export NONFREE" not in code, (
+        "build.sh must NOT export NONFREE/NONFREE_COMPONENTS — an ambient value "
+        "equal to sovereign.conf's makes env.py:366 skip the conf entirely and "
+        "the line-119 clobber wins. Set them ONLY in profiles/sovereign.conf."
     )
     assert "export DEP11=0" in text, (
         "debian-cd defaults DEP11=1 and needs AppStream metadata our reprepro "

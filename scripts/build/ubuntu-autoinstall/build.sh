@@ -20,7 +20,9 @@
 #   SOVEREIGN_OS_BUILD_OUT       where the .iso lands (required in-pipeline)
 #   SOVEREIGN_OS_PROFILE         profile id, names the artifact (default sain-01)
 #   SOVEREIGN_OS_SUITE           ubuntu codename (default resolute)
-#   SOVEREIGN_OS_KERNEL_DEBS_DIR custom kernel .debs (default /mnt/kernel_forge)
+#   SOVEREIGN_OS_KERNEL_DEBS_DIR custom kernel .debs (default: resolved by
+#                                lib/kernel-debs.sh — step 04's state file, then
+#                                the forge dir, then /mnt/kernel_forge)
 #   SOVEREIGN_OS_UBUNTU_ISO      pre-downloaded ISO to remaster (skips fetch)
 #   SOVEREIGN_OS_UBUNTU_ISO_CACHE cache dir (default /var/tmp/sovereign-ubuntu-iso)
 set -euo pipefail
@@ -30,7 +32,11 @@ REPO="$(cd "${HERE}/../../.." && pwd)"
 PROFILE="${SOVEREIGN_OS_PROFILE:-sain-01}"
 SUITE="${SOVEREIGN_OS_SUITE:-resolute}"
 RELEASE="26.04"
-KDIR="${SOVEREIGN_OS_KERNEL_DEBS_DIR:-/mnt/kernel_forge}"
+# Single-sourced: the two builders once had DIFFERENT hardcoded fallbacks,
+# neither of which existed on the operator's machine (2026-07-29).
+# shellcheck disable=SC1090,SC1091
+. "$(dirname "$(dirname "$(readlink -f "$0")")")/lib/kernel-debs.sh"
+KDIR="$(kernel_debs_dir)"
 OUT="${SOVEREIGN_OS_BUILD_OUT:-${REPO}/build/${PROFILE}/output}"
 # Scratch lives OUTSIDE the repo, exactly as installer-cdd does
 # (SOVEREIGN_OS_CDD_WORK defaults to /var/tmp/sovereign-cdd).

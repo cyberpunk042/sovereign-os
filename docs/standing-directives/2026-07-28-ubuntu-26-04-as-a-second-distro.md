@@ -148,8 +148,48 @@ builder inherited `build/<profile>` and wrote a perfectly good ISO one directory
 above where the flash panel looks; the step then reported "exited 0 but produced
 NO .iso" after an hour.
 
-Still unproven for Debian: the ISO has not been installed from. Everything
-downstream of the disk pick remains untested on real hardware.
+**Debian INSTALLS, verified 15/15 in a VM (2026-07-29).** The ISO was installed
+to completion on a throwaway qcow2 and the resulting disk read back from
+outside. Every fault behind the 2026-07-28 dark screen is confirmed fixed:
+
+    PASS  nomodeset IS on the installed kernel command line
+    PASS  a route to a graphical seat exists (udev can tag master-of-seat)
+    PASS  custom znver5 kernel installed (vmlinuz-6.12.0)
+    PASS  initramfs for 6.12.0 generated
+    PASS  GRUB default pinned to the custom kernel
+    PASS  display manager: sddm
+    PASS  cockpit payload present at /opt/sovereign-os
+    PASS  active-profile written (sain-01)
+    PASS  installed: dkms / build-essential / xdg-utils / sddm
+    PASS  install self-check ran, and found no problems
+    PASS  dashboards deploy: ok
+
+The installed system's own report confirms `firmware-amd-graphics ok` — the
+NONFREE fix carries all the way through to the target, not merely onto the ISO.
+`dashboards deploy: ok` closes the 2026-07-28 one-second bail.
+
+The harness is `scripts/build/installer-cdd/verify-full-install-in-vm.sh`. It
+extracts the SHIPPED preseed from the built ISO, appends VM-only answers (the
+destructive confirmations and a per-run throwaway password) into scratch, and
+proves by read-back that the remastered ISO carries them before spending an
+hour. Nothing generated is written to the repo or to a shipped artifact.
+
+The first real install immediately exposed two inspector bugs that no synthetic
+test had, both now regression-tested:
+
+  * `grep -c` EXITS 1 when the count is zero while still printing "0", so the
+    `|| echo 0` fallback appended a SECOND line and the arithmetic test died —
+    reporting a FAIL on an install whose self-check was clean. Same trap as
+    440f65b8.
+  * `/etc/os-release` is a SYMLINK to `../usr/lib/os-release` and debugfs
+    `dump` does not follow symlinks, so the distro read back "unknown" and
+    silently defaulted to Debian. On an Ubuntu disk that reports the CORRECT
+    configuration as a failure.
+
+Still unproven for Debian: the ISO has not been installed on the REAL SAIN-01,
+and a VM has no Blackwell GPU. What the VM cannot answer is whether the display
+comes up on that hardware — only that everything the installer controls is now
+correct.
 
 ## nomodeset is a DEBIAN-ONLY workaround — it is fatal on Ubuntu 26.04
 

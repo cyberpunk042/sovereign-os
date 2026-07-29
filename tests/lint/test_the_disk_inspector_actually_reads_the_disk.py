@@ -277,3 +277,65 @@ def test_the_distro_is_read_from_the_disk_not_assumed(tmp_path):
             f"the inspector must read the distro off the disk; it did not see "
             f"{want}.\n{out}"
         )
+
+
+# ── regressions from the FIRST REAL VM INSTALL (2026-07-29) ─────────────────
+# Both of these were invisible to every synthetic test above and were found only
+# by running a real Debian install to completion and reading the disk.
+
+def test_os_release_is_read_through_the_symlink(tmp_path):
+    """/etc/os-release is a SYMLINK to ../usr/lib/os-release on both distros.
+
+    debugfs `dump` does not follow symlinks: it wrote the 21-byte link target,
+    the distro read back "unknown", and the inspector silently defaulted to
+    Debian. On an Ubuntu disk that means reporting the CORRECT configuration as
+    a failure — the precise mistake the distro-awareness was added to prevent.
+    """
+    disk = build_disk(tmp_path, {
+        "/usr/lib/os-release": OSREL_UBU,     # the real file; /etc is a symlink
+        "/boot/grub/grub.cfg": GRUB_UBU,
+    })
+    _, out = inspect(disk)
+    assert "Ubuntu" in out, (
+        "the inspector did not read os-release from /usr/lib — it must not "
+        f"depend on the /etc symlink that debugfs cannot follow.\n{out}"
+    )
+    assert "unknown" not in out.split("installed distro:")[1].split("\n")[0], out
+
+
+def test_a_clean_self_check_is_not_reported_as_a_failure(tmp_path):
+    """`grep -c` EXITS 1 when the count is zero, while still printing "0".
+
+    The old `|| echo 0` fallback therefore appended a SECOND line, and the
+    arithmetic test died with "[: 0\\n0: integer expression expected" — turning
+    a clean install into a FAIL. Same trap as commit 440f65b8.
+    """
+    disk = build_disk(tmp_path, {
+        "/etc/os-release": OSREL_DEB,
+        "/usr/lib/os-release": OSREL_DEB,
+        "/boot/grub/grub.cfg": GRUB_DEB,
+        "/var/log/sovereign-os/install-verify.log":
+            "== sovereign-os install self-check ==\n  OK: nomodeset present\n",
+    })
+    _, out = inspect(disk)
+    assert "integer expression expected" not in out, (
+        f"the grep -c exit-1 trap is back.\n{out}"
+    )
+    assert "self-check found no problems" in out, (
+        f"a clean self-check log must report PASS, not a failure count.\n{out}"
+    )
+
+
+def test_real_problems_in_the_self_check_are_still_surfaced(tmp_path):
+    """The counterpart: the fix must not make the check toothless."""
+    disk = build_disk(tmp_path, {
+        "/etc/os-release": OSREL_DEB,
+        "/usr/lib/os-release": OSREL_DEB,
+        "/boot/grub/grub.cfg": GRUB_DEB,
+        "/var/log/sovereign-os/install-verify.log":
+            "  PROBLEM: nomodeset ABSENT\n  MISSING firmware-amd-graphics\n",
+    })
+    _, out = inspect(disk)
+    assert "self-check reported 2 problem(s)" in out, (
+        f"real problems in the on-disk report must still be surfaced.\n{out}"
+    )
