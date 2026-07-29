@@ -32,7 +32,17 @@ SUITE="${SOVEREIGN_OS_SUITE:-resolute}"
 RELEASE="26.04"
 KDIR="${SOVEREIGN_OS_KERNEL_DEBS_DIR:-/mnt/kernel_forge}"
 OUT="${SOVEREIGN_OS_BUILD_OUT:-${REPO}/build/${PROFILE}/output}"
-WORK="${HERE}/tmp"
+# Scratch lives OUTSIDE the repo, exactly as installer-cdd does
+# (SOVEREIGN_OS_CDD_WORK defaults to /var/tmp/sovereign-cdd).
+#
+# This was ${HERE}/tmp — inside the checkout — and build_cockpit_deb copies
+# ${REPO}/scripts into ${WORK}/cockpit-pkg/opt/sovereign-os/, so the copy landed
+# inside its own source and cp refused outright:
+#   cp: cannot copy a directory, '…/scripts', into itself,
+#       '…/scripts/build/ubuntu-autoinstall/tmp/cockpit-pkg/opt/sovereign-os/scripts'
+# Caught on the first real Ubuntu build (2026-07-29). Also keeps a 6 GB ISO
+# remaster and a multi-GB package pool out of the git working tree.
+WORK="${SOVEREIGN_OS_UBUNTU_WORK:-/var/tmp/sovereign-ubuntu-work}"
 POOL="${WORK}/pool"
 ISO_CACHE="${SOVEREIGN_OS_UBUNTU_ISO_CACHE:-/var/tmp/sovereign-ubuntu-iso}"
 

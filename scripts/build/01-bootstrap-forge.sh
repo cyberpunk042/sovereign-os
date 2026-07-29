@@ -107,23 +107,46 @@ else
 fi
 
 # ---- mount tmpfs forge ----
+# The tmpfs is a SPEED optimisation, not a correctness requirement: the kernel
+# builds perfectly well on disk, just slower (proven 2026-07-29 — a full
+# unprivileged 02→04 build on a plain directory produced a working
+# linux-image-6.12.0 in ~13 min on 24 cores).
+#
+# This used to HARD-FAIL a non-root run. That blocked an otherwise-ready build
+# for a performance choice, and — worse — it did so at step 01, so an operator
+# whose whole pipeline was ready got "re-run with sudo" and nothing else. Warn
+# and continue on disk instead; only a forge dir we cannot USE is fatal.
 if mountpoint -q "${SOVEREIGN_OS_FORGE_DIR}" 2>/dev/null; then
   log_info "tmpfs already mounted at ${SOVEREIGN_OS_FORGE_DIR}"
+elif [ -n "${SOVEREIGN_OS_FORGE_NO_TMPFS:-}" ]; then
+  log_info "SOVEREIGN_OS_FORGE_NO_TMPFS set — building on disk at ${SOVEREIGN_OS_FORGE_DIR}"
+  mkdir -p "${SOVEREIGN_OS_FORGE_DIR}"
+elif [ "$(id -u)" -ne 0 ]; then
+  log_warn "tmpfs mount needs root — continuing ON DISK at ${SOVEREIGN_OS_FORGE_DIR}"
+  log_warn "  the kernel build is correct either way, just slower without the ramdisk."
+  log_warn "  for the ramdisk: sudo scripts/build/orchestrate.sh run"
+  log_warn "  to silence this: export SOVEREIGN_OS_FORGE_NO_TMPFS=1"
+  mkdir -p "${SOVEREIGN_OS_FORGE_DIR}"
+  emit_metric sovereign_os_build_step_bootstrap_forge_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"on-disk\""
 else
   log_info "mounting tmpfs (${SOVEREIGN_OS_FORGE_SIZE}) at ${SOVEREIGN_OS_FORGE_DIR}"
-  if [ "$(id -u)" -ne 0 ]; then
-    log_error "tmpfs mount requires root; re-run with sudo"
-    state_step_fail "${STEP_ID}" "needs-root-for-mount"
-    exit 1
-  fi
   mkdir -p "${SOVEREIGN_OS_FORGE_DIR}"
   if ! mount -t tmpfs -o "size=${SOVEREIGN_OS_FORGE_SIZE},mode=0755" tmpfs "${SOVEREIGN_OS_FORGE_DIR}"; then
-    log_error "tmpfs mount failed at ${SOVEREIGN_OS_FORGE_DIR} (size=${SOVEREIGN_OS_FORGE_SIZE} — insufficient RAM, or mount blocked)"
+    log_warn "tmpfs mount failed at ${SOVEREIGN_OS_FORGE_DIR} (size=${SOVEREIGN_OS_FORGE_SIZE} — insufficient RAM, or mount blocked)"
+    log_warn "  continuing ON DISK; the build is correct, just slower."
     emit_metric sovereign_os_build_step_bootstrap_forge_total 1 \
-      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
-    state_step_fail "${STEP_ID}" "tmpfs-mount-failed"
-    exit 1
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"on-disk\""
   fi
+fi
+
+# Whatever we ended up with, it must be USABLE — that IS fatal.
+if [ ! -d "${SOVEREIGN_OS_FORGE_DIR}" ] || [ ! -w "${SOVEREIGN_OS_FORGE_DIR}" ]; then
+  log_error "forge dir ${SOVEREIGN_OS_FORGE_DIR} is not a writable directory"
+  emit_metric sovereign_os_build_step_bootstrap_forge_total 1 \
+    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+  state_step_fail "${STEP_ID}" "forge-dir-unusable"
+  exit 1
 fi
 
 # ---- verify gcc-14 reachable ----

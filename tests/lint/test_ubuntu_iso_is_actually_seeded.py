@@ -178,3 +178,39 @@ def test_the_answer_file_is_validated_before_the_expensive_repack():
         "build.sh must parse user-data before remastering — failing after a "
         "multi-GB xorriso run wastes the operator's time on a typo"
     )
+
+
+def test_every_late_command_parses_as_a_command_string():
+    """A bare `WORD: word` in unquoted YAML becomes a MAPPING, not a command.
+
+    2026-07-29, caught by parsing the user-data off the BUILT ISO: the line
+
+        - curtin in-target -- sh -c '... echo "SOVEREIGN WARNING: nomodeset ..."'
+
+    parsed as a dict, so Subiquity would have received a mapping where it
+    expects a command string. YAML-valid, silently wrong — the file loaded
+    cleanly and the build reported success.
+    """
+    import yaml
+    ud = (REPO_ROOT / "scripts" / "build" / "ubuntu-autoinstall"
+          / "autoinstall" / "user-data")
+    ai = yaml.safe_load(ud.read_text(encoding="utf-8"))["autoinstall"]
+    for key in ("late-commands", "early-commands"):
+        for i, cmd in enumerate(ai.get(key) or []):
+            assert isinstance(cmd, str), (
+                f"{key}[{i}] parsed as {type(cmd).__name__}, not a command string: "
+                f"{cmd!r}\nAn unquoted YAML scalar containing ': ' becomes a "
+                "mapping. Remove the colon or quote the whole entry."
+            )
+
+
+def test_the_packages_list_is_all_plain_strings():
+    """Same trap, same file, different key."""
+    import yaml
+    ud = (REPO_ROOT / "scripts" / "build" / "ubuntu-autoinstall"
+          / "autoinstall" / "user-data")
+    ai = yaml.safe_load(ud.read_text(encoding="utf-8"))["autoinstall"]
+    for i, p in enumerate(ai.get("packages") or []):
+        assert isinstance(p, str) and p.strip(), (
+            f"packages[{i}] is not a plain package name: {p!r}"
+        )

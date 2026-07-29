@@ -193,4 +193,10 @@ autoinstall:
     # the operator ever rebooted. It cannot run inside the installer (logind
     # there describes the LIVE session, not the target), so leave the evidence
     # on disk for the first boot to answer.
-    - curtin in-target -- sh -c 'grep -q nomodeset /boot/grub/grub.cfg || echo "SOVEREIGN WARNING: nomodeset missing from grub.cfg — sddm will hang with CanGraphical=no" > /var/log/sovereign-install-warning.log'
+    # NOTE the quoting: a bare `WORD: word` inside an unquoted YAML scalar makes
+    # the parser read the whole entry as a MAPPING, not a command string. This
+    # line once said "SOVEREIGN WARNING: nomodeset missing …" and Subiquity would
+    # have received a dict where it expects a command (caught by parsing the
+    # user-data off the built ISO, 2026-07-29). Keep colons out of the message,
+    # or quote the entire scalar.
+    - curtin in-target -- sh -c 'grep -q nomodeset /boot/grub/grub.cfg || echo "SOVEREIGN WARNING - nomodeset missing from grub.cfg, sddm will hang with CanGraphical=no" > /var/log/sovereign-install-warning.log'
