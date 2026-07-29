@@ -44,7 +44,11 @@ DEBUGFS="$(command -v debugfs || echo /sbin/debugfs)"
 if [ -x "${DEBUGFS}" ] && [ "${IMG#/dev/}" = "${IMG}" ] && command -v qemu-img >/dev/null; then
   RAW="${IMG%.qcow2}.raw"
   if [ ! -f "${RAW}" ] || [ "${IMG}" -nt "${RAW}" ]; then
-    qemu-img convert -O raw "${IMG}" "${RAW}" || { echo "qemu-img convert failed"; exit 1; }
+    # -U: this is a strictly READ-ONLY inspection, so do not take the image
+    # lock. Without it, inspecting a disk while a VM still has it open fails
+    # with 'Failed to get shared "write" lock' — which is exactly when you most
+    # want to look at it (2026-07-29).
+    qemu-img convert -U -O raw "${IMG}" "${RAW}" || { echo "qemu-img convert failed"; exit 1; }
   fi
   # Largest ext4 partition = root (the installer's `direct` layout).
   eval "$(python3 - "${RAW}" <<'PY'
@@ -171,6 +175,28 @@ if grep -q 'saved_entry=.*6\.12\.0' "${MNT}/boot/grub/grubenv" 2>/dev/null; then
 else
   info "GRUB default not pinned to 6.12.0 (stock kernel would boot)"
 fi
+
+# ── WHICH display manager actually owns the seat ───────────────────────────
+# The inspector passed 12/14 on a system that booted to a blinking cursor,
+# because it never asked THIS question. display-manager.service pointed at gdm3
+# (the desktop ISO's GNOME base); gdm3 needs a DRM device that nomodeset removes.
+# sddm-on-X11 is the configuration proven on this hardware (2026-07-29).
+_dm=""
+if [ -n "${UNPRIV:-}" ]; then
+  _dm="$(_dbg "stat /etc/systemd/system/display-manager.service" \
+         | sed -n 's/.*Fast link dest: "\(.*\)".*/\1/p')"
+else
+  _dm="$(readlink "${MNT}/etc/systemd/system/display-manager.service" 2>/dev/null)"
+fi
+case "${_dm}" in
+  *sddm*)  ok "display manager: sddm (proven config on this hardware)" ;;
+  "")      bad "NO display-manager.service — nothing will start a session" ;;
+  *gdm*)   bad "display manager is gdm3 (${_dm})."
+           info "gdm3 wants a DRM device for its Wayland greeter, and nomodeset"
+           info "removes one -> blinking cursor on black. Select sddm:"
+           info "  sh /opt/sovereign-os/scripts/install/select-display-manager.sh sddm" ;;
+  *)       bad "unexpected display manager: ${_dm}" ;;
+esac
 
 # ── the sovereign payload ───────────────────────────────────────────────────
 [ -d "${MNT}/opt/sovereign-os/scripts" ] \

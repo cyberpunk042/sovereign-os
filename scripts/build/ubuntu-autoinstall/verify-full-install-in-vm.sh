@@ -60,6 +60,11 @@ chmod u+w "${WORK}/ai/user-data"
 
 _pw="$(openssl rand -base64 18)"
 _hash="$(printf '%s' "${_pw}" | openssl passwd -6 -stdin)"
+# Record the throwaway credential in scratch. When a VM install boots to
+# something unexpected, being unable to log in and look is a needless dead end
+# (2026-07-29). Scratch only — never the repo, never the ISO.
+printf 'vmtest / %s\n' "${_pw}" > "${WORK}/vm-credentials.txt"
+chmod 0600 "${WORK}/vm-credentials.txt"
 
 python3 - "${WORK}/ai/user-data" "${_hash}" <<'PY'
 import sys, yaml

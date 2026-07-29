@@ -239,7 +239,8 @@ d-i preseed/late_command string \
       sh -c 'echo "sovereign: install self-check PROBLEMS (full report in the installed system at /var/log/sovereign-os/install-verify.log):" > /dev/tty4 2>/dev/null' || true; \
       in-target sh -c 'grep -E "PROBLEM|MISSING|FAILED|CONFLICT" /var/log/sovereign-os/install-verify.log 2>/dev/null || echo "  none"' > /dev/tty4 2>/dev/null || true; \
     sh -c 'echo "sovereign: enabling the display manager" > /dev/tty4 2>/dev/null' || true; \
-    in-target systemctl enable sddm || true
+    sh -c 'echo "sovereign: selecting sddm as THE display manager" > /dev/tty4 2>/dev/null' || true; \
+    in-target sh -c 'sh /opt/sovereign-os/scripts/install/select-display-manager.sh sddm' || in-target systemctl enable sddm || true
 
 ### Finish
 d-i finish-install/reboot_in_progress note

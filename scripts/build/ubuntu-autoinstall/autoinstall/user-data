@@ -186,7 +186,13 @@ autoinstall:
     - curtin in-target -- sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env'
     - curtin in-target -- sh -c 'sh /opt/sovereign-os/scripts/install/deploy-dashboards.sh || true'
     - curtin in-target -- sh -c 'sh /opt/sovereign-os/scripts/install/verify-installed-system.sh || true'
-    - curtin in-target -- sh -c 'systemctl enable sddm || true'
+    # `systemctl enable sddm` is NOT enough. The Ubuntu DESKTOP ISO's base
+    # install is GNOME, so display-manager.service still points at gdm3 — and
+    # enable will not steal that alias from an existing owner. gdm3 wants a DRM
+    # device for its Wayland greeter, which nomodeset removes, so the installed
+    # system booted to a blinking cursor on black: the 2026-07-26 symptom,
+    # reproduced exactly in a VM on 2026-07-29 with everything else correct.
+    - curtin in-target -- sh -c 'sh /opt/sovereign-os/scripts/install/select-display-manager.sh sddm || systemctl enable sddm || true'
 
     # ── 5. prove the seat can actually go graphical ────────────────────────
     # The one check that would have caught the 2026-07-28 black screen before
