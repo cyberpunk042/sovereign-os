@@ -132,5 +132,18 @@ log "qemu exited rc=${_rc} (-no-reboot: the VM stops when the install reboots)"
 # if debugfs is unavailable, and decides that for itself. An earlier version of
 # this script refused to inspect at all unless the nbd module was loaded, which
 # would have failed the run on an otherwise-complete install (2026-07-29).
+# A disk that never grew means the install never partitioned. Say so plainly
+# rather than letting the inspector report a wall of failures that look like
+# install bugs instead of "Subiquity stopped at a screen" (2026-07-29).
+_used=$(qemu-img info --output=json "${WORK}/disk.qcow2" 2>/dev/null \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin).get("actual-size",0))' 2>/dev/null || echo 0)
+if [ "${_used}" -lt 104857600 ]; then
+  red "the target disk is still essentially empty ($((_used/1048576)) MiB used)."
+  red "The install never wrote anything — check ${WORK}/qemu.log and take a QMP"
+  red "screendump via ${WORK}/qmp.sock. Not inspecting an empty disk."
+  exit 1
+fi
+log "target disk holds $((_used/1048576)) MiB — the install wrote something"
+
 log "inspecting the installed disk"
-"${HERE}/inspect-installed-disk.sh" "${WORK}/disk.qcow2"
+"${REPO}/scripts/build/lib/inspect-installed-disk.sh" "${WORK}/disk.qcow2"

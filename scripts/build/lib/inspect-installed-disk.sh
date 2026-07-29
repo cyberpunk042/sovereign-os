@@ -50,22 +50,137 @@ if [ -x "${DEBUGFS}" ] && [ "${IMG#/dev/}" = "${IMG}" ] && command -v qemu-img >
     # want to look at it (2026-07-29).
     qemu-img convert -U -O raw "${IMG}" "${RAW}" || { echo "qemu-img convert failed"; exit 1; }
   fi
-  # Largest ext4 partition = root (the installer's `direct` layout).
+  # Locate the root FILESYSTEM. Two layouts, and they are NOT interchangeable:
+  #
+  #   ubuntu-autoinstall  storage: {layout: {name: direct}}  -> plain ext4 part
+  #   installer-cdd       partman-auto/method = lvm          -> ext4 inside the
+  #                       `root` LV of VG `sovereign`
+  #
+  # The old "largest partition" rule silently picked the LVM PV on a Debian
+  # install. debugfs then found no superblock, ${MNT} stayed empty, and EVERY
+  # assertion below would have read nothing — the same class of false PASS that
+  # the rdump bug produced (2026-07-29).
   eval "$(python3 - "${RAW}" <<'PY'
-import json, shutil, subprocess, sys
+import json, re, shutil, subprocess, sys
+
 # sfdisk/debugfs/losetup live in /sbin, which is NOT on a normal user's PATH.
 # This is the third time that has bitten in one session; resolve explicitly
 # rather than trusting PATH (2026-07-29).
 sfdisk = (shutil.which("sfdisk") or shutil.which("sfdisk", path="/sbin:/usr/sbin")
           or "/sbin/sfdisk")
-out = subprocess.run([sfdisk, "-J", sys.argv[1]], capture_output=True, text=True).stdout
+img, SS = sys.argv[1], 512
+out = subprocess.run([sfdisk, "-J", img], capture_output=True, text=True).stdout
 parts = json.loads(out)["partitiontable"]["partitions"]
-ss = 512
-best = max(parts, key=lambda p: p.get("size", 0))
-print(f'ROOT_OFF={best["start"]*ss}')
-print(f'ROOT_LEN={best["size"]*ss}')
+cand = max(parts, key=lambda p: p.get("size", 0))
+off, ln = cand["start"] * SS, cand["size"] * SS
+
+EXT4_MAGIC = b"\x53\xef"          # at superblock offset 0x38, i.e. part+0x438
+LVM_LABEL  = b"LABELONE"          # within the first 4 sectors of a PV
+
+
+def read(o, n):
+    with open(img, "rb") as fh:
+        fh.seek(o)
+        return fh.read(n)
+
+
+def is_ext4(base):
+    return read(base + 0x438, 2) == EXT4_MAGIC
+
+
+note = ""
+if not is_ext4(off) and LVM_LABEL in read(off, 4 * SS):
+    # An LVM2 PV. Its metadata area is ASCII text near the head of the PV and
+    # carries everything needed to locate a linear LV without lvm2 or root:
+    #
+    #   extent_size = <sectors>          (VG level)
+    #   pe_start    = <sectors>          (per physical_volume)
+    #   segment1 { ... stripes = [ "pv0", <start_extent> ] }
+    #
+    #   LV byte offset in the PV = (pe_start + start_extent * extent_size) * 512
+    #
+    # Only the LINEAR/striped-with-one-stripe case is handled. Anything else
+    # (real striping, mirrors, thin pools) is reported unsupported rather than
+    # guessed at — a wrong offset reads garbage and every check fails
+    # mysteriously.
+    blob = read(off, 1 << 20).decode("latin-1")
+    def num(pat, where=blob):
+        m = re.search(pat, where)
+        return int(m.group(1)) if m else None
+
+    extent_size = num(r"extent_size\s*=\s*(\d+)")
+    pe_start = num(r"pe_start\s*=\s*(\d+)")
+
+    # Scope to the logical_volumes section. Searching the whole blob lets a
+    # lazy `.*?` start at the VG's own opening brace and run forward into an
+    # LV's fields, naming the LV after the volume group.
+    lvsec = ""
+    m = re.search(r"logical_volumes\s*\{", blob)
+    if m:
+        i, depth = m.end(), 1
+        while i < len(blob) and depth:
+            if blob[i] == "{":
+                depth += 1
+            elif blob[i] == "}":
+                depth -= 1
+            i += 1
+        lvsec = blob[m.end():i - 1]
+
+    # Prefer an LV literally named `root`; else the largest one.
+    lvs = {}
+    for m in re.finditer(r"([A-Za-z0-9_+.-]+)\s*\{", lvsec):
+        name, i, depth = m.group(1), m.end(), 1
+        while i < len(lvsec) and depth:
+            if lvsec[i] == "{":
+                depth += 1
+            elif lvsec[i] == "}":
+                depth -= 1
+            i += 1
+        body = lvsec[m.end():i - 1]
+        segs = re.search(r"segment_count\s*=\s*(\d+)", body)
+        st = re.search(r'stripes\s*=\s*\[\s*"[^"]+"\s*,\s*(\d+)', body)
+        cnt = re.search(r"extent_count\s*=\s*(\d+)", body)
+        stripe_cnt = re.search(r"stripe_count\s*=\s*(\d+)", body)
+        if (segs and segs.group(1) == "1" and st and cnt
+                and (not stripe_cnt or stripe_cnt.group(1) == "1")):
+            lvs[name] = (int(st.group(1)), int(cnt.group(1)))
+
+    pick = None
+    if "root" in lvs:
+        pick = ("root", *lvs["root"])
+    elif lvs:
+        name = max(lvs, key=lambda k: lvs[k][1])
+        pick = (name, *lvs[name])
+
+    if pick and extent_size and pe_start is not None:
+        name, start_ext, ext_cnt = pick
+        lv_off = off + (pe_start + start_ext * extent_size) * SS
+        lv_len = ext_cnt * extent_size * SS
+        if is_ext4(lv_off):
+            off, ln = lv_off, lv_len
+            sz = f"{ln // (1 << 30)}G" if ln >= (1 << 30) else f"{ln // (1 << 20)}M"
+            note = f"LVM: LV {name} ({sz})"
+        else:
+            note = f"LVM-BAD: computed offset for LV {name} is not ext4"
+    else:
+        note = "LVM-UNSUPPORTED: no single-segment linear LV found"
+elif not is_ext4(off):
+    note = "NOT-EXT4: largest partition has no ext4 superblock"
+
+print(f"ROOT_OFF={off}")
+print(f"ROOT_LEN={ln}")
+print(f"ROOT_NOTE={note!r}".replace("ROOT_NOTE='", "ROOT_NOTE='"))
 PY
 )"
+  # Never let an unresolved layout masquerade as an empty-but-healthy install.
+  case "${ROOT_NOTE:-}" in
+    LVM-BAD*|LVM-UNSUPPORTED*|NOT-EXT4*)
+      printf '  \033[31mFAIL\033[0m  cannot locate the root filesystem: %s\n' "${ROOT_NOTE}"
+      printf '        Refusing to report on a disk that was never read. Re-run as\n'
+      printf '        root to use the qemu-nbd + mount path instead.\n'
+      exit 1 ;;
+    LVM:*) printf '        %s\n' "${ROOT_NOTE}" ;;
+  esac
   # debugfs takes a FILESYSTEM, not a disk image plus an offset — it has NO -o
   # flag (usage: -b -s -f -R -d -i -n -D -V -w -z -c). An earlier version of
   # this script passed `-o ${ROOT_OFF}` and every call failed with
@@ -88,7 +203,8 @@ PY
     mkdir -p "${MNT}"/boot/grub "${MNT}"/etc/modprobe.d "${MNT}"/etc/sovereign-os \
              "${MNT}"/var/lib/dpkg "${MNT}"/var/lib/sovereign-os \
              "${MNT}"/var/log/sovereign-os "${MNT}"/opt
-    for f in /boot/grub/grub.cfg /boot/grub/grubenv /etc/sovereign-os/active-profile \
+    for f in /boot/grub/grub.cfg /boot/grub/grubenv /etc/os-release \
+             /etc/sovereign-os/active-profile \
              /var/lib/dpkg/status /var/lib/sovereign-os/dashboards-install.status \
              /var/log/sovereign-os/install-verify.log \
              /var/log/sovereign-os/dashboards-install.log; do
@@ -141,47 +257,104 @@ if [ -z "${UNPRIV:-}" ]; then
 fi
 
 # ── the seat invariant: the 2026-07-28 dark screen ──────────────────────────
+#
+# THE ROUTE IS PER-DISTRO and the wrong one is a silent total failure in BOTH
+# directions (operator decision 2026-07-29). Read the distro off the DISK — an
+# inspector that assumes Debian reports "nomodeset ABSENT" on a correct Ubuntu
+# install and sends the operator to the one change that guarantees a dark
+# screen.
+#
+#   debian  Plasma ships /usr/share/xsessions/plasmax11.desktop -> X11 on the
+#           EFI framebuffer. Route: nomodeset (udev 71-seat.rules 23/28).
+#   ubuntu  26.04's Plasma is WAYLAND-ONLY (xsessions EMPTY) and Wayland needs
+#           a DRM device, which nomodeset removes. Route: a bound KMS driver —
+#           the NVIDIA driver with nvidia-drm.modeset=1 (rule 35).
 GRUBCFG="${MNT}/boot/grub/grub.cfg"
-_nomodeset=no
-if grep -qE '^[[:space:]]*linux.*[[:space:]]nomodeset([[:space:]]|$)' "${GRUBCFG}" 2>/dev/null; then
-  _nomodeset=yes; ok "nomodeset IS on the installed kernel command line"
-else
-  bad "nomodeset ABSENT from ${GRUBCFG#${MNT}}"
-fi
-_bl=""
-for m in nouveau amdgpu i915 radeon; do
-  grep -rqE "^[[:space:]]*blacklist[[:space:]]+${m}([[:space:]]|$)" "${MNT}/etc/modprobe.d/" 2>/dev/null \
-    && _bl="${_bl} ${m}"
-done
-[ -n "${_bl}" ] && info "KMS drivers blacklisted:${_bl}"
-# Is there an X11 session to fall back to? On Debian, plasma-workspace ships
-# /usr/share/xsessions/plasmax11.desktop and X11-on-fbdev works — which is why
-# nomodeset is the proven workaround there. Ubuntu 26.04's Plasma is
-# WAYLAND-ONLY (xsessions is empty), and Wayland needs the DRM device nomodeset
-# removes. So the same flag has OPPOSITE meanings on the two distros, proven by
-# stripping nomodeset from one installed disk: cursor-on-black became the
-# Kubuntu greeter, nothing else changed (2026-07-29).
-_x11=no
-if [ -n "${UNPRIV:-}" ]; then
-  _dbg "ls -p /usr/share/xsessions" | awk -F/ 'NF>5 && $6!="." && $6!=".."{print $6}' \
-    | grep -q . && _x11=yes
-else
-  ls "${MNT}"/usr/share/xsessions/*.desktop >/dev/null 2>&1 && _x11=yes
-fi
-[ "${_x11}" = yes ] && info "X11 sessions available (nomodeset can work)" \
-                    || info "NO X11 sessions — this desktop is Wayland-only"
 
-if [ "${_nomodeset}" = no ] && [ -n "${_bl}" ]; then
-  bad "NO ROUTE TO A GRAPHICAL SEAT — nomodeset absent AND${_bl} blacklisted."
-  info "logind would report CanGraphical=no and sddm would wait forever."
-elif [ "${_nomodeset}" = yes ] && [ "${_x11}" = no ]; then
-  bad "nomodeset IS SET but there is no X11 session to use it."
-  info "Wayland-only desktop + nomodeset = no DRM = no session at all."
-  info "This is the Ubuntu 26.04 failure: the greeter never starts and the"
-  info "screen stays a blinking cursor. Remove nomodeset and let a KMS driver"
-  info "bind (on Blackwell that means the NVIDIA driver, not nouveau)."
+_distro=debian
+if grep -qE '^ID=ubuntu' "${MNT}/etc/os-release" 2>/dev/null; then
+  _distro=ubuntu
+fi
+_prettyid="$(sed -n 's/^PRETTY_NAME="\(.*\)"/\1/p' "${MNT}/etc/os-release" 2>/dev/null)"
+info "installed distro: ${_prettyid:-unknown} (route: $([ "${_distro}" = ubuntu ] && echo DRM || echo nomodeset))"
+
+# REFUSE TO JUDGE WITHOUT EVIDENCE. On a disk with no grub.cfg at all the old
+# logic fell through to "a route to a graphical seat exists" — a PASS derived
+# from two absent files. That is the same false-PASS class as the rdump bug,
+# and it is the one thing this script must never do (2026-07-29).
+if [ ! -s "${GRUBCFG}" ]; then
+  bad "no /boot/grub/grub.cfg on the installed disk — nothing will boot, and"
+  info "the seat invariant cannot be judged. Not reporting a route either way."
 else
-  ok "a route to a graphical seat exists (udev can tag master-of-seat)"
+  _nomodeset=no
+  grep -qE '^[[:space:]]*linux.*[[:space:]]nomodeset([[:space:]]|$)' "${GRUBCFG}" 2>/dev/null \
+    && _nomodeset=yes
+  _drm=no
+  grep -qE '^[[:space:]]*linux.*[[:space:]]nvidia-drm\.modeset=1([[:space:]]|$)' "${GRUBCFG}" 2>/dev/null \
+    && _drm=yes
+
+  _bl=""
+  for m in nouveau amdgpu i915 radeon nvidia; do
+    grep -rqE "^[[:space:]]*blacklist[[:space:]]+${m}([[:space:]]|$)" "${MNT}/etc/modprobe.d/" 2>/dev/null \
+      && _bl="${_bl} ${m}"
+  done
+  [ -n "${_bl}" ] && info "KMS drivers blacklisted:${_bl}"
+
+  _x11=no
+  if [ -n "${UNPRIV:-}" ]; then
+    _dbg "ls -p /usr/share/xsessions" | awk -F/ 'NF>5 && $6!="." && $6!=".."{print $6}' \
+      | grep -q . && _x11=yes
+  else
+    ls "${MNT}"/usr/share/xsessions/*.desktop >/dev/null 2>&1 && _x11=yes
+  fi
+  [ "${_x11}" = yes ] && info "X11 sessions available" \
+                      || info "NO X11 sessions — this desktop is Wayland-only"
+
+  if [ "${_distro}" = ubuntu ]; then
+    # nomodeset here is FATAL, not merely suboptimal.
+    if [ "${_nomodeset}" = yes ]; then
+      bad "nomodeset IS SET on an Ubuntu install — this is FATAL."
+      info "Plasma here is Wayland-only and Wayland needs the DRM device"
+      info "nomodeset removes, so no session can start: blinking cursor."
+      info "Proven by stripping it from one disk — luma 1e-05 -> 0.076."
+    else
+      ok "nomodeset correctly ABSENT (it is fatal on this distro)"
+    fi
+    case " ${_bl} " in
+      *" nvidia "*) bad "the nvidia module is BLACKLISTED — it cannot bind, so"
+                    info "nvidia-drm.modeset=1 is inert and there is no DRM device" ;;
+    esac
+    if [ "${_drm}" = yes ]; then
+      ok "nvidia-drm.modeset=1 on the installed kernel command line"
+    else
+      bad "nvidia-drm.modeset=1 ABSENT — no DRM device, so udev rule 35 cannot"
+      info "tag card0 master-of-seat and the Wayland session never starts"
+    fi
+    # The option is inert without the module.
+    if [ -n "${UNPRIV:-}" ]; then
+      _dbg "ls -p /var/lib/dpkg" >/dev/null 2>&1
+    fi
+    if grep -qE '^Package: nvidia-driver-[0-9]+' "${MNT}/var/lib/dpkg/status" 2>/dev/null; then
+      ok "an nvidia-driver-* package is installed (provides the DRM device)"
+    else
+      bad "NO nvidia-driver-* installed — nvidia-drm.modeset=1 will do nothing"
+    fi
+  else
+    if [ "${_nomodeset}" = yes ]; then
+      ok "nomodeset IS on the installed kernel command line"
+    else
+      bad "nomodeset ABSENT from ${GRUBCFG#${MNT}}"
+    fi
+    if [ "${_nomodeset}" = no ] && [ -n "${_bl}" ]; then
+      bad "NO ROUTE TO A GRAPHICAL SEAT — nomodeset absent AND${_bl} blacklisted."
+      info "logind would report CanGraphical=no and sddm would wait forever."
+    elif [ "${_nomodeset}" = yes ] && [ "${_x11}" = no ]; then
+      bad "nomodeset IS SET but there is no X11 session to use it."
+      info "Wayland-only desktop + nomodeset = no DRM = no session at all."
+    else
+      ok "a route to a graphical seat exists (udev can tag master-of-seat)"
+    fi
+  fi
 fi
 
 # ── the custom kernel ───────────────────────────────────────────────────────
