@@ -137,20 +137,56 @@ d-i pkgsel/update-policy select none
 popularity-contest popularity-contest/participate boolean false
 
 ### KERNEL CMDLINE for the INSTALLED system.
-### Without nomodeset, nouveau attempts KMS on the Blackwell cards, fails with
-### "unknown chipset (1b2000a1)", and no EFI framebuffer is ever established.
-### With no /dev/fb0 the X server has no device to open, so sddm never starts a
-### session and never writes an Xorg log -- a clean install, zero failed units,
-### boot completed in 1m47, and a dark screen (2026-07-26).
-### The operator's working Debian 13 on this same machine boots with
-###   root=UUID=... ro nomodeset      -> /dev/fb0 = "EFI VGA" -> X on fbdev
-### which is the ONLY display configuration proven on this hardware.
-### Mirrors SOVEREIGN_OS_KERNEL_CMDLINE in scripts/install/lib/installed-system.sh.
+### WHY nomodeset IS LOAD-BEARING -- corrected 2026-07-28 from the failed
+### install's own journal. The mechanism recorded here previously ("no EFI
+### framebuffer is ever established / with no /dev/fb0 the X server has no
+### device to open") is WRONG, and it cost an hour of the investigation:
+### efifb attaches perfectly well without nomodeset, and the failed disk's
+### journal shows `fb0: EFI VGA frame buffer device` on all three boots.
+###
+### The real chain is udev seat tagging. /usr/lib/udev/rules.d/71-seat.rules
+### grants `master-of-seat` in exactly two ways on this hardware:
+###     rule 23/28   fb[0-9]          but ONLY when IMPORT{cmdline}="nomodeset"
+###     rule 35      drm card[0-9]*   needs a KMS driver actually bound
+### The 2026-07-28 install had NEITHER: no nomodeset on the cmdline, and the
+### late_command above blacklists nouveau so no DRM node is ever created. With
+### no master-of-seat device, logind reports CanGraphical=no and sddm waits
+### forever -- it logs "Logind interface found" and never launches X. No error,
+### no failed unit, no Xorg.0.log. The box booted fully three times (18min,
+### 18min, 1.5min) and showed nothing until the operator power-cycled it.
+###
+### EITHER fault alone is survivable; the COMBINATION is what kills it. The
+### operator's working Debian on this same machine runs nomodeset WITH nouveau
+### loaded, and reports CanGraphical=yes.
+###
+### add-kernel-opts BELOW IS NOT TRUSTED. It is kept as belt-and-braces, but it
+### demonstrably did nothing: grub-installer ran 18:49:13-16 and left
+### GRUB_CMDLINE_LINUX="" on the installed disk. The cmdline is now written
+### EXPLICITLY in late_command via persist-kernel-cmdline.sh, which reads the
+### one shared definition (SOVEREIGN_OS_KERNEL_CMDLINE in
+### scripts/install/lib/installed-system.sh) so it cannot drift from this file.
 d-i debian-installer/add-kernel-opts string nomodeset
 
 ### Boot loader
 d-i grub-installer/only_debian boolean true
 d-i grub-installer/with_other_os boolean false
+### ALSO write GRUB to the EFI removable-media path (\EFI\BOOT\BOOTX64.EFI).
+###
+### The 2026-07-28 target disk's ESP was REUSED, not reformatted (the recipe's
+### $reusemethod{ }, and the filesystem LABEL is "ESP" which d-i never sets and
+### systemd-repart does). It still carried a previous mkosi appliance's boot
+### furniture -- including a systemd-boot at \EFI\BOOT\BOOTX64.EFI whose
+### loader/entries/ directory is EMPTY.
+###
+### So the firmware's fallback path led to a bootloader with nothing to boot.
+### Any NVRAM reset, BIOS update, or "Removable Device" pick from the boot menu
+### lands there and looks exactly like a destroyed installation -- the most
+### plausible mechanism behind the operator's report that installing sovereign-os
+### "corrupted" the other disk's install.
+###
+### Setting this makes the fallback OUR grub. Deliberately not reformatting the
+### ESP: on a shared disk that would destroy a co-resident OS's bootloader.
+d-i grub-installer/force-efi-extra-removable boolean true
 
 ### late_command — belt-and-suspenders wiring for the sovereign cockpit/profile,
 ### and make sure the custom kernel's initramfs is regenerated. The packages
@@ -158,6 +194,8 @@ d-i grub-installer/with_other_os boolean false
 d-i preseed/late_command string \
     sh -c 'echo "sovereign: blacklisting GPU modules (amdgpu, nouveau)" > /dev/tty4 2>/dev/null' || true; \
     in-target sh -c 'mkdir -p /etc/modprobe.d; for m in amdgpu nouveau; do echo blacklist $m > /etc/modprobe.d/sovereign-blacklist-$m.conf; done' || true; \
+      sh -c 'echo "sovereign: writing the kernel cmdline (nomodeset)" > /dev/tty4 2>/dev/null' || true; \
+      in-target sh -c 'sh /opt/sovereign-os/scripts/install/persist-kernel-cmdline.sh' || true; \
       sh -c 'echo "sovereign: setting GRUB timeout + regenerating grub.cfg" > /dev/tty4 2>/dev/null' || true; \
       in-target sh -c 'sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/" /etc/default/grub; update-grub || true' || true; \
     sh -c 'echo "sovereign: rebuilding initramfs (can take a minute)" > /dev/tty4 2>/dev/null' || true; \
@@ -171,8 +209,12 @@ d-i preseed/late_command string \
       in-target sh -c 'sh /opt/sovereign-os/scripts/install/write-apt-sources.sh trixie' || true; \
       sh -c 'echo "sovereign: deploying dashboards + cockpit (several minutes)" > /dev/tty4 2>/dev/null' || true; \
       in-target sh -c 'sh /opt/sovereign-os/scripts/install/deploy-dashboards.sh' || true; \
+      sh -c 'echo "sovereign: clearing stale bootloaders off the ESP" > /dev/tty4 2>/dev/null' || true; \
+      in-target sh -c 'rm -rf /boot/efi/EFI/Linux /boot/efi/EFI/systemd /boot/efi/loader; rm -f /boot/efi/vmlinuz-* /boot/efi/System.map-* /boot/efi/config-*' || true; \
       sh -c 'echo "sovereign: running the install self-check" > /dev/tty4 2>/dev/null' || true; \
-      in-target sh -c 'sh /opt/sovereign-os/scripts/install/verify-installed-system.sh' || true; \
+      in-target sh -c 'sh /opt/sovereign-os/scripts/install/verify-installed-system.sh; echo $? > /var/lib/sovereign-os/install-verify.rc 2>/dev/null' || true; \
+      sh -c 'echo "sovereign: install self-check PROBLEMS (full report in the installed system at /var/log/sovereign-os/install-verify.log):" > /dev/tty4 2>/dev/null' || true; \
+      in-target sh -c 'grep -E "PROBLEM|MISSING|FAILED|CONFLICT" /var/log/sovereign-os/install-verify.log 2>/dev/null || echo "  none"' > /dev/tty4 2>/dev/null || true; \
     sh -c 'echo "sovereign: enabling the display manager" > /dev/tty4 2>/dev/null' || true; \
     in-target systemctl enable sddm || true
 

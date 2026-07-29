@@ -25,12 +25,66 @@ mkdir -p /var/log/sovereign-os
     || echo "  NO grub.cfg -- nothing will boot"
   # nomodeset is the difference between a desktop and a dark screen on hardware
   # where no GPU driver binds. Call it out by name.
+  _has_nomodeset=no
   if grep -qE "^[[:space:]]*linux.*[[:space:]]nomodeset([[:space:]]|$)" \
        /boot/grub/grub.cfg 2>/dev/null; then
+    _has_nomodeset=yes
     echo "  OK: nomodeset present"
   else
-    echo "  PROBLEM: nomodeset ABSENT -- no EFI framebuffer, X cannot start"
+    # CORRECTED 2026-07-28. This used to say "no EFI framebuffer, X cannot
+    # start". That is wrong: efifb attaches fine without nomodeset, and the
+    # failed install's journal shows `fb0: EFI VGA frame buffer device` on all
+    # three boots. The wrong explanation cost an hour of the investigation.
+    echo "  PROBLEM: nomodeset ABSENT -- udev will not tag fb0 master-of-seat"
+    echo "           (71-seat.rules rules 23/28 require IMPORT{cmdline}=nomodeset),"
+    echo "           so logind reports CanGraphical=no and sddm never starts X"
   fi
+  echo
+
+  # THE INVARIANT THAT ACTUALLY MATTERS (2026-07-28).
+  #
+  # A seat only goes graphical if SOMETHING is tagged master-of-seat. On this
+  # hardware /usr/lib/udev/rules.d/71-seat.rules offers exactly two routes:
+  #     rules 23/28  fb[0-9]        only when nomodeset is on the cmdline
+  #     rule 35      drm card[0-9]* needs a KMS driver actually bound
+  # Checking nomodeset ALONE misses the case that shipped: no nomodeset AND
+  # every KMS driver blacklisted, which closes both routes at once. The install
+  # then boots perfectly, reports zero failed units, and shows nothing, because
+  # sddm sits at "Logind interface found" forever waiting for a graphical seat.
+  #
+  # Either route alone is fine. Neither is fatal, and it is invisible without
+  # this check.
+  _blacklisted=""
+  for _m in nouveau amdgpu i915 radeon nvidia; do
+    if grep -rqE "^[[:space:]]*blacklist[[:space:]]+${_m}([[:space:]]|$)" \
+         /etc/modprobe.d/ 2>/dev/null; then
+      _blacklisted="${_blacklisted} ${_m}"
+    fi
+  done
+  echo "-- graphical seat (can anything be tagged master-of-seat?) --"
+  [ -n "${_blacklisted}" ] && echo "  KMS drivers blacklisted:${_blacklisted}"
+  # A DRM node existing right now is only meaningful on a booted system; during
+  # d-i this reflects the INSTALLER's kernel, not the target's. Report it, but
+  # let the cmdline+blacklist pair drive the verdict.
+  if [ -e /dev/dri ]; then
+    echo "  /dev/dri present in this environment: $(ls /dev/dri 2>/dev/null | tr '\n' ' ')"
+  else
+    echo "  /dev/dri absent in this environment"
+  fi
+  if [ "${_has_nomodeset}" = no ] && [ -n "${_blacklisted}" ]; then
+    echo "  PROBLEM: no route to a graphical seat."
+    echo "           nomodeset is absent AND these KMS drivers are blacklisted:${_blacklisted}"
+    echo "           => no master-of-seat device => logind CanGraphical=no"
+    echo "           => sddm waits forever, no error, no Xorg.0.log, DARK SCREEN."
+    echo "           This is the 2026-07-28 failure exactly. Fix either side:"
+    echo "             sudo sh /opt/sovereign-os/scripts/install/persist-kernel-cmdline.sh"
+    echo "           or un-blacklist the GPU driver in /etc/modprobe.d/."
+  else
+    echo "  OK: at least one route to a graphical seat exists"
+  fi
+  echo
+  echo "  verify on the booted system with:"
+  echo "    loginctl show-seat seat0 -p CanGraphical    # must be yes"
   echo
 
   echo "-- display manager --"
