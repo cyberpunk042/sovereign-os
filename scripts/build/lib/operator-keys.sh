@@ -68,9 +68,27 @@ ensure_operator_keys() {
     return 0
   fi
 
-  # 3. mint. Needs root (writes under /etc) + openssl.
-  if [ "$(id -u)" -ne 0 ]; then
-    operator_keys_log "cannot mint operator keys: not root (need write access to ${SOVEREIGN_OS_KEY_DIR})"
+  # 3. mint. Needs a WRITABLE key dir + openssl.
+  #
+  # This used to test `id -u != 0` while its own message said "need write access
+  # to ${SOVEREIGN_OS_KEY_DIR}" — and SOVEREIGN_OS_KEY_DIR is overridable. So an
+  # operator who pointed it at a directory they owned was still refused, with an
+  # error that described a condition that was not the one being checked. Root is
+  # only required because the DEFAULT path is under /etc; test the thing that
+  # actually matters (2026-07-28).
+  _keydir_parent="${SOVEREIGN_OS_KEY_DIR%/*}"
+  [ -n "${_keydir_parent}" ] || _keydir_parent=/
+  if [ -d "${SOVEREIGN_OS_KEY_DIR}" ]; then
+    _keydir_writable_target="${SOVEREIGN_OS_KEY_DIR}"
+  else
+    _keydir_writable_target="${_keydir_parent}"
+  fi
+  if [ ! -w "${_keydir_writable_target}" ]; then
+    operator_keys_log "cannot mint operator keys: ${_keydir_writable_target} is not writable by $(id -un)"
+    if [ "$(id -u)" -ne 0 ]; then
+      operator_keys_log "  either run the build as root, or point the key dir somewhere you own:"
+      operator_keys_log "    export SOVEREIGN_OS_KEY_DIR=\"\${HOME}/.sovereign-os/keys\""
+    fi
     return 1
   fi
   if ! command -v openssl >/dev/null 2>&1; then

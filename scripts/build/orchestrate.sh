@@ -21,6 +21,7 @@
 #
 # Commands:
 #   run [--profile <id>] [--dry-run]   run the pipeline; resume from last state
+#   ready [--all]           can THIS HOST build this artifact/distro? (read-only)
 #   preflight [--profile <id>]   run all pre-install hooks (no build state mutated)
 #   status                  print state summary
 #   recover                 diagnose failed step + suggest next action (F-13 closure)
@@ -159,6 +160,14 @@ cmd_help() {
     /^[^#]/q
     s/^# \?//p
   ' "$0"
+}
+
+# Can this HOST complete this build, right now? Distinct from `preflight`, which
+# runs the pre-install hooks against the TARGET machine (network/storage/TPM).
+# Nothing checked the BUILD host, so every gap was found the expensive way —
+# after a 30-minute kernel compile or a multi-GB mirror download (2026-07-28).
+cmd_ready() {
+  exec "${__SCRIPT_DIR}/build-readiness.sh" "$@"
 }
 
 cmd_list() {
@@ -556,6 +565,7 @@ shift || true
 
 case "${cmd}" in
   run|"")    cmd_run "$@" ;;
+  ready)     cmd_ready "$@" ;;
   preflight) cmd_preflight "$@" ;;
   status)    cmd_status "$@" ;;
   recover)   cmd_recover "$@" ;;

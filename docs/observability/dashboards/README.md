@@ -115,6 +115,7 @@ panel queries lock to them.
 - `sovereign_os_build_step_bootstrap_forge_total{profile,result}`
 - `sovereign_os_build_step_kernel_fetch_total{profile,result}`
 - `sovereign_os_build_step_kernel_config_total{profile,result}`
+- `sovereign_os_build_step_kernel_seed_total{host,target,result}` — where the kernel `.config` seed came from (result=host-config|cross-distro|defconfig). `cross-distro` means the build host's distro differs from the target's, so the seed matches neither stock kernel — set `SOVEREIGN_OS_KERNEL_SEED_CONFIG` to choose deliberately.
 - `sovereign_os_build_step_kernel_config_missing_symbols{profile}` — count of profile-required kernel symbols dropped by `make olddefconfig` (0 = all required CONFIG_* present; >0 = the built kernel lacks declared capabilities)
 - `sovereign_os_build_step_kernel_compile_total{profile,result}`
 - `sovereign_os_build_step_substrate_total{profile,substrate,result}`

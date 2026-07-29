@@ -113,7 +113,27 @@ d-i partman/default_filesystem string ext4
 ### Base + KDE desktop + the sovereign payload (all offline, from the CD).
 ### The custom znver5 kernel + the cockpit are listed EXPLICITLY so they install
 ### regardless of any profile machinery.
-tasksel tasksel/first multiselect kde-desktop
+### `standard` FIRST, then the desktop. A stock Debian install selects
+### "standard system utilities" by default; ours selected ONLY kde-desktop,
+### so the installed box was missing 30 Priority:standard packages that every
+### ordinary Debian has -- dbus, openssh-client, perl, xz-utils, bzip2,
+### systemd-timesyncd, ncurses-term, traceroute, manpages... Some arrive
+### transitively via the KDE task; relying on that is luck, not design
+### (operator directive 2026-07-28: "its important in all versions / distros
+### too that we install standard system utilities too").
+###
+### `standard` is ARCHIVE-PRIORITY driven, not a fixed list, so it stays
+### correct as the release moves. The CD pool carries these because
+### sovereign.packages mirrors the Priority:standard set explicitly.
+tasksel tasksel/first multiselect standard, kde-desktop
+### AI/DRIVER ENABLEMENT — the tier cannot come up without these.
+### nvidia-driver-install.sh runs the .run installer with --dkms, which needs
+### dkms + a compiler + the running kernel's headers ON THE TARGET. None of
+### dkms/build-essential were installed by either distro, and the install is
+### OFFLINE, so first boot could not apt them either: the driver build would
+### simply fail and the Oracle/inference tier would never start. python3-pip
+### and python3-venv are the same story for the model toolchain
+### (huggingface_hub / transformers / vLLM). Found 2026-07-28.
 ### THE LIST THAT ACTUALLY INSTALLS. sovereign.packages drives what gets
 ### MIRRORED onto the CD; this drives what gets INSTALLED, and the two are not
 ### the same file. 37 packages were added to the mirror list and never installed
@@ -131,7 +151,8 @@ d-i pkgsel/include string sudo lvm2 grub-efi-amd64 efibootmgr network-manager ta
     rsync wget file tree lsof iputils-ping bind9-dnsutils ncdu \
     xserver-xorg-video-fbdev xserver-xorg-video-vesa amd64-microcode \
     firmware-amd-graphics firmware-nvidia-graphics firmware-linux-free \
-    firmware-misc-nonfree mokutil xdg-utils
+    firmware-misc-nonfree mokutil xdg-utils \
+    dkms build-essential pkg-config python3-pip python3-venv python3-dev
 d-i pkgsel/upgrade select none
 d-i pkgsel/update-policy select none
 popularity-contest popularity-contest/participate boolean false

@@ -64,6 +64,22 @@ autoinstall:
   #   task-kde-desktop  -> kubuntu-desktop
   #   firmware-*  (4 pkgs, non-free-firmware) -> linux-firmware  (one, main)
   packages:
+    # "standard system utilities" — Subiquity has no tasksel, so the
+    # analogue is the seed metapackage. Without it an autoinstall lands a
+    # minimal system missing what every ordinary Ubuntu has.
+    - ubuntu-standard
+
+    # AI/driver enablement: nvidia-driver-install.sh builds the module with
+    # --dkms against the custom znver5 kernel, so dkms + a compiler must be
+    # on the target. pip/venv carry the model toolchain. 26.04 ships native
+    # CUDA/ROCm, which is precisely why this box runs it.
+    - dkms
+    - build-essential
+    - pkg-config
+    - python3-pip
+    - python3-venv
+    - python3-dev
+    - ubuntu-drivers-common
     - kubuntu-desktop
     - sddm
     - konsole

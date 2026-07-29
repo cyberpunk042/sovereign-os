@@ -111,7 +111,19 @@ d-i partman-auto/expert_recipe string                                   \
               .
 
 ### Base + KDE desktop (offline, from the CD)
-tasksel tasksel/first multiselect kde-desktop
+### `standard` FIRST, then the desktop. A stock Debian install selects
+### "standard system utilities" by default; ours selected ONLY kde-desktop,
+### so the installed box was missing 30 Priority:standard packages that every
+### ordinary Debian has -- dbus, openssh-client, perl, xz-utils, bzip2,
+### systemd-timesyncd, ncurses-term, traceroute, manpages... Some arrive
+### transitively via the KDE task; relying on that is luck, not design
+### (operator directive 2026-07-28: "its important in all versions / distros
+### too that we install standard system utilities too").
+###
+### `standard` is ARCHIVE-PRIORITY driven, not a fixed list, so it stays
+### correct as the release moves. The CD pool carries these because
+### sovereign.packages mirrors the Priority:standard set explicitly.
+tasksel tasksel/first multiselect standard, kde-desktop
 ### THE LIST THAT ACTUALLY INSTALLS. sovereign.packages drives what gets
 ### MIRRORED onto the CD; this drives what gets INSTALLED, and the two are not
 ### the same file. 37 packages were added to the mirror list and never installed

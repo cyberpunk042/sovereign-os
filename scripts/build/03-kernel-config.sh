@@ -52,11 +52,44 @@ require_command make
 cd "${SOVEREIGN_OS_KERNEL_SRC}" || exit 1
 
 # ---- starting config: prefer running distro's; fall back to defconfig ----
-if [ -r "/boot/config-$(uname -r)" ] && [ -z "${SOVEREIGN_OS_FORCE_DEFCONFIG:-}" ]; then
-  log_info "seeding .config from /boot/config-$(uname -r)"
+# The seed decides thousands of symbols the profile never names, so WHERE it
+# comes from is a real correctness question — not a detail.
+#
+# Order: an explicit operator seed, then the build host's running config, then
+# defconfig. The host config is a good seed only when the host and the TARGET
+# are the same distribution: Debian and Ubuntu ship materially different kernel
+# configs (LSMs, apparmor defaults, module signing, ZFS/AppArmor toggles), and
+# seeding an Ubuntu 26.04 target from a Debian 13 host quietly produces a kernel
+# that is neither. Say so loudly rather than let it pass unnoticed — the
+# operator can then point SOVEREIGN_OS_KERNEL_SEED_CONFIG at the right file
+# (2026-07-28, when Ubuntu became a build target).
+_host_distro="$( . /etc/os-release 2>/dev/null && printf '%s' "${ID:-unknown}" )"
+_target_distro="${SOVEREIGN_OS_DISTRO:-debian}"
+
+if [ -n "${SOVEREIGN_OS_KERNEL_SEED_CONFIG:-}" ]; then
+  require_file "${SOVEREIGN_OS_KERNEL_SEED_CONFIG}"
+  log_info "seeding .config from SOVEREIGN_OS_KERNEL_SEED_CONFIG=${SOVEREIGN_OS_KERNEL_SEED_CONFIG}"
+  cp "${SOVEREIGN_OS_KERNEL_SEED_CONFIG}" .config
+elif [ -r "/boot/config-$(uname -r)" ] && [ -z "${SOVEREIGN_OS_FORCE_DEFCONFIG:-}" ]; then
+  if [ "${_host_distro}" != "${_target_distro}" ]; then
+    log_warn "CROSS-DISTRO KERNEL SEED: build host is '${_host_distro}', target is '${_target_distro}'"
+    log_warn "  seeding from /boot/config-$(uname -r) — a ${_host_distro} config for a ${_target_distro} kernel."
+    log_warn "  It builds and boots, but the two distros differ on LSM/apparmor/module-signing"
+    log_warn "  defaults, so the result matches NEITHER distro's stock kernel."
+    log_warn "  To seed deliberately:  SOVEREIGN_OS_KERNEL_SEED_CONFIG=/path/to/${_target_distro}-config"
+    log_warn "  or force a clean base:  SOVEREIGN_OS_FORCE_DEFCONFIG=1"
+    emit_metric sovereign_os_build_step_kernel_seed_total 1 \
+      "host=\"${_host_distro}\",target=\"${_target_distro}\",result=\"cross-distro\""
+  else
+    log_info "seeding .config from /boot/config-$(uname -r) (host and target are both ${_target_distro})"
+    emit_metric sovereign_os_build_step_kernel_seed_total 1 \
+      "host=\"${_host_distro}\",target=\"${_target_distro}\",result=\"host-config\""
+  fi
   cp "/boot/config-$(uname -r)" .config
 else
   log_info "seeding .config via 'make defconfig'"
+  emit_metric sovereign_os_build_step_kernel_seed_total 1 \
+    "host=\"${_host_distro}\",target=\"${_target_distro}\",result=\"defconfig\""
   make defconfig
 fi
 

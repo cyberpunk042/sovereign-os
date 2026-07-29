@@ -102,3 +102,49 @@ mokutil
 # late_command swallows the failure. Recovered from the failed disk's own
 # /var/log/sovereign-os/dashboards-install.log (2026-07-28).
 xdg-utils
+
+# ── Priority: standard ─────────────────────────────────────────────────
+# The "standard system utilities" task. tasksel selects it by priority, but
+# an OFFLINE install can only install what the CD carries -- so the pool must
+# hold them explicitly. Regenerate against a release with:
+#   grep-aptavail -FPriority standard -sPackage | awk '{print $2}' | sort -u
+apt-listchanges
+bind9-host
+bzip2
+dbus
+debian-faq
+doc-debian
+gettext-base
+groff-base
+inetutils-telnet
+intel-microcode
+krb5-locales
+libc-l10n
+liblockfile-bin
+libnss-systemd
+libpam-systemd
+libpam-wtmpdb
+manpages
+media-types
+ncurses-term
+netcat-traditional
+openssh-client
+perl
+reportbug
+systemd-timesyncd
+traceroute
+ucf
+util-linux-extra
+wamerican
+wtmpdb
+xz-utils
+
+# ── AI / driver enablement ──────────────────────────────────────────
+# dkms + a compiler are what let nvidia-driver-install.sh build the module
+# against the custom znver5 kernel on an OFFLINE first boot.
+dkms
+build-essential
+pkg-config
+python3-pip
+python3-venv
+python3-dev

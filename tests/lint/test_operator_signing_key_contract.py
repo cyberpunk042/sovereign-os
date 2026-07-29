@@ -121,11 +121,45 @@ def test_minting_is_idempotent():
 
 
 def test_declines_cleanly_when_it_cannot_mint():
-    """Non-root must fail with a reason, not a traceback or a silent pass."""
+    """When it CANNOT mint, fail with a reason — not a traceback, not silently.
+
+    This used a temp dir + non-root as the proxy for "cannot mint", because the
+    guard tested `id -u != 0`. That guard was wrong: its own message said "need
+    write access to ${SOVEREIGN_OS_KEY_DIR}", and that dir is overridable, so an
+    operator who pointed it at a directory they owned was still refused for a
+    reason that was not the one being checked (fixed 2026-07-28). The condition
+    is WRITABILITY, so test that — with an unwritable dir.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        locked = Path(td) / "locked"
+        locked.mkdir()
+        locked.chmod(0o500)                     # readable+executable, NOT writable
+        try:
+            proc = _mint_in(locked / "keys", as_root=False)
+            assert proc.returncode == 1, (
+                "an unwritable key dir must decline, not mint:\n" + proc.stdout
+            )
+            assert "not writable" in proc.stderr, proc.stderr
+            # And it must say how to proceed, not just refuse.
+            assert "SOVEREIGN_OS_KEY_DIR" in proc.stderr
+        finally:
+            locked.chmod(0o700)                 # so TemporaryDirectory can clean up
+
+
+@pytest.mark.skipif(not shutil.which("openssl"), reason="openssl not installed")
+def test_a_non_root_operator_can_mint_into_a_directory_they_own():
+    """Root is only needed because the DEFAULT key dir is under /etc.
+
+    Refusing a non-root operator who supplied their own writable SOVEREIGN_OS_KEY_DIR
+    blocked every non-root build for no reason (2026-07-28).
+    """
     with tempfile.TemporaryDirectory() as td:
         proc = _mint_in(Path(td) / "keys", as_root=False)
-        assert proc.returncode == 1
-        assert "not root" in proc.stderr
+        assert proc.returncode == 0, (
+            "a writable key dir must mint even as non-root:\n"
+            + proc.stdout + proc.stderr
+        )
+        assert "KEY=" in proc.stdout and "mok.key" in proc.stdout
 
 
 def test_emit_error_points_at_the_real_cause():

@@ -129,6 +129,12 @@ dry-run:  ## Validate the build plan without executing any step
 preflight:  ## Run pre-install hooks against the active profile
 	SOVEREIGN_OS_PROFILE=$(PROFILE) scripts/build/orchestrate.sh preflight
 
+ready:  ## Can THIS HOST build it? Checks tools/keys/kernel-debs for the selected artifact+distro
+	SOVEREIGN_OS_PROFILE=$(PROFILE) scripts/build/build-readiness.sh
+
+ready-all:  ## Build readiness for every artifact x distro path
+	SOVEREIGN_OS_PROFILE=$(PROFILE) scripts/build/build-readiness.sh --all
+
 smoke: validate l3-fast dry-run  ## Combined smoke: validate + L3 fast + orchestrator dry-run
 
 all: setup test smoke  ## Full operator-side bootstrap-and-test loop
