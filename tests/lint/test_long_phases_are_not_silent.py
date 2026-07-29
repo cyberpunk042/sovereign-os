@@ -24,6 +24,10 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CDD_BUILD = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "build.sh"
+# The cockpit .deb + its postinst moved to the shared builder on
+# 2026-07-28 (the Ubuntu autoinstall substrate ships the identical
+# package); read the postinst where it now lives.
+COCKPIT_DEB = REPO_ROOT / "scripts" / "build" / "lib" / "cockpit-deb.sh"
 PROFILES = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "profiles"
 
 
@@ -84,7 +88,7 @@ def test_apt_is_never_called_from_a_maintainer_script():
     cockpit never landed — silently, because the deploy was best-effort
     (2026-07-27).
     """
-    body = CDD_BUILD.read_text(encoding="utf-8")
+    body = COCKPIT_DEB.read_text(encoding="utf-8")
     post = body[body.index("DEBIAN/postinst"):body.index("\nPOSTINST")]
     code = "\n".join(l for l in post.splitlines() if not l.lstrip().startswith("#"))
     assert "install-gui-dashboards.sh" not in code, (

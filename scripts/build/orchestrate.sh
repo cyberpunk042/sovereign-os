@@ -53,12 +53,16 @@
 #   SOVEREIGN_OS_NONINTERACTIVE  set non-empty to skip all prompts (CI mode)
 #   SOVEREIGN_OS_SKIP_QEMU       set non-empty to skip step 09
 #   SOVEREIGN_OS_SUBSTRATE       substrate adapter (mkosi|live-build|...); resolves per Q-001 once locked
+#   SOVEREIGN_OS_DISTRO          distribution to build FROM (debian|ubuntu; default debian)
+#   SOVEREIGN_OS_SUITE           release codename; DERIVED from the distro when unset
 
 __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib/common.sh
 . "${__SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=./lib/observability.sh
 . "${__SCRIPT_DIR}/lib/observability.sh"
+# shellcheck source=./lib/distro.sh
+. "${__SCRIPT_DIR}/lib/distro.sh"
 
 : "${SOVEREIGN_OS_PROFILE:=sain-01}"
 : "${SOVEREIGN_OS_SUBSTRATE:=mkosi}"   # working hypothesis; Q-001 locks at Gate 2
@@ -75,14 +79,41 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # from the panel produced a launcher nobody wanted (2026-07-26, verbatim: "it
 # should be the normal debian 13 installer"). The live-build variant is still
 # reachable as `installer-live` for anyone who wants the TUI.
-case "${SOVEREIGN_OS_ARTIFACT}" in
-  installer)      SOVEREIGN_OS_SUBSTRATE=installer-cdd ;;
-  installer-live) SOVEREIGN_OS_SUBSTRATE=live-build ;;
+#
+# ARTIFACT alone is no longer enough: since 2026-07-28 the DISTRO axis decides
+# WHICH installer `installer` means. Ubuntu dropped debian-installer at 20.04
+# and preseed does not work with Subiquity, so the simple-cdd/d-i path is
+# Debian-only and Ubuntu gets its own substrate:
+#
+#   ARTIFACT        DISTRO=debian     DISTRO=ubuntu
+#   image           mkosi             mkosi
+#   installer       installer-cdd     ubuntu-autoinstall
+#   installer-live  live-build        live-build   (untested on Ubuntu)
+#
+# The substrate names are spelled LITERALLY here on purpose. The end-to-end
+# lint discovers what the orchestrator can select by regexing
+# `SOVEREIGN_OS_SUBSTRATE=<name>` out of this file; routing them through a
+# helper (`$(distro_installer_substrate)`) hid installer-cdd from that scan and
+# silently reduced the guard to mkosi+live-build. lib/distro.sh keeps the same
+# mapping for other callers, and
+# test_every_substrate_is_handled_end_to_end.py asserts the two agree.
+distro_validate || exit 1
+case "${SOVEREIGN_OS_ARTIFACT}:${SOVEREIGN_OS_DISTRO}" in
+  installer:ubuntu)  SOVEREIGN_OS_SUBSTRATE=ubuntu-autoinstall ;;
+  installer:*)       SOVEREIGN_OS_SUBSTRATE=installer-cdd ;;
+  installer-live:*)  SOVEREIGN_OS_SUBSTRATE=live-build ;;
 esac
+# Resolve the suite from the distro unless the operator pinned one explicitly.
+# Downstream consumers (installer-cdd/build.sh, build-target-rootfs.sh,
+# install-sovereign-root.sh) all read `${SOVEREIGN_OS_SUITE:-trixie}` — without
+# exporting the DERIVED value here, an Ubuntu build would silently debootstrap
+# trixie.
+SOVEREIGN_OS_SUITE="$(distro_suite)"
 # Steps run as child processes — without export, a sudo env_reset run leaves
 # these as unexported shell vars and every `set -u` step dies at its first
 # ${SOVEREIGN_OS_PROFILE} reference (caught by the first real build, 2026-06-10).
 export SOVEREIGN_OS_PROFILE SOVEREIGN_OS_SUBSTRATE SOVEREIGN_OS_ARTIFACT
+export SOVEREIGN_OS_DISTRO SOVEREIGN_OS_SUITE
 
 # A real build runs as ROOT (pkexec from the panel, sudo from the CLI) and imports
 # repo Python along the way — which drops root-owned __pycache__/*.pyc INTO the

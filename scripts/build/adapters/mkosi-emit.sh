@@ -61,6 +61,25 @@ profile_id = p["identity"]["id"]
 source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", "")
 debian_snapshot = os.environ.get("DEBIAN_SNAPSHOT", "")
 
+# ── the DISTRO axis (2026-07-28) ─────────────────────────────────────────
+# Distribution/Release were hardcoded to debian/trixie in BOTH mkosi.conf
+# emitters below, so `SOVEREIGN_OS_SUITE` — which several other scripts
+# already honoured — did nothing here and an Ubuntu image was impossible.
+# mkosi builds either distro natively; only the component names, the mirror
+# and the snapshot URL shape differ. Mirrors scripts/build/lib/distro.sh;
+# kept in sync by tests/lint/test_every_substrate_is_handled_end_to_end.py.
+distro = os.environ.get("SOVEREIGN_OS_DISTRO", "debian")
+suite = os.environ.get("SOVEREIGN_OS_SUITE") or (
+    "resolute" if distro == "ubuntu" else "trixie")
+# `main` alone strands the GPU/ZFS stack on BOTH distros — nvidia-*/zfs* live
+# in non-free+contrib on Debian and restricted+multiverse on Ubuntu.
+distro_components = ("main restricted universe multiverse" if distro == "ubuntu"
+                     else "main contrib non-free non-free-firmware")
+def _snapshot_mirror(snap):
+    if distro == "ubuntu":
+        return f"https://snapshot.ubuntu.com/ubuntu/{snap}"
+    return f"http://snapshot.debian.org/archive/debian/{snap}"
+
 # Build-time baking knobs (operator "ready after flash"). Off by default —
 # a lean image. When set, the postinst bakes the operator's dev tools /
 # selfdef INTO the image so a flashed box is self-contained.
@@ -164,11 +183,10 @@ def _stage_tree(src, dest, excludes):
 # was snapshot-conditional). Only the Mirror pin depends on the snapshot.
 repos_lines = [
     "[Distribution]",
-    "Repositories=main contrib non-free non-free-firmware",
+    f"Repositories={distro_components}",
 ]
 if debian_snapshot:
-    repos_lines.append(
-        f"Mirror=http://snapshot.debian.org/archive/debian/{debian_snapshot}")
+    repos_lines.append(f"Mirror={_snapshot_mirror(debian_snapshot)}")
 repos_block = "\n" + "\n".join(repos_lines) + "\n"
 
 env_block = ""
@@ -281,8 +299,8 @@ top = textwrap.dedent(f"""\
     # auto-generated from profiles/{profile_id}.yaml
     # via scripts/build/adapters/mkosi-emit.sh
     [Distribution]
-    Distribution=debian
-    Release=trixie
+    Distribution={distro}
+    Release={suite}
 
     [Output]
     Format=disk
@@ -418,8 +436,8 @@ if bake_dev_tools:
 cfg = textwrap.dedent(f"""\
     # auto-generated profile-specific config for {profile_id}
     [Distribution]
-    Distribution=debian
-    Release=trixie
+    Distribution={distro}
+    Release={suite}
 
     [Content]
     Packages=

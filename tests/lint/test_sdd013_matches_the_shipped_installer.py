@@ -20,10 +20,15 @@ ORCHESTRATE = REPO_ROOT / "scripts" / "build" / "orchestrate.sh"
 
 
 def installer_substrate() -> str:
-    """What SOVEREIGN_OS_ARTIFACT=installer actually selects."""
+    """What SOVEREIGN_OS_ARTIFACT=installer selects for the DEFAULT distro.
+
+    The arm became `installer:<distro>)` on 2026-07-28 when Ubuntu 26.04 was
+    added; `installer:*)` is the Debian/default case, which is what SDD-013
+    documents.
+    """
     text = ORCHESTRATE.read_text(encoding="utf-8")
-    m = re.search(r"^\s*installer\)\s*SOVEREIGN_OS_SUBSTRATE=([a-z0-9-]+)", text, re.M)
-    assert m, "could not read the installer substrate from orchestrate.sh"
+    m = re.search(r"^\s*installer:\*\)\s*SOVEREIGN_OS_SUBSTRATE=([a-z0-9-]+)", text, re.M)
+    assert m, "could not read the default installer substrate from orchestrate.sh"
     return m.group(1)
 
 

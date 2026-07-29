@@ -22,7 +22,11 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BUILD = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "build.sh"
+# The cockpit .deb (and its postinst) moved out of installer-cdd/build.sh into a
+# shared library on 2026-07-28, when the Ubuntu autoinstall substrate landed and
+# needed the identical package. Both installers call build_cockpit_deb(), so
+# this guard now reads the ONE place the postinst lives.
+BUILD = REPO_ROOT / "scripts" / "build" / "lib" / "cockpit-deb.sh"
 
 
 def postinst_body() -> str:

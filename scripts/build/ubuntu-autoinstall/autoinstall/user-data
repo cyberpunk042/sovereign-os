@@ -1,0 +1,177 @@
+#cloud-config
+# sovereign-os Ubuntu 26.04 LTS autoinstall — the Subiquity answer file.
+#
+# This is the Ubuntu counterpart of
+# scripts/build/installer-cdd/profiles/default.preseed. It is NOT a preseed and
+# cannot be: Ubuntu dropped debian-installer at 20.04 and Subiquity does not
+# read debconf preseeds at all. Same intent, different mechanism.
+#
+# Installs Ubuntu 26.04 + KDE Plasma (kubuntu-desktop) + the custom znver5
+# kernel + the sovereign-os cockpit onto the operator-selected disk.
+
+autoinstall:
+  version: 1
+
+  # ── WHAT STAYS INTERACTIVE (deliberate) ───────────────────────────────────
+  # `storage` and `identity` are NOT answered here, so Subiquity STOPS and asks.
+  # This mirrors default.preseed, which deliberately preseeds neither the disk
+  # pick nor the destructive write confirmations:
+  #
+  #   * storage  — an unattended installer repartitions whatever disk it picked.
+  #     The Debian path once hardcoded "skip nvme0n1" on the assumption that
+  #     nvme0n1 was the running OS; that assumption expired and the rule then
+  #     selected exactly the disk it was written to protect. A device name is
+  #     not an identity. The operator picks the target (2026-07-27).
+  #
+  #   * identity — passwords must never be baked into an image. The Debian
+  #     preseed shipped `root-password sovereign` in cleartext inside every
+  #     ISO, world-readable at /simple-cdd/default.preseed, which meant anyone
+  #     holding the image knew the root password of every box built from it.
+  #     SDD-015: secrets live in /etc/sovereign-os/*.env, never in tracked
+  #     files. Subiquity prompts instead.
+  interactive-sections:
+    - storage
+    - identity
+
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  # Offline by default — the ISO carries its own pool, same contract as the
+  # d-i path. Subiquity tolerates a missing network; it must not block on one.
+  network:
+    version: 2
+    ethernets:
+      default:
+        match:
+          name: "en*"
+        dhcp4: true
+        optional: true
+
+  apt:
+    # Ubuntu components. `main` alone strands the GPU stack: the nvidia and
+    # firmware packages live in restricted/multiverse, exactly as they live in
+    # non-free/contrib on Debian.
+    primary:
+      - arches: [amd64]
+        uri: http://archive.ubuntu.com/ubuntu
+    fallback: offline-install
+
+  # ── PACKAGES ──────────────────────────────────────────────────────────────
+  # The list that ACTUALLY installs. Kept aligned with the Debian pkgsel/include
+  # in default.preseed; the two differ only where the distros genuinely differ
+  # (see scripts/build/lib/distro.sh):
+  #   task-kde-desktop  -> kubuntu-desktop
+  #   firmware-*  (4 pkgs, non-free-firmware) -> linux-firmware  (one, main)
+  packages:
+    - kubuntu-desktop
+    - sddm
+    - konsole
+    - dolphin
+    - firefox
+    - sudo
+    - lvm2
+    - grub-efi-amd64
+    - efibootmgr
+    - network-manager
+    - python3
+    - python3-yaml
+    - python3-jsonschema
+    - prometheus-node-exporter
+    - curl
+    - git
+    - ca-certificates
+    - nano
+    - initramfs-tools
+    - locales
+    - console-setup
+    - keyboard-configuration
+    - systemd-resolved
+    - netbase
+    - iproute2
+    - less
+    - xterm
+    - tmux
+    - vim
+    - bash-completion
+    - man-db
+    - pciutils
+    - usbutils
+    - nvme-cli
+    - smartmontools
+    - lshw
+    - dmidecode
+    - lm-sensors
+    - htop
+    - rsync
+    - wget
+    - file
+    - tree
+    - lsof
+    - iputils-ping
+    - bind9-dnsutils
+    - ncdu
+    - xserver-xorg-video-fbdev
+    - xserver-xorg-video-vesa
+    - amd64-microcode
+    - linux-firmware
+    - mokutil
+
+  # Subiquity's own kernel for the INSTALLED system; the custom znver5
+  # linux-image-6.12.0 is dpkg-installed from the ISO pool in late-commands and
+  # pinned as the GRUB default there.
+  updates: security
+  shutdown: reboot
+
+  late-commands:
+    # ── 1. the sovereign payload from the ISO's own pool (offline) ──────────
+    - mkdir -p /target/opt/sovereign-os /target/etc/sovereign-os
+    - cp -a /cdrom/sovereign/pool/. /target/tmp/ 2>/dev/null || true
+    - curtin in-target -- sh -c 'dpkg -i /tmp/sovereign-os-cockpit_*.deb 2>/dev/null || apt-get -f install -y || true'
+    - curtin in-target -- sh -c 'dpkg -i /tmp/linux-image-6.12.0_*.deb /tmp/linux-headers-6.12.0_*.deb 2>/dev/null || apt-get -f install -y || true'
+
+    # ── 2. KERNEL CMDLINE — write it EXPLICITLY. ───────────────────────────
+    # Do NOT rely on an installer's "add kernel options" mechanism. The Debian
+    # path set `d-i debian-installer/add-kernel-opts string nomodeset` and it
+    # silently did nothing: grub-installer ran and left GRUB_CMDLINE_LINUX=""
+    # (verified on the installed disk, 2026-07-28). The install then booted
+    # fine, three times, to a black screen nobody could log into.
+    #
+    # WHY nomodeset IS LOAD-BEARING, and it is not the reason you would guess.
+    # /usr/lib/udev/rules.d/71-seat.rules tags a device `master-of-seat` in
+    # exactly two ways on this hardware:
+    #     rule 23/28  fb[0-9]  — but ONLY when IMPORT{cmdline}="nomodeset"
+    #     rule 35     drm card[0-9]* — needs a KMS driver bound
+    # With no nomodeset AND nouveau blacklisted, neither fires, logind reports
+    # CanGraphical=no, and sddm waits forever for a graphical seat: it logs
+    # "Logind interface found" and never launches X. There is no error, no
+    # failed unit, and no Xorg.0.log — the machine is healthy and blank.
+    #
+    # So: set nomodeset, and do NOT blacklist the only KMS driver. Either one
+    # alone is survivable; the combination is what produces the black screen.
+    - curtin in-target -- sh -c 'sed -i "s/^GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"nomodeset\"/" /etc/default/grub'
+    - curtin in-target -- sh -c 'grep -q "^GRUB_CMDLINE_LINUX=" /etc/default/grub || echo "GRUB_CMDLINE_LINUX=\"nomodeset\"" >> /etc/default/grub'
+    - curtin in-target -- sh -c 'sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/" /etc/default/grub'
+    - curtin in-target -- sh -c 'update-grub || true'
+    - curtin in-target -- sh -c 'update-initramfs -u -k all || true'
+
+    # ── 3. pin the custom znver5 kernel as the GRUB default ────────────────
+    # Ubuntu 26.04 ships a newer kernel than 6.12.0, and GRUB orders by version,
+    # so without this the box boots the stock kernel. The stock one stays in the
+    # menu as a fallback — which is the whole reason a bad custom kernel is
+    # recoverable rather than a reinstall.
+    - curtin in-target -- sh -c 'sh /opt/sovereign-os/scripts/install/set-grub-default-kernel.sh 6.12.0 || true'
+
+    # ── 4. profile + cockpit ───────────────────────────────────────────────
+    - curtin in-target -- sh -c 'echo sain-01 > /etc/sovereign-os/active-profile'
+    - curtin in-target -- sh -c 'echo SOVEREIGN_OS_PROFILE=sain-01 > /etc/sovereign-os/active-profile.env'
+    - curtin in-target -- sh -c 'sh /opt/sovereign-os/scripts/install/deploy-dashboards.sh || true'
+    - curtin in-target -- sh -c 'sh /opt/sovereign-os/scripts/install/verify-installed-system.sh || true'
+    - curtin in-target -- sh -c 'systemctl enable sddm || true'
+
+    # ── 5. prove the seat can actually go graphical ────────────────────────
+    # The one check that would have caught the 2026-07-28 black screen before
+    # the operator ever rebooted. It cannot run inside the installer (logind
+    # there describes the LIVE session, not the target), so leave the evidence
+    # on disk for the first boot to answer.
+    - curtin in-target -- sh -c 'grep -q nomodeset /boot/grub/grub.cfg || echo "SOVEREIGN WARNING: nomodeset missing from grub.cfg — sddm will hang with CanGraphical=no" > /var/log/sovereign-install-warning.log'

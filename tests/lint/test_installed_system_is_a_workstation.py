@@ -328,8 +328,18 @@ def test_installer_artifact_builds_the_standard_debian_installer():
     by hand. So pressing BUILD gave the operator "a weird launcher".
     """
     orch = ORCHESTRATE.read_text(encoding="utf-8")
-    assert "installer)      SOVEREIGN_OS_SUBSTRATE=installer-cdd" in orch, (
-        "ARTIFACT=installer must build the standard debian-installer ISO"
+    # The arm gained a DISTRO dimension on 2026-07-28 (`installer:<distro>)`),
+    # because Ubuntu has no debian-installer and needs Subiquity instead. The
+    # operator's requirement is unchanged for Debian: ARTIFACT=installer must
+    # still mean the standard d-i ISO, which is now the `installer:*` default.
+    assert re.search(r"installer:\*\)\s+SOVEREIGN_OS_SUBSTRATE=installer-cdd", orch), (
+        "ARTIFACT=installer must build the standard debian-installer ISO "
+        "(the default arm, for every distro that is not ubuntu)"
+    )
+    assert re.search(r"installer:ubuntu\)\s+SOVEREIGN_OS_SUBSTRATE=ubuntu-autoinstall", orch), (
+        "ARTIFACT=installer on Ubuntu must build the standard Ubuntu installer "
+        "(Subiquity/autoinstall) — Ubuntu dropped debian-installer at 20.04, so "
+        "silently handing it the d-i path would rebuild the 2026-07-26 failure"
     )
     assert "installer-live" in orch, (
         "the legacy live-build TUI must stay reachable under its own name, not "

@@ -607,6 +607,13 @@ lifecycle:
   supported_substrate:
     - "mkosi >= 23.0"
     - "live-build >= 20240101"
+  # Which distributions this profile can be built FROM (2026-07-28). The kernel
+  # block needs no per-distro variant: kernel.source is kernel.org-stable and
+  # packaging is bindeb-pkg, so the custom znver5 build is distro-agnostic, and
+  # the KCFLAGS are derived from the CPU, not the OS.
+  supported_distro:
+    - "debian 13"
+    - "ubuntu 26.04"
   supported_kernel:
     - "6.12.x"
     - "6.13.x"

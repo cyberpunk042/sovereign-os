@@ -11,6 +11,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${__SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=./lib/observability.sh
 . "${__SCRIPT_DIR}/lib/observability.sh"
+# shellcheck source=./lib/distro.sh
+. "${__SCRIPT_DIR}/lib/distro.sh"
 
 STEP_ID="07-image-build"
 
@@ -60,6 +62,8 @@ fi
 inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" \
   "artifact=${SOVEREIGN_OS_ARTIFACT:-image}" \
   "substrate=${SOVEREIGN_OS_SUBSTRATE:-mkosi}" \
+  "distro=${SOVEREIGN_OS_DISTRO:-debian}" \
+  "suite=$(distro_suite)" \
   "repo_sig=${repo_sig}")"
 
 if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
@@ -340,6 +344,68 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     fi
     ;;
 
+  ubuntu-autoinstall)
+    # THE standard Ubuntu installer ISO: the official 26.04 LTS image remastered
+    # with an autoinstall answer file, driven by Subiquity.
+    #
+    # This is a SEPARATE arm from installer-cdd rather than a shared one because
+    # almost none of that arm applies: xorriso is happy as root (simple-cdd is
+    # not, hence all the runuser plumbing above), and the pool-completeness check
+    # reads a preseed, which Subiquity does not use. What IS shared is the part
+    # that was learned the hard way — proving a NEW artifact exists before
+    # reporting success.
+    if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+      log_warn "SOVEREIGN_OS_DRY_RUN — skipping the Ubuntu autoinstall ISO build"
+      emit_build_metric skip
+      state_step_dry_run "${STEP_ID}"
+      exit 0
+    fi
+    _out="${SOVEREIGN_OS_BUILD_OUT}/output"
+    mkdir -p "${_out}"
+    require_command xorriso "sudo apt install xorriso — or run scripts/install/bootstrap-host.sh"
+    _uai="${SOVEREIGN_OS_ROOT}/scripts/build/ubuntu-autoinstall/build.sh"
+    [ -x "${_uai}" ] || { log_error "missing ${_uai}"; state_step_fail "${STEP_ID}" "ubuntu-autoinstall-missing"; exit 1; }
+
+    # Fingerprint FIRST — exit status is not evidence of an artifact. An earlier
+    # build "finished with exit 0", left a 5-hour-old ISO untouched, and the
+    # operator flashed that stale file twice (2026-07-26). Same guard here.
+    _iso_before=""
+    _iso_path="$(find "${_out}" -maxdepth 1 -name '*-ubuntu-installer.iso' -type f 2>/dev/null | head -1)"
+    [ -n "${_iso_path}" ] && _iso_before="$(stat -c '%Y:%s' "${_iso_path}" 2>/dev/null || true)"
+
+    if env "SOVEREIGN_OS_BUILD_OUT=${_out}" \
+           "SOVEREIGN_OS_PROFILE=${SOVEREIGN_OS_PROFILE}" \
+           "SOVEREIGN_OS_DISTRO=${SOVEREIGN_OS_DISTRO}" \
+           "SOVEREIGN_OS_SUITE=$(distro_suite)" \
+           bash "${_uai}" 2>&1 \
+         | tee "${SOVEREIGN_OS_LOG_DIR}/ubuntu-autoinstall-${SOVEREIGN_OS_BUILD_ID}.log"; then
+      _iso_now="$(find "${_out}" -maxdepth 1 -name '*-ubuntu-installer.iso' -type f -newermt '-6 hours' 2>/dev/null | head -1)"
+      if [ -z "${_iso_now}" ]; then
+        log_error "the Ubuntu builder exited 0 but produced NO *-ubuntu-installer.iso in ${_out}"
+        log_error "  do NOT flash — anything already there is from an earlier build."
+        emit_build_metric fail
+        state_step_fail "${STEP_ID}" "ubuntu-autoinstall-no-artifact"
+        exit 1
+      fi
+      _iso_after="$(stat -c '%Y:%s' "${_iso_now}" 2>/dev/null || true)"
+      if [ -n "${_iso_before}" ] && [ "${_iso_after}" = "${_iso_before}" ]; then
+        log_error "the .iso in ${_out} is UNCHANGED (${_iso_now})"
+        log_error "  the build claimed success without writing a new image — do NOT flash it."
+        emit_build_metric fail
+        state_step_fail "${STEP_ID}" "ubuntu-autoinstall-stale-artifact"
+        exit 1
+      fi
+      log_info "Ubuntu autoinstall ISO produced: ${_iso_now} ($(du -h "${_iso_now}" 2>/dev/null | cut -f1))"
+      emit_build_metric success
+    else
+      rc=${PIPESTATUS[0]}
+      log_error "Ubuntu autoinstall ISO build failed (rc=${rc})"
+      emit_build_metric fail
+      state_step_fail "${STEP_ID}" "ubuntu-autoinstall-failed-${rc}"
+      exit 1
+    fi
+    ;;
+
   live-build)
     stage_kernel_debs "${SOVEREIGN_OS_BUILD_OUT}/config/packages.chroot"
     cd "${SOVEREIGN_OS_BUILD_OUT}" || exit 1
@@ -405,6 +471,7 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
   mkosi)         output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
   live-build)    output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;  # ISO moved here above
   installer-cdd) output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
+  ubuntu-autoinstall) output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;
   # A substrate missing from THIS case left output_dir unset and the step
   # died on "output_dir: unbound variable" AFTER building a good 1.2G ISO.
   *)             output_dir="${SOVEREIGN_OS_BUILD_OUT}/output" ;;

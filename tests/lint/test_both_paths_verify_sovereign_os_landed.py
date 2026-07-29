@@ -88,7 +88,9 @@ def test_the_postinst_cannot_abort_the_install():
     An unguarded `mkdir -p /var/log/sovereign-os` under `set -e` did exactly
     that — caught by the execution test before it shipped.
     """
-    build = (REPO_ROOT / "scripts" / "build" / "installer-cdd" / "build.sh").read_text(encoding="utf-8")
+    # The cockpit postinst moved to the shared builder on 2026-07-28 (the Ubuntu
+    # autoinstall substrate ships the same .deb); read it where it now lives.
+    build = (REPO_ROOT / "scripts" / "build" / "lib" / "cockpit-deb.sh").read_text(encoding="utf-8")
     post = build[build.index("DEBIAN/postinst"):build.index("\nPOSTINST")]
     for line in post.splitlines():
         s = line.strip()

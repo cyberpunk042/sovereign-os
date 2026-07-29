@@ -159,14 +159,114 @@ def test_step_05_always_writes_the_env_handoff():
     exited 0 and the operator flashed the stale image (2026-07-26).
     """
     text = PREPARE.read_text(encoding="utf-8")
-    case_start = text.index("  installer-cdd)")
-    branch = text[case_start:text.index("\n  *)", case_start)]
+    # Match the ARM rather than one literal substrate name: the installer
+    # substrates share a single arm (`installer-cdd|ubuntu-autoinstall)`) since
+    # Ubuntu 26.04 was added, and pinning the old literal made this guard
+    # disappear the moment the arm was renamed (2026-07-28).
+    m = re.search(r"^  (installer-cdd[a-z0-9|-]*)\)", text, re.M)
+    assert m, "step 05 must still have an installer arm that exits early"
+    branch = text[m.start():text.index("\n  *)", m.start())]
     assert "env-substrate.sh" in branch, (
-        "the installer-cdd branch exits early and MUST write the env handoff "
+        "the installer branch exits early and MUST write the env handoff "
         "first, or step 07 inherits the previous run's substrate"
     )
     assert branch.index("env-substrate.sh") < branch.index("exit 0"), (
         "the handoff must be written BEFORE the early exit"
+    )
+    # The handoff must carry the DISTRO too. It exports over the orchestrator's
+    # values in step 07, so a handoff naming only the substrate would let a
+    # stale suite leak into the build — the same failure, one variable over.
+    assert "SOVEREIGN_OS_DISTRO" in branch and "SOVEREIGN_OS_SUITE" in branch, (
+        "the env handoff must export DISTRO and SUITE alongside SUBSTRATE"
+    )
+
+
+DISTRO_LIB = REPO_ROOT / "scripts" / "build" / "lib" / "distro.sh"
+
+
+def test_the_orchestrator_and_the_distro_lib_agree_on_the_installer():
+    """Two places name the per-distro installer; they must not drift.
+
+    orchestrate.sh spells the substrates LITERALLY (selectable_substrates()
+    regexes them out of that file, so routing them through a helper would hide
+    them and silently shrink every parametrised test above). lib/distro.sh
+    keeps the same mapping for other callers. Duplication is deliberate —
+    this asserts the copies agree (2026-07-28).
+    """
+    orch = ORCHESTRATE.read_text(encoding="utf-8")
+    lib = DISTRO_LIB.read_text(encoding="utf-8")
+    for distro, substrate in (("ubuntu", "ubuntu-autoinstall"),
+                              ("debian", "installer-cdd")):
+        assert re.search(rf"installer:{distro}\)\s+SOVEREIGN_OS_SUBSTRATE={substrate}", orch) \
+            or re.search(rf"installer:\*\)\s+SOVEREIGN_OS_SUBSTRATE={substrate}", orch), (
+            f"orchestrate.sh must map ARTIFACT=installer + DISTRO={distro} to {substrate}"
+        )
+        assert substrate in lib, (
+            f"lib/distro.sh's distro_installer_substrate() must still know {substrate}"
+        )
+
+
+MKOSI_EMIT = REPO_ROOT / "scripts" / "build" / "adapters" / "mkosi-emit.sh"
+
+
+def test_the_mkosi_emitter_agrees_with_the_distro_lib():
+    """mkosi-emit.sh re-encodes the distro map in Python; it must not drift.
+
+    The emitter is a bash wrapper around an embedded Python heredoc, so it
+    cannot source lib/distro.sh — it carries its own copy of the suite defaults
+    and the component lists. That is a duplication, and this repo's recurring
+    failure is a fix landing in one copy and not the other. Assert both copies
+    still say the same thing (2026-07-28).
+    """
+    lib = DISTRO_LIB.read_text(encoding="utf-8")
+    emit = MKOSI_EMIT.read_text(encoding="utf-8")
+    for suite in ("trixie", "resolute"):
+        assert suite in lib and suite in emit, (
+            f"suite {suite!r} is missing from "
+            f"{'lib/distro.sh' if suite not in lib else 'mkosi-emit.sh'}"
+        )
+    for components in ("main contrib non-free non-free-firmware",
+                       "main restricted universe multiverse"):
+        assert components in lib and components in emit, (
+            f"apt components {components!r} differ between lib/distro.sh and "
+            "mkosi-emit.sh — one distro would build against the wrong archive "
+            "sections and lose the GPU/ZFS stack"
+        )
+    for host in ("snapshot.debian.org", "snapshot.ubuntu.com"):
+        assert host in lib and host in emit, (
+            f"snapshot host {host!r} differs between lib/distro.sh and mkosi-emit.sh"
+        )
+
+
+@pytest.mark.parametrize("step", ("05-substrate-prepare", "07-image-build",
+                                  "08-image-sign", "09-image-verify"))
+def test_distro_is_part_of_the_step_cache_key(step: str):
+    """Switching DISTRO must invalidate every step that produces an artifact.
+
+    Exactly the ARTIFACT hazard one axis over. Debian and Ubuntu builds share a
+    profile and a repo, so without distro in the key, flipping the panel's
+    distro selector would leave inputs_hash unchanged, every step would report
+    "already completed with matching inputs", and the operator would flash a
+    Debian ISO believing it was Ubuntu. That precise shape burned two days in
+    2026-07-26 with ARTIFACT; it is not getting a second turn.
+    """
+    text = (REPO_ROOT / "scripts" / "build" / f"{step}.sh").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    start = next((i for i, l in enumerate(lines)
+                  if 'inputs_hash="$(state_inputs_hash' in l), None)
+    assert start is not None, f"{step} has no inputs_hash"
+    # Walk to the statement's own closing `)"` — step 05's key nests `$( … )`,
+    # so a regex that stops at the first `)"` reads only half the key.
+    block, depth = [], 0
+    for line in lines[start:]:
+        block.append(line)
+        depth += line.count("$(") - line.count(')"')
+        if depth <= 0 and len(block) > 1:
+            break
+    joined = "\n".join(block)
+    assert "distro=" in joined, (
+        f"{step}'s inputs_hash omits the distro — switching debian↔ubuntu would "
+        f"be a cache HIT and the step would skip, producing nothing"
     )
 
 

@@ -21,7 +21,10 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BUILD = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "build.sh"
+# The cockpit .deb + its postinst moved to the shared builder on
+# 2026-07-28 (the Ubuntu autoinstall substrate ships the identical
+# package); read the postinst where it now lives.
+BUILD = REPO_ROOT / "scripts" / "build" / "lib" / "cockpit-deb.sh"
 
 
 def sandboxed_env(tmp_path: Path) -> dict:

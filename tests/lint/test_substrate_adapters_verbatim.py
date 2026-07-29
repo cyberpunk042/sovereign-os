@@ -53,20 +53,35 @@ def test_both_adapters_exist():
 
 
 def test_mkosi_distribution_debian():
-    """SDD-003 verbatim: substrate baseline is Debian Trixie."""
+    """SDD-003 verbatim: the DEFAULT substrate baseline is Debian Trixie.
+
+    Distribution/Release stopped being literals on 2026-07-28 when the DISTRO
+    axis landed (Ubuntu 26.04 became selectable). The SDD-003 guarantee is
+    unchanged and still worth enforcing — it is just now a guarantee about the
+    DEFAULT rather than about a hardcode, so assert on the resolution logic
+    instead of on a string that no longer appears.
+    """
     body = _read(MKOSI_EMIT)
-    assert "Distribution=debian" in body, (
-        "mkosi-emit.sh missing Distribution=debian (SDD-003 verbatim — "
-        "operator-named substrate baseline)"
+    assert 'distro = os.environ.get("SOVEREIGN_OS_DISTRO", "debian")' in body, (
+        "mkosi-emit.sh must default SOVEREIGN_OS_DISTRO to debian (SDD-003 "
+        "verbatim — operator-named substrate baseline). A build that sets "
+        "nothing must still be Debian."
+    )
+    assert "Distribution={distro}" in body, (
+        "mkosi.conf must emit Distribution= from the resolved distro"
     )
 
 
 def test_mkosi_release_trixie():
+    """The Debian baseline release stays trixie when nothing is selected."""
     body = _read(MKOSI_EMIT)
-    assert "Release=trixie" in body, (
-        "mkosi-emit.sh missing Release=trixie (SDD-003 verbatim — "
+    assert '"resolute" if distro == "ubuntu" else "trixie"' in body, (
+        "mkosi-emit.sh missing the trixie default (SDD-003 verbatim — "
         "operator-named Debian release; drift to bookworm would lose "
         "kernel 6.12+ for Blackwell/Zen 5 native support)"
+    )
+    assert "Release={suite}" in body, (
+        "mkosi.conf must emit Release= from the resolved suite"
     )
 
 

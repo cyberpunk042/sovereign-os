@@ -2436,6 +2436,13 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       <h2>2 · Substrate &amp; posture <span class="tag">how it's assembled</span><span class="spacer"></span><span class="tw">▾</span></h2>
       <div class="body">
         <div class="kv">
+          <span title="Which distribution the image is built FROM. Debian 13 is the default and the proven path. Ubuntu 26.04 LTS 'Resolute Raccoon' is the alternate — same custom znver5 kernel and the same sovereign-os cockpit, but a different installer: Ubuntu dropped debian-installer at 20.04, so ARTIFACT=installer builds a remastered Subiquity/autoinstall ISO instead of a simple-cdd d-i ISO.">Distro</span>
+          <span>
+            <select id="distro">
+              <option value="debian">Debian 13 · trixie (default)</option>
+              <option value="ubuntu">Ubuntu 26.04 LTS · resolute</option>
+            </select>
+          </span>
           <span>Substrate</span>
           <span>
             <select id="substrate">
@@ -2662,7 +2669,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       </div>
         <div class="bgrp"><span>artifact</span></div>
       <div class="bkey" style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.5rem" title="Build the STANDARD debian-installer ISO (simple-cdd): the normal Debian 13 install experience, fully offline (the CD carries its own package mirror), installing Debian 13 + KDE + the custom znver5 kernel + the sovereign-os cockpit onto the target NVMe. This replaced the old live-build ISO, whose bespoke whiptail TUI was not what an operator means by an installer.">
-        <label class="chk" style="margin:0"><input type="checkbox" id="build-installer"> 🖴 build INSTALLER <span class="muted small">(standard Debian 13 installer ISO — normal d-i install onto the NVMe, offline; vs the whole-disk appliance)</span></label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="build-installer"> 🖴 build INSTALLER <span class="muted small" id="installer-hint">(standard Debian 13 installer ISO — normal d-i install onto the NVMe, offline; vs the whole-disk appliance)</span></label>
       </div>
         <div class="bgrp"><span>target machine</span></div>
         <!-- TARGET MACHINE. Everything else configures WHAT is baked in; this
@@ -3003,6 +3010,7 @@ D.hw = D.hw || BAKED.hw; D.tuning = D.tuning || BAKED.tuning;
 var state = {
   target: "image",   // "image" = compose a build · "host" = manage the running OS
   profile: (D.profiles.find(function(p){return p.default;}) || D.profiles[0]).id,
+  distro: "debian",  // debian|ubuntu — decides the suite AND which installer ARTIFACT=installer builds
   substrate: "mkosi", secureboot: "signed", encryption: "none",
   snapshot: "20260515T000000Z",
   kcflags: "", microcode: "amd", tuning: "inference-burst",
@@ -3476,6 +3484,7 @@ function buildCommand(){
     "SOURCE_DATE_EPOCH=$(date +%s) \\",
     "DEBIAN_SNAPSHOT=" + (document.getElementById("snapshot").value || state.snapshot) + " \\",
     "SOVEREIGN_OS_PROFILE=" + state.profile + " \\",
+    "SOVEREIGN_OS_DISTRO=" + state.distro + " \\",
     "SOVEREIGN_OS_SUBSTRATE=" + state.substrate + " \\",
   ];
   if (state.secureboot !== "disabled"){
@@ -3635,6 +3644,7 @@ function buildOverlay(){
   L.push("whitelabel:");
   L.push("  profile: " + state.whitelabel);
   L.push("");
+  L.push("distro: " + state.distro + (state.distro === "ubuntu" ? " (26.04 LTS resolute)" : " (13 trixie)"));
   L.push("substrate: " + state.substrate);
   L.push("secure_boot: " + state.secureboot);
   L.push("root_encryption: " + state.encryption);
@@ -3755,11 +3765,27 @@ function regenerate(){
 }
 
 /* ───────────────────────── wiring ───────────────────────── */
-["substrate","secureboot","encryption"].forEach(function(id){
+["distro","substrate","secureboot","encryption"].forEach(function(id){
   document.getElementById(id).addEventListener("change", function(e){
-    state[id==="secureboot"?"secureboot":id]=e.target.value; regenerate();
+    state[id==="secureboot"?"secureboot":id]=e.target.value;
+    if (id === "distro") syncInstallerHint();
+    regenerate();
   });
 });
+
+/* The INSTALLER checkbox builds a DIFFERENT thing per distro — d-i via
+   simple-cdd on Debian, Subiquity+autoinstall on Ubuntu (which has no d-i at
+   all since 20.04). Saying "Debian 13 installer" while Ubuntu is selected is
+   exactly the kind of mislabel that got a TUI ISO flashed twice in 2026-07-26,
+   so the hint tracks the selection. */
+function syncInstallerHint(){
+  var el = document.getElementById("installer-hint");
+  if (!el) return;
+  el.textContent = state.distro === "ubuntu"
+    ? "(standard Ubuntu 26.04 installer ISO — Subiquity + autoinstall onto the NVMe; vs the whole-disk appliance)"
+    : "(standard Debian 13 installer ISO — normal d-i install onto the NVMe, offline; vs the whole-disk appliance)";
+}
+syncInstallerHint();
 document.getElementById("snapshot").addEventListener("input", regenerate);
 document.getElementById("kcflags").addEventListener("input", regenerate);
 
@@ -3846,6 +3872,7 @@ function runAction(action){
                           bake_firstboot: document.getElementById("bake-firstboot").checked,
                           bake_root_modules: document.getElementById("bake-root_modules").checked,
                           build_installer: (document.getElementById("build-installer")||{}).checked || false,
+                          distro: state.distro,
                           // TARGET MACHINE. Sent only when the operator filled something in, so an
                           // untouched panel produces exactly the build it always did. The single
                           // exception is module_blacklist: "none" means blacklist NOTHING, which is

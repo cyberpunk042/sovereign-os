@@ -1333,9 +1333,20 @@ class Handler(BaseHTTPRequestHandler):
                          "expected": _pattern}))
                 bake_env[_env] = _val
 
+            # Which DISTRO to build FROM (debian|ubuntu). Validated here rather
+            # than trusted: this value selects a substrate downstream, and an
+            # unknown one would resolve to the Debian installer while the panel
+            # claimed Ubuntu. Anything unrecognised falls back to the default.
+            _distro = str(body.get("distro") or "debian").strip().lower()
+            if _distro not in ("debian", "ubuntu"):
+                _distro = "debian"
+            bake_env["SOVEREIGN_OS_DISTRO"] = _distro
+
             # Artifact shape: build a bootable INSTALLER ISO (installs the mutable
             # OS onto an internal disk) instead of the whole-disk appliance image.
-            # orchestrate.sh forces the live-build substrate for installer.
+            # orchestrate.sh maps ARTIFACT+DISTRO to the substrate: installer-cdd
+            # (d-i) for Debian, ubuntu-autoinstall (Subiquity) for Ubuntu, which
+            # has had no debian-installer since 20.04.
             if body.get("build_installer"):
                 bake_env["SOVEREIGN_OS_ARTIFACT"] = "installer"
             # Bootstrap root password. mkosi-emit HARD-FAILS without it (an

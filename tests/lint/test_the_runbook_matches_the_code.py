@@ -28,7 +28,9 @@ def selectable_artifacts() -> set[str]:
     """ARTIFACT values orchestrate.sh actually dispatches on."""
     text = ORCHESTRATE.read_text(encoding="utf-8")
     block = text[text.index("SOVEREIGN_OS_ARTIFACT"):]
-    return set(re.findall(r"^\s{2,}(installer-live|installer|image)\)", block, re.M))
+    # The arms became `installer:<distro>)` on 2026-07-28 when the DISTRO axis
+    # landed; the ARTIFACT name is the part before the colon.
+    return set(re.findall(r"^\s{2,}(installer-live|installer|image)[:)]", block, re.M))
 
 
 def test_every_selectable_artifact_is_documented():
