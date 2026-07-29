@@ -307,13 +307,15 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     # reported "the .iso ... is UNCHANGED" while naming
     # sain-01-ubuntu-installer.iso (2026-07-29). It refused correctly — the
     # guard did its job — but the message pointed at the wrong file.
-    _iso_glob='sain-01-installer.iso'
-    case "${SOVEREIGN_OS_PROFILE}" in
-      sain-01) : ;;
-      *)       _iso_glob="${SOVEREIGN_OS_PROFILE}-installer.iso" ;;
-    esac
+    # Derived from the SINGLE naming rule (lib/distro.sh), which always puts
+    # the distro in the name. The old form hardcoded sain-01 with a special
+    # case bolted on, and could not distinguish the two distros at all.
+    # The legacy pre-2026-07-29 Debian name is still matched so a build that
+    # predates the rule is not reported missing.
+    _iso_glob="$(distro_artifact_basename "${SOVEREIGN_OS_PROFILE}" installer).iso"
+    _iso_glob_legacy="${SOVEREIGN_OS_PROFILE}-installer.iso"
     _iso_before=""
-    _iso_path="$(find "${_out}" -maxdepth 1 -name "${_iso_glob}" -type f 2>/dev/null | head -1)"
+    _iso_path="$(find "${_out}" -maxdepth 1 \( -name "${_iso_glob}" -o -name "${_iso_glob_legacy}" \) -type f 2>/dev/null | head -1)"
     [ -n "${_iso_path}" ] && _iso_before="$(stat -c '%Y:%s' "${_iso_path}" 2>/dev/null || true)"
 
     if "${_run_cdd[@]}" 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/installer-cdd-${SOVEREIGN_OS_BUILD_ID}.log"; then
@@ -454,10 +456,16 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       # Place the ISO where flash discovers it (build/<profile>/output/), named
       # by artifact so the flash panel can tell installer from OS image.
       mkdir -p "${SOVEREIGN_OS_BUILD_OUT}/output"
-      _iso="$(ls -1 "${SOVEREIGN_OS_BUILD_OUT}"/*.iso 2>/dev/null | head -1 || true)"
+      # live-build writes its ISO at the top of BUILD_OUT with its own name;
+      # output/ may already hold the OTHER distro's artifact, so restrict the
+      # search to the build root and never descend into output/.
+      _iso="$(find "${SOVEREIGN_OS_BUILD_OUT}" -maxdepth 1 -name '*.iso' -type f 2>/dev/null | head -1 || true)"
       if [ -n "${_iso}" ]; then
-        _suffix=""; [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ] && _suffix="-installer"
-        _dest="${SOVEREIGN_OS_BUILD_OUT}/output/${SOVEREIGN_OS_PROFILE}${_suffix}.iso"
+        # Distro-qualified: live-build can target EITHER distro, and this used
+        # to emit <profile>-installer.iso — byte-identical in name to the
+        # Debian d-i ISO, so one silently overwrote the other (2026-07-29).
+        _dest="${SOVEREIGN_OS_BUILD_OUT}/output/$(distro_artifact_basename \
+          "${SOVEREIGN_OS_PROFILE}" "${SOVEREIGN_OS_ARTIFACT:-image}").iso"
         mv -f "${_iso}" "${_dest}"
         log_info "iso → ${_dest}"
       fi

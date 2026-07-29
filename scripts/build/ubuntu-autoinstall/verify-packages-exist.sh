@@ -45,19 +45,44 @@ if [ "${got}" -eq 0 ]; then
 fi
 
 python3 - "${UD}" "${WORK}" "${SUITE}" <<'PY'
-import glob, gzip, sys, yaml
+import glob, gzip, sys, zlib, yaml
 
 ud, work, suite = sys.argv[1], sys.argv[2], sys.argv[3]
 
+# A FETCH FAILURE IS NOT A VERDICT ABOUT THE ARCHIVE.
+#
+# 2026-07-29: a partially-downloaded restricted/Packages.gz made gzip raise
+# EOFError("Compressed file ended before the end-of-stream marker was
+# reached"). EOFError is NOT an OSError, so it escaped the handler below,
+# crashed this script, and build.sh reported
+#     "the autoinstall names package(s) Ubuntu 26.04 does not have"
+# about nvidia-driver-570-open, which Ubuntu absolutely does have. The
+# diagnosis pointed at the package list instead of at the download.
+#
+# The subtler half: even when a truncated file reads PARTIALLY, the names it
+# did yield can push the total past the sanity threshold while the component
+# holding the wanted package is the one that got cut. A partial index must
+# therefore invalidate the whole run, not merely shrink it.
 have = set()
+unreadable = []
 for f in glob.glob(f"{work}/*.gz"):
     try:
         with gzip.open(f, "rt", errors="replace") as fh:
             for line in fh:
                 if line.startswith("Package: "):
                     have.add(line[9:].strip())
-    except OSError as e:
-        print(f"verify-packages: {f}: {e}", file=sys.stderr)
+    except (OSError, EOFError, zlib.error) as e:
+        # gzip.BadGzipFile subclasses OSError; EOFError and zlib.error do not.
+        unreadable.append(f"{f}: {type(e).__name__}: {e}")
+
+if unreadable:
+    print("verify-packages: could not read an index COMPLETELY:", file=sys.stderr)
+    for u in unreadable:
+        print(f"    {u}", file=sys.stderr)
+    print("verify-packages: a partial index cannot prove a package is absent — "
+          "skipping verification rather than blaming the package list",
+          file=sys.stderr)
+    raise SystemExit(0)
 
 if len(have) < 1000:
     print(f"verify-packages: index looks truncated ({len(have)} names) — skipping",

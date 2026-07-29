@@ -2838,8 +2838,16 @@ function renderImages() {
     o.value = im.path;
     // Label the kind so "flash the installer" is unmistakable. list_images
     // already sorts installers first, so the newest installer is the default.
-    const tag = im.kind === "installer" ? "🖴 INSTALLER · " : "💿 OS image · ";
-    o.textContent = `${tag}${im.profile}/${im.name} · ${im.size_human}`;
+    // NAME THE DISTRO. Both installer ISOs end in "-installer.iso", so this
+    // row used to read "🖴 INSTALLER · sain-01/<name>" for BOTH Debian and
+    // Ubuntu — telling them apart meant reading the filename carefully, and
+    // the list default-selects the NEWEST installer, which after a Ubuntu
+    // build is Ubuntu even if the operator had just built Debian. Flashing
+    // the wrong distro to an internal disk is not recoverable
+    // (operator, 2026-07-29).
+    const tag = im.kind === "installer" ? "🖴 INSTALLER" : "💿 OS image";
+    const dl = im.distro_label || im.distro || "";
+    o.textContent = `${tag} · ${dl} · ${im.profile}/${im.name} · ${im.size_human}`;
     sel.appendChild(o);
   });
   // default-select the first installer if any (list order guarantees it's first)
@@ -2850,7 +2858,17 @@ function renderImages() {
 }
 function showImageMeta() {
   const im = DATA.images.find(i => i.path === el("image").value);
-  el("image-meta").textContent = im ? (im.sha256 ? "sha256 " + im.sha256.slice(0, 16) + "…" : "(no recorded sha256)") : "";
+  // Repeat the distro next to the selection, and say so loudly when BOTH are
+  // present — that is exactly when a mis-pick is possible.
+  let meta = "";
+  if (im) {
+    const distros = new Set(DATA.images.map(i => i.distro).filter(Boolean));
+    meta = (im.distro_label ? "▶ " + im.distro_label + "  ·  " : "")
+         + (im.sha256 ? "sha256 " + im.sha256.slice(0, 16) + "…" : "(no recorded sha256)")
+         + (distros.size > 1 ? "  ·  ⚠ artifacts for " + distros.size
+              + " distros are present — check the label above before arming" : "");
+  }
+  el("image-meta").textContent = meta;
   updateArm();
 }
 

@@ -137,6 +137,27 @@ def host_caps() -> dict:
     }
 
 
+# Mirrors artifact_distro_of() in scripts/build/lib/distro.sh and the copy in
+# flash-api.py; kept in step by
+# tests/lint/test_artifacts_never_collide_across_distros.py.
+#
+# The .raw case is the one that actually collided: mkosi emitted
+# `<profile>.raw` for BOTH distros, so the second appliance build silently
+# overwrote the first and nothing on disk said which distro it was. The name is
+# now `<profile>-<distro>.raw`; legacy `<profile>.raw` predates the Ubuntu
+# substrates and is Debian by construction.
+_DISTRO_LABELS = {"debian": "Debian 13", "ubuntu": "Ubuntu 26.04"}
+
+
+def _artifact_distro(name: str) -> tuple[str, str]:
+    stem = name.rsplit(".", 1)[0]
+    if "-ubuntu-installer." in name or stem.endswith("-ubuntu"):
+        d = "ubuntu"
+    else:
+        d = "debian"
+    return d, _DISTRO_LABELS.get(d, d)
+
+
 def list_images() -> list[dict]:
     out = []
     bd = REPO / "build"
@@ -150,9 +171,11 @@ def list_images() -> list[dict]:
         outdir = raw.parent
         vmlinuz = next(iter(outdir.glob("*.vmlinuz")), None)
         initrd = next(iter(outdir.glob("*.initrd")), None)
+        distro, distro_label = _artifact_distro(raw.name)
         out.append({
             "path": str(raw.relative_to(REPO)), "abs": str(raw), "name": raw.name,
             "profile": outdir.parent.name, "size_human": _human(st.st_size),
+            "distro": distro, "distro_label": distro_label,
             "mtime": int(st.st_mtime),
             "direct_boot": bool(vmlinuz and initrd),
             "vmlinuz": str(vmlinuz.relative_to(REPO)) if vmlinuz else "",

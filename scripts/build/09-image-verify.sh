@@ -12,6 +12,8 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${__SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=./lib/observability.sh
 . "${__SCRIPT_DIR}/lib/observability.sh"
+# shellcheck source=./lib/distro.sh
+. "${__SCRIPT_DIR}/lib/distro.sh"
 
 STEP_ID="09-image-verify"
 
@@ -60,7 +62,14 @@ fi
 # stale appliance .raw and report a false pass. Confirm the ISO exists; the real
 # UEFI boot test is manual (boot it under OVMF, or flash + boot).
 if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
-  iso="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 -name '*.iso' -type f 2>/dev/null | head -1)"
+  # MATCH THIS DISTRO'S ARTIFACT, not any *.iso. Both distros write into the
+  # same output/ dir, so a bare glob let a Debian build "verify" the Ubuntu ISO
+  # and report success for an artifact it never produced (2026-07-29).
+  # The legacy pre-2026-07-29 Debian name is still accepted.
+  _v_glob="$(distro_artifact_basename "${SOVEREIGN_OS_PROFILE}" installer).iso"
+  iso="$(find "${SOVEREIGN_OS_IMAGE_DIR}" -maxdepth 1 \
+           \( -name "${_v_glob}" -o -name "${SOVEREIGN_OS_PROFILE}-installer.iso" \) \
+           -type f 2>/dev/null | head -1)"
   if [ -n "${iso}" ] && [ -s "${iso}" ]; then
     log_info "artifact=installer — ISO present ($(du -h "${iso}" | cut -f1)): ${iso}"
 

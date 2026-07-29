@@ -2926,7 +2926,12 @@ function renderImages() {
   DATA.images.forEach(im => {
     const o = document.createElement("option");
     o.value = im.path;
-    o.textContent = `${im.profile}/${im.name} · ${im.size_human}` + (im.direct_boot ? "" : " (no direct-boot artifacts)");
+    // Name the distro. mkosi emitted `<profile>.raw` for BOTH distros, so this
+    // row could be either and the second build had silently overwritten the
+    // first (operator, 2026-07-29). The name now carries the distro; show it.
+    const dl = im.distro_label || im.distro || "";
+    o.textContent = (dl ? `${dl} · ` : "") + `${im.profile}/${im.name} · ${im.size_human}`
+      + (im.direct_boot ? "" : " (no direct-boot artifacts)");
     o.dataset.direct = im.direct_boot ? "1" : "";
     sel.appendChild(o);
   });

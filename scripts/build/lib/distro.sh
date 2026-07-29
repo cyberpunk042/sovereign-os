@@ -263,3 +263,55 @@ distro_gpu_driver_package() {
     *)      echo "" ;;
   esac
 }
+
+# ---- artifact naming: the distro is ALWAYS in the filename -----------------
+#
+# WHY (operator question, 2026-07-29: "make sure we won't confuse which is
+# which at the Emulator or Flash to Device panel select"). The naming was
+# ad-hoc per substrate and two of the four SILENTLY OVERWROTE each other:
+#
+#   installer-cdd       sain-01-installer.iso          (debian)
+#   ubuntu-autoinstall  sain-01-ubuntu-installer.iso   (ubuntu)
+#   live-build          sain-01-installer.iso          <- EITHER distro
+#   mkosi               sain-01.raw                    <- EITHER distro
+#
+# So a Ubuntu live-build clobbered the Debian d-i ISO, and a Ubuntu appliance
+# clobbered the Debian one, with no error and no way to tell afterwards. The
+# two installer ISOs only avoided collision because the Ubuntu builder happened
+# to insert "-ubuntu-" — a coincidence, not a rule. Panel labelling cannot fix
+# a file that was overwritten; the NAME has to carry the distro.
+#
+# It also fixes the discovery bug that already bit: step 07 matched a bare
+# `*.iso` and reported "the .iso is UNCHANGED" while naming the OTHER distro's
+# image (2026-07-29).
+#
+#   distro_artifact_basename <profile> <artifact>
+#     image      -> <profile>-<distro>
+#     installer  -> <profile>-<distro>-installer
+#
+# Ubuntu's existing installer name already matches. Only Debian's changes, and
+# artifact_distro_of() below still recognises the legacy Debian name so an ISO
+# built before this rule is not orphaned in the flash panel.
+distro_artifact_basename() {
+  _dab_profile="${1:?profile required}"
+  _dab_artifact="${2:-image}"
+  case "${_dab_artifact}" in
+    installer|installer-live) printf '%s-%s-installer\n' "${_dab_profile}" "${SOVEREIGN_OS_DISTRO}" ;;
+    *)                        printf '%s-%s\n' "${_dab_profile}" "${SOVEREIGN_OS_DISTRO}" ;;
+  esac
+}
+
+# The inverse: which distro is this artifact? Used by the flash/emulate APIs to
+# label what the operator is about to write to a disk.
+#
+# LEGACY: `<profile>-installer.iso` with no distro segment is a Debian d-i ISO
+# built before this rule. Report it as debian rather than "unknown" — it is
+# unambiguous, and calling a real artifact unidentifiable helps nobody.
+artifact_distro_of() {
+  case "${1:?artifact name required}" in
+    *-ubuntu-installer.*|*-ubuntu.*) echo "ubuntu" ;;
+    *-debian-installer.*|*-debian.*) echo "debian" ;;
+    *-installer.*)                   echo "debian" ;;   # legacy, pre-2026-07-29
+    *)                               echo "debian" ;;
+  esac
+}

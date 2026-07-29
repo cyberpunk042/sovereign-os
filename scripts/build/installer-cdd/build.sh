@@ -25,6 +25,13 @@ DIST="${SOVEREIGN_OS_SUITE:-trixie}"
 # shellcheck disable=SC1090,SC1091
 . "$(dirname "$(dirname "$(readlink -f "$0")")")/lib/kernel-debs.sh"
 KDIR="$(kernel_debs_dir)"
+# The artifact NAME must carry the distro, or a live-build/mkosi run of the
+# other distro silently overwrites this ISO and the flash panel offers two
+# indistinguishable "INSTALLER" rows (2026-07-29).
+# shellcheck disable=SC1090,SC1091
+SOVEREIGN_OS_DISTRO="${SOVEREIGN_OS_DISTRO:-debian}" \
+  . "$(dirname "$(dirname "$(readlink -f "$0")")")/lib/distro.sh"
+_ISO_NAME="$(distro_artifact_basename "${SOVEREIGN_OS_PROFILE:-sain-01}" installer).iso"
 WORK="${SOVEREIGN_OS_CDD_WORK:-/var/tmp/sovereign-cdd}"
 # Honour the pipeline's output dir. Hardcoding sain-01 meant any other
 # profile silently wrote its ISO into sain-01's output (2026-07-26).
@@ -303,12 +310,12 @@ GRUBADD
 xorriso -osirrox on -indev "${_iso}" -cpx /boot/grub/grub.cfg "${WORK}/grub.cfg.orig" 2>/dev/null || {
   echo "‼ could not read grub.cfg from the ISO" >&2; exit 1; }
 cat "${WORK}/grub.cfg.orig" "${WORK}/grub-add.cfg" > "${WORK}/grub.cfg.new"
-_iso_final="${WORK}/sain-01-installer.iso"
+_iso_final="${WORK}/${_ISO_NAME}"
 rm -f "${_iso_final}"
 xorriso -indev "${_iso}" -outdev "${_iso_final}" \
   -boot_image any replay -overwrite on \
   -map "${WORK}/grub.cfg.new" /boot/grub/grub.cfg 2>&1 | tail -4
 [ -s "${_iso_final}" ] || { echo "‼ re-master produced no ISO" >&2; exit 1; }
 
-cp -v "${_iso_final}" "${OUT}/sain-01-installer.iso"
-log "installer ISO → ${OUT}/sain-01-installer.iso ($(du -h "${OUT}/sain-01-installer.iso" | cut -f1))"
+cp -v "${_iso_final}" "${OUT}/${_ISO_NAME}"
+log "installer ISO → ${OUT}/${_ISO_NAME} ($(du -h "${OUT}/${_ISO_NAME}" | cut -f1))"

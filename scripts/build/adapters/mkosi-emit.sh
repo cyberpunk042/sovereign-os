@@ -305,7 +305,15 @@ top = textwrap.dedent(f"""\
     [Output]
     Format=disk
     OutputDirectory=output
-    Output={profile_id}
+    # DISTRO-QUALIFIED (2026-07-29). This was `Output={profile_id}`, so a
+    # Debian appliance and an Ubuntu appliance both wrote build/<p>/output/
+    # <p>.raw — the second build silently OVERWROTE the first, and afterwards
+    # nothing on disk said which distro the file was. The flash and emulate
+    # panels offered one row that could be either.
+    #
+    # Mirrors distro_artifact_basename() in scripts/build/lib/distro.sh:
+    #   image -> <profile>-<distro>
+    Output={profile_id}-{distro}
     # 512-byte logical sectors — NOT mkosi's default. Without this, mkosi 25.x
     # formatted the ESP as a FAT32 with BPB bytes-per-sector=4096 while the GPT
     # stayed on 512-byte LBAs. Most UEFI firmware FAT drivers implement 512-byte

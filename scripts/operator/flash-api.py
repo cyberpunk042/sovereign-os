@@ -282,6 +282,34 @@ def _human(n: int) -> str:
     return f"{n}B"
 
 
+# Mirrors artifact_distro_of() in scripts/build/lib/distro.sh. Kept in step by
+# tests/lint/test_artifacts_never_collide_across_distros.py.
+#
+# WHY THE PANEL NEEDS THIS (operator, 2026-07-29: "make sure we won't confuse
+# which is which at the Emulator or Flash to Device panel select"). Both
+# installer ISOs end in `-installer.iso`, so both rendered as
+#     🖴 INSTALLER · sain-01/<name> · <size>
+# distinguishable only by reading the filename closely — and the panel
+# DEFAULT-SELECTS the newest installer, which after a Ubuntu build is the
+# Ubuntu one even if the operator had just built Debian. Flashing the wrong
+# distro to an internal disk is not a recoverable mistake.
+_DISTRO_LABELS = {"debian": "Debian 13", "ubuntu": "Ubuntu 26.04"}
+
+
+def _artifact_distro(name: str) -> tuple[str, str]:
+    """(id, human label) for an artifact filename."""
+    if "-ubuntu-installer." in name or name.rsplit(".", 1)[0].endswith("-ubuntu"):
+        d = "ubuntu"
+    elif "-debian-installer." in name or name.rsplit(".", 1)[0].endswith("-debian"):
+        d = "debian"
+    else:
+        # Legacy, pre-2026-07-29: `<profile>-installer.iso` / `<profile>.raw`
+        # carried no distro segment. Those are Debian by construction — the
+        # Ubuntu substrates did not exist yet. Say so rather than "unknown".
+        d = "debian"
+    return d, _DISTRO_LABELS.get(d, d)
+
+
 def list_images() -> list[dict]:
     """Built artifacts under build/*/output, newest first, with size + sha256.
     Two kinds: `installer` (a bootable *-installer.iso that installs the mutable
@@ -310,12 +338,15 @@ def list_images() -> list[dict]:
             except OSError:
                 pass
         kind = "installer" if art.name.endswith("-installer.iso") else "image"
+        distro, distro_label = _artifact_distro(art.name)
         out.append({
             "path": str(art.relative_to(REPO)),
             "abs": str(art),
             "name": art.name,
             "profile": art.parent.parent.name,
             "kind": kind,
+            "distro": distro,
+            "distro_label": distro_label,
             "size_bytes": st.st_size,
             "size_human": _human(st.st_size),
             "mtime": int(st.st_mtime),
