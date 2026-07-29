@@ -68,11 +68,18 @@ Neither is superseded — this generalises them to a second distribution.
 
 ## Not yet proven (do not claim otherwise)
 
-No Ubuntu ISO has been built. The `xorriso` remaster, the
-`autoinstall ds=nocloud` boot argument and Subiquity's acceptance of the shipped
-`user-data` are unverified until a real build runs. `live-build` on Ubuntu is
-wired but untested (Ubuntu uses `livecd-rootfs`). Secure Boot needs review before
-`secureboot=signed` is trusted on Ubuntu — step 08 assumes the Debian shim layout.
+*(Superseded in part — see "Build status, recorded 2026-07-29" below. The
+`xorriso` remaster, the `autoinstall ds=nocloud` boot argument and Subiquity's
+acceptance of the answer file are now PROVEN by a real build and an A/B boot.)*
+
+Still unproven: the install has never been allowed to RUN to completion, so
+nothing downstream of the disk pick is verified — the `late-commands`, the custom
+kernel landing via `dpkg -i`, `nomodeset` reaching the installed `grub.cfg`, or
+`loginctl show-seat seat0 -p CanGraphical` returning `yes` on the installed
+system. `live-build` on Ubuntu is wired but untested (Ubuntu uses
+`livecd-rootfs`). Secure Boot needs review before `secureboot=signed` is trusted
+on Ubuntu — step 08 skips MOK signing for an ISO and relies on the distro's
+signed shim chain.
 
 ## Cross-references
 
@@ -81,3 +88,47 @@ wired but untested (Ubuntu uses `livecd-rootfs`). Secure Boot needs review befor
 - Shared cockpit package: `scripts/build/lib/cockpit-deb.sh` (both installers)
 - Panel: `webapp/build-configurator/index.html` (`#distro`), `scripts/operator/build-configurator-api.py`
 - SDD: `docs/sdd/013-installer-experience.md` (2026-07-28 amendment)
+
+## Build status, recorded 2026-07-29 (first real builds)
+
+**Ubuntu 26.04 — BUILDS AND BOOTS, autoinstall proven.**
+`sain-01-ubuntu-installer.iso` (6.2 GB) built end to end, and an A/B boot under
+OVMF proved the seed is consumed: the stock 26.04 ISO waits at "Choose your
+language" (step 1 of 17) while ours auto-advances to "Disk setup" (step 11) and
+stops there — exactly the `interactive-sections: [storage, identity]` contract.
+That satisfies the 2026-07-26 "must be the normal installer" requirement: it IS
+Ubuntu's own installer, and it still stops for the disk pick.
+
+Three bugs the real build found that no lint had:
+  1. step 01 hard-failed a non-root run on a tmpfs mount — a PERFORMANCE
+     optimisation blocking an otherwise-ready build. Now warns and builds on disk.
+  2. `WORK="${HERE}/tmp"` put scratch inside the checkout, so packaging the repo
+     copied a directory into itself and cp refused.
+  3. a bare `WARNING: word` in an unquoted YAML scalar made a whole
+     `late-commands` entry parse as a MAPPING. Valid YAML, silently wrong.
+
+**Debian 13 — DOES NOT BUILD YET.** `installer-cdd` fails inside
+simple-cdd/debian-cd, and the two observed failure modes pull against each other:
+
+  * with `mirror_components="main contrib non-free non-free-firmware"` (the
+    committed state) CD1 gets main=1205 and non-free-firmware=5 — the firmware
+    IS placed — but contrib and non-free mirror EMPTY, so CD1 has no
+    `Packages.gz` for them and simple-cdd's dose3 pass dies:
+        Input file …/CD1/dists/trixie/contrib/binary-amd64/Packages.gz does not exist
+    (`build-simple-cdd` line ~613 skips a missing FOREGROUND Packages.gz but
+    appends background ones unconditionally.)
+
+  * narrowing to `"main non-free-firmware"` clears distcheck but then the
+    firmware is never placed on CD1 at all:
+        ERROR: missing required packages from profile sovereign:
+          amd64-microcode firmware-amd-graphics firmware-nvidia-graphics
+          firmware-misc-nonfree intel-microcode
+    — with all five sitting correctly in the mirror. Setting `NONFREE=1`
+    (which_deb line 22 only reads `NONFREE_COMPONENTS` when it is truthy) did
+    not change this.
+
+Both narrowing attempts were REVERTED; the tree is back to the committed
+4-component config. The next session should start here rather than re-deriving
+it. Do NOT reuse the scratch tree across a component change —
+`SOVEREIGN_OS_CDD_KEEP_TMP=1` leaves a reprepro db built for the old component
+set and yields a misleading `undefinedtarget` error.

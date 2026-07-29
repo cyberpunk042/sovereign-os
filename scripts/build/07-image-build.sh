@@ -293,14 +293,25 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     # the 5-hour-old live-build ISO untouched in output/, and they flashed that
     # same stale file a second time (2026-07-26). Exit status is not evidence of
     # an artifact.
+    # Match THIS distro's artifact, not any *.iso. Since Ubuntu became a second
+    # target both distros write into the same output/ dir, so a bare *.iso glob
+    # matched the OTHER distro's image: a Debian build that produced nothing
+    # reported "the .iso ... is UNCHANGED" while naming
+    # sain-01-ubuntu-installer.iso (2026-07-29). It refused correctly — the
+    # guard did its job — but the message pointed at the wrong file.
+    _iso_glob='sain-01-installer.iso'
+    case "${SOVEREIGN_OS_PROFILE}" in
+      sain-01) : ;;
+      *)       _iso_glob="${SOVEREIGN_OS_PROFILE}-installer.iso" ;;
+    esac
     _iso_before=""
-    _iso_path="$(find "${_out}" -maxdepth 1 -name '*.iso' -type f 2>/dev/null | head -1)"
+    _iso_path="$(find "${_out}" -maxdepth 1 -name "${_iso_glob}" -type f 2>/dev/null | head -1)"
     [ -n "${_iso_path}" ] && _iso_before="$(stat -c '%Y:%s' "${_iso_path}" 2>/dev/null || true)"
 
     if "${_run_cdd[@]}" 2>&1 | tee "${SOVEREIGN_OS_LOG_DIR}/installer-cdd-${SOVEREIGN_OS_BUILD_ID}.log"; then
       # PROVE it: a NEW .iso must exist, and it must not be the one we started
       # with. Otherwise the step lies and the operator flashes yesterday's image.
-      _iso_now="$(find "${_out}" -maxdepth 1 -name '*.iso' -type f -newermt '-6 hours' 2>/dev/null | head -1)"
+      _iso_now="$(find "${_out}" -maxdepth 1 -name "${_iso_glob}" -type f -newermt '-6 hours' 2>/dev/null | head -1)"
       if [ -z "${_iso_now}" ]; then
         log_error "the d-i builder exited 0 but produced NO .iso in ${_out}"
         log_error "  do NOT flash — anything already in that directory is from an earlier build."
