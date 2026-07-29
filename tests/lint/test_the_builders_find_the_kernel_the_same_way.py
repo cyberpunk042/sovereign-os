@@ -30,6 +30,12 @@ RESOLVER = REPO_ROOT / "scripts/build/lib/kernel-debs.sh"
 BUILDERS = {
     "installer-cdd": REPO_ROOT / "scripts/build/installer-cdd/build.sh",
     "ubuntu-autoinstall": REPO_ROOT / "scripts/build/ubuntu-autoinstall/build.sh",
+    # build-readiness REPORTS on the kernel .debs, so it must look in the
+    # same place. It had its own `${SOVEREIGN_OS_FORGE_DIR}` default and
+    # announced "no custom kernel .debs in /mnt/kernel_forge" on a machine
+    # that had them — sending the operator off to rebuild a kernel that was
+    # already there (2026-07-29). A reporter that lies is worse than none.
+    "build-readiness": REPO_ROOT / "scripts/build/build-readiness.sh",
 }
 
 
@@ -125,7 +131,12 @@ def test_it_names_a_real_location_when_nothing_is_found(tmp_path):
     )
 
 
-@pytest.mark.parametrize("name", sorted(BUILDERS))
+# build-readiness only REPORTS; refusing is the builders' job, and a readiness
+# check that exits non-zero on a warning would be useless.
+ACTUAL_BUILDERS = [n for n in BUILDERS if n != "build-readiness"]
+
+
+@pytest.mark.parametrize("name", sorted(ACTUAL_BUILDERS))
 def test_each_builder_still_refuses_without_the_debs(name):
     """Resolving a path is not the same as finding the files.
 
@@ -140,4 +151,20 @@ def test_each_builder_still_refuses_without_the_debs(name):
     )
     assert re.search(r"linux-image-6\.12\.0.*\.deb", body), (
         f"{name}/build.sh must check for the actual .deb, not just the dir"
+    )
+
+
+def test_the_readiness_reporter_warns_rather_than_blocking():
+    """A missing kernel is a WARNING for the appliance, a blocker for neither.
+
+    The installers require the .debs and refuse; the mkosi appliance can fall
+    back to the substrate's stock kernel. Reporting it as a hard blocker would
+    stop a build that would have succeeded.
+    """
+    body = BUILDERS["build-readiness"].read_text(encoding="utf-8")
+    start = body.index("check_kernel() {")
+    seg = body[start: body.index("\n}\n", start)]
+    assert "warn " in seg, (
+        "check_kernel must be able to WARN — the appliance survives without "
+        "the custom kernel"
     )

@@ -72,10 +72,100 @@ inf "booting…"
 # earlier build baked console=ttyS0 into the ISO and sent the whole installer
 # UI to a serial port nobody was watching).
 KDIR="$(mktemp -d /tmp/sovereign-vmk-XXXXXX)"
-if ! xorriso -osirrox on -indev "${ISO}" \
-      -cpx /install.amd/vmlinuz /install.amd/initrd.gz "${KDIR}/" >/dev/null 2>&1; then
-  red "could not extract the installer kernel from ${ISO}"
+# THE KERNEL PATH IS PER-DISTRO, and for Ubuntu the whole technique changes.
+#
+# debian-installer keeps its kernel at /install.amd/ and boots happily from
+# -kernel/-initrd with the CD attached, so the serial trick above works.
+#
+# Ubuntu's live installer is casper, which LOCATES ITS OWN MEDIUM during
+# initramfs. Direct-kernel booting bypasses the ISO's boot configuration, and
+# casper then cannot find the squashfs — it stops at
+#     Unable to find a medium containing a live file system
+# on a perfectly good image. `live-media=/dev/sr0 ignore_uuid` does not rescue
+# it (tried, 2026-07-29). Fighting that would produce a weaker test anyway.
+#
+# So Ubuntu boots NATIVELY, exactly as the firmware will from a USB stick —
+# which exercises El Torito, the ISO's own GRUB and casper's medium discovery,
+# all of which the direct-kernel path skips. The verdict comes from the
+# FRAMEBUFFER rather than serial, using the QMP screendump technique that
+# distinguished a blinking cursor from the Kubuntu greeter earlier today.
+_mode="" _kernel="" _initrd="" _append=""
+if xorriso -osirrox on -indev "${ISO}" \
+     -cpx /install.amd/vmlinuz /install.amd/initrd.gz "${KDIR}/" >/dev/null 2>&1; then
+  _mode=serial
+  _kernel="${KDIR}/vmlinuz"; _initrd="${KDIR}/initrd.gz"
+  _append="console=ttyS0,115200n8 DEBIAN_FRONTEND=text --- quiet"
+  grn "  debian-installer kernel (/install.amd) — serial console"
+elif xorriso -indev "${ISO}" -find /casper -maxdepth 1 -name vmlinuz >/dev/null 2>&1; then
+  _mode=framebuffer
+  grn "  Ubuntu casper ISO — booting natively under OVMF, judging the framebuffer"
+else
+  red "could not identify the installer on ${ISO}"
+  red "  looked for /install.amd/ (debian-installer) and /casper/ (Ubuntu)"
   rm -rf "${KDIR}" "${VARS}"; exit 1
+fi
+
+if [ "${_mode}" = framebuffer ]; then
+  # Boot as firmware would, let it settle, then look at the screen. A dark
+  # screen after this long means it never got past the bootloader.
+  _qmp="$(mktemp -u /tmp/sovereign-vmq-XXXXXX.sock)"
+  _ppm="$(mktemp -u /tmp/sovereign-vms-XXXXXX.ppm)"
+  set +e
+  timeout "${TIMEOUT}" qemu-system-x86_64 \
+    "${ACCEL[@]}" -m 4096 -smp 2 -display none -vga std \
+    -drive "if=pflash,format=raw,readonly=on,file=${OVMF}" \
+    -drive "if=pflash,format=raw,file=${VARS}" \
+    -cdrom "${ISO}" -boot d \
+    -qmp "unix:${_qmp},server,nowait" \
+    -serial "file:${LOG}" >/dev/null 2>&1 &
+  _qpid=$!
+  sleep "${SOVEREIGN_OS_BOOT_SETTLE:-75}"
+  if command -v socat >/dev/null 2>&1 && [ -S "${_qmp}" ]; then
+    printf '{"execute":"qmp_capabilities"}\n{"execute":"screendump","arguments":{"filename":"%s"}}\n' \
+      "${_ppm}" | timeout 20 socat - "UNIX-CONNECT:${_qmp}" >/dev/null 2>&1
+  fi
+  kill "${_qpid}" 2>/dev/null; wait "${_qpid}" 2>/dev/null
+  set -e
+  rm -rf "${KDIR}" "${VARS}"
+  if [ ! -s "${_ppm}" ]; then
+    red "could not capture the framebuffer (socat missing, or QEMU died early)"
+    red "  serial log: ${LOG}"
+    rm -f "${_ppm}"; exit 1
+  fi
+  _luma="$(python3 - "${_ppm}" <<'LUMA'
+import sys
+# Minimal P6 PPM reader — no Pillow dependency on the build host.
+with open(sys.argv[1], "rb") as fh:
+    data = fh.read()
+parts, idx = [], 0
+while len(parts) < 4:
+    end = idx
+    while data[end:end+1] not in (b" ", b"\t", b"\n", b"\r"):
+        end += 1
+    tok = data[idx:end]
+    if tok.startswith(b"#"):
+        idx = data.index(b"\n", idx) + 1
+        continue
+    parts.append(tok)
+    idx = end + 1
+w, h = int(parts[1]), int(parts[2])
+px = data[idx:idx + w * h * 3]
+if not px:
+    print("0.0"); raise SystemExit
+print(f"{sum(px) / len(px) / 255:.5f}")
+LUMA
+)"
+  rm -f "${_ppm}"
+  echo "  mean screen luminance after $((${SOVEREIGN_OS_BOOT_SETTLE:-75}))s: ${_luma}"
+  # A dark screen is 1e-05; a rendered installer is orders of magnitude above.
+  if python3 -c "import sys; sys.exit(0 if float('${_luma}') > 0.002 else 1)"; then
+    grn "PASS — the ISO boots under UEFI and renders (luma ${_luma})"
+    grn "  full install:  sovereign-osctl install verify-iso --distro ubuntu"
+    exit 0
+  fi
+  red "FAIL — the screen is still dark after settling (luma ${_luma})"
+  red "  the ISO did not get past the bootloader. serial: ${LOG}"
+  exit 1
 fi
 
 set +e
@@ -84,8 +174,8 @@ timeout "${TIMEOUT}" qemu-system-x86_64 \
   -drive "if=pflash,format=raw,readonly=on,file=${OVMF}" \
   -drive "if=pflash,format=raw,file=${VARS}" \
   -cdrom "${ISO}" \
-  -kernel "${KDIR}/vmlinuz" -initrd "${KDIR}/initrd.gz" \
-  -append "console=ttyS0,115200n8 DEBIAN_FRONTEND=text --- quiet" \
+  -kernel "${_kernel}" -initrd "${_initrd}" \
+  -append "${_append}" \
   -serial "file:${LOG}" >/dev/null 2>&1
 set -e
 rm -rf "${KDIR}" "${VARS}"

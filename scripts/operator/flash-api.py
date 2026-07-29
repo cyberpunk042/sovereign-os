@@ -331,8 +331,18 @@ def list_images() -> list[dict]:
         if sums.is_file():
             try:
                 for line in sums.read_text(errors="replace").splitlines():
-                    parts = line.split()
-                    if len(parts) == 2 and parts[1].lstrip("*") == art.name:
+                    parts = line.split(None, 1)
+                    if len(parts) != 2:
+                        continue
+                    # Normalise the filename field. sha256sum's own format
+                    # prefixes a binary-mode marker ("*name"), and step 09
+                    # generates the file with `find .` so every entry reads
+                    # "./name". Comparing the raw field against art.name
+                    # therefore NEVER matched, and the flash panel showed
+                    # "(no recorded sha256)" for artifacts whose checksum was
+                    # sitting right there in the file (2026-07-29).
+                    candidate = parts[1].strip().lstrip("*")
+                    if candidate.split("/")[-1] == art.name:
                         sha = parts[0]
                         break
             except OSError:

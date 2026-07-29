@@ -20,10 +20,25 @@ STEP_ID="09-image-verify"
 : "${SOVEREIGN_OS_PROFILE:=sain-01}"
 load_profile "${SOVEREIGN_OS_PROFILE}"
 
+# The handoff `export`s SOVEREIGN_OS_IMAGE_DIR, so sourcing it OVERRIDES what
+# the caller asked for — the same stale-handoff trap step 07 documents for
+# SOVEREIGN_OS_SUBSTRATE. Consequences (both seen 2026-07-29):
+#   * an operator cannot point this step at another directory at all; it
+#     silently verifies whatever step 07 last built, and reports success about
+#     a file they did not ask about;
+#   * it made a NEGATIVE test of the autoinstall vintage check pass, because
+#     the doctored ISO was never the one being read.
+# Remember what was requested, and let it win — loudly.
+_image_dir_requested="${SOVEREIGN_OS_IMAGE_DIR:-}"
 env_image="${SOVEREIGN_OS_STATE_DIR}/env-image.sh"
 if [ -f "${env_image}" ]; then
   # shellcheck disable=SC1090
   . "${env_image}"
+fi
+if [ -n "${_image_dir_requested}" ] && [ "${_image_dir_requested}" != "${SOVEREIGN_OS_IMAGE_DIR}" ]; then
+  log_warn "env handoff says image dir=${SOVEREIGN_OS_IMAGE_DIR}"
+  log_warn "  but this run asked for ${_image_dir_requested} — honouring the request"
+  SOVEREIGN_OS_IMAGE_DIR="${_image_dir_requested}"
 fi
 
 inputs_hash="$(state_inputs_hash \
@@ -113,6 +128,54 @@ if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
         done
       fi
       rm -rf "${_pd}"
+      # THE UBUNTU COUNTERPART. The block above only knows
+      # /simple-cdd/default.preseed, so for a Subiquity ISO it silently did
+      # nothing and the "vintage" check the Debian path gets did not exist here
+      # at all (2026-07-29). Flashing an ISO whose answer file predates the
+      # current tree is exactly the stale-artifact failure of 2026-07-26, one
+      # installer over.
+      #
+      # PARSE THE YAML — do not grep it. A first cut grepped for
+      # "nvidia-driver-" and passed an ISO with the driver package REMOVED,
+      # because a COMMENT in the file mentions nvidia-driver-install.sh. A
+      # check that reads comments as configuration is worse than no check.
+      _ad="$(mktemp -d)"
+      if xorriso -osirrox on -indev "${iso}" \
+           -cpx /autoinstall/user-data "${_ad}/u" >/dev/null 2>&1; then
+        if ! python3 - "${_ad}/u" <<'UDCHECK'
+import re, sys, yaml
+ai = (yaml.safe_load(open(sys.argv[1])) or {}).get("autoinstall") or {}
+pkgs = [str(x) for x in (ai.get("packages") or [])]
+late = [c for c in (ai.get("late-commands") or []) if isinstance(c, str)]
+bad = []
+
+if not any(re.match(r"^nvidia-driver-\d+", p) for p in pkgs):
+    bad.append("no nvidia-driver-* package — nvidia-drm.modeset=1 would be "
+               "inert and the desktop cannot get a DRM device")
+grub = [c for c in late if "GRUB_CMDLINE_LINUX=" in c]
+if not any("nvidia-drm.modeset=1" in c for c in grub):
+    bad.append("no nvidia-drm.modeset=1 written to GRUB_CMDLINE_LINUX")
+if any(re.search(r'GRUB_CMDLINE_LINUX=\\?"[^"]*nomodeset', c) for c in grub):
+    bad.append("sets nomodeset — FATAL on Ubuntu (Wayland-only Plasma has no "
+               "session without a DRM device)")
+if not any("select-display-manager.sh" in c for c in late):
+    bad.append("does not select the display manager — gdm3 keeps the "
+               "display-manager.service alias and never starts")
+if not any("linux-image-6.12.0" in c for c in late):
+    bad.append("does not install the custom znver5 kernel")
+
+for b in bad:
+    print(b)
+sys.exit(1 if bad else 0)
+UDCHECK
+        then
+          log_error "  ISO autoinstall is STALE or WRONG — do not flash it"
+          _v_fail=1
+        else
+          log_info "  autoinstall matches this tree (driver, DRM cmdline, DM selection, custom kernel)"
+        fi
+      fi
+      rm -rf "${_ad}"
     else
       log_warn "  xorriso unavailable — cannot verify bootability or preseed vintage"
     fi
@@ -125,17 +188,31 @@ if [ "${SOVEREIGN_OS_ARTIFACT:-image}" = "installer" ]; then
       exit 1
     fi
 
-    log_info "  validate the full install by booting it under UEFI (OVMF) or from USB."
+    log_info "  validate the full install by booting it under UEFI (OVMF) or from USB,"
+    log_info "  or unattended:  sovereign-osctl install verify-iso --distro ${SOVEREIGN_OS_DISTRO:-debian}"
     emit_metric sovereign_os_build_step_image_verify_total 1 \
       "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"skip-installer\""
-    exit 0
+    # DO NOT exit here. This branch used to `exit 0` before the sha256sums +
+    # build-provenance emission at the bottom of the file, so the ONE artifact
+    # the operator actually writes to a disk was the only one with no recorded
+    # checksum — the flash panel showed "(no recorded sha256)" for every
+    # installer ISO ever built (2026-07-29). Fall through instead; the QEMU
+    # disk-boot smoke test below is skipped for an ISO, which is all the exit
+    # was ever protecting.
+    _installer_done=1
+  else
+    log_error "artifact=installer but no .iso found in ${SOVEREIGN_OS_IMAGE_DIR}"
+    emit_metric sovereign_os_build_step_image_verify_total 1 \
+      "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
+    state_step_fail "${STEP_ID}" "no-installer-iso"
+    exit 1
   fi
-  log_error "artifact=installer but no .iso found in ${SOVEREIGN_OS_IMAGE_DIR}"
-  emit_metric sovereign_os_build_step_image_verify_total 1 \
-    "profile=\"${SOVEREIGN_OS_PROFILE}\",result=\"fail\""
-  state_step_fail "${STEP_ID}" "no-installer-iso"
-  exit 1
 fi
+
+# Everything below verifies a whole-disk IMAGE by booting it in QEMU. An
+# installer ISO is not that, so skip straight to the provenance emission —
+# which is the whole reason this branch no longer exits early.
+if [ -z "${_installer_done:-}" ]; then
 
 # Find the produced image file
 # SCOPED TO THIS DISTRO, same reason as the installer path above: both distros
@@ -303,6 +380,8 @@ else
 fi
 
 # ---- reproducibility artifacts (SDD-019) ----
+fi   # end: whole-disk image verification (skipped for an installer ISO)
+
 # Emit sha256sums.txt for every artifact in the image dir + a skeleton
 # in-toto build-provenance manifest. Operator can independently verify
 # bit-identicality (Build A vs Build B with same env → same hashes).

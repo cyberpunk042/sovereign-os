@@ -3,6 +3,7 @@
 - [Introduction](./intro.md)
 - [SAIN-01 master specification](./sain-01-master-spec.md)
 - [Operator journey (clone to decommission)](./operator-journey.md)
+- [Pre-flight before flashing](./flashing-preflight.md)
 - [Architecture](./architecture.md)
 - [Charter & discipline](./charter.md)
 - [Open questions (Q-001..Q-019)](./questions.md)

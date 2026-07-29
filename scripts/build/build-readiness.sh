@@ -86,7 +86,15 @@ check_common() {
 
 check_kernel() {
   head_ "custom kernel (znver5)"
-  local kdir="${SOVEREIGN_OS_KERNEL_DEBS_DIR:-${SOVEREIGN_OS_FORGE_DIR}}"
+  # Use the SHARED resolver, not a private default. This said "no custom kernel
+  # .debs in /mnt/kernel_forge" on a machine that had them at
+  # ~/.sovereign-os/kernel-forge/kernel-debs — telling the operator to spend
+  # hours rebuilding a kernel that was already sitting there (2026-07-29). Same
+  # stale-path class as the two builders, which were fixed earlier the same day;
+  # this caller was missed.
+  # shellcheck disable=SC1090,SC1091
+  . "${__SCRIPT_DIR:-$(dirname "$(readlink -f "$0")")}/lib/kernel-debs.sh"
+  local kdir; kdir="$(kernel_debs_dir)"
   if ls "${kdir}"/linux-image-6.12.0_*.deb >/dev/null 2>&1; then
     ok "kernel .debs present in ${kdir}"
     return
