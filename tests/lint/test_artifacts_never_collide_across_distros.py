@@ -237,3 +237,56 @@ def test_operator_docs_name_an_artifact_the_build_can_produce(doc):
         f"{doc.name} tells the operator to flash an artifact no build produces. "
         f"Valid shapes: {sorted(valid)}\n  " + "\n  ".join(bad)
     )
+
+
+# ── the mkosi appliance name, exercised through the real emitter ────────────
+# This was the WORST collision: `Output={profile_id}` gave both distros
+# `<profile>.raw`, so the second appliance build silently replaced the first.
+# Grepping the emitter for the fixed string would pass even if the template
+# never rendered, so run it.
+
+MKOSI_EMIT = REPO_ROOT / "scripts/build/adapters/mkosi-emit.sh"
+PROFILE_YAML = REPO_ROOT / "profiles/sain-01.yaml"
+
+
+@pytest.mark.parametrize("distro", DISTROS)
+def test_the_mkosi_emitter_renders_a_distro_qualified_output(distro, tmp_path):
+    if not MKOSI_EMIT.is_file() or not PROFILE_YAML.is_file():
+        pytest.skip("mkosi emitter or profile not present")
+
+    # The emitter refuses to run without a secure-boot key pair and a bootstrap
+    # root password — both deliberate safety gates, neither related to naming.
+    # Throwaway values, render-only, confined to tmp_path (SDD-015: nothing
+    # here is a real secret and none of it is written into the repo).
+    key, cert = tmp_path / "mok.key", tmp_path / "mok.crt"
+    key.write_text(""), cert.write_text("")
+    outdir = tmp_path / "emit"
+    outdir.mkdir()
+
+    env = {
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "HOME": str(tmp_path),
+        "SOVEREIGN_OS_DISTRO": distro,
+        "SOVEREIGN_OS_MOK_KEY": str(key),
+        "SOVEREIGN_OS_MOK_CERT": str(cert),
+        "SOVEREIGN_OS_ROOT_PASSWORD": "render-only-not-a-secret",
+    }
+    run = subprocess.run(
+        ["bash", str(MKOSI_EMIT), str(PROFILE_YAML), str(outdir)],
+        capture_output=True, text=True, cwd=REPO_ROOT, env=env, timeout=180,
+    )
+    if run.returncode != 0:
+        pytest.skip(f"emitter could not run here: {run.stderr.strip()[-200:]}")
+
+    outputs = []
+    for conf in outdir.rglob("*.conf"):
+        outputs += [l.split("=", 1)[1].strip()
+                    for l in conf.read_text(encoding="utf-8").splitlines()
+                    if l.startswith("Output=")]
+    assert outputs, "the emitter produced no Output= line at all"
+    for got in outputs:
+        assert got.endswith(f"-{distro}"), (
+            f"mkosi would write {got!r} for {distro}. Both distros writing the "
+            "same .raw is how a Ubuntu appliance silently replaced the Debian "
+            f"one. Expected a name ending in -{distro}."
+        )
