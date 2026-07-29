@@ -27,6 +27,17 @@
 set -euo pipefail
 
 SRC="${SOVEREIGN_OS_SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
+# Which distro are we running ON? The package names below differ between Debian
+# and Ubuntu, and getting one wrong is FATAL to this script (set -euo pipefail):
+# a real Ubuntu install died here with
+#     E: Package 'firefox-esr' has no installation candidate
+# taking the whole cockpit/dashboards deploy with it (2026-07-29).
+# shellcheck source=./lib/target-distro.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/target-distro.sh" 2>/dev/null \
+  || . "${SRC}/scripts/install/lib/target-distro.sh"
+BROWSER="$(target_browser)"
+DESKTOP_TASK="$(target_desktop_task)"
 PREFIX_LIB="${SOVEREIGN_OS_LIB:-/usr/local/lib/sovereign-os}"
 DESKTOP_ENV="${SOVEREIGN_OS_DESKTOP:-gnome}"
 DASH_PORT="${SOVEREIGN_OS_DASHBOARD_PORT:-8100}"
@@ -115,14 +126,14 @@ install_gnome_de() {
     gnome)
       # gnome-core = a lean but complete GNOME (shell + gdm3 + settings). Swap
       # for task-gnome-desktop if you want the full default Debian app set.
-      pkg_ensure gnome-core gdm3 firefox-esr xdg-utils
+      pkg_ensure gnome-core gdm3 "${BROWSER}" xdg-utils
       ;;
     minimal)
-      pkg_ensure xfce4 lightdm firefox-esr xdg-utils
+      pkg_ensure xfce4 lightdm "${BROWSER}" xdg-utils
       ;;
     *)
       red "unknown SOVEREIGN_OS_DESKTOP='${DESKTOP_ENV}' (gnome|minimal) — defaulting to gnome-core"
-      pkg_ensure gnome-core gdm3 firefox-esr xdg-utils
+      pkg_ensure gnome-core gdm3 "${BROWSER}" xdg-utils
       ;;
   esac
 }
@@ -133,7 +144,7 @@ install_plasma_de() {
   # Swap for kde-standard if you want the fuller Debian KDE app set. Unlike
   # install_gnome_de this does NOT key off SOVEREIGN_OS_DESKTOP — selecting the
   # kde-plasma frontend is itself the request for Plasma (SDD-704 decoupling).
-  pkg_ensure kde-plasma-desktop sddm firefox-esr xdg-utils
+  pkg_ensure kde-plasma-desktop sddm "${BROWSER}" xdg-utils
 }
 
 install_kiosk_stack() {
@@ -141,7 +152,7 @@ install_kiosk_stack() {
   # at a URL by sovereign-frontend-kiosk.service. No full desktop shell. seatd gives
   # the compositor seat/DRM access without a login manager. Non-fatal — if cage isn't
   # available the unit still installs (disabled) and the operator can install it later.
-  pkg_ensure cage seatd firefox-esr xdg-utils || \
+  pkg_ensure cage seatd "${BROWSER}" xdg-utils || \
     info "kiosk stack apt hiccup (cage/seatd) — unit still staged; install post-flash"
   systemctl enable seatd.service 2>/dev/null || true
   # Stage the kiosk unit (DISABLED — the default-activation step below enables it

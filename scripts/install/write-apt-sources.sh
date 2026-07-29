@@ -18,12 +18,28 @@
 # non-free-firmware matters here -- it is where firmware-amd-graphics lives.
 set -eu
 
-SUITE="${1:-trixie}"
+# Ubuntu needs a different archive, a different security host AND different
+# components. Writing Debian sources onto an Ubuntu install leaves it with no
+# usable apt at all — the first real Ubuntu install's self-check said exactly
+# that: "PROBLEM: no network apt sources -- apt install will fail"
+# (2026-07-29). Detect at RUNTIME; this executes on the installed machine.
+. "$(dirname "$0")/lib/target-distro.sh" 2>/dev/null \
+  || . /opt/sovereign-os/scripts/install/lib/target-distro.sh 2>/dev/null || true
+if ! command -v target_apt_mirror >/dev/null 2>&1; then
+  target_apt_mirror()     { printf 'http://deb.debian.org/debian'; }
+  target_apt_security()   { printf 'http://security.debian.org/debian-security'; }
+  target_apt_components() { printf 'main non-free-firmware contrib non-free'; }
+  target_default_suite()  { printf 'trixie'; }
+fi
+
+SUITE="${1:-$(target_default_suite)}"
 LIST=/etc/apt/sources.list
-COMPONENTS="main non-free-firmware contrib non-free"
+COMPONENTS="$(target_apt_components)"
+MIRROR="$(target_apt_mirror)"
+SECURITY="$(target_apt_security)"
 
 # Never clobber sources the operator already has.
-if [ -s "${LIST}" ] && grep -qE "^deb .*(deb\.debian\.org|security\.debian\.org)" "${LIST}" 2>/dev/null; then
+if [ -s "${LIST}" ] && grep -qE "^deb .*(deb\.debian\.org|security\.debian\.org|archive\.ubuntu\.com|security\.ubuntu\.com)" "${LIST}" 2>/dev/null; then
   echo "write-apt-sources: ${LIST} already has network sources — leaving it alone"
   exit 0
 fi
@@ -31,10 +47,10 @@ fi
 cat > "${LIST}" <<LIST_EOF
 # Written by sovereign-os at install time. The install itself was offline (the
 # CD carried every package); these are for everything afterwards.
-deb http://deb.debian.org/debian/ ${SUITE} ${COMPONENTS}
-deb http://security.debian.org/debian-security ${SUITE}-security ${COMPONENTS}
-deb http://deb.debian.org/debian/ ${SUITE}-updates ${COMPONENTS}
+deb ${MIRROR} ${SUITE} ${COMPONENTS}
+deb ${SECURITY} ${SUITE}-security ${COMPONENTS}
+deb ${MIRROR} ${SUITE}-updates ${COMPONENTS}
 LIST_EOF
 
-echo "write-apt-sources: wrote ${LIST} (${SUITE}, ${COMPONENTS})"
+echo "write-apt-sources: wrote ${LIST} ($(target_distro 2>/dev/null || echo debian) ${SUITE}, ${COMPONENTS})"
 exit 0

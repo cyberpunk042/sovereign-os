@@ -14,6 +14,13 @@
 # operator nothing. It writes evidence instead.
 set -u
 OUT=/var/log/sovereign-os/install-verify.log
+# Package names differ per distro; checking a Debian name on Ubuntu reported
+# "MISSING firmware-amd-graphics" on a system that had linux-firmware installed
+# correctly (2026-07-29).
+. "$(dirname "$0")/lib/target-distro.sh" 2>/dev/null \
+  || . /opt/sovereign-os/scripts/install/lib/target-distro.sh 2>/dev/null || true
+command -v target_firmware_package >/dev/null 2>&1 \
+  || target_firmware_package() { printf 'firmware-amd-graphics'; }
 mkdir -p /var/log/sovereign-os
 
 {
@@ -131,7 +138,7 @@ mkdir -p /var/log/sovereign-os
 
   echo "-- packages --"
   for p in sddm plasma-desktop xserver-xorg-core xserver-xorg-video-fbdev \
-           xserver-xorg-video-vesa firmware-amd-graphics sovereign-os-cockpit; do
+           xserver-xorg-video-vesa "$(target_firmware_package)" sovereign-os-cockpit; do
     if dpkg -s "${p}" >/dev/null 2>&1; then
       echo "  ok      ${p}"
     else
