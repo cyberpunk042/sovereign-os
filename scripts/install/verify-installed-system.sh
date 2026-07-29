@@ -17,10 +17,19 @@ OUT=/var/log/sovereign-os/install-verify.log
 # Package names differ per distro; checking a Debian name on Ubuntu reported
 # "MISSING firmware-amd-graphics" on a system that had linux-firmware installed
 # correctly (2026-07-29).
-. "$(dirname "$0")/lib/target-distro.sh" 2>/dev/null \
-  || . /opt/sovereign-os/scripts/install/lib/target-distro.sh 2>/dev/null || true
-command -v target_firmware_package >/dev/null 2>&1 \
-  || target_firmware_package() { printf 'firmware-amd-graphics'; }
+# Source the runtime distro lib SAFELY. `.` is a POSIX special builtin: when
+# the file does not exist the shell EXITS immediately and `|| true` never runs
+# (dash exits 2). Test for the file first (2026-07-29 — this exact construct
+# made verify-installed-system.sh exit 2 on any host without the lib).
+for _l in "$(dirname "$0")/lib/target-distro.sh" \
+          /opt/sovereign-os/scripts/install/lib/target-distro.sh; do
+  [ -r "${_l}" ] || continue
+  . "${_l}"
+  break
+done
+if ! command -v target_firmware_package >/dev/null 2>&1; then
+  target_firmware_package() { printf 'firmware-amd-graphics'; }
+fi
 mkdir -p /var/log/sovereign-os
 
 {
@@ -30,21 +39,53 @@ mkdir -p /var/log/sovereign-os
   echo "-- kernel cmdline that GRUB will use --"
   grep -m2 -E "^[[:space:]]*linux[[:space:]]" /boot/grub/grub.cfg 2>/dev/null \
     || echo "  NO grub.cfg -- nothing will boot"
-  # nomodeset is the difference between a desktop and a dark screen on hardware
-  # where no GPU driver binds. Call it out by name.
+  # THE ROUTE TO A GRAPHICAL SEAT IS PER-DISTRO, and the wrong one is a silent
+  # total failure in BOTH directions (2026-07-29). Debian wants nomodeset;
+  # Ubuntu's Wayland-only Plasma is killed by it and wants a real DRM device
+  # instead. Ask the shared definition rather than assuming Debian.
+  _route="$(target_seat_route 2>/dev/null || echo nomodeset)"
+  _want="$(target_seat_cmdline_option 2>/dev/null || echo nomodeset)"
+
   _has_nomodeset=no
   if grep -qE "^[[:space:]]*linux.*[[:space:]]nomodeset([[:space:]]|$)" \
        /boot/grub/grub.cfg 2>/dev/null; then
     _has_nomodeset=yes
-    echo "  OK: nomodeset present"
+  fi
+  _has_want=no
+  if grep -qE "^[[:space:]]*linux.*[[:space:]]$(printf '%s' "${_want}" \
+       | sed 's/[.[\*^$]/\\&/g')([[:space:]]|$)" /boot/grub/grub.cfg 2>/dev/null; then
+    _has_want=yes
+  fi
+
+  if [ "${_has_want}" = yes ]; then
+    echo "  OK: ${_want} present (the ${_route} route for this distro)"
   else
     # CORRECTED 2026-07-28. This used to say "no EFI framebuffer, X cannot
     # start". That is wrong: efifb attaches fine without nomodeset, and the
     # failed install's journal shows `fb0: EFI VGA frame buffer device` on all
     # three boots. The wrong explanation cost an hour of the investigation.
-    echo "  PROBLEM: nomodeset ABSENT -- udev will not tag fb0 master-of-seat"
-    echo "           (71-seat.rules rules 23/28 require IMPORT{cmdline}=nomodeset),"
-    echo "           so logind reports CanGraphical=no and sddm never starts X"
+    echo "  PROBLEM: ${_want} ABSENT from the kernel command line"
+    if [ "${_route}" = nomodeset ]; then
+      echo "           udev will not tag fb0 master-of-seat (71-seat.rules"
+      echo "           rules 23/28 require IMPORT{cmdline}=nomodeset), so logind"
+      echo "           reports CanGraphical=no and sddm never starts X"
+    else
+      echo "           no DRM device will be registered (71-seat.rules rule 35"
+      echo "           needs a bound KMS driver), and this distro's Plasma is"
+      echo "           WAYLAND-ONLY, so there is no session to fall back to"
+    fi
+  fi
+
+  # The inverse, which matters only on the DRM route: nomodeset on Ubuntu is
+  # not a degradation, it is fatal. Proven on a real disk — stripping it took
+  # the same install from a blinking cursor to the Kubuntu greeter.
+  if [ "${_route}" = drm ] && [ "${_has_nomodeset}" = yes ]; then
+    echo "  PROBLEM: nomodeset is present, and on this distro it is FATAL."
+    echo "           Plasma here is Wayland-only (/usr/share/xsessions is empty)"
+    echo "           and Wayland needs the DRM device nomodeset removes."
+    echo "           It also blocks the GPU driver, so the card is unusable for"
+    echo "           inference as well. Remove it:"
+    echo "             sudo sed -i 's/ *nomodeset//' /etc/default/grub && sudo update-grub"
   fi
   echo
 
@@ -78,7 +119,28 @@ mkdir -p /var/log/sovereign-os
   else
     echo "  /dev/dri absent in this environment"
   fi
-  if [ "${_has_nomodeset}" = no ] && [ -n "${_blacklisted}" ]; then
+  # On the DRM route the GPU driver IS the seat, so a blacklist that stops it
+  # binding is the whole failure — and nouveau being blacklisted is EXPECTED
+  # there (the NVIDIA driver does it deliberately), so it must not be counted
+  # against us. What matters is whether the nvidia module can load.
+  if [ "${_route}" = drm ]; then
+    _nvidia_blocked=no
+    case " ${_blacklisted} " in *" nvidia "*) _nvidia_blocked=yes ;; esac
+    if [ "${_has_want}" = no ] || [ "${_nvidia_blocked}" = yes ]; then
+      echo "  PROBLEM: no route to a graphical seat."
+      [ "${_has_want}" = no ] && \
+        echo "           ${_want} is absent, so no DRM device is registered"
+      [ "${_nvidia_blocked}" = yes ] && \
+        echo "           the nvidia module is BLACKLISTED, so it cannot bind"
+      echo "           => no master-of-seat device => logind CanGraphical=no"
+      echo "           => Wayland-only Plasma has NO session it can start."
+      echo "           Fix: put ${_want} on the cmdline and make sure the"
+      echo "           NVIDIA driver is installed and not blacklisted."
+    else
+      echo "  OK: ${_want} set and nvidia is free to bind (udev rule 35)"
+      echo "      note: nouveau being blacklisted here is expected and correct"
+    fi
+  elif [ "${_has_nomodeset}" = no ] && [ -n "${_blacklisted}" ]; then
     echo "  PROBLEM: no route to a graphical seat."
     echo "           nomodeset is absent AND these KMS drivers are blacklisted:${_blacklisted}"
     echo "           => no master-of-seat device => logind CanGraphical=no"

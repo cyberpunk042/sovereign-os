@@ -95,3 +95,36 @@ target_default_suite() {
     *)      printf 'trixie' ;;
   esac
 }
+
+# ── HOW THIS DISTRO GETS A GRAPHICAL SEAT ───────────────────────────────────
+# logind only reports CanGraphical=yes when udev has tagged something
+# `master-of-seat`. /usr/lib/udev/rules.d/71-seat.rules offers two routes:
+#
+#   rules 23/28  fb[0-9]        ONLY under IMPORT{cmdline}="nomodeset"
+#   rule 35      drm card[0-9]* needs a KMS driver actually bound
+#
+# The distros must take DIFFERENT routes, and using the wrong one is a silent
+# total failure in both directions (established 2026-07-29):
+#
+#   debian  Plasma ships /usr/share/xsessions/plasmax11.desktop, so X11 runs on
+#           the EFI framebuffer. Route: nomodeset. LOAD-BEARING.
+#   ubuntu  26.04's Plasma is WAYLAND-ONLY (/usr/share/xsessions/ is EMPTY), and
+#           Wayland requires a DRM device. nomodeset removes exactly that, so it
+#           is FATAL. Route: a bound KMS driver — the NVIDIA driver with
+#           nvidia-drm.modeset=1 (operator decision, 2026-07-29).
+#
+# Returns: "nomodeset" or "drm"
+target_seat_route() {
+  case "$(target_distro)" in
+    ubuntu) echo "drm" ;;
+    *)      echo "nomodeset" ;;
+  esac
+}
+
+# The kernel cmdline option this distro needs for that route.
+target_seat_cmdline_option() {
+  case "$(target_seat_route)" in
+    drm) echo "nvidia-drm.modeset=1" ;;
+    *)   echo "nomodeset" ;;
+  esac
+}

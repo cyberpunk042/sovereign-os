@@ -286,7 +286,15 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       log_error "  re-run the build as your normal user, or set SUDO_USER."
       state_step_fail "${STEP_ID}" "cdd-needs-nonroot"; exit 1
     else
-      _run_cdd=(bash "${_cdd}")
+      # Pass the artifacts dir EXPLICITLY, exactly as the root branch above
+      # does. Without it the builder inherits the orchestrator's
+      # SOVEREIGN_OS_BUILD_OUT (build/<profile>) and its own default appends
+      # nothing, so a perfectly good 1.4G ISO landed at
+      # build/sain-01/sain-01-installer.iso — one directory above where the
+      # flash panel and this step's own discovery look. The step then failed
+      # with "exited 0 but produced NO .iso", after an hour of building
+      # (2026-07-29). The root path was correct; only this branch was not.
+      _run_cdd=(env "SOVEREIGN_OS_BUILD_OUT=${_out}" bash "${_cdd}")
     fi
     # Fingerprint the existing ISO FIRST. A build that produces nothing must
     # never report success: the operator's build "finished with exit 0", left

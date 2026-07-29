@@ -188,3 +188,78 @@ distro_label() {
     *)      echo "Debian 13 (trixie)" ;;
   esac
 }
+
+# ---- the installed system's kernel command line ----------------------------
+# nomodeset is a DEBIAN-ONLY workaround, and on Ubuntu it is FATAL. This is the
+# single place that knows the difference, so a profile written for one distro
+# cannot silently produce a black screen on the other.
+#
+# WHY (established 2026-07-29 by a controlled experiment on one installed disk:
+# same disk, nomodeset stripped and nothing else changed, went from a blinking
+# cursor to the Kubuntu greeter — screen luminance 1e-05 -> 0.076):
+#
+#   Debian  plasma-workspace ships /usr/share/xsessions/plasmax11.desktop, so
+#           Plasma runs X11 on the EFI framebuffer. nomodeset is what makes udev
+#           tag fb0 master-of-seat (71-seat.rules 23/28), which is what gives
+#           logind CanGraphical=yes. It is load-bearing.
+#
+#   Ubuntu  26.04's Plasma is WAYLAND-ONLY — /usr/share/xsessions/ is EMPTY
+#           (verified by unpacking plasma-workspace and kwin-x11 from the
+#           Ubuntu archive). Wayland requires a DRM device; nomodeset is
+#           precisely what removes one. So nomodeset guarantees there is NO
+#           session the display manager can start: the same silent total
+#           failure it was adopted to fix.
+#
+# Ubuntu therefore gets its DRM device from the NVIDIA driver instead
+# (operator decision, 2026-07-29). nvidia-drm.modeset=1 makes the proprietary
+# driver register a DRM node, udev rule 35 tags card0 master-of-seat, and the
+# Wayland session starts. It also means the RTX 5090 is actually available for
+# inference, which nomodeset precludes — on an AI box that was always the
+# better answer.
+#
+# The two options are MUTUALLY EXCLUSIVE. Emitting both is not belt-and-braces;
+# nomodeset stops the driver binding, so the machine falls back to framebuffer
+# graphics and looks like the driver failed to install.
+#
+# Usage: distro_kernel_cmdline "<the profile's cmdline>"
+distro_kernel_cmdline() {
+  _dkc_in="${1-}"
+  case "${SOVEREIGN_OS_DISTRO}" in
+    ubuntu)
+      # Drop nomodeset wherever it appears, then ensure the DRM-providing
+      # option is present exactly once. Everything else the profile asked for
+      # is preserved verbatim.
+      printf '%s' "${_dkc_in}" | awk '
+        { out = ""
+          for (i = 1; i <= NF; i++) {
+            if ($i == "nomodeset") continue
+            if ($i == "nvidia-drm.modeset=1") { seen = 1 }
+            out = (out == "" ? $i : out " " $i)
+          }
+          if (!seen) out = (out == "" ? "nvidia-drm.modeset=1" : out " nvidia-drm.modeset=1")
+          print out
+        }'
+      ;;
+    *)
+      printf '%s\n' "${_dkc_in}"
+      ;;
+  esac
+}
+
+# The GPU driver package for this distro, or empty when the distro has no
+# packaged option and the .run installer path is used instead.
+#
+# Debian trixie ships nvidia 550, which PREDATES Blackwell (GB202) — the
+# profile's nvidia-driver-install.sh fetches >=570 from NVIDIA's .run installer
+# and builds it with --dkms. Ubuntu 26.04 packages 570 through 595, so it can
+# use the archive. The -open variant is REQUIRED, not preferred: NVIDIA's
+# proprietary kernel module does not support Blackwell.
+#
+# The version tracks profiles/sain-01.yaml's `driver: nvidia-570-open`; keep
+# them in step (tests/lint/test_ubuntu_gets_a_drm_device.py enforces it).
+distro_gpu_driver_package() {
+  case "${SOVEREIGN_OS_DISTRO}" in
+    ubuntu) echo "nvidia-driver-570-open" ;;
+    *)      echo "" ;;
+  esac
+}

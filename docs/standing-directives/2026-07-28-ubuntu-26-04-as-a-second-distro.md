@@ -107,31 +107,49 @@ Three bugs the real build found that no lint had:
   3. a bare `WARNING: word` in an unquoted YAML scalar made a whole
      `late-commands` entry parse as a MAPPING. Valid YAML, silently wrong.
 
-**Debian 13 — DOES NOT BUILD YET.** `installer-cdd` fails inside
-simple-cdd/debian-cd, and the two observed failure modes pull against each other:
+**Debian 13 — BUILDS, as of attempt 8 on 2026-07-29.**
+`sain-01-installer.iso` (1.4 GB) built end to end, and the image was verified to
+carry all three components and every previously-missing package:
 
-  * with `mirror_components="main contrib non-free non-free-firmware"` (the
-    committed state) CD1 gets main=1205 and non-free-firmware=5 — the firmware
-    IS placed — but contrib and non-free mirror EMPTY, so CD1 has no
-    `Packages.gz` for them and simple-cdd's dose3 pass dies:
-        Input file …/CD1/dists/trixie/contrib/binary-amd64/Packages.gz does not exist
-    (`build-simple-cdd` line ~613 skips a missing FOREGROUND Packages.gz but
-    appends background ones unconditionally.)
+    /dists/trixie/{main,contrib,non-free-firmware}
+    /pool/non-free-firmware/f/firmware-nonfree/firmware-{amd-graphics,misc-nonfree,nvidia-graphics}_20250410-2_all.deb
+    /pool/non-free-firmware/a/amd64-microcode/…  /pool/non-free-firmware/i/intel-microcode/…
 
-  * narrowing to `"main non-free-firmware"` clears distcheck but then the
-    firmware is never placed on CD1 at all:
-        ERROR: missing required packages from profile sovereign:
-          amd64-microcode firmware-amd-graphics firmware-nvidia-graphics
-          firmware-misc-nonfree intel-microcode
-    — with all five sitting correctly in the mirror. Setting `NONFREE=1`
-    (which_deb line 22 only reads `NONFREE_COMPONENTS` when it is truthy) did
-    not change this.
+**Root cause — a simple-cdd bug, not our configuration.** debian-cd's
+`tools/which_deb` gates the non-free components on `$ENV{NONFREE}`.
+`/usr/bin/build-simple-cdd` gets that variable wrong twice:
 
-Both narrowing attempts were REVERTED; the tree is back to the committed
-4-component config. The next session should start here rather than re-deriving
-it. Do NOT reuse the scratch tree across a component change —
-`SOVEREIGN_OS_CDD_KEEP_TMP=1` leaves a reprepro db built for the old component
-set and yields a misleading `undefinedtarget` error.
+  * line 119 `self.env.set("NONFREE", "")` — unconditionally CLOBBERS an
+    inherited `NONFREE=1`, so exporting it from `build.sh` does nothing.
+  * line 144 only flips it on for the LITERAL component `non-free`;
+    `non-free-firmware` — a separate component since Debian 12 — never matches.
+
+That produced the catch-22 recorded above: list `non-free` to flip the flag and
+the component mirrors EMPTY, so dose3 dies on a missing `Packages.gz`; omit it
+and the firmware is silently never placed, with all five packages sitting
+correctly in the mirror.
+
+**The fix** is `scripts/build/installer-cdd/profiles/sovereign.conf`. Profile
+`.conf` files are read at line 121-124, AFTER the clobber, and nothing later
+resets `NONFREE`. There is a second trap: `simple_cdd/env.py:365-367` adopts a
+conf value only when it DIFFERS from the ambient environment, so setting it in
+BOTH places is the same as setting it in neither — `build.sh` must leave both
+variables unset. Verified against simple-cdd's own `Environment` class with a
+negative control, and pinned by
+`tests/lint/test_simple_cdd_actually_receives_our_component_config.py`.
+
+`contrib` is populated for real by `zfsutils-linux` (the profile already ships
+`sovereign-zfs-arc-clamp.service` and `sovereign-zfs-scrub.{service,timer}`), so
+no component in the list is aspirational.
+
+One more defect the build found: step 07's NON-ROOT branch invoked the builder
+without `SOVEREIGN_OS_BUILD_OUT=${_out}`, which the root branch passes. The
+builder inherited `build/<profile>` and wrote a perfectly good ISO one directory
+above where the flash panel looks; the step then reported "exited 0 but produced
+NO .iso" after an hour.
+
+Still unproven for Debian: the ISO has not been installed from. Everything
+downstream of the disk pick remains untested on real hardware.
 
 ## nomodeset is a DEBIAN-ONLY workaround — it is fatal on Ubuntu 26.04
 
@@ -158,7 +176,33 @@ Wayland needs a DRM device. `nomodeset` is precisely what prevents one. So on
 Ubuntu the flag guarantees there is NO session the display manager can start —
 the failure is total and silent, exactly like the Debian one it was meant to fix.
 
-**What this does NOT settle.** Removing nomodeset works in a VM because
+**RESOLVED 2026-07-29 — operator decision: the NVIDIA proprietary driver.**
+
+Ubuntu takes udev rule 35 (a bound KMS driver), not rules 23/28 (fb0 under
+nomodeset). `nvidia-driver-570-open` is installed by the autoinstall and
+`nvidia-drm.modeset=1` replaces `nomodeset` on the installed cmdline. The
+`-open` variant is REQUIRED, not preferred: NVIDIA's proprietary kernel
+module does not support Blackwell (GB202). The version tracks the profile's
+`driver: nvidia-570-open`, and 26.04 packages 570-595 in `restricted`, so
+unlike Debian — whose trixie archive ships 550, predating Blackwell — no
+`.run` installer is needed.
+
+This also makes the RTX 5090 available for inference, which `nomodeset`
+precludes. On an AI appliance that was always the better answer.
+
+Single-sourced in two places, both exercised by lint rather than grepped:
+`distro_kernel_cmdline()` (build side, `scripts/build/lib/distro.sh`) and
+`target_seat_route()` / `target_seat_cmdline_option()` (runtime side,
+`scripts/install/lib/target-distro.sh`). The Ubuntu builder REFUSES to build
+if the rendered cmdline still contains `nomodeset`. Enforced by
+`tests/lint/test_ubuntu_gets_a_drm_device.py` (11 tests, each proven to bite).
+
+**Not yet proven:** the driver has never been installed on the real SAIN-01.
+The autoinstall pulls it from the archive, so the install needs network; and
+dkms must build the module against the custom znver5 kernel. Neither is
+verified on hardware.
+
+**The original framing, kept because it is what forced the decision.** Removing nomodeset works in a VM because
 bochs-drm binds. On the SAIN-01 hardware (Blackwell RTX 5090) nouveau fails on
 that chipset — which is why nomodeset exists. Without nomodeset AND without a
 working KMS driver, Ubuntu lands in the same place. The likely answer for

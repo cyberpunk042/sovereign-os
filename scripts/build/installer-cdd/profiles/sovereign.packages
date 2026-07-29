@@ -148,3 +148,14 @@ pkg-config
 python3-pip
 python3-venv
 python3-dev
+
+# ── contrib ────────────────────────────────────────────────────────────────
+# The profile ships sovereign-zfs-arc-clamp.service and sovereign-zfs-scrub.*,
+# so the ZFS userland belongs on the disc regardless. It also has a structural
+# role: debian-cd creates a binary-amd64/ dir for EVERY declared component, and
+# simple-cdd's dose3 pass then reads each one's Packages.gz WITHOUT checking it
+# exists (build-simple-cdd ~line 601). An empty component therefore kills the
+# build. Dropping contrib instead is not an option: with fewer components
+# debian-cd stops placing the non-free-firmware packages entirely, and the
+# install loses its firmware (measured both ways, 2026-07-29).
+zfsutils-linux

@@ -107,7 +107,7 @@ dist="${DIST}"
 # then died with "missing required packages from profile sovereign:
 # amd64-microcode firmware-amd-graphics …", every one of them
 # non-free-firmware (2026-07-26).
-export mirror_components="main contrib non-free non-free-firmware"
+export mirror_components="main contrib non-free-firmware"
 local_packages="${LOCAL_PKGS}"
 simple_cdd_dir="${HERE}"
 # local d-i images (bypass simple-cdd's broken i386 auto-fetch on trixie)
@@ -134,7 +134,11 @@ export DISABLE_UEFI_32=1
 # the dep11 flag gates exactly ONE block (make_disc_trees.pl:1370) -- nothing else is
 # skipped. The patterns only power d-i's "detect missing firmware" prompt; this
 # profile installs firmware-* explicitly, so it never needs the lookup.
-export NONFREE_COMPONENTS="non-free non-free-firmware"
+# NONFREE and NONFREE_COMPONENTS are DELIBERATELY NOT EXPORTED HERE.
+# They live in profiles/sovereign.conf. Setting them in this environment does
+# not work, and the failure is silent — see that file for the full derivation
+# (root-caused 2026-07-29 after seven failed builds).
+export CONTRIB=1
 export DEP11=0
 # Localization baked into every boot entry (simple-cdd adds debian-installer/locale
 # + keyboard-configuration to the kernel line) so there's no language/keyboard
@@ -151,9 +155,14 @@ export keyboard
 # console for headless testing, which sent the whole installer UI to the serial
 # port — off-screen on real hardware, looking frozen.)
 CONF
-# simple-cdd looks for <profile>.{preseed,packages,conf} in the profiles dir.
+# These two are copied because they get RENDERED below (hardware substitution).
 cp "${HERE}/profiles/${PROFILE}.preseed"  "${WORK}/"
 cp "${HERE}/profiles/${PROFILE}.packages" "${WORK}/"
+# profiles/<PROFILE>.conf is deliberately NOT copied. build-simple-cdd finds it
+# via find_profile_files(), which looks in "<d>/profiles/<name>" for each entry
+# in simple_cdd_dirs — and simple_cdd_dir is HERE (the checkout), so the file is
+# read where it sits. Copying it to "${WORK}/" would put it OUTSIDE that search
+# path ("${WORK}/profiles/" is what would be scanned) and silently do nothing.
 
 # ── render the HARDWARE-SPECIFIC bits from the shared definition ──
 # nomodeset and the amdgpu/nouveau blacklist were chosen for ONE machine, where

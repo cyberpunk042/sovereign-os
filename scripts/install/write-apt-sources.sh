@@ -23,8 +23,16 @@ set -eu
 # usable apt at all — the first real Ubuntu install's self-check said exactly
 # that: "PROBLEM: no network apt sources -- apt install will fail"
 # (2026-07-29). Detect at RUNTIME; this executes on the installed machine.
-. "$(dirname "$0")/lib/target-distro.sh" 2>/dev/null \
-  || . /opt/sovereign-os/scripts/install/lib/target-distro.sh 2>/dev/null || true
+# Source the runtime distro lib SAFELY. `.` is a POSIX special builtin: when
+# the file does not exist the shell EXITS immediately and `|| true` never runs
+# (dash exits 2). Test for the file first (2026-07-29 — this exact construct
+# made verify-installed-system.sh exit 2 on any host without the lib).
+for _l in "$(dirname "$0")/lib/target-distro.sh" \
+          /opt/sovereign-os/scripts/install/lib/target-distro.sh; do
+  [ -r "${_l}" ] || continue
+  . "${_l}"
+  break
+done
 if ! command -v target_apt_mirror >/dev/null 2>&1; then
   target_apt_mirror()     { printf 'http://deb.debian.org/debian'; }
   target_apt_security()   { printf 'http://security.debian.org/debian-security'; }

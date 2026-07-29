@@ -112,6 +112,36 @@ if [ "${PROFILE}" != "sain-01" ]; then
           s|SOVEREIGN_OS_PROFILE=sain-01|SOVEREIGN_OS_PROFILE=${PROFILE}|g" "${AI}/user-data"
 fi
 
+# ── render the KERNEL CMDLINE from the profile, TRANSLATED for Ubuntu ────────
+# The profile's cmdline is written for the operator's proven Debian box, where
+# `nomodeset` is load-bearing. On Ubuntu it is FATAL — 26.04's Plasma is
+# Wayland-only and Wayland needs the DRM device nomodeset removes. Without this
+# translation, a profile edit silently ships an Ubuntu ISO that installs a
+# system booting to a blinking cursor (operator decision, 2026-07-29).
+#
+# distro_kernel_cmdline() strips nomodeset and guarantees nvidia-drm.modeset=1,
+# preserving everything else the profile asked for. Same single source the
+# runtime checks use via target_seat_cmdline_option().
+_isd="${REPO}/scripts/install/lib/installed-system.sh"
+_dsh="${REPO}/scripts/build/lib/distro.sh"
+if [ -r "${_isd}" ] && [ -r "${_dsh}" ]; then
+  # shellcheck disable=SC1090
+  . "${_isd}"
+  # shellcheck disable=SC1090
+  SOVEREIGN_OS_DISTRO=ubuntu . "${_dsh}"
+  _cmdline="$(SOVEREIGN_OS_DISTRO=ubuntu distro_kernel_cmdline "${SOVEREIGN_OS_KERNEL_CMDLINE}")"
+  log "kernel cmdline for the installed system: ${_cmdline}"
+  case "${_cmdline}" in
+    *nomodeset*)
+      die "refusing to build: the rendered cmdline still contains nomodeset (${_cmdline}). On Ubuntu that guarantees a dark screen." ;;
+  esac
+  # Both GRUB_CMDLINE_LINUX writers in the answer file, in one pass.
+  sed -i "s|GRUB_CMDLINE_LINUX=\\\\\"[^\\\\]*\\\\\"|GRUB_CMDLINE_LINUX=\\\\\"${_cmdline}\\\\\"|g" \
+    "${AI}/user-data"
+else
+  log "WARNING: cannot read the shared cmdline definition — shipping the answer file's default"
+fi
+
 # Fail before a 20-minute repack if the answer file is not valid YAML.
 if command -v python3 >/dev/null; then
   python3 -c 'import sys,yaml; yaml.safe_load(open(sys.argv[1]))' "${AI}/user-data" \
