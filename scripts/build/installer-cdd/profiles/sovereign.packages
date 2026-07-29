@@ -91,3 +91,14 @@ xterm
 # Step 08-image-sign instructs the operator to enroll the MOK cert with
 # mokutil after install; it must therefore be ON the disc (2026-07-27).
 mokutil
+
+# xdg-utils — REQUIRED BY THE DASHBOARDS DEPLOY, and it was in neither list.
+# install-gui-dashboards.sh pkg_ensure's xdg-utils for EVERY frontend
+# (kde-plasma, gnome, xfce, kiosk). It was absent from this mirror list and from
+# pkgsel/include, so on the offline install apt had no candidate for it:
+#     E: Package 'xdg-utils' has no installation candidate
+#     FAILED (rc=100)
+# and the whole cockpit/dashboards deploy died with it -- silently, because
+# late_command swallows the failure. Recovered from the failed disk's own
+# /var/log/sovereign-os/dashboards-install.log (2026-07-28).
+xdg-utils

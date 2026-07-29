@@ -116,6 +116,9 @@ autoinstall:
     - amd64-microcode
     - linux-firmware
     - mokutil
+    # Required by install-gui-dashboards.sh for every frontend; its absence
+    # from the Debian lists killed the whole dashboards deploy (2026-07-28).
+    - xdg-utils
 
   # Subiquity's own kernel for the INSTALLED system; the custom znver5
   # linux-image-6.12.0 is dpkg-installed from the ISO pool in late-commands and
