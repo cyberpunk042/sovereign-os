@@ -109,6 +109,18 @@ if command -v python3 >/dev/null; then
   log "autoinstall user-data parsed OK"
 fi
 
+# …and fail before the remaster if it names a package Ubuntu does not ship.
+# Subiquity aborts on an unknown name AFTER partitioning; checking the archive
+# index costs seconds. Counterpart of installer-cdd/verify-iso-has-packages.sh.
+# Skips cleanly when offline — unverifiable is not the same as wrong.
+_vpk="${HERE}/verify-packages-exist.sh"
+if [ -x "${_vpk}" ]; then
+  "${_vpk}" "${AI}/user-data" "${SUITE}" \
+    || die "the autoinstall names package(s) Ubuntu ${RELEASE} does not have — refusing to build an ISO that aborts mid-install"
+else
+  log "WARNING: ${_vpk} missing — package names unverified"
+fi
+
 # ── 5. remaster ─────────────────────────────────────────────────────────────
 # `-boot_image any replay` copies the ORIGINAL boot record forward, which is
 # what keeps the result UEFI-bootable. Hand-rolling -e/-isohybrid options
@@ -133,6 +145,13 @@ log "injecting the autoinstall boot argument into grub.cfg"
 GRUBCFG="${WORK}/grub.cfg"
 xorriso -indev "${ISO_OUT}" -osirrox on -extract /boot/grub/grub.cfg "${GRUBCFG}" 2>/dev/null \
   || die "could not extract grub.cfg from the remastered ISO"
+# xorriso -osirrox PRESERVES THE ISO'S PERMISSIONS: the extracted file lands
+# mode 0444, so the patcher below dies with
+#   PermissionError: [Errno 13] Permission denied: '.../grub.cfg'
+# and the build fails after the multi-GB remaster. Caught by running this
+# against the real Ubuntu 26.04 ISO (2026-07-29) — a fixture with normal
+# permissions never reproduces it.
+chmod u+w "${GRUBCFG}" || die "could not make ${GRUBCFG} writable"
 python3 - "${GRUBCFG}" <<'PY'
 import re, sys
 

@@ -30,15 +30,15 @@ CASPER_CFG = """\
 set timeout=30
 menuentry "Try or Install Ubuntu" {
 \tset gfxpayload=keep
-\tlinux\t/casper/vmlinuz  ---
+\tlinux  /casper/vmlinuz  --- quiet splash
 \tinitrd\t/casper/initrd
 }
 menuentry "Ubuntu (safe graphics)" {
-\tlinux\t/casper/vmlinuz  nomodeset ---
+\tlinux  /casper/vmlinuz nomodeset  --- quiet splash
 \tinitrd\t/casper/initrd
 }
-menuentry "Test memory" {
-\tlinux16 /boot/memtest86+.bin
+menuentry 'Boot from next volume' {
+\texit 1
 }
 """
 
@@ -83,9 +83,10 @@ def test_every_casper_entry_is_seeded_and_nothing_else_is_touched(tmp_path: Path
         "both casper entries must be seeded — an operator who picks 'safe "
         "graphics' from the menu must get the same seeded install"
     )
-    assert "linux16 /boot/memtest86+.bin" in out, (
-        "non-casper entries (memtest, firmware settings) must be left exactly "
-        "as Ubuntu shipped them"
+    assert "menuentry 'Boot from next volume'" in out and "autoinstall" not in out.split(
+        "menuentry 'Boot from next volume'")[1], (
+        "non-casper entries ('Boot from next volume', UEFI firmware settings) "
+        "must be left exactly as Ubuntu shipped them"
     )
 
 
@@ -114,6 +115,49 @@ def test_it_refuses_an_iso_whose_layout_it_does_not_recognise(tmp_path: Path):
         "silently produce an unseeded ISO"
     )
     assert "refusing" in (r.stderr + r.stdout).lower()
+
+
+def test_the_extracted_grub_cfg_is_made_writable_before_patching():
+    """xorriso -osirrox preserves the ISO's permissions: the file lands 0444.
+
+    Verified against the real Ubuntu 26.04 ISO (2026-07-29): the extracted
+    grub.cfg is mode 444, so the patcher died with
+
+        PermissionError: [Errno 13] Permission denied: '.../grub.cfg'
+
+    AFTER the multi-GB remaster. A test fixture written by the test itself has
+    normal permissions and can never reproduce this — only the real ISO does,
+    which is exactly why the ISO was fetched before trusting any of this.
+    """
+    body = BUILD.read_text(encoding="utf-8")
+    extract_at = body.index("-osirrox on -extract /boot/grub/grub.cfg")
+    patch_at = body.index('python3 - "${GRUBCFG}"')
+    chmod_at = body.find('chmod u+w "${GRUBCFG}"')
+    assert chmod_at != -1, (
+        "build.sh must chmod u+w the grub.cfg it extracts — xorriso gives it "
+        "the ISO's read-only mode and the patcher cannot write it"
+    )
+    assert extract_at < chmod_at < patch_at, (
+        "the chmod must sit between the extract and the patch"
+    )
+
+
+def test_the_patcher_fails_loudly_on_a_read_only_target(tmp_path: Path):
+    """And if the chmod is ever lost, the failure must be visible, not silent."""
+    script = tmp_path / "patch.py"
+    script.write_text(patcher(), encoding="utf-8")
+    target = tmp_path / "grub.cfg"
+    target.write_text(CASPER_CFG, encoding="utf-8")
+    target.chmod(0o444)                      # exactly what xorriso hands back
+    try:
+        r = subprocess.run([sys.executable, str(script), str(target)],
+                           capture_output=True, text=True)
+        assert r.returncode != 0, (
+            "patching a read-only grub.cfg must fail the build, not appear to "
+            "succeed while writing nothing"
+        )
+    finally:
+        target.chmod(0o644)
 
 
 def test_the_seed_directory_carries_a_meta_data_file():
