@@ -23,7 +23,19 @@ EnvironmentFile=-/etc/sovereign-os/model.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/inference-model-provision.sh
 StandardOutput=journal
 StandardError=journal
-# A multi-GB model pull can take a long time — do not time it out.
+# THE ONE EXEMPTION to the bounded-start-timeout rule (2026-07-28).
+# Every other sovereign-firstboot member now carries a FINITE TimeoutStartSec,
+# because Type=oneshot disables the start timeout by default (systemd.service(5))
+# and an unbounded hook is an unrecoverable hang.
+#
+# This unit keeps 0 (= infinity) deliberately: a multi-GB model pull over a slow
+# link can legitimately run for hours, and cutting it mid-fetch corrupts the
+# download. Two properties make that safe HERE and nowhere else:
+#   * sovereign-firstboot.target is After=multi-user.target, so getty/sddm are
+#     already up and the operator can log in while this runs;
+#   * the hook exits 0 on every failure path (no-hf-cli / no-space /
+#     download-failed) rather than blocking — asserted by
+#     tests/lint/test_inference_model_provision_contract.py.
 TimeoutStartSec=0
 # Keep the huggingface cache inside the writable model tree (RWP below).
 Environment=HF_HOME=/mnt/vault/models/.hf-cache

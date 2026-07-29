@@ -10,6 +10,14 @@ PartOf=sovereign-firstboot.target
 
 [Service]
 Type=oneshot
+# BOUNDED START TIMEOUT (2026-07-28). Type=oneshot DISABLES the start
+# timeout by default (systemd.service(5)), so leaving this unset means
+# INFINITE: a hook that blocks hangs first boot with no failure, no timeout
+# and no recovery — the shape that already 'hung a boot at Reached Target
+# sovereign-firstboot.target' (2026-07-26). A bound turns an indefinite hang
+# into a visible failed unit that the operator can actually see and fix.
+# local driver rebind
+TimeoutStartSec=120
 RemainAfterExit=yes
 EnvironmentFile=-/etc/sovereign-os/active-profile.env
 ExecStart=/opt/sovereign-os/scripts/hooks/post-install/vfio-bind-4090.sh

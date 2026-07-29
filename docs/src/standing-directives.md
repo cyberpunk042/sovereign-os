@@ -16,6 +16,7 @@ Operator standing-directives (verbatim mandate records), newest by date last.
 - [Standing directive — upstream rename: root-ghostproxy → root-modules](../standing-directives/2026-07-19-root-modules-rename.md)
 - [Standing directive — sovereign-os is INSTALLED onto the NVMe (installer, not just an image)](../standing-directives/2026-07-25-installer-onto-nvme.md)
 - [Standing directive — the installer IS the normal Debian 13 installer (d-i), not a bespoke TUI](../standing-directives/2026-07-26-the-normal-debian-13-installer.md)
+- [Standing directive — Ubuntu 26.04 LTS is a SECOND distro option, not a replacement](../standing-directives/2026-07-28-ubuntu-26-04-as-a-second-distro.md)
 - [Re-arming `/goal` autopilot — root cause + the fix](../standing-directives/goal-rearming.md)
 - [Mandate review — 2026-Q2 (R285 / E9.M3)](../standing-directives/mandate-review-2026-Q2.md)
 - [Standing directive — the two ultimate solutions](../standing-directives/two-ultimate-solutions.md)

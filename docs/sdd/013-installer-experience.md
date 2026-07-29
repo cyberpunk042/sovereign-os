@@ -8,6 +8,31 @@
 > (initial profiles), `config/cloud-init/` + `config/preseed/` existing
 > configs.
 
+> **AMENDMENT 2026-07-28 (operator directive — see
+> `docs/standing-directives/2026-07-28-ubuntu-26-04-as-a-second-distro.md`).**
+> The installer is now selected by TWO axes, not one. `SOVEREIGN_OS_DISTRO`
+> (`debian`|`ubuntu`, default `debian`) joins `SOVEREIGN_OS_ARTIFACT`:
+>
+> | ARTIFACT | DISTRO=debian | DISTRO=ubuntu |
+> |---|---|---|
+> | `image` | `mkosi` | `mkosi` |
+> | `installer` | `installer-cdd` | **`ubuntu-autoinstall`** |
+> | `installer-live` | `live-build` | `live-build` *(untested)* |
+>
+> The 2026-07-26 amendment below is UNCHANGED for Debian and generalised, not
+> superseded: "the operator gets the standard installer" still holds — it simply
+> means a different program per distro. Ubuntu dropped debian-installer at 20.04
+> and Subiquity does not read debconf preseeds, so `installer-cdd` and its
+> `default.preseed` cannot be reused there at all. `ubuntu-autoinstall` remasters
+> the official Ubuntu 26.04 LTS ISO with an autoinstall answer file, and — like
+> the Debian preseed — leaves the disk pick and the account setup INTERACTIVE
+> (`interactive-sections: [storage, identity]`), so no image ever carries a
+> baked-in password and no unattended run repartitions a disk the operator did
+> not choose.
+>
+> No Ubuntu ISO has been built yet; the remaster and Subiquity's acceptance of
+> the answer file are unverified.
+
 > **AMENDMENT 2026-07-26 (operator directive — see
 > `docs/standing-directives/2026-07-26-the-normal-debian-13-installer.md`).**
 > The 2026-07-25 amendment below specifies form (b) as a **live-build ISO running

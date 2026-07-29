@@ -6,13 +6,34 @@ checkpoints. Substrate-aware: uses mkosi (primary per SDD-003); the
 live-build path swaps the `05/07` build steps but the lifecycle is
 identical.
 
-**Three substrates, two of which install:**
+**Two axes: WHAT you build (`SOVEREIGN_OS_ARTIFACT`) and WHICH distro you build
+it from (`SOVEREIGN_OS_DISTRO`).** Distro defaults to `debian`, so a command that
+sets neither behaves exactly as it always has.
 
-| `SOVEREIGN_OS_ARTIFACT` | substrate | what you get |
+| `SOVEREIGN_OS_ARTIFACT` | `DISTRO=debian` (default) | `DISTRO=ubuntu` |
 |---|---|---|
-| `image` (default) | `mkosi` | whole-disk appliance `.raw` — dd it, immutable |
-| `installer` | `installer-cdd` | **a real Debian 13 installer ISO** (simple-cdd → debian-cd): the normal d-i experience, offline from the CD's own mirror. See [the 2026-07-26 directive](../standing-directives/2026-07-26-the-normal-debian-13-installer.md). |
-| `installer-live` | `live-build` | the older live ISO + bespoke TUI — retained, not the default |
+| `image` (default) | `mkosi` — whole-disk appliance `.raw`, dd it, immutable | `mkosi` (Ubuntu 26.04) |
+| `installer` | `installer-cdd` — **a real Debian 13 installer ISO** (simple-cdd → debian-cd): the normal d-i experience, offline from the CD's own mirror. See [the 2026-07-26 directive](../standing-directives/2026-07-26-the-normal-debian-13-installer.md). | `ubuntu-autoinstall` — **a real Ubuntu 26.04 installer ISO**: the official image remastered with a Subiquity autoinstall answer file |
+| `installer-live` | `live-build` — the older live ISO + bespoke TUI, retained, not the default | `live-build` *(wired, untested — Ubuntu uses `livecd-rootfs`)* |
+
+The suite follows the distro (`debian`→`trixie`, `ubuntu`→`resolute`); override
+with `SOVEREIGN_OS_SUITE` only if you mean it.
+
+**Why `installer` builds two different programs.** Ubuntu dropped
+debian-installer at 20.04 and Subiquity does not read debconf preseeds, so the
+`installer-cdd` builder and `default.preseed` cannot be reused for Ubuntu at
+all. Both paths keep the same operator contract: the standard installer for that
+distro, stopping for the disk pick and the account setup rather than
+repartitioning unattended or shipping a baked-in password. See
+[the 2026-07-28 directive](../standing-directives/2026-07-28-ubuntu-26-04-as-a-second-distro.md).
+
+```bash
+# Debian 13 installer ISO (unchanged default)
+SOVEREIGN_OS_ARTIFACT=installer scripts/build/orchestrate.sh run
+
+# Ubuntu 26.04 LTS installer ISO
+SOVEREIGN_OS_DISTRO=ubuntu SOVEREIGN_OS_ARTIFACT=installer scripts/build/orchestrate.sh run
+```
 
 ## Prerequisites
 
