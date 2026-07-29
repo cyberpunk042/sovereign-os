@@ -154,9 +154,32 @@ for m in nouveau amdgpu i915 radeon; do
     && _bl="${_bl} ${m}"
 done
 [ -n "${_bl}" ] && info "KMS drivers blacklisted:${_bl}"
+# Is there an X11 session to fall back to? On Debian, plasma-workspace ships
+# /usr/share/xsessions/plasmax11.desktop and X11-on-fbdev works — which is why
+# nomodeset is the proven workaround there. Ubuntu 26.04's Plasma is
+# WAYLAND-ONLY (xsessions is empty), and Wayland needs the DRM device nomodeset
+# removes. So the same flag has OPPOSITE meanings on the two distros, proven by
+# stripping nomodeset from one installed disk: cursor-on-black became the
+# Kubuntu greeter, nothing else changed (2026-07-29).
+_x11=no
+if [ -n "${UNPRIV:-}" ]; then
+  _dbg "ls -p /usr/share/xsessions" | awk -F/ 'NF>5 && $6!="." && $6!=".."{print $6}' \
+    | grep -q . && _x11=yes
+else
+  ls "${MNT}"/usr/share/xsessions/*.desktop >/dev/null 2>&1 && _x11=yes
+fi
+[ "${_x11}" = yes ] && info "X11 sessions available (nomodeset can work)" \
+                    || info "NO X11 sessions — this desktop is Wayland-only"
+
 if [ "${_nomodeset}" = no ] && [ -n "${_bl}" ]; then
   bad "NO ROUTE TO A GRAPHICAL SEAT — nomodeset absent AND${_bl} blacklisted."
   info "logind would report CanGraphical=no and sddm would wait forever."
+elif [ "${_nomodeset}" = yes ] && [ "${_x11}" = no ]; then
+  bad "nomodeset IS SET but there is no X11 session to use it."
+  info "Wayland-only desktop + nomodeset = no DRM = no session at all."
+  info "This is the Ubuntu 26.04 failure: the greeter never starts and the"
+  info "screen stays a blinking cursor. Remove nomodeset and let a KMS driver"
+  info "bind (on Blackwell that means the NVIDIA driver, not nouveau)."
 else
   ok "a route to a graphical seat exists (udev can tag master-of-seat)"
 fi

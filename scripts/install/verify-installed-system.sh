@@ -97,6 +97,29 @@ mkdir -p /var/log/sovereign-os
   echo "-- display manager --"
   dm=$(readlink /etc/systemd/system/display-manager.service 2>/dev/null || true)
   [ -n "${dm}" ] && echo "  ${dm}" || echo "  PROBLEM: none registered -- nothing starts a session"
+  # WHICH display manager, not just whether one exists.
+  #
+  # A full Ubuntu install passed every other check here and still booted to a
+  # blinking cursor on black, because display-manager.service pointed at gdm3:
+  # the image is built from the Ubuntu DESKTOP ISO (GNOME base), and
+  # `systemctl enable sddm` cannot take that alias from a package that already
+  # owns it. gdm3 wants a DRM device for its Wayland greeter and nomodeset is
+  # exactly what removes one, so it never starts (2026-07-29).
+  #
+  # sddm on X11/fbdev is the configuration PROVEN on this hardware.
+  case "${dm}" in
+    *gdm*)
+      if grep -qE "^[[:space:]]*linux.*[[:space:]]nomodeset([[:space:]]|$)" \
+           /boot/grub/grub.cfg 2>/dev/null; then
+        echo "  PROBLEM: gdm3 is the display manager AND nomodeset is set."
+        echo "           gdm3 needs a DRM device for its Wayland greeter; nomodeset"
+        echo "           removes it, so gdm3 never starts -> cursor on a black screen."
+        echo "           fix: sudo sh /opt/sovereign-os/scripts/install/select-display-manager.sh sddm"
+      else
+        echo "  NOTE: gdm3 is the display manager (sddm is the proven config here)"
+      fi ;;
+    *sddm*) echo "  OK: sddm -- the display manager proven on this hardware" ;;
+  esac
   echo
 
   # Session type vs nomodeset. KWin's WAYLAND session needs a DRM device;
@@ -242,11 +265,40 @@ mkdir -p /var/log/sovereign-os
   echo
 
   echo "-- apt sources (can this system install anything, ever?) --"
-  if grep -qE "^deb .*deb\.debian\.org" /etc/apt/sources.list 2>/dev/null; then
+  # Look for BOTH formats, on BOTH distros.
+  #
+  # This grepped only /etc/apt/sources.list for deb.debian.org, and so reported
+  # "no network apt sources" on a perfectly healthy Ubuntu install: Ubuntu 26.04
+  # ships deb822 (/etc/apt/sources.list.d/ubuntu.sources) and leaves
+  # sources.list a 70-byte stub. A false alarm in the operator's motd is not
+  # free — it trains them to ignore the report that matters (2026-07-29).
+  # Grep only files that EXIST. `grep -q a_file a_missing_glob` returns 2 even
+  # when a_file matched, so passing an unmatched glob makes the whole check
+  # report failure — which on Debian (no sources.list.d/*.list) would have
+  # turned a fix for one false positive into another (2026-07-29).
+  _apt_ok=no
+  for _f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
+    [ -f "${_f}" ] || continue
+    if grep -qE "^deb .*(deb\.debian\.org|security\.debian\.org|archive\.ubuntu\.com|security\.ubuntu\.com|ports\.ubuntu\.com)" \
+         "${_f}" 2>/dev/null; then
+      _apt_ok=yes; break
+    fi
+  done
+  # deb822: `URIs: http://…` inside a *.sources stanza (Ubuntu 26.04's default).
+  if [ "${_apt_ok}" = no ]; then
+    for _f in /etc/apt/sources.list.d/*.sources; do
+      [ -f "${_f}" ] || continue
+      if grep -qE "^URIs:.*(debian\.org|ubuntu\.com)" "${_f}" 2>/dev/null; then
+        _apt_ok=yes; break
+      fi
+    done
+  fi
+  if [ "${_apt_ok}" = yes ]; then
     echo "  OK: network sources present"
   else
     echo "  PROBLEM: no network apt sources -- apt install will fail and no"
     echo "           security update will ever arrive"
+    echo "           fix: sudo sh /opt/sovereign-os/scripts/install/write-apt-sources.sh"
   fi
   echo
 

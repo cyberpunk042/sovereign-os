@@ -132,3 +132,40 @@ Both narrowing attempts were REVERTED; the tree is back to the committed
 it. Do NOT reuse the scratch tree across a component change —
 `SOVEREIGN_OS_CDD_KEEP_TMP=1` leaves a reprepro db built for the old component
 set and yields a misleading `undefinedtarget` error.
+
+## nomodeset is a DEBIAN-ONLY workaround — it is fatal on Ubuntu 26.04
+
+Established 2026-07-29 by a controlled experiment on one installed disk.
+
+**The evidence.** A complete Ubuntu 26.04 install, verified 14/15 on disk
+(nomodeset present, sddm selected, custom kernel installed, cockpit deployed),
+booted to a blinking cursor on black. The same disk, with `nomodeset` stripped
+from `/boot/grub/grub.cfg` and nothing else changed, boots to the Kubuntu Plasma
+greeter. Screen luminance went from 1e-05 to 0.076.
+
+**Why.** Ubuntu 26.04's Plasma is WAYLAND-ONLY:
+
+    /usr/share/wayland-sessions/  ->  plasma.desktop, ubuntu.desktop
+    /usr/share/xsessions/         ->  EMPTY
+
+`plasma-workspace` and `kwin-x11` ship no session `.desktop` at all on Ubuntu
+(checked by downloading both .debs). Debian's `plasma-workspace` DOES ship
+`/usr/share/xsessions/plasmax11.desktop` — which is why the operator's Debian
+box runs X11-on-fbdev happily with nomodeset, and why that workaround was
+adopted in the first place.
+
+Wayland needs a DRM device. `nomodeset` is precisely what prevents one. So on
+Ubuntu the flag guarantees there is NO session the display manager can start —
+the failure is total and silent, exactly like the Debian one it was meant to fix.
+
+**What this does NOT settle.** Removing nomodeset works in a VM because
+bochs-drm binds. On the SAIN-01 hardware (Blackwell RTX 5090) nouveau fails on
+that chipset — which is why nomodeset exists. Without nomodeset AND without a
+working KMS driver, Ubuntu lands in the same place. The likely answer for
+Ubuntu + Blackwell is the proprietary NVIDIA driver providing DRM (the
+`nvidia-drm.modeset=1` path the profile already contemplates and which
+`persist-kernel-cmdline.sh` already refuses to clobber), NOT nomodeset.
+
+That is a hardware-strategy decision for the operator, so nothing here changes
+the profile's cmdline unilaterally. What IS changed: the installed-system checks
+now treat nomodeset-on-Ubuntu as a PROBLEM rather than the desired state.

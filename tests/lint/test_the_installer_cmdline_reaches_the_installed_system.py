@@ -27,6 +27,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PRESEED = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "profiles" / "default.preseed"
 VERIFY = REPO_ROOT / "scripts" / "install" / "verify-installed-system.sh"
@@ -166,4 +168,59 @@ def test_the_cmdline_definition_stays_single_sourced():
     assert "installed-system.sh" in body and "SOVEREIGN_OS_KERNEL_CMDLINE" in body, (
         "persist-kernel-cmdline.sh must read SOVEREIGN_OS_KERNEL_CMDLINE from "
         "lib/installed-system.sh so a fresh install and a repair cannot drift"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The display manager. Added 2026-07-29 after a COMPLETE Ubuntu install, with
+# every check above passing, booted to a blinking cursor on black.
+# ─────────────────────────────────────────────────────────────────────────────
+
+SELECT_DM = REPO_ROOT / "scripts" / "install" / "select-display-manager.sh"
+
+
+def test_a_display_manager_is_selected_explicitly():
+    """`systemctl enable sddm` does NOT make sddm the display manager.
+
+    The active DM is decided by /etc/X11/default-display-manager and the
+    display-manager.service alias symlink; `enable` will not take that alias
+    from a package that already owns it. The Ubuntu DESKTOP ISO's base install
+    is GNOME, so the alias stayed on gdm3 — which needs a DRM device for its
+    Wayland greeter, exactly what nomodeset removes.
+    """
+    assert SELECT_DM.is_file(), "select-display-manager.sh must exist"
+    body = SELECT_DM.read_text(encoding="utf-8")
+    assert "/etc/X11/default-display-manager" in body, (
+        "the debconf choice file must be written, or a later reconfigure reverts it"
+    )
+    assert "display-manager.service" in body and "ln -sf" in body, (
+        "the alias symlink must be REPLACED — enable cannot steal it"
+    )
+
+
+@pytest.mark.parametrize("installer,anchor", [
+    ("scripts/build/installer-cdd/profiles/default.preseed", "late_command"),
+    ("scripts/build/ubuntu-autoinstall/autoinstall/user-data", "late-commands"),
+])
+def test_both_installers_select_the_display_manager(installer: str, anchor: str):
+    body = (REPO_ROOT / installer).read_text(encoding="utf-8")
+    assert "select-display-manager.sh" in body, (
+        f"{installer} must select the display manager explicitly in its {anchor}; "
+        "installing sddm is not enough when another DM already owns the alias"
+    )
+
+
+def test_the_self_check_flags_gdm_plus_nomodeset():
+    """The on-box report must name the fatal COMBINATION, not just the DM.
+
+    gdm3 alone is fine on a machine with working KMS. gdm3 AND nomodeset is a
+    guaranteed black screen, and that pair is what shipped.
+    """
+    body = VERIFY.read_text(encoding="utf-8")
+    assert "gdm" in body and "nomodeset" in body, (
+        "verify-installed-system.sh must check the display manager against the "
+        "cmdline, not merely print which one is registered"
+    )
+    assert "select-display-manager.sh" in body, (
+        "the report must give the exact fix command, not just the diagnosis"
     )
