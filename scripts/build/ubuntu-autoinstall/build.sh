@@ -135,18 +135,44 @@ xorriso -indev "${ISO_OUT}" -osirrox on -extract /boot/grub/grub.cfg "${GRUBCFG}
   || die "could not extract grub.cfg from the remastered ISO"
 python3 - "${GRUBCFG}" <<'PY'
 import re, sys
+
+ARG = r"autoinstall ds=nocloud\;s=/cdrom/autoinstall/"
+
 p = sys.argv[1]
 t = open(p).read()
-# Only touch linux lines that don't already carry it, and keep every other
-# boot entry (safe-graphics, memtest, …) exactly as Ubuntu shipped it.
+
+
 def add(m):
-    line = m.group(0)
+    """Insert the autoinstall args BEFORE casper's `---` separator.
+
+    Ubuntu live ISOs end the kernel line with `---`, which separates kernel
+    parameters from what is handed on to init/casper. Every documented
+    autoinstall recipe puts the argument before it:
+
+        linux /casper/vmlinuz autoinstall ds=nocloud\\;s=/cdrom/autoinstall/ ---
+
+    The first version of this appended to the END of the line, i.e. AFTER the
+    separator — which is not where Subiquity looks for it, and would have
+    produced an ISO that boots straight into a fully interactive install while
+    claiming to be seeded. Caught by testing the patcher against a realistic
+    casper grub.cfg before any ISO was ever built (2026-07-28).
+    """
+    line = m.group(0).rstrip()
     if "autoinstall" in line:
         return line
-    return line.rstrip() + "  autoinstall ds=nocloud\\;s=/cdrom/autoinstall/"
-t = re.sub(r"^\s*linux\s+/casper/vmlinuz.*$", add, t, flags=re.M)
+    if "---" in line:
+        head, sep, tail = line.partition("---")
+        return f"{head.rstrip()} {ARG} {sep}{tail}".rstrip()
+    return f"{line} {ARG}"
+
+
+t, n = re.subn(r"^\s*linux\s+/casper/vmlinuz.*$", add, t, flags=re.M)
+if n == 0:
+    sys.exit("grub.cfg: no /casper/vmlinuz boot entries found — "
+             "the ISO layout is not what this builder expects; refusing to "
+             "ship an unseeded installer")
 open(p, "w").write(t)
-print(f"grub.cfg: {t.count('autoinstall ds=nocloud')} entries seeded")
+print(f"grub.cfg: {t.count('autoinstall ds=nocloud')} entr(y/ies) seeded")
 PY
 xorriso -dev "${ISO_OUT}" -boot_image any keep \
   -map "${GRUBCFG}" /boot/grub/grub.cfg -- \
