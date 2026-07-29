@@ -314,6 +314,20 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
     # predates the rule is not reported missing.
     _iso_glob="$(distro_artifact_basename "${SOVEREIGN_OS_PROFILE}" installer).iso"
     _iso_glob_legacy="${SOVEREIGN_OS_PROFILE}-installer.iso"
+
+    # A LEGACY-NAMED ARTIFACT ALONGSIDE THE NEW ONE IS THE CONFUSION ITSELF.
+    # Before 2026-07-29 the Debian ISO had no distro segment, so a rebuild
+    # leaves BOTH <profile>-installer.iso and <profile>-debian-installer.iso in
+    # output/ — two rows in the flash panel that are the same distro, same
+    # profile, different vintage. Never delete an operator's artifact silently;
+    # say exactly what is there and what to do about it.
+    if [ -f "${_out}/${_iso_glob_legacy}" ] && [ "${_iso_glob_legacy}" != "${_iso_glob}" ]; then
+      log_warn "a legacy-named artifact is present: ${_out}/${_iso_glob_legacy}"
+      log_warn "  it predates the distro-qualified naming rule and is the SAME"
+      log_warn "  distro+profile as ${_iso_glob}, so the flash panel will show"
+      log_warn "  two Debian rows. Once this build succeeds, remove the old one:"
+      log_warn "    rm ${_out}/${_iso_glob_legacy}"
+    fi
     _iso_before=""
     _iso_path="$(find "${_out}" -maxdepth 1 \( -name "${_iso_glob}" -o -name "${_iso_glob_legacy}" \) -type f 2>/dev/null | head -1)"
     [ -n "${_iso_path}" ] && _iso_before="$(stat -c '%Y:%s' "${_iso_path}" 2>/dev/null || true)"

@@ -52,7 +52,19 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "${HERE}/../../.." && pwd)"
-ISO="${1:-${REPO}/build/sain-01/output/sain-01-installer.iso}"
+# Default to the distro-qualified name (2026-07-29), falling back to the
+# legacy one so a pre-rename ISO still works. Hardcoding either alone means
+# the harness silently verifies the wrong vintage — or nothing at all.
+_prof="${SOVEREIGN_OS_PROFILE:-sain-01}"
+_outdir="${REPO}/build/${_prof}/output"
+ISO="${1:-}"
+if [ -z "${ISO}" ]; then
+  for _c in "${_outdir}/${_prof}-debian-installer.iso" \
+            "${_outdir}/${_prof}-installer.iso"; do
+    [ -r "${_c}" ] && { ISO="${_c}"; break; }
+  done
+  ISO="${ISO:-${_outdir}/${_prof}-debian-installer.iso}"
+fi
 WORK="${SOVEREIGN_OS_VMTEST_WORK:-/var/tmp/sovereign-debian-vmtest}"
 DISK_GB="${SOVEREIGN_OS_VMTEST_DISK_GB:-24}"
 BOOT_TIMEOUT="${SOVEREIGN_OS_VMTEST_TIMEOUT:-3600}"   # 60 min: d-i is slower
