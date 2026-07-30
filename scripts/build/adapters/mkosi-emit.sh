@@ -720,6 +720,15 @@ postinst.write_text(textwrap.dedent("""\
     # os-release happens to be readable at that point in the bake.
     export SOVEREIGN_OS_DISTRO=__SOVEREIGN_OS_DISTRO__
 
+    # …and PERSIST it for the running system. The whitelabel overwrites
+    # /etc/os-release with ID=sovereign, ID_LIKE=debian, so on the booted
+    # appliance target_distro() cannot tell Ubuntu from Debian and returns the
+    # `debian` default — every runtime script would then pick Debian package
+    # names on an Ubuntu box (found by inspecting the first Ubuntu appliance,
+    # 2026-07-30). The builder knows; write it down.
+    mkdir -p /etc/sovereign-os
+    printf '%s\n' "__SOVEREIGN_OS_DISTRO__" > /etc/sovereign-os/base-distro
+
     # Operator-only secure-boot chain: drop the DISTRO-presigned
     # systemd-boot binaries ('Debian Secure Boot CA') — bootctl prefers
     # *.efi.signed, but the firmware db enrolls ONLY the operator cert,

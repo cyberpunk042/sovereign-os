@@ -33,6 +33,17 @@ target_distro() {
     printf '%s' "${SOVEREIGN_OS_DISTRO}"
     return 0
   fi
+  # The BUILD recorded what this system is. Prefer it: the whitelabel rewrites
+  # /etc/os-release with ID=sovereign / ID_LIKE=debian, so os-release cannot
+  # distinguish an Ubuntu appliance from a Debian one and this function returned
+  # `debian` on a Ubuntu box — picking firefox-esr, the Debian firmware names,
+  # and the Debian apt mirror (2026-07-30).
+  if [ -r /etc/sovereign-os/base-distro ]; then
+    _bd="$(head -1 /etc/sovereign-os/base-distro 2>/dev/null | tr -d '[:space:]')"
+    case "${_bd}" in
+      debian|ubuntu) printf '%s' "${_bd}"; return 0 ;;
+    esac
+  fi
   _id=""
   if [ -r /etc/os-release ]; then
     _id="$(. /etc/os-release 2>/dev/null && printf '%s' "${ID:-}")"

@@ -410,3 +410,124 @@ def test_debians_single_recovery_entry_is_ignored_too(tmp_path):
         f"the primary Debian entry has nomodeset; the `single` recovery entry "
         f"must not confuse the verdict.\n{out}"
     )
+
+
+# ── the APPLIANCE shape (2026-07-30, first Ubuntu mkosi image) ──────────────
+# The inspector was written for installer-produced disks and reported FOUR
+# failures on a complete, bootable appliance:
+#
+#   FAIL  no /boot/grub/grub.cfg — nothing will boot   (it boots systemd-boot)
+#   FAIL  vmlinuz-6.12.0 NOT installed                 (it is a UKI on the ESP)
+#   FAIL  no initrd.img-6.12.0                         (inside the UKI)
+#   FAIL  active-profile missing                       (it is active-profile.env)
+#
+# The operator asked "did it really work?" — and the honest answer needed the
+# image read, not the checker believed. A checker that condemns a working
+# artifact is the same cry-wolf failure as the GRUB recovery-entry bug.
+
+def _tool_or_skip(name):
+    t = _tool(name)
+    if not t:
+        pytest.skip(f"needs {name}")
+    return t
+
+
+def build_appliance(tmp: Path) -> Path:
+    """A GPT disk shaped like mkosi's: ESP with a UKI + ext4 root, no GRUB."""
+    mformat, mcopy = _tool_or_skip("mformat"), _tool_or_skip("mcopy")
+    tmp.mkdir(parents=True, exist_ok=True)
+    esp_start, esp_len = 1 << 20, 64 << 20
+    root_start, root_len = esp_start + esp_len, 160 << 20
+    raw = tmp / "appliance.raw"
+    # +1 MiB of slack: GPT keeps a BACKUP header in the last ~33 sectors, so a
+    # disk sized exactly to its partitions fails with
+    #   "The last usable GPT sector is N, but N+33 is requested".
+    raw.write_bytes(b"\0" * (root_start + root_len + (1 << 20)))
+
+    esp = tmp / "esp.img"
+    esp.write_bytes(b"\0" * esp_len)
+    subprocess.run([mformat, "-i", str(esp), "-F", "::"], check=True, capture_output=True)
+    for d in ("::/EFI", "::/EFI/Linux", "::/EFI/systemd"):
+        subprocess.run([_tool_or_skip("mmd"), "-i", str(esp), d], capture_output=True)
+    uki = tmp / "sovereign-6.12.0.efi"
+    uki.write_bytes(b"MZ" + b"\0" * 4096 + b"systemd-boot stub")
+    subprocess.run([mcopy, "-i", str(esp), str(uki), "::/EFI/Linux/"],
+                   check=True, capture_output=True)
+    sdb = tmp / "systemd-bootx64.efi"
+    sdb.write_bytes(b"MZ" + b"systemd-boot 259" + b"\0" * 512)
+    subprocess.run([mcopy, "-i", str(esp), str(sdb), "::/EFI/systemd/"],
+                   check=True, capture_output=True)
+
+    root = tmp / "root.img"
+    subprocess.run([_tool("mke2fs"), "-q", "-t", "ext4", str(root),
+                    f"{root_len // 1024}k"], check=True, capture_output=True)
+    for path, content in {
+        "/usr/lib/os-release": 'ID=sovereign\nID_LIKE=debian\nPRETTY_NAME="Sovereign OS"\n',
+        "/etc/sovereign-os/active-profile.env": "SOVEREIGN_OS_PROFILE=sain-01\n",
+        "/var/lib/dpkg/status": "Package: sddm\nStatus: install ok installed\n",
+    }.items():
+        made = set()
+        for i in range(len(Path(path).parts[1:-1])):
+            d = "/" + "/".join(Path(path).parts[1:i + 2])
+            if d not in made:
+                subprocess.run([_tool("debugfs"), "-w", "-R", f"mkdir {d}", str(root)],
+                               capture_output=True)
+                made.add(d)
+        f = tmp / ("x" + str(abs(hash(path))))
+        f.write_text(content)
+        subprocess.run([_tool("debugfs"), "-w", "-R", f"write {f} {path}", str(root)],
+                       capture_output=True)
+
+    with raw.open("r+b") as dst:
+        dst.seek(esp_start); dst.write(esp.read_bytes())
+        dst.seek(root_start); dst.write(root.read_bytes())
+    subprocess.run(
+        [_tool("sfdisk"), "--no-reread", "--no-tell-kernel", str(raw)],
+        input=(f"label: gpt\n"
+               f"start={esp_start // SS}, size={esp_len // SS}, "
+               f"type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B\n"
+               f"start={root_start // SS}, size={root_len // SS}, type=linux\n"),
+        text=True, capture_output=True, check=True)
+    return raw
+
+
+def test_an_appliance_is_recognised_as_one(tmp_path):
+    disk = build_appliance(tmp_path)
+    _, out = inspect(disk)
+    assert "artifact shape: appliance" in out, (
+        "the inspector must tell a mkosi appliance from an installer-produced "
+        f"disk; they boot completely differently.\n{out}"
+    )
+
+
+def test_an_appliance_is_not_condemned_for_having_no_grub(tmp_path):
+    """It boots systemd-boot + a UKI. There is no GRUB by design."""
+    disk = build_appliance(tmp_path)
+    _, out = inspect(disk)
+    assert "nothing will boot" not in out, (
+        f"a complete appliance was reported unbootable for lacking GRUB.\n{out}"
+    )
+    assert "no /boot/grub/grub.cfg" not in out, out
+
+
+def test_the_uki_is_found_on_the_esp(tmp_path):
+    """FAT long filenames are UTF-16 — `strings` cannot see them.
+
+    A first cut grepped the raw image for "sovereign-6.12.0.efi" and reported
+    "the appliance has no kernel" on an image that had one.
+    """
+    disk = build_appliance(tmp_path)
+    _, out = inspect(disk)
+    assert "UKI on the ESP" in out and "sovereign-6.12.0.efi" in out, (
+        f"the inspector did not find the UKI that is on the ESP.\n{out}"
+    )
+    assert "has no kernel" not in out, out
+
+
+def test_the_appliance_profile_marker_is_accepted(tmp_path):
+    """provision-bake writes active-profile.env, not active-profile."""
+    disk = build_appliance(tmp_path)
+    _, out = inspect(disk)
+    assert "active-profile missing" not in out, (
+        f"active-profile.env is the appliance's marker and must count.\n{out}"
+    )

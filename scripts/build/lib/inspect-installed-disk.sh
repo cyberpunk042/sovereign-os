@@ -42,8 +42,14 @@ DEBUGFS="$(command -v debugfs || echo /sbin/debugfs)"
 # from a plain file with `-o <offset>` — no mount, no loop device, no root.
 # Prefer it, and fall back to nbd+mount only when it is unavailable.
 if [ -x "${DEBUGFS}" ] && [ "${IMG#/dev/}" = "${IMG}" ] && command -v qemu-img >/dev/null; then
-  RAW="${IMG%.qcow2}.raw"
-  if [ ! -f "${RAW}" ] || [ "${IMG}" -nt "${RAW}" ]; then
+  # A .raw (or .img) input IS already raw — converting it produces an 8.6 GB
+  # duplicate named "<name>.raw.raw" and reads the copy instead of the file the
+  # operator named (2026-07-30, inspecting the first Ubuntu appliance).
+  case "${IMG}" in
+    *.raw|*.img) RAW="${IMG}" ;;
+    *)           RAW="${IMG%.qcow2}.raw" ;;
+  esac
+  if [ "${RAW}" != "${IMG}" ] && { [ ! -f "${RAW}" ] || [ "${IMG}" -nt "${RAW}" ]; }; then
     # -U: this is a strictly READ-ONLY inspection, so do not take the image
     # lock. Without it, inspecting a disk while a VM still has it open fails
     # with 'Failed to get shared "write" lock' — which is exactly when you most
@@ -207,6 +213,7 @@ PY
     for f in /boot/grub/grub.cfg /boot/grub/grubenv \
              /usr/lib/os-release /etc/os-release \
              /etc/sovereign-os/active-profile \
+             /etc/sovereign-os/active-profile.env \
              /var/lib/dpkg/status /var/lib/sovereign-os/dashboards-install.status \
              /var/log/sovereign-os/install-verify.log \
              /var/log/sovereign-os/dashboards-install.log; do
@@ -271,6 +278,53 @@ fi
 #   ubuntu  26.04's Plasma is WAYLAND-ONLY (xsessions EMPTY) and Wayland needs
 #           a DRM device, which nomodeset removes. Route: a bound KMS driver —
 #           the NVIDIA driver with nvidia-drm.modeset=1 (rule 35).
+# WHICH ARTIFACT IS THIS? The two shapes boot completely differently, and
+# applying one's expectations to the other cries wolf on a perfectly good image.
+#
+# 2026-07-30: inspecting the first Ubuntu APPLIANCE reported four failures —
+# "no grub.cfg, nothing will boot", "vmlinuz-6.12.0 NOT installed", "no
+# initrd.img", "active-profile missing" — on an image that was complete and
+# bootable. A mkosi appliance boots systemd-boot + a UKI from the ESP; there is
+# no GRUB, the kernel and initrd live INSIDE EFI/Linux/*.efi, and provision-bake
+# writes active-profile.env rather than active-profile.
+#
+#   installed-system  GRUB + /boot/vmlinuz-* + /boot/initrd.img-*  (d-i, Subiquity)
+#   appliance         systemd-boot + EFI/Linux/<name>.efi UKI      (mkosi)
+_artifact=installed-system
+if [ -s "${MNT}/boot/grub/grub.cfg" ]; then
+  _artifact=installed-system
+elif [ -n "${RAW:-}" ] && [ -r "${RAW}" ]; then
+  # No grub.cfg: look for a UKI on the ESP before concluding anything is wrong.
+  _esp_off="$(python3 - "${RAW}" 2>/dev/null <<'ESP'
+import json, subprocess, sys, shutil
+sfdisk = shutil.which("sfdisk") or "/sbin/sfdisk"
+try:
+    t = json.loads(subprocess.run([sfdisk, "-J", sys.argv[1]],
+                                  capture_output=True, text=True).stdout)
+    for p in t["partitiontable"]["partitions"]:
+        if str(p.get("type", "")).upper().startswith("C12A7328"):
+            print(p["start"] * 512); break
+except Exception:
+    pass
+ESP
+)"
+  if [ -n "${_esp_off}" ]; then
+    # Read the WHOLE ESP, not a prefix. A 64 MB window missed systemd-boot
+    # because the 247 MB UKI sits ahead of it in the FAT (2026-07-30).
+    dd if="${RAW}" of="${MNT}/.esp.img" bs=1M \
+       skip=$((_esp_off / 1048576)) count=512 status=none 2>/dev/null || true
+    # mtools reads FAT without mounting or root. Fall back to a raw scan.
+    if command -v mdir >/dev/null 2>&1 &&
+       mdir -i "${MNT}/.esp.img" ::/EFI/Linux 2>/dev/null | grep -qi '\.efi'; then
+      _artifact=appliance
+    elif strings -a -n 8 "${MNT}/.esp.img" 2>/dev/null | grep -qi 'systemd-boot'; then
+      _artifact=appliance
+    fi
+    rm -f "${MNT}/.esp.img"
+  fi
+fi
+info "artifact shape: ${_artifact}"
+
 GRUBCFG="${MNT}/boot/grub/grub.cfg"
 
 # /etc/os-release is a SYMLINK to ../usr/lib/os-release on both distros, and
@@ -293,7 +347,11 @@ info "installed distro: ${_prettyid:-unknown} (route: $([ "${_distro}" = ubuntu 
 # logic fell through to "a route to a graphical seat exists" — a PASS derived
 # from two absent files. That is the same false-PASS class as the rdump bug,
 # and it is the one thing this script must never do (2026-07-29).
-if [ ! -s "${GRUBCFG}" ]; then
+if [ "${_artifact}" = appliance ]; then
+  ok "appliance boot chain: systemd-boot + UKI on the ESP (no GRUB by design)"
+  info "the kernel cmdline is embedded in the UKI, so the seat route is set at"
+  info "build time (mkosi KernelCommandLine=), not readable from grub.cfg here."
+elif [ ! -s "${GRUBCFG}" ]; then
   bad "no /boot/grub/grub.cfg on the installed disk — nothing will boot, and"
   info "the seat invariant cannot be judged. Not reporting a route either way."
 else
@@ -381,14 +439,36 @@ else
 fi
 
 # ── the custom kernel ───────────────────────────────────────────────────────
-if ls "${MNT}"/boot/vmlinuz-6.12.0 >/dev/null 2>&1; then
+if [ "${_artifact}" = appliance ]; then
+  # The kernel lives on the ESP as a UKI, not in the root filesystem.
+  _uki=""
+  if [ -n "${_esp_off:-}" ] && [ -n "${RAW:-}" ] && [ -r "${RAW}" ] \
+     && command -v mdir >/dev/null 2>&1; then
+    dd if="${RAW}" of="${MNT}/.esp.img" bs=1M \
+       skip=$((_esp_off / 1048576)) count=512 status=none 2>/dev/null || true
+    # FAT long filenames are UTF-16 — `strings` cannot see them. Ask mtools.
+    _uki="$(mdir -i "${MNT}/.esp.img" ::/EFI/Linux 2>/dev/null \
+            | grep -oiE '[A-Za-z0-9._-]+\.efi' | head -1)"
+    rm -f "${MNT}/.esp.img"
+  fi
+  if [ -n "${_uki}" ]; then
+    ok "custom kernel present as a UKI on the ESP (EFI/Linux/${_uki})"
+  else
+    bad "no UKI found under EFI/Linux on the ESP — the appliance has no kernel"
+  fi
+elif ls "${MNT}"/boot/vmlinuz-6.12.0 >/dev/null 2>&1; then
   ok "custom znver5 kernel installed (vmlinuz-6.12.0)"
 else
   bad "vmlinuz-6.12.0 NOT installed — the late-command dpkg -i did not run"
 fi
-ls "${MNT}"/boot/initrd.img-6.12.0 >/dev/null 2>&1 \
-  && ok "initramfs for 6.12.0 generated" \
-  || bad "no initrd.img-6.12.0 — update-initramfs did not run"
+if [ "${_artifact}" = appliance ]; then
+  # The initrd is packed INSIDE the UKI; there is no /boot/initrd.img-*.
+  info "appliance: initrd is inside EFI/Linux/*.efi (no /boot/initrd.img expected)"
+else
+  ls "${MNT}"/boot/initrd.img-6.12.0 >/dev/null 2>&1 \
+    && ok "initramfs for 6.12.0 generated" \
+    || bad "no initrd.img-6.12.0 — update-initramfs did not run"
+fi
 if grep -q 'saved_entry=.*6\.12\.0' "${MNT}/boot/grub/grubenv" 2>/dev/null; then
   ok "GRUB default pinned to the custom kernel"
 else
@@ -422,6 +502,7 @@ esac
   && ok "cockpit payload present at /opt/sovereign-os" \
   || bad "/opt/sovereign-os missing — the cockpit .deb did not install"
 [ -f "${MNT}/etc/sovereign-os/active-profile" ] \
+  || [ -f "${MNT}/etc/sovereign-os/active-profile.env" ] \
   && ok "active-profile written ($(cat "${MNT}/etc/sovereign-os/active-profile" 2>/dev/null))" \
   || bad "/etc/sovereign-os/active-profile missing — late-commands did not run"
 
