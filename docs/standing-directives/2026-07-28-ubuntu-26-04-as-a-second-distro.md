@@ -243,6 +243,70 @@ strengthen (claiming `signed` from the environment would let a build assert a
 posture the profile never declared — that belongs in git), and it never
 downgrades silently.
 
+## WHY EVERY UBUNTU ATTEMPT REACHED A DEAD LOGIN — 2026-07-30
+
+The operator: *"any of them there is a deadend… I can build and flash but I get
+nowhere interesting after I boot."* Three Ubuntu artifacts, three dead logins,
+while Debian on the same machine was fine.
+
+**The fact that explains all of it.** The operator's WORKING Debian desktop has
+**no `/dev/dri` at all** — verified on the running system. It draws X11 straight
+onto the EFI framebuffer (`CONFIG_FB_EFI=y`). X11 can do that. **Wayland cannot.**
+Ubuntu 26.04's Plasma is Wayland-only, so it REQUIRES a DRM device — and the
+custom kernel could produce one only if the NVIDIA driver bound to Blackwell,
+because the config it is seeded from carries:
+
+    # CONFIG_SYSFB_SIMPLEFB is not set
+    # CONFIG_DRM_SIMPLEDRM is not set
+
+`simpledrm` is the modern fallback that turns the firmware framebuffer into a
+real DRM device with NO GPU driver. Stock Ubuntu ships it; Debian's config does
+not, so the custom kernel inherited a hole invisible on Debian and fatal on
+Ubuntu. "The driver did not bind" and "the machine is unusable" were the same
+event. Both symbols are now in `profiles/sain-01.yaml` → `kernel.config.enable`;
+step 03 already reports symbols that do not survive `olddefconfig`.
+
+**Two further faults, each sufficient alone:**
+
+  * `nomodeset` was baked into the appliance's UKI. `distro_kernel_cmdline()`
+    had translated the ISO path since 2026-07-29 but `mkosi-emit` never called
+    it — one path fixed, one forgotten, and the forgotten one reached hardware.
+
+  * mkosi runs `systemctl preset-all`, which enables EVERY unit in
+    /etc/systemd/system carrying `[Install]`. That re-enabled
+    `sovereign-frontend-kiosk.service` — a fullscreen browser —
+    *after* install-gui-dashboards.sh had deliberately disabled it for a desktop
+    frontend, so the appliance booted with sddm AND a kiosk contending for the
+    display. The ISO path never runs preset-all, which is why the ISO-installed
+    system was clean and the two installers disagreed for an invisible reason.
+    This repo had already hit the trap with the selfdef fleet. Now stated
+    declaratively in a systemd preset, the mechanism preset-all obeys.
+
+**Why nothing caught it: QEMU always provides a DRM device.** The ISO scored
+16/16 in a VM on an image that cannot reach a desktop on the real box. That is a
+structural blind spot, not bad luck — no VM run can falsify the display path.
+
+**And the inspector was worse than useless on the one artifact that mattered.**
+It scored the failing appliance 9/9 while asserting:
+
+    "the kernel cmdline is embedded in the UKI, so the seat route is set at
+     build time, not readable from grub.cfg here."
+
+The cmdline is a PE section (`.cmdline`) inside the `.efi` and reads out in a few
+lines. It declared a limitation instead of testing one — and was wrong. It now
+reads the UKI cmdline, reads the kernel config off the ESP, prefers
+`/etc/sovereign-os/base-distro` over the whitelabelled `os-release` (which says
+`ID=sovereign` and made an Ubuntu appliance read as Debian, skipping every
+Ubuntu check), and states plainly what it CANNOT establish: whether the driver
+binds on real hardware.
+
+Detection now matches reality: the failing appliance FAILS, the 16/16 ISO
+install FAILS on the missing DRM fallback, and Debian is correctly unaffected.
+
+**Still unproven, and only the hardware can answer it:** whether the NVIDIA
+driver binds to Blackwell under 6.12.0. With `simpledrm` there is a desktop
+either way; that question decides whether it is a desktop *with GPUs*.
+
 ## BOTH installers verified end to end in a VM, 2026-07-29
 
 Run via `sovereign-osctl install verify-iso [--distro debian|ubuntu]`, against

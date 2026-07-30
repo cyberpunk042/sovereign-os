@@ -531,3 +531,92 @@ def test_the_appliance_profile_marker_is_accepted(tmp_path):
     assert "active-profile missing" not in out, (
         f"active-profile.env is the appliance's marker and must count.\n{out}"
     )
+
+
+# ── the UKI cmdline IS readable — check it (2026-07-30) ─────────────────────
+# The operator's appliance booted to a login nobody could use. The inspector
+# scored it 9/9, because it said:
+#
+#     "the kernel cmdline is embedded in the UKI, so the seat route is set at
+#      build time, not readable from grub.cfg here."
+#
+# That asserted a limitation instead of testing one. The cmdline is a PE
+# section (.cmdline) inside the .efi and reads out in a few lines — and it
+# contained `nomodeset`, which is fatal on Wayland-only Plasma. A checker that
+# declares something unknowable, and is wrong, is worse than one that fails.
+
+def _uki(cmdline: str) -> bytes:
+    """A minimal blob carrying a .cmdline PE section the inspector can parse."""
+    import struct
+    payload = cmdline.encode() + b"\x00"
+    roff = 4096
+    body = bytearray(b"MZ" + b"\x00" * (roff + len(payload) + 64))
+    hdr = b".cmdline" + struct.pack("<IIII", len(payload), 0, len(payload), roff)
+    body[512:512 + len(hdr)] = hdr
+    body[roff:roff + len(payload)] = payload
+    return bytes(body)
+
+
+def _appliance_with_cmdline(tmp: Path, cmdline: str, distro: str = "ubuntu") -> Path:
+    disk = build_appliance(tmp)
+    # Replace the UKI on the ESP with one carrying the cmdline under test, and
+    # record the base distro the way the build now does.
+    esp_start, esp_len = 1 << 20, 64 << 20
+    esp = tmp / "esp2.img"
+    with open(disk, "rb") as fh:
+        fh.seek(esp_start)
+        esp.write_bytes(fh.read(esp_len))
+    uki = tmp / "u.efi"
+    uki.write_bytes(_uki(cmdline))
+    subprocess.run([_tool("mcopy"), "-o", "-i", str(esp), str(uki),
+                    "::/EFI/Linux/sovereign-6.12.0.efi"], capture_output=True)
+    with open(disk, "r+b") as fh:
+        fh.seek(esp_start); fh.write(esp.read_bytes())
+    # base-distro marker in the root fs
+    lv = tmp / "root.img"
+    if lv.exists():
+        f = tmp / "bd"; f.write_text(distro + "\n")
+        subprocess.run([_tool("debugfs"), "-w", "-R", "mkdir /etc/sovereign-os",
+                        str(lv)], capture_output=True)
+        subprocess.run([_tool("debugfs"), "-w", "-R",
+                        f"write {f} /etc/sovereign-os/base-distro", str(lv)],
+                       capture_output=True)
+        root_start = esp_start + esp_len
+        with open(disk, "r+b") as fh:
+            fh.seek(root_start); fh.write(lv.read_bytes())
+    # build_appliance() returns the .raw itself, and the inspector reads a .raw
+    # directly — converting it onto its own path is what a first cut did.
+    return disk
+
+
+def test_nomodeset_inside_a_ubuntu_uki_is_caught(tmp_path):
+    """The exact image that failed on the operator's hardware."""
+    disk = _appliance_with_cmdline(
+        tmp_path, "nomodeset splash loglevel=3 console=tty0", distro="ubuntu")
+    rc, out = inspect(disk)
+    assert "UKI cmdline:" in out, (
+        f"the inspector must READ the UKI cmdline, not declare it unknowable.\n{out}"
+    )
+    assert "nomodeset is baked into the UKI" in out, (
+        f"nomodeset in a Ubuntu UKI must FAIL — it is why the box was "
+        f"unusable.\n{out}"
+    )
+    assert rc != 0
+
+
+def test_a_correct_ubuntu_uki_passes(tmp_path):
+    disk = _appliance_with_cmdline(
+        tmp_path, "splash loglevel=3 console=tty0 nvidia-drm.modeset=1",
+        distro="ubuntu")
+    _, out = inspect(disk)
+    assert "nomodeset correctly absent from the UKI" in out, out
+    assert "nvidia-drm.modeset=1 in the UKI cmdline" in out, out
+
+
+def test_nomodeset_in_a_debian_uki_is_correct(tmp_path):
+    """Debian runs X11 on the framebuffer; nomodeset is its route, not a fault."""
+    disk = _appliance_with_cmdline(
+        tmp_path, "nomodeset splash console=tty0", distro="debian")
+    _, out = inspect(disk)
+    assert "nomodeset in the UKI (the Debian route)" in out, out
+    assert "Wayland-only" not in out, f"Debian must not be flagged.\n{out}"
