@@ -3895,7 +3895,14 @@ function runAction(action){
                           // env/argv. Empty + the locked-root checkbox = explicit
                           // console-loginless image.
                           root_password: (document.getElementById("root-password")||{}).value || "",
-                          allow_locked_root: (document.getElementById("allow-locked-root")||{}).checked || false}),
+                          allow_locked_root: (document.getElementById("allow-locked-root")||{}).checked || false,
+                          // The secure-boot posture. Picking "disabled" here used
+                          // to change only the printed command, so the build still
+                          // demanded an operator key and the panel offered no way
+                          // out. Downgrade-only: the API ignores signed/setup, so
+                          // a POST can never claim a stronger posture than the
+                          // profile declares (2026-07-30).
+                          secure_boot: state.secureboot || ""}),
   }).then(function(r){
     if (r.status === 409){ return attachRun(); }   // one already running → attach to it
     if (!r.ok) return r.text().then(function(t){

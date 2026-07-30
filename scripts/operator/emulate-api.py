@@ -163,7 +163,10 @@ def list_images() -> list[dict]:
     bd = REPO / "build"
     if not bd.is_dir():
         return out
-    for raw in bd.glob("*/output/*.raw"):
+    # Installer ISOs as well as appliance .raw images: the ISO is the artifact
+    # the operator actually flashes for both distros today, so refusing to list
+    # it made the rehearsal panel unusable for the main path (2026-07-30).
+    for raw in sorted(bd.glob("*/output/*.raw")) + sorted(bd.glob("*/output/*.iso")):
         try:
             st = raw.stat()
         except OSError:
@@ -261,7 +264,16 @@ class VM:
             argv.append("-no-reboot")
         use_kvm = accel == "kvm" or (accel == "auto" and os.access("/dev/kvm", os.W_OK))
         argv += (["-enable-kvm", "-cpu", "host"] if use_kvm else ["-cpu", "max"])
-        argv += ["-drive", f"file={img},format=raw,if=virtio"]
+        # AN ISO IS NOT A DISK. Attaching an installer ISO as a raw virtio disk
+        # produces a VM that finds nothing bootable — and the panel's whole
+        # purpose is "boot a built image in a throwaway VM BEFORE flashing",
+        # which is precisely what an operator wants to do with the artifact they
+        # are about to write. Only .raw appliances were ever attachable
+        # (2026-07-30). ISOs boot from the virtual optical drive instead.
+        if str(img).lower().endswith(".iso"):
+            argv += ["-cdrom", str(img), "-boot", "d"]
+        else:
+            argv += ["-drive", f"file={img},format=raw,if=virtio"]
 
         vars_file = None
         if boot == "direct":

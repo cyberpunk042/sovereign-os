@@ -120,3 +120,59 @@ def test_the_translation_is_reported_not_silent():
         "if the translation cannot run, say so loudly rather than silently "
         "shipping Debian names to Ubuntu"
     )
+
+
+# ── the secure-boot posture override (2026-07-30) ───────────────────────────
+# Added on the operator's call so the first Ubuntu appliance build can run
+# unsigned WITHOUT editing the tracked profile. A first build on a
+# never-executed path is the wrong moment to mint a long-lived key identity:
+# that key is what the firmware enrols AND what the NVIDIA .run signs its
+# modules against, so a throwaway breaks every later signed kernel.
+#
+# The danger of any such escape is that it becomes a silent way to ship an
+# unsigned image. These tests pin the two properties that keep it honest.
+
+def _emit(env_extra: dict, tmp_path):
+    key, cert = tmp_path / "k", tmp_path / "c"
+    key.write_text(""), cert.write_text("")
+    out = tmp_path / "o"
+    out.mkdir(exist_ok=True)
+    import os
+    env = {
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(tmp_path),
+        "SOVEREIGN_OS_MOK_KEY": str(key), "SOVEREIGN_OS_MOK_CERT": str(cert),
+        "SOVEREIGN_OS_ROOT_PASSWORD": "render-only-not-a-secret",
+        **env_extra,
+    }
+    return subprocess.run(
+        ["bash", str(MKOSI_EMIT), str(REPO_ROOT / "profiles/sain-01.yaml"), str(out)],
+        capture_output=True, text=True, cwd=REPO_ROOT, env=env, timeout=180,
+    ), out
+
+
+def test_the_override_can_only_weaken_never_strengthen(tmp_path):
+    """Asserting 'signed' from the environment would let a build claim a
+    posture the profile never declared. That belongs in git, reviewable."""
+    run, _ = _emit({"SOVEREIGN_OS_SECURE_BOOT": "signed"}, tmp_path)
+    assert run.returncode != 0, (
+        "SOVEREIGN_OS_SECURE_BOOT=signed must be REFUSED — an environment "
+        "variable must not be able to claim a stronger posture than the profile"
+    )
+    assert "may only DISABLE" in run.stderr, run.stderr[-300:]
+
+
+def test_downgrading_is_never_silent(tmp_path):
+    """An unsigned image that looks signed is the failure mode to avoid."""
+    run, out = _emit({"SOVEREIGN_OS_SECURE_BOOT": "none"}, tmp_path)
+    if run.returncode != 0:
+        pytest.skip(f"emitter could not run here: {run.stderr.strip()[-200:]}")
+    assert "WARNING" in run.stderr and "downgrades" in run.stderr, (
+        "downgrading the secure-boot posture must be announced loudly:\n"
+        + run.stderr[-400:]
+    )
+    confs = list(out.rglob("mkosi.conf")) + list(out.rglob("mkosi.conf.d/*.conf"))
+    text = "\n".join(c.read_text(errors="replace") for c in confs)
+    assert "SecureBoot=" not in text, (
+        "the emitted config still enables SecureBoot despite the downgrade — "
+        "the image would claim a posture it cannot satisfy"
+    )

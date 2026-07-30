@@ -1375,6 +1375,21 @@ class Handler(BaseHTTPRequestHandler):
             elif body.get("allow_locked_root"):
                 # Explicit opt-in to a console-loginless image (SSH keys only).
                 bake_env["SOVEREIGN_OS_ALLOW_LOCKED_ROOT"] = "1"
+
+            # SECURE-BOOT POSTURE. The panel has offered a `disabled` option all
+            # along, but it only ever reached the emitted command TEXT — the
+            # actual build kept the profile's posture, so an operator who picked
+            # `disabled` still hit "needs an operator signing key" and had no way
+            # out of the panel at all (2026-07-30).
+            #
+            # DOWNGRADE ONLY, same contract as mkosi-emit's
+            # SOVEREIGN_OS_SECURE_BOOT: a panel POST must not be able to claim a
+            # STRONGER posture than the profile declares. Requiring `signed` is a
+            # profile decision, reviewable in git; `signed`/`setup` are therefore
+            # ignored here rather than forwarded, and the profile wins.
+            _sb = str(body.get("secure_boot") or "").strip().lower()
+            if _sb in ("disabled", "none"):
+                bake_env["SOVEREIGN_OS_SECURE_BOOT"] = "none"
         argv_fn, needs_root = RUN_ACTIONS[action]
         argv = argv_fn()
         elevation_note = ""

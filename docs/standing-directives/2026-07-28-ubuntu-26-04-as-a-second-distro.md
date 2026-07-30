@@ -191,6 +191,58 @@ and a VM has no Blackwell GPU. What the VM cannot answer is whether the display
 comes up on that hardware — only that everything the installer controls is now
 correct.
 
+## The Ubuntu APPLIANCE (mkosi .raw) — audited 2026-07-30, not yet built
+
+`ARTIFACT=image DISTRO=ubuntu` has never been built. Audited statically first,
+because the alternative is discovering each fault after a multi-GB buildroot
+download.
+
+**What was broken.** The mkosi adapter emitted a BYTE-IDENTICAL 45-package list
+for both distros — it never called `distro_map_packages()` at all, though it had
+existed since 2026-07-28 and both INSTALLERS used it. Four of those names do not
+exist in the Ubuntu archive (checked against the live resolute index):
+
+    firefox-esr              -> firefox
+    nvidia-driver            -\
+    nvidia-open-kernel-dkms  --> nvidia-driver-570-open   (ONE versioned
+    nvidia-smi               -/    metapackage; not a 1:1 rename)
+
+The build would have failed at package install. After the fix: Ubuntu 43/43
+present in resolute, Debian 45/45 unchanged in trixie. The adapter now calls the
+shared function rather than keeping a copy, and logs every substitution.
+
+**What audited CLEAN.** The in-image postinst has no Debian-specific
+apt/mirror/firmware assumptions (the appliance deliberately ships without apt).
+`Repositories`/`Release`/`Distribution`/`Output` all render per distro. The
+repart layout is distro-agnostic (vfat ESP + ext4 root). None of the 22
+first-boot hooks names a Debian-only package.
+
+**The two NVIDIA strategies do NOT collide.** Debian uses the `.run` installer
+because trixie ships 550, which predates Blackwell; Ubuntu installs the packaged
+`nvidia-driver-570-open`. `nvidia-driver-install.sh` queries
+`nvidia-smi --query-gpu=driver_version` and no-ops at >= 570, so on Ubuntu the
+packaged driver satisfies it, and `ConditionVirtualization=no` keeps it out of
+VMs. Nothing to change.
+
+**Operator decisions for the first build (2026-07-30).** Both blockers are
+deliberate safety gates, not bugs:
+
+  * `SOVEREIGN_OS_ROOT_PASSWORD` unset makes mkosi LOCK root, producing an image
+    that boots to a prompt nobody can satisfy — it shipped once, looking "done +
+    preflight-passed" (2026-07-03). The operator supplies a bootstrap password;
+    `first-login-assistant.sh` rotates it on first boot.
+  * `secure_boot: signed` needs an operator MOK. For the FIRST build on a
+    never-executed path the operator chose **unsigned**, because that key is a
+    long-lived identity — the firmware enrols it and the NVIDIA `.run` signs its
+    modules against it (sain-01.yaml:460), so a throwaway would break every
+    later signed kernel and rebuilt module.
+
+`SOVEREIGN_OS_SECURE_BOOT` was added for this: a DOWNGRADE-ONLY override so a
+build can run unsigned without editing the tracked profile. It refuses to
+strengthen (claiming `signed` from the environment would let a build assert a
+posture the profile never declared — that belongs in git), and it never
+downgrades silently.
+
 ## BOTH installers verified end to end in a VM, 2026-07-29
 
 Run via `sovereign-osctl install verify-iso [--distro debian|ubuntu]`, against

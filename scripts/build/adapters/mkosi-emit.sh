@@ -207,6 +207,44 @@ if source_date_epoch:
 # alias for 'none'.
 _kernel = p.get("kernel") or {}
 secure_boot = (_kernel.get("cmdline") or {}).get("secure_boot") or _kernel.get("secure_boot") or "none"
+
+# ── EXPLICIT, LOUD DOWNGRADE ────────────────────────────────────────────────
+# SOVEREIGN_OS_SECURE_BOOT lets a build drop the posture WITHOUT editing the
+# tracked profile. Added 2026-07-30 for the first Ubuntu appliance build, on
+# the operator's call: a never-executed build path is the wrong moment to mint
+# a long-lived key identity, because that key is what the firmware enrols AND
+# what the NVIDIA .run signs its modules against (sain-01.yaml:460). A
+# throwaway would break every later signed kernel and rebuilt module.
+#
+# It can only WEAKEN, never strengthen: claiming 'signed' from the environment
+# while the profile says otherwise would let a build assert a posture the
+# profile never declared. Strengthening belongs in the profile, in git, where
+# it is reviewable.
+#
+# Same shape as SOVEREIGN_OS_ALLOW_LOCKED_ROOT below — an explicit escape from
+# a safety gate, named so it cannot be set by accident, and never silent.
+_sb_override = (os.environ.get("SOVEREIGN_OS_SECURE_BOOT") or "").strip().lower()
+if _sb_override:
+    if _sb_override not in ("none", "disabled"):
+        sys.exit(
+            f"mkosi-emit: SOVEREIGN_OS_SECURE_BOOT={_sb_override!r} — this override "
+            "may only DISABLE signing ('none'/'disabled').\n"
+            "Requiring a signed image is a profile decision; set "
+            "kernel.cmdline.secure_boot in the profile so it is reviewable in git.")
+    if secure_boot not in ("none", "disabled"):
+        print("=" * 72, file=sys.stderr)
+        print(f"mkosi-emit: WARNING — profile declares secure_boot={secure_boot}, but",
+              file=sys.stderr)
+        print(f"  SOVEREIGN_OS_SECURE_BOOT={_sb_override} downgrades THIS BUILD to unsigned.",
+              file=sys.stderr)
+        print("  The image will NOT boot with Secure Boot enabled in firmware, and no",
+              file=sys.stderr)
+        print("  operator key is minted or enrolled. Intended for a first build on an",
+              file=sys.stderr)
+        print("  unproven path; unset it to restore the profile's posture.",
+              file=sys.stderr)
+        print("=" * 72, file=sys.stderr)
+    secure_boot = _sb_override
 sb_key = os.environ.get("SOVEREIGN_OS_PK_KEY") or os.environ.get("SOVEREIGN_OS_MOK_KEY") or ""
 sb_cert = os.environ.get("SOVEREIGN_OS_PK_CERT") or os.environ.get("SOVEREIGN_OS_MOK_CERT") or ""
 # Auto-discover keys at the SDD-015 documented default location when no env
