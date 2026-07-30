@@ -33,7 +33,10 @@ fi
 
 inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}")"
 
-if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
+# The checked-out source tree lives in the tmpfs forge — gone after a
+# reboot, while the state still says "completed".
+if ! state_step_should_run "${STEP_ID}" "${inputs_hash}" \
+     "${SOVEREIGN_OS_FORGE_DIR}/linux-stable"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"
   exit 0
 fi

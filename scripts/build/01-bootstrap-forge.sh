@@ -40,7 +40,11 @@ REQUIRED_PACKAGES=(
 
 inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}")"
 
-if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
+# The forge DIRECTORY is the output. It is a tmpfs, so a reboot removes it
+# while the recorded "completed" survives — and skipping this step then
+# means nothing ever remounts it (2026-07-30).
+if ! state_step_should_run "${STEP_ID}" "${inputs_hash}" \
+     "${SOVEREIGN_OS_FORGE_DIR}"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"
   exit 0
 fi

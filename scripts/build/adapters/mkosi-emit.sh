@@ -532,6 +532,37 @@ for pkg in all_packages:
 cmdline_base = ((p.get("kernel") or {}).get("cmdline") or {}).get("base") or []
 cmdline_vfio = ((p.get("kernel") or {}).get("cmdline") or {}).get("vfio") or []
 cmdline = " ".join(cmdline_base + cmdline_vfio)
+
+# TRANSLATE IT FOR THE TARGET DISTRO — the profile is written for Debian.
+#
+# `nomodeset` is load-bearing on Debian (Plasma ships an X11 session and runs on
+# the EFI framebuffer) and FATAL on Ubuntu 26.04, whose Plasma is Wayland-ONLY:
+# /usr/share/xsessions/ is empty, Wayland requires a DRM device, and nomodeset
+# is exactly what removes one. sddm then renders a greeter with no session it
+# can start — a login screen that looks broken and cannot accept a password.
+#
+# The Ubuntu ISO builder has translated this since 2026-07-29; THIS adapter did
+# not, so the first Ubuntu APPLIANCE shipped `nomodeset` in its UKI and did that
+# on real hardware (operator, 2026-07-30). One path fixed, one forgotten.
+if cmdline:
+    _mapped = subprocess.run(
+        ["sh", "-c",
+         f'. "{os.environ["SOVEREIGN_OS_ROOT"]}/scripts/build/lib/distro.sh"; '
+         f'distro_kernel_cmdline "$1"', "_", cmdline],
+        capture_output=True, text=True,
+        env={**os.environ, "SOVEREIGN_OS_DISTRO": distro,
+             "PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+    )
+    if _mapped.returncode == 0 and _mapped.stdout.strip():
+        if _mapped.stdout.strip() != cmdline:
+            print(f"mkosi-emit: {distro}: kernel cmdline translated", file=sys.stderr)
+            print(f"mkosi-emit:   was: {cmdline}", file=sys.stderr)
+            print(f"mkosi-emit:   now: {_mapped.stdout.strip()}", file=sys.stderr)
+        cmdline = _mapped.stdout.strip()
+    else:
+        print(f"mkosi-emit: WARNING cmdline translation failed; shipping the "
+              f"profile's cmdline verbatim on {distro}", file=sys.stderr)
+
 if cmdline:
     cfg += f"\nKernelCommandLine={cmdline}\n"
 

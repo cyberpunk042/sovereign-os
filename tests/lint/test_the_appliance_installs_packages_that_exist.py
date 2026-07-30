@@ -309,3 +309,61 @@ def test_every_line_of_the_postinst_body_shares_the_dedent_indent():
         "indents the shebang:\n  "
         + "\n  ".join(repr(l) for l in offenders[:5])
     )
+
+
+# ── the appliance's kernel cmdline (2026-07-30, on real hardware) ───────────
+# The operator booted the first Ubuntu appliance and got "a weird login page…
+# like it was broken and then it even froze, I could not enter the login
+# password". The UKI it booted had:
+#
+#     nomodeset splash loglevel=3 console=ttyS0 console=tty0 vfio-pci.ids=…
+#
+# `nomodeset` is load-bearing on Debian (Plasma ships an X11 session, runs on
+# the EFI framebuffer) and FATAL on Ubuntu 26.04, whose Plasma is WAYLAND-ONLY:
+# /usr/share/xsessions/ is empty, Wayland needs a DRM device, and nomodeset is
+# exactly what removes one. sddm renders a greeter with no session it can start.
+#
+# The Ubuntu ISO builder has translated the cmdline since 2026-07-29. This
+# adapter did not — one path fixed, one forgotten, and the forgotten one is the
+# one that reached hardware.
+
+@pytest.mark.parametrize("distro,must,must_not", [
+    ("debian", "nomodeset", "nvidia-drm.modeset=1"),
+    ("ubuntu", "nvidia-drm.modeset=1", "nomodeset"),
+])
+def test_the_appliance_cmdline_is_translated_for_its_distro(distro, must, must_not, tmp_path):
+    run, out = _emit({"SOVEREIGN_OS_DISTRO": distro,
+                      "SOVEREIGN_OS_SECURE_BOOT": "none"}, tmp_path)
+    if run.returncode != 0:
+        pytest.skip(f"emitter could not run here: {run.stderr.strip()[-200:]}")
+    lines = []
+    for conf in list(out.rglob("mkosi.conf")) + list(out.rglob("mkosi.conf.d/*.conf")):
+        lines += [l for l in conf.read_text(errors="replace").splitlines()
+                  if l.startswith("KernelCommandLine=")]
+    assert lines, "the appliance config declares no KernelCommandLine at all"
+    cmdline = lines[0].split("=", 1)[1]
+    assert must in cmdline, (
+        f"{distro}: the appliance cmdline is missing {must!r} — got {cmdline!r}"
+    )
+    assert must_not not in cmdline, (
+        f"{distro}: {must_not!r} must NOT reach this distro's appliance. On "
+        "Ubuntu, nomodeset removes the DRM device that Wayland-only Plasma "
+        f"requires, producing a greeter that cannot log anyone in. Got {cmdline!r}"
+    )
+
+
+def test_the_unrelated_cmdline_options_survive_translation(tmp_path):
+    """A translation that drops vfio or the console settings is not a fix."""
+    run, out = _emit({"SOVEREIGN_OS_DISTRO": "ubuntu",
+                      "SOVEREIGN_OS_SECURE_BOOT": "none"}, tmp_path)
+    if run.returncode != 0:
+        pytest.skip("emitter could not run here")
+    cmdline = ""
+    for conf in list(out.rglob("mkosi.conf")) + list(out.rglob("mkosi.conf.d/*.conf")):
+        for l in conf.read_text(errors="replace").splitlines():
+            if l.startswith("KernelCommandLine="):
+                cmdline = l.split("=", 1)[1]
+    for opt in ("splash", "loglevel=3", "console=tty0", "amd_iommu=on", "iommu=pt"):
+        assert opt in cmdline, (
+            f"translation dropped {opt!r}, which the profile asked for: {cmdline!r}"
+        )

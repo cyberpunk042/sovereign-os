@@ -156,9 +156,26 @@ p.write_text(out)
 }
 
 state_step_should_run() {
-  # state_step_should_run <step-id> <inputs-hash> → returns 0 if should run
-  # Skips step if status=completed AND inputs_hash matches.
+  # state_step_should_run <step-id> <inputs-hash> [required-artifact...]
+  #   → returns 0 if the step should run
+  #
+  # Skips only when status=completed AND inputs_hash matches AND every named
+  # artifact still EXISTS.
+  #
+  # WHY THE ARTIFACT CHECK (2026-07-30). Step 01 mounts a 64 G tmpfs at
+  # /mnt/kernel_forge and step 04 writes the kernel .debs into it. A tmpfs is
+  # RAM: it does not survive a reboot. The operator booted the image they had
+  # just flashed, came back, and re-ran the build — every step reported
+  # "already completed with matching inputs" while its output no longer
+  # existed, and step 07 was the first thing that actually LOOKED:
+  #     ‼ custom kernel .debs not found in /mnt/kernel_forge/kernel-debs
+  # Worse, step 01 skipping meant the tmpfs was never even remounted.
+  #
+  # Recorded status is a claim about the past. Whether the artifact is on disk
+  # now is the question that matters — the same "exit status is not evidence of
+  # an artifact" lesson this pipeline already learned at the flash step.
   local step="$1" current_hash="${2:-}"
+  shift 2 2>/dev/null || shift $#
   local recorded_status recorded_hash
   recorded_status="$(state_step_status "${step}")"
   if [ "${recorded_status}" != "completed" ]; then
@@ -173,7 +190,18 @@ state_step_should_run() {
   if [ "${recorded_hash}" != "${current_hash}" ]; then
     return 0  # inputs changed → rerun
   fi
-  return 1  # already done with same inputs → skip
+  # Inputs match — but do the OUTPUTS still exist?
+  local _artifact
+  for _artifact in "$@"; do
+    [ -n "${_artifact}" ] || continue
+    if [ ! -e "${_artifact}" ]; then
+      log_warn "step ${step} is recorded complete, but its output is GONE:"
+      log_warn "  ${_artifact}"
+      log_warn "  (a tmpfs forge does not survive a reboot) — re-running it"
+      return 0
+    fi
+  done
+  return 1  # already done, same inputs, outputs present → skip
 }
 
 state_inputs_hash() {

@@ -37,7 +37,11 @@ else
   inputs_hash="$(state_inputs_hash "${BASH_SOURCE[0]}" "${SOVEREIGN_OS_PROFILE_FILE}" "${SOVEREIGN_OS_STATE_DIR}/kernel.config")"
 fi
 
-if ! state_step_should_run "${STEP_ID}" "${inputs_hash}"; then
+# The kernel .debs are THE output, and they live in the tmpfs forge. Step
+# 07 refuses without them, so a stale "completed" here sends the operator
+# to a failure four steps later with no hint that a reboot caused it.
+if ! state_step_should_run "${STEP_ID}" "${inputs_hash}" \
+     "${SOVEREIGN_OS_FORGE_DIR}/kernel-debs"; then
   log_info "step ${STEP_ID} already completed with matching inputs — skipping"
   exit 0
 fi
