@@ -727,7 +727,12 @@ postinst.write_text(textwrap.dedent("""\
     # names on an Ubuntu box (found by inspecting the first Ubuntu appliance,
     # 2026-07-30). The builder knows; write it down.
     mkdir -p /etc/sovereign-os
-    printf '%s\n' "__SOVEREIGN_OS_DISTRO__" > /etc/sovereign-os/base-distro
+    # NOTE: `echo`, not `printf '%s\\n'`. This block is a NON-raw Python
+    # triple-quoted string, so Python turns a lone \\n into a REAL newline
+    # before textwrap.dedent() ever runs — splitting the line and leaving its
+    # tail at column 0, which destroys dedent's common prefix and indents the
+    # shebang. That is Errno 8 Exec format error, twice (2026-07-30).
+    echo "__SOVEREIGN_OS_DISTRO__" > /etc/sovereign-os/base-distro
 
     # Operator-only secure-boot chain: drop the DISTRO-presigned
     # systemd-boot binaries ('Debian Secure Boot CA') — bootctl prefers

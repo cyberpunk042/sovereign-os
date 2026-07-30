@@ -292,12 +292,20 @@ def test_every_line_of_the_postinst_body_shares_the_dedent_indent():
     start = body.index('postinst.write_text(textwrap.dedent("""\\')
     end = body.index('"""', start + 40)
     block = body[body.index("\n", start) + 1: end]
+    # INTERPRET THE ESCAPES FIRST. The block is a NON-raw Python triple-quoted
+    # string, so Python turns `\n` into a real newline BEFORE textwrap.dedent()
+    # sees it. A first cut of this test scanned the raw source, found nothing,
+    # and passed while `printf '%s\n' ...` was silently splitting into a line
+    # whose tail sat at column 0 — indenting the shebang and producing
+    # "OSError: [Errno 8] Exec format error" after a full package install.
+    interpreted = block.encode().decode("unicode_escape")
     offenders = [
-        l for l in block.splitlines()
+        l for l in interpreted.splitlines()
         if l.strip() and not l.startswith("    ")
     ]
     assert not offenders, (
-        "these lines sit at column 0 inside the postinst dedent body, which "
-        "kills textwrap.dedent() and indents the shebang:\n  "
+        "these lines sit at column 0 inside the postinst dedent body (AFTER "
+        "Python interprets its escapes), which kills textwrap.dedent() and "
+        "indents the shebang:\n  "
         + "\n  ".join(repr(l) for l in offenders[:5])
     )
