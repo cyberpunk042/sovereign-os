@@ -176,3 +176,66 @@ def test_downgrading_is_never_silent(tmp_path):
         "the emitted config still enables SecureBoot despite the downgrade — "
         "the image would claim a posture it cannot satisfy"
     )
+
+
+# ── the bake must not GUESS the distro (2026-07-30, first real build) ───────
+# The Ubuntu appliance failed after a full kernel compile and a complete package
+# install, at the very last step:
+#
+#     provision-bake:   no apt in this root AND these packages are missing:
+#                       firefox-esr
+#     postinst: provision-bake FAILED (rc=1)
+#
+# mkosi had correctly installed `firefox` — the Packages= translation worked.
+# But provision-bake runs install-gui-dashboards.sh INSIDE the chroot, which
+# resolves the browser through target_browser() -> target_distro(). With no
+# SOVEREIGN_OS_DISTRO in the chroot environment that falls back to reading
+# /etc/os-release and then to the historical `debian` default, so it demanded
+# the Debian name inside an Ubuntu root.
+#
+# mkosi-emit is the ONE place that knows which distro is being built. Baking the
+# answer in makes every in-image script deterministic instead of dependent on
+# what happens to be readable mid-bake.
+
+def test_the_postinst_declares_the_distro_it_was_built_for(tmp_path):
+    """Otherwise the in-image bake guesses, and guesses debian."""
+    import os
+    run, out = _emit({"SOVEREIGN_OS_DISTRO": "ubuntu",
+                      "SOVEREIGN_OS_SECURE_BOOT": "none"}, tmp_path)
+    if run.returncode != 0:
+        pytest.skip(f"emitter could not run here: {run.stderr.strip()[-200:]}")
+    postinst = out / "mkosi.postinst.chroot"
+    assert postinst.is_file(), "no postinst emitted"
+    body = postinst.read_text(encoding="utf-8")
+    assert "export SOVEREIGN_OS_DISTRO=ubuntu" in body, (
+        "the generated postinst must declare the distro it was built for. "
+        "Without it, install-gui-dashboards.sh resolves firefox-esr inside an "
+        "Ubuntu root and the build fails at the last step."
+    )
+    assert "__SOVEREIGN_OS_DISTRO__" not in body, (
+        "the substitution sentinel leaked into the emitted script — the body is "
+        "a plain dedent, not an f-string, so it must be replaced at write time"
+    )
+
+
+def test_the_browser_matches_what_mkosi_actually_installed(tmp_path):
+    """The two must agree, or the bake demands a package that is not there.
+
+    This is the exact mismatch that failed the build: Packages= had `firefox`
+    while the in-image check wanted `firefox-esr`.
+    """
+    import os
+    for distro, expected in (("ubuntu", "firefox"), ("debian", "firefox-esr")):
+        got = subprocess.run(
+            ["sh", "-c",
+             ". scripts/install/lib/target-distro.sh; target_browser"],
+            capture_output=True, text=True, cwd=REPO_ROOT,
+            env={"SOVEREIGN_OS_DISTRO": distro, "PATH": "/usr/bin:/bin"},
+        ).stdout.strip()
+        assert got == expected, f"{distro}: target_browser gave {got!r}"
+        # …and the build-side mapping must name the SAME package.
+        mapped_pkgs = mapped(distro, "firefox-esr")
+        assert mapped_pkgs == [expected], (
+            f"{distro}: mkosi would install {mapped_pkgs} but the in-image bake "
+            f"looks for {expected!r} — that mismatch fails provision-bake"
+        )
