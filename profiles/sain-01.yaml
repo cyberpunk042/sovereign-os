@@ -238,6 +238,30 @@ kernel:
       - BPF_LSM
       - KVM_AMD
       - KVM_INTEL
+      # ── A DRM DEVICE WITHOUT ANY GPU DRIVER ────────────────────────────
+      # Investigated 2026-07-30, after every Ubuntu attempt reached a login
+      # nobody could use while Debian on the same box was fine.
+      #
+      # THE FACT THAT EXPLAINS BOTH: the operator's working Debian desktop has
+      # NO /dev/dri at all. It runs X11 straight on the EFI framebuffer
+      # (CONFIG_FB_EFI=y). X11 can do that; Wayland cannot. Ubuntu 26.04's
+      # Plasma is Wayland-ONLY, so it REQUIRES a DRM device — and this kernel
+      # could produce one only if the NVIDIA driver bound to Blackwell.
+      #
+      # simpledrm is the modern fallback: it turns the firmware framebuffer
+      # handed over by SYSFB into a real DRM device with NO GPU driver
+      # involved. Stock Ubuntu ships it; the Debian config this kernel is
+      # seeded from does not (both were `is not set`), so the custom kernel
+      # inherited a hole that only shows up on a Wayland desktop.
+      #
+      # With these on, Ubuntu gets a usable display even if nvidia never
+      # binds, instead of a greeter with nothing behind it. It does not
+      # replace the driver — it stops "no driver" from meaning "no machine".
+      #
+      # NOTE these are inert while `nomodeset` is on the cmdline; that flag is
+      # Debian-only now (see distro_kernel_cmdline in scripts/build/lib/distro.sh).
+      - SYSFB_SIMPLEFB
+      - DRM_SIMPLEDRM
     disable: []
     require_microcode: amd
   cmdline:

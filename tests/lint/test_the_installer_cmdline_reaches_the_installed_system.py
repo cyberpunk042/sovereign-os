@@ -224,3 +224,56 @@ def test_the_self_check_flags_gdm_plus_nomodeset():
     assert "select-display-manager.sh" in body, (
         "the report must give the exact fix command, not just the diagnosis"
     )
+
+
+# ── a display that does not depend on a GPU driver (2026-07-30) ─────────────
+# Investigated after EVERY Ubuntu attempt reached a login nobody could use,
+# while Debian on the same machine was fine.
+#
+# THE FACT THAT EXPLAINS BOTH: the operator's working Debian desktop has NO
+# /dev/dri at all — it runs X11 straight on the EFI framebuffer. X11 can do
+# that; Wayland cannot. Ubuntu 26.04's Plasma is Wayland-ONLY, so it REQUIRES a
+# DRM device, and this kernel could produce one only if the NVIDIA driver bound
+# to Blackwell. `# CONFIG_DRM_SIMPLEDRM is not set` in the Debian config the
+# kernel is seeded from meant there was no fallback whatsoever.
+#
+# simpledrm turns the firmware framebuffer into a real DRM device with NO GPU
+# driver involved. Without it, "the driver did not bind" and "the machine is
+# unusable" are the same event.
+
+PROFILE = REPO_ROOT / "profiles" / "sain-01.yaml"
+
+
+def _kernel_enable() -> list[str]:
+    import yaml
+    k = yaml.safe_load(PROFILE.read_text(encoding="utf-8"))["kernel"]
+    return list((k.get("config") or {}).get("enable") or [])
+
+
+def test_the_profile_requires_a_driverless_drm_fallback():
+    enabled = _kernel_enable()
+    for sym in ("DRM_SIMPLEDRM", "SYSFB_SIMPLEFB"):
+        assert sym in enabled, (
+            f"the profile must enable {sym}. Without it the kernel can only "
+            "produce a DRM device when the NVIDIA driver binds, so a Wayland-"
+            "only desktop has NO path to a display if the driver fails — which "
+            "is exactly what happened on every Ubuntu attempt while Debian "
+            "(X11 on the EFI framebuffer, no /dev/dri at all) worked fine."
+        )
+
+
+def test_the_kernel_step_refuses_to_silently_drop_required_symbols():
+    """A symbol that olddefconfig drops must be reported, not assumed present.
+
+    These two are only useful if they actually land in the .config; a build
+    that quietly resolves them away would recreate the same dead end while
+    looking fixed.
+    """
+    body = (REPO_ROOT / "scripts/build/03-kernel-config.sh").read_text(encoding="utf-8")
+    assert "missing_syms" in body, (
+        "step 03 must track profile-required symbols that did not survive "
+        "olddefconfig"
+    )
+    assert "sovereign_os_build_step_kernel_config_missing_symbols" in body, (
+        "and emit the count, so a silently-dropped symbol is visible"
+    )
