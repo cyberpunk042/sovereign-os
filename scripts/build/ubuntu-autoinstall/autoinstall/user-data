@@ -252,4 +252,26 @@ autoinstall:
     # Prove the driver that provides the DRM device actually installed. If it
     # did not, nvidia-drm.modeset=1 is inert and the result is the same black
     # screen by a different route.
-    - curtin in-target -- sh -c 'test -e /lib/modules/*/updates/dkms/nvidia-drm.ko* -o -e /lib/modules/*/kernel/drivers/video/nvidia-drm.ko* || echo "SOVEREIGN WARNING - no nvidia-drm module found, so nvidia-drm.modeset=1 will do nothing and there will be no DRM device" >> /var/log/sovereign-install-warning.log'
+    # ── THE TWO THINGS A VM CANNOT TELL YOU ────────────────────────────────
+    # Both produce an install that "succeeded" and a machine that is unusable,
+    # and neither is visible until the operator is standing at the box.
+    #
+    # 1. NO NETWORK -> `fallback: offline-install`. Subiquity then installs a
+    #    MINIMAL system and silently drops the 62 packages this file asks for —
+    #    including kubuntu-desktop, sddm and the NVIDIA driver. The install
+    #    reports success and boots to a console with no desktop.
+    - curtin in-target -- sh -c 'for p in kubuntu-desktop sddm nvidia-driver-570-open; do dpkg -s "$p" >/dev/null 2>&1 || echo "SOVEREIGN WARNING - $p is NOT installed. The installer most likely fell back to an OFFLINE install (no network reached archive.ubuntu.com), so this system has no desktop and no GPU driver. Re-install with a working network." >> /var/log/sovereign-install-warning.log; done'
+    #
+    # 2. SECURE BOOT ON + an UNSIGNED custom kernel. linux-image-6.12.0 comes
+    #    from bindeb-pkg and is not signed by any enrolled key. Ubuntu's shim
+    #    chain will refuse it, so the box either falls back to the stock kernel
+    #    (losing the whole point of the build) or does not boot at all. Say so
+    #    while the operator can still act on it.
+    - curtin in-target -- sh -c 'mokutil --sb-state 2>/dev/null | grep -qi "enabled" && echo "SOVEREIGN WARNING - Secure Boot is ENABLED in firmware and the custom kernel 6.12.0 is UNSIGNED (bindeb-pkg output, no enrolled MOK). The signed shim chain will refuse it. Either disable Secure Boot in firmware, or build with secure_boot=signed and enrol the MOK." >> /var/log/sovereign-install-warning.log || true'
+    #
+    # Check the CUSTOM kernel specifically, not `/lib/modules/*/`. The glob
+    # matched ANY kernel, so a module built only for Ubuntu's stock kernel
+    # satisfied it — while the box boots 6.12.0, where the module would be
+    # absent, nvidia-drm.modeset=1 inert, and the Wayland-only desktop dead.
+    # A check that passes on the kernel you do NOT boot is worse than none.
+    - curtin in-target -- sh -c 'ls /lib/modules/6.12.0/updates/dkms/nvidia-drm.ko* >/dev/null 2>&1 || ls /lib/modules/6.12.0/kernel/drivers/video/nvidia-drm.ko* >/dev/null 2>&1 || echo "SOVEREIGN WARNING - no nvidia-drm module for kernel 6.12.0 (the one this box boots), so nvidia-drm.modeset=1 will do nothing and there will be no DRM device" >> /var/log/sovereign-install-warning.log'

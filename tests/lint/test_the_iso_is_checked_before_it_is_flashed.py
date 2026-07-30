@@ -139,3 +139,70 @@ def test_the_flash_panel_can_actually_read_the_checksums():
     assert 'lstrip("*")' in seg, (
         "sha256sum's binary-mode marker ('*name') must also be stripped"
     )
+
+
+# ── the two failures a VM structurally cannot reproduce (2026-07-30) ────────
+# Both produce an install that reports SUCCESS and a machine that is unusable,
+# and neither is visible until the operator is standing at the box.
+
+USER_DATA = REPO_ROOT / "scripts/build/ubuntu-autoinstall/autoinstall/user-data"
+
+
+def _late_commands() -> list[str]:
+    import yaml
+    ai = yaml.safe_load(USER_DATA.read_text(encoding="utf-8"))["autoinstall"]
+    cmds = [c for c in (ai.get("late-commands") or []) if isinstance(c, str)]
+    assert cmds, "no late-commands parsed"
+    return cmds
+
+
+def test_an_offline_fallback_install_is_detected():
+    """`fallback: offline-install` silently drops all 62 packages.
+
+    No network -> Subiquity installs a MINIMAL system without kubuntu-desktop,
+    sddm or the NVIDIA driver, reports success, and boots to a bare console.
+    The operator has no way to tell that from a working install until they look
+    at the screen.
+    """
+    joined = "\n".join(_late_commands())
+    assert "dpkg -s" in joined, (
+        "the install must verify its own key packages actually landed"
+    )
+    for pkg in ("kubuntu-desktop", "sddm", "nvidia-driver"):
+        assert pkg in joined, (
+            f"{pkg} must be checked after install — its absence is the "
+            "signature of an offline fallback"
+        )
+    assert "no network" in joined or "OFFLINE" in joined, (
+        "the warning must name the likely CAUSE, not just the symptom"
+    )
+
+
+def test_secure_boot_against_an_unsigned_custom_kernel_is_detected():
+    """linux-image-6.12.0 is bindeb-pkg output — signed by nothing.
+
+    With Secure Boot on, Ubuntu's shim chain refuses it: the box either falls
+    back to the stock kernel (losing the point of the build) or does not boot.
+    """
+    joined = "\n".join(_late_commands())
+    assert "--sb-state" in joined or "sb-state" in joined, (
+        "the install must check whether Secure Boot is enabled — the custom "
+        "kernel is unsigned and the shim chain will refuse it"
+    )
+    assert "UNSIGNED" in joined, "the warning must say why it matters"
+
+
+def test_the_nvidia_module_check_targets_the_booted_kernel():
+    """A glob over /lib/modules/*/ passes on a kernel you do not boot.
+
+    The module built for Ubuntu's stock kernel satisfied it while the box boots
+    6.12.0, where the module would be absent and nvidia-drm.modeset=1 inert.
+    """
+    joined = "\n".join(_late_commands())
+    assert "/lib/modules/6.12.0/" in joined, (
+        "the nvidia module check must name the custom kernel explicitly"
+    )
+    assert "/lib/modules/*/updates" not in joined, (
+        "a wildcard over every installed kernel makes this check pass on the "
+        "wrong one"
+    )
