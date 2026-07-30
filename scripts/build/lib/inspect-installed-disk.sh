@@ -278,6 +278,13 @@ fi
 #   ubuntu  26.04's Plasma is WAYLAND-ONLY (xsessions EMPTY) and Wayland needs
 #           a DRM device, which nomodeset removes. Route: a bound KMS driver —
 #           the NVIDIA driver with nvidia-drm.modeset=1 (rule 35).
+# The source to probe for partitions/ESP. The unprivileged path converts a
+# qcow2 to ${RAW}; a BLOCK DEVICE (the real disk) has no such copy, and using
+# only ${RAW} meant a flashed appliance was misdetected as an installed-system
+# and got four false failures — on the very disk an operator inspects when a
+# boot has already gone wrong (2026-07-30).
+_SRC="${RAW:-${IMG}}"
+
 # WHICH ARTIFACT IS THIS? The two shapes boot completely differently, and
 # applying one's expectations to the other cries wolf on a perfectly good image.
 #
@@ -293,9 +300,9 @@ fi
 _artifact=installed-system
 if [ -s "${MNT}/boot/grub/grub.cfg" ]; then
   _artifact=installed-system
-elif [ -n "${RAW:-}" ] && [ -r "${RAW}" ]; then
+elif [ -n "${_SRC:-}" ] && [ -r "${_SRC}" ]; then
   # No grub.cfg: look for a UKI on the ESP before concluding anything is wrong.
-  _esp_off="$(python3 - "${RAW}" 2>/dev/null <<'ESP'
+  _esp_off="$(python3 - "${_SRC}" 2>/dev/null <<'ESP'
 import json, subprocess, sys, shutil
 sfdisk = shutil.which("sfdisk") or "/sbin/sfdisk"
 try:
@@ -311,7 +318,7 @@ ESP
   if [ -n "${_esp_off}" ]; then
     # Read the WHOLE ESP, not a prefix. A 64 MB window missed systemd-boot
     # because the 247 MB UKI sits ahead of it in the FAT (2026-07-30).
-    dd if="${RAW}" of="${MNT}/.esp.img" bs=1M \
+    dd if="${_SRC}" of="${MNT}/.esp.img" bs=1M \
        skip=$((_esp_off / 1048576)) count=512 status=none 2>/dev/null || true
     # mtools reads FAT without mounting or root. Fall back to a raw scan.
     if command -v mdir >/dev/null 2>&1 &&
@@ -442,9 +449,9 @@ fi
 if [ "${_artifact}" = appliance ]; then
   # The kernel lives on the ESP as a UKI, not in the root filesystem.
   _uki=""
-  if [ -n "${_esp_off:-}" ] && [ -n "${RAW:-}" ] && [ -r "${RAW}" ] \
+  if [ -n "${_esp_off:-}" ] && [ -n "${_SRC:-}" ] && [ -r "${_SRC}" ] \
      && command -v mdir >/dev/null 2>&1; then
-    dd if="${RAW}" of="${MNT}/.esp.img" bs=1M \
+    dd if="${_SRC}" of="${MNT}/.esp.img" bs=1M \
        skip=$((_esp_off / 1048576)) count=512 status=none 2>/dev/null || true
     # FAT long filenames are UTF-16 — `strings` cannot see them. Ask mtools.
     _uki="$(mdir -i "${MNT}/.esp.img" ::/EFI/Linux 2>/dev/null \
