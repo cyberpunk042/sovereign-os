@@ -704,21 +704,21 @@ postinst.write_text(textwrap.dedent("""\
     # otherwise die with 'Couldn't find EFI system partition'.
     export KERNEL_INSTALL_BYPASS=1
 
-# THE BUILDER KNOWS THE DISTRO — SAY SO, do not make the bake re-derive it.
-#
-# 2026-07-30, first Ubuntu appliance build. provision-bake runs
-# install-gui-dashboards.sh inside this chroot, which resolves the browser via
-# target_browser() -> target_distro(). With no SOVEREIGN_OS_DISTRO in the chroot
-# environment that function falls back to reading /etc/os-release and, failing
-# that, to its historical `debian` default — so it demanded `firefox-esr` inside
-# an Ubuntu root and the build failed with
-#     no apt in this root AND these packages are missing: firefox-esr
-# after a full kernel compile and a complete package install.
-#
-# mkosi-emit is the one place that KNOWS which distro is being built. Baking it
-# in makes every in-image script deterministic instead of dependent on whatever
-# os-release happens to be readable at that point in the bake.
-export SOVEREIGN_OS_DISTRO=__SOVEREIGN_OS_DISTRO__
+    # THE BUILDER KNOWS THE DISTRO — SAY SO, do not make the bake re-derive it.
+    #
+    # 2026-07-30, first Ubuntu appliance build. provision-bake runs
+    # install-gui-dashboards.sh inside this chroot, which resolves the browser via
+    # target_browser() -> target_distro(). With no SOVEREIGN_OS_DISTRO in the chroot
+    # environment that function falls back to reading /etc/os-release and, failing
+    # that, to its historical `debian` default — so it demanded `firefox-esr` inside
+    # an Ubuntu root and the build failed with
+    #     no apt in this root AND these packages are missing: firefox-esr
+    # after a full kernel compile and a complete package install.
+    #
+    # mkosi-emit is the one place that KNOWS which distro is being built. Baking it
+    # in makes every in-image script deterministic instead of dependent on whatever
+    # os-release happens to be readable at that point in the bake.
+    export SOVEREIGN_OS_DISTRO=__SOVEREIGN_OS_DISTRO__
 
     # Operator-only secure-boot chain: drop the DISTRO-presigned
     # systemd-boot binaries ('Debian Secure Boot CA') — bootctl prefers

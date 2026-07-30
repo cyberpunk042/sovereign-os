@@ -239,3 +239,65 @@ def test_the_browser_matches_what_mkosi_actually_installed(tmp_path):
             f"{distro}: mkosi would install {mapped_pkgs} but the in-image bake "
             f"looks for {expected!r} — that mismatch fails provision-bake"
         )
+
+
+def test_the_generated_postinst_is_actually_executable(tmp_path):
+    """A script that contains the right text but cannot be exec'd is not a fix.
+
+    2026-07-30: adding `export SOVEREIGN_OS_DISTRO=...` at column 0 inside the
+    postinst's textwrap.dedent() body destroyed the common leading whitespace,
+    so dedent() stripped nothing, EVERY line kept its 4-space indent, and the
+    shebang became "    #!/bin/bash". mkosi died with
+
+        OSError: [Errno 8] Exec format error
+
+    after a full package install. The test added alongside that change asserted
+    the export STRING was present and passed happily — it never checked the
+    artifact was still a runnable script. Assert validity, not just content.
+    """
+    run, out = _emit({"SOVEREIGN_OS_DISTRO": "ubuntu",
+                      "SOVEREIGN_OS_SECURE_BOOT": "none"}, tmp_path)
+    if run.returncode != 0:
+        pytest.skip(f"emitter could not run here: {run.stderr.strip()[-200:]}")
+    postinst = out / "mkosi.postinst.chroot"
+    assert postinst.is_file(), "no postinst emitted"
+
+    first = postinst.read_text(encoding="utf-8").splitlines()[0]
+    assert first.startswith("#!"), (
+        f"the postinst's first line is not a shebang: {first!r}. execvp() "
+        "rejects it with Errno 8 Exec format error."
+    )
+    assert first == first.lstrip(), (
+        f"the shebang is INDENTED ({first!r}) — textwrap.dedent() found no "
+        "common prefix, which happens the moment a line is added at column 0 "
+        "inside the dedent body."
+    )
+    assert postinst.stat().st_mode & 0o111, "the postinst is not executable"
+
+    syntax = subprocess.run(["bash", "-n", str(postinst)],
+                            capture_output=True, text=True)
+    assert syntax.returncode == 0, (
+        f"the generated postinst is not valid bash:\n{syntax.stderr}"
+    )
+
+
+def test_every_line_of_the_postinst_body_shares_the_dedent_indent():
+    """Catch the fault in the SOURCE, not only in the output.
+
+    The emitted script is the symptom; the cause is a line added at column 0
+    inside the dedent block. Anyone editing that body will reach for column 0
+    again, so name the rule where they are typing.
+    """
+    body = MKOSI_EMIT.read_text(encoding="utf-8")
+    start = body.index('postinst.write_text(textwrap.dedent("""\\')
+    end = body.index('"""', start + 40)
+    block = body[body.index("\n", start) + 1: end]
+    offenders = [
+        l for l in block.splitlines()
+        if l.strip() and not l.startswith("    ")
+    ]
+    assert not offenders, (
+        "these lines sit at column 0 inside the postinst dedent body, which "
+        "kills textwrap.dedent() and indents the shebang:\n  "
+        + "\n  ".join(repr(l) for l in offenders[:5])
+    )
