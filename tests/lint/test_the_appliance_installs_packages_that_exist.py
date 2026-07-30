@@ -367,3 +367,52 @@ def test_the_unrelated_cmdline_options_survive_translation(tmp_path):
         assert opt in cmdline, (
             f"translation dropped {opt!r}, which the profile asked for: {cmdline!r}"
         )
+
+
+# ── the frontend must survive preset-all (2026-07-30) ───────────────────────
+# The appliance booted graphical.target with BOTH sddm and a fullscreen kiosk
+# browser wanting the display. install-gui-dashboards.sh disables the kiosk for
+# a desktop frontend — and then mkosi's `systemctl preset-all` re-enabled every
+# unit in /etc/systemd/system carrying [Install], including that one.
+#
+# The ISO path never runs preset-all, so the ISO-installed system was clean and
+# the appliance was not: the two installers disagreed for a reason invisible
+# from either side. This repo already hit the trap with the selfdef fleet.
+#
+# A preset is the mechanism preset-all obeys, so the policy is stated there.
+
+@pytest.mark.parametrize("frontend,kiosk_enabled", [
+    ("kde-plasma", False),
+    ("gnome", False),
+    ("dashboards-kiosk", True),
+])
+def test_the_frontend_choice_survives_preset_all(frontend, kiosk_enabled, tmp_path):
+    run, out = _emit({"SOVEREIGN_OS_DISTRO": "ubuntu",
+                      "SOVEREIGN_OS_SECURE_BOOT": "none",
+                      "SOVEREIGN_OS_FRONTEND": frontend}, tmp_path)
+    if run.returncode != 0:
+        pytest.skip(f"emitter could not run here: {run.stderr.strip()[-200:]}")
+    presets = list(out.rglob("system-preset/*.preset"))
+    assert presets, (
+        "no systemd preset emitted — preset-all will re-enable the kiosk that "
+        "install-gui-dashboards.sh deliberately disabled, and the appliance "
+        "boots with two things fighting for the display"
+    )
+    text = "\n".join(p.read_text(encoding="utf-8") for p in presets)
+    body = "\n".join(l for l in text.splitlines() if not l.startswith("#"))
+    if kiosk_enabled:
+        assert "enable sovereign-frontend-kiosk.service" in body, (
+            f"{frontend} IS a kiosk frontend; the preset must enable it"
+        )
+        assert "disable sddm.service" in body, (
+            "a kiosk owns the display — no login manager may contend for the seat"
+        )
+    else:
+        assert "disable sovereign-frontend-kiosk.service" in body, (
+            f"{frontend} is a DESKTOP frontend; the kiosk browser must be "
+            "disabled in a way preset-all cannot undo"
+        )
+        assert "disable sddm.service" not in body, (
+            f"{frontend} needs its display manager — the preset must not "
+            "disable it"
+        )

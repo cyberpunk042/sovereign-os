@@ -212,6 +212,8 @@ PY
              "${MNT}"/var/log/sovereign-os "${MNT}"/opt
     for f in /boot/grub/grub.cfg /boot/grub/grubenv \
              /usr/lib/os-release /etc/os-release \
+             /etc/sovereign-os/base-distro \
+             /boot/config-6.12.0 \
              /etc/sovereign-os/active-profile \
              /etc/sovereign-os/active-profile.env \
              /var/lib/dpkg/status /var/lib/sovereign-os/dashboards-install.status \
@@ -343,8 +345,16 @@ _osrel=""
 for _c in "${MNT}/usr/lib/os-release" "${MNT}/etc/os-release"; do
   [ -s "${_c}" ] && grep -q '^ID=' "${_c}" 2>/dev/null && { _osrel="${_c}"; break; }
 done
+# PREFER WHAT THE BUILD RECORDED, exactly as target_distro() does on the running
+# system. The whitelabel rewrites os-release to ID=sovereign / ID_LIKE=debian,
+# so an Ubuntu APPLIANCE reads as Debian here — and the Ubuntu-only checks
+# (nomodeset is fatal, is there a DRM fallback) were skipped on the one artifact
+# that most needed them (2026-07-30).
 _distro=debian
-if [ -n "${_osrel}" ] && grep -qE '^ID=ubuntu' "${_osrel}" 2>/dev/null; then
+if [ -s "${MNT}/etc/sovereign-os/base-distro" ]; then
+  _bd="$(head -1 "${MNT}/etc/sovereign-os/base-distro" 2>/dev/null | tr -d '[:space:]')"
+  case "${_bd}" in debian|ubuntu) _distro="${_bd}" ;; esac
+elif [ -n "${_osrel}" ] && grep -qE '^ID=ubuntu' "${_osrel}" 2>/dev/null; then
   _distro=ubuntu
 fi
 _prettyid="$(sed -n 's/^PRETTY_NAME="\(.*\)"/\1/p' "${_osrel}" 2>/dev/null)"
@@ -356,8 +366,55 @@ info "installed distro: ${_prettyid:-unknown} (route: $([ "${_distro}" = ubuntu 
 # and it is the one thing this script must never do (2026-07-29).
 if [ "${_artifact}" = appliance ]; then
   ok "appliance boot chain: systemd-boot + UKI on the ESP (no GRUB by design)"
-  info "the kernel cmdline is embedded in the UKI, so the seat route is set at"
-  info "build time (mkosi KernelCommandLine=), not readable from grub.cfg here."
+  # READ THE CMDLINE OUT OF THE UKI. It is a PE section (.cmdline) in the .efi,
+  # so it IS inspectable — an earlier version said "set at build time, not
+  # readable here" and therefore never checked the ONE thing that made the
+  # shipped appliance unusable: nomodeset baked into the UKI (2026-07-30).
+  _uki_cmdline=""
+  if [ -n "${_esp_off:-}" ] && [ -n "${_SRC:-}" ] && command -v mcopy >/dev/null 2>&1; then
+    dd if="${_SRC}" of="${MNT}/.esp.img" bs=1M \
+       skip=$((_esp_off / 1048576)) count=512 status=none 2>/dev/null || true
+    _ukiname="$(mdir -i "${MNT}/.esp.img" ::/EFI/Linux 2>/dev/null \
+                | grep -oiE '[A-Za-z0-9._-]+\.efi' | head -1)"
+    if [ -n "${_ukiname}" ] && mcopy -i "${MNT}/.esp.img" \
+         "::/EFI/Linux/${_ukiname}" "${MNT}/.uki.efi" >/dev/null 2>&1; then
+      _uki_cmdline="$(python3 - "${MNT}/.uki.efi" 2>/dev/null <<'UKI'
+import struct, sys
+d = open(sys.argv[1], "rb").read()
+i = d.find(b".cmdline")
+if i >= 0:
+    _, _, _, rs, ro = struct.unpack_from("<8sIIII", d, i)
+    print(d[ro:ro + rs].split(b"\x00")[0].decode(errors="replace").strip())
+UKI
+)"
+      rm -f "${MNT}/.uki.efi"
+    fi
+    rm -f "${MNT}/.esp.img"
+  fi
+  if [ -n "${_uki_cmdline}" ]; then
+    info "UKI cmdline: ${_uki_cmdline}"
+    case " ${_uki_cmdline} " in
+      *" nomodeset "*)
+        if [ "${_distro}" = ubuntu ]; then
+          bad "nomodeset is baked into the UKI and this distro is Wayland-only."
+          info "It removes the DRM device Wayland requires, so the greeter has"
+          info "no session to start. Rebuild — the cmdline cannot be edited on"
+          info "a flashed disk; it lives inside the signed UKI."
+        else
+          ok "nomodeset in the UKI (the Debian route)"
+        fi ;;
+      *)
+        [ "${_distro}" = ubuntu ] && ok "nomodeset correctly absent from the UKI" ;;
+    esac
+    if [ "${_distro}" = ubuntu ]; then
+      case " ${_uki_cmdline} " in
+        *" nvidia-drm.modeset=1 "*) ok "nvidia-drm.modeset=1 in the UKI cmdline" ;;
+        *) bad "nvidia-drm.modeset=1 ABSENT from the UKI — no DRM device" ;;
+      esac
+    fi
+  else
+    info "could not read the UKI cmdline (mtools/python unavailable)"
+  fi
 elif [ ! -s "${GRUBCFG}" ]; then
   bad "no /boot/grub/grub.cfg on the installed disk — nothing will boot, and"
   info "the seat invariant cannot be judged. Not reporting a route either way."
@@ -397,6 +454,44 @@ else
   fi
   [ "${_x11}" = yes ] && info "X11 sessions available" \
                       || info "NO X11 sessions — this desktop is Wayland-only"
+
+  # WHAT THIS CANNOT TELL YOU (2026-07-30). Every check here reads the DISK.
+  # Whether a DRM device exists at boot depends on the HARDWARE and the kernel's
+  # config, and a VM always has one (bochs/virtio-gpu) — so a VM run scores
+  # perfectly on an image that reaches a dead login on the real machine. That is
+  # exactly what happened: 16/16 in QEMU, unusable on the operator's box.
+  if [ "${_distro}" = ubuntu ]; then
+    _simpledrm=unknown
+    # An APPLIANCE keeps its kernel config on the ESP, not in the root fs — and
+    # the appliance is precisely the artifact where this matters most, so it
+    # must not silently skip the check (2026-07-30).
+    if [ "${_artifact}" = appliance ] && [ -n "${_esp_off:-}" ] \
+       && [ -n "${_SRC:-}" ] && command -v mcopy >/dev/null 2>&1; then
+      dd if="${_SRC}" of="${MNT}/.esp.img" bs=1M \
+         skip=$((_esp_off / 1048576)) count=512 status=none 2>/dev/null || true
+      mcopy -i "${MNT}/.esp.img" ::/config-6.12.0 "${MNT}/boot/config-6.12.0" \
+        >/dev/null 2>&1 || true
+      rm -f "${MNT}/.esp.img"
+    fi
+    for _c in "${MNT}/boot/config-"* "${MNT}/usr/lib/modules/"*/config; do
+      [ -r "${_c}" ] || continue
+      if grep -q '^CONFIG_DRM_SIMPLEDRM=' "${_c}" 2>/dev/null; then _simpledrm=yes
+      elif grep -q '^# CONFIG_DRM_SIMPLEDRM is not set' "${_c}" 2>/dev/null; then _simpledrm=no; fi
+      break
+    done
+    case "${_simpledrm}" in
+      no)  bad "the kernel has NO driver-less DRM fallback (CONFIG_DRM_SIMPLEDRM off)"
+           info "so a DRM device exists ONLY if the GPU driver binds. On a"
+           info "Wayland-only desktop that makes 'driver did not bind' and"
+           info "'machine is unusable' the same event. A VM hides this — QEMU"
+           info "always provides a DRM device." ;;
+      yes) ok "kernel provides a driver-less DRM fallback (simpledrm)" ;;
+      *)   info "could not read the kernel config to check for a DRM fallback" ;;
+    esac
+    info "NOT CHECKABLE FROM THE DISK: whether the NVIDIA driver actually binds"
+    info "  on this hardware. Confirm on the booted box: lsmod | grep nvidia"
+    info "  and ls /dev/dri"
+  fi
 
   if [ "${_distro}" = ubuntu ]; then
     # nomodeset here is FATAL, not merely suboptimal.
