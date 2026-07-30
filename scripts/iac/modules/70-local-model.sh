@@ -1,78 +1,131 @@
 #!/usr/bin/env bash
-# local model — profiles.provisioning.model
-# gate: IAC_ENABLE_MODEL   (OFF by default — tens of GB)
+# local model — profiles.provisioning.model, reconciled against loader capability
+# gate: IAC_ENABLE_MODEL
 #
-# WHY GATED OFF: the profile asks for
-#   nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16 at bf16 into
-#   /mnt/vault/models/... with min_free_gb: 80. A 30B BF16 checkpoint is ~60GB.
+# THE PROFILE ASKS FOR SOMETHING THIS RUNTIME CANNOT LOAD.
 #
-# BLOCKER THIS MODULE REPORTS RATHER THAN WORKS AROUND
-#   /mnt/vault does not exist. It is almost certainly the mount the missing ZFS
-#   pool was meant to provide — the same pool sovereign-zfs-scrub.timer and
-#   sovereign-backup-snapshot.timer expect (tank/context). Converge will not
-#   invent a mountpoint on the root filesystem: silently writing 60GB to / when
-#   the operator asked for a vault is worse than stopping and saying so.
+#   provisioning.model.repo = nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16
+#   provisioning.model.local_dir = /mnt/vault/models/...   (min_free_gb: 80)
 #
-#   Decide the storage first (create the pool, or repoint provisioning.model
-#   .local_dir), then re-run with IAC_ENABLE_MODEL=1.
+# Three independent blockers, verified 2026-07-30:
+#
+#   1. /mnt/vault does not exist and cannot without reclaiming the Debian 13
+#      disk or adding hardware — both NVMe devices are fully partitioned.
+#   2. A 30B BF16 checkpoint ships SHARDED (model-0000N-of-0000M.safetensors +
+#      model.safetensors.index.json). Nothing in crates/ handles a shard index:
+#          grep -rl 'safetensors.index|model-.*-of-' crates/   -> no matches
+#      and scripts/intelligence/fetch-model.sh fetches exactly three files
+#      (config.json, tokenizer.json, model.safetensors) — single-file only.
+#   3. The gateway generates on CPU. No crate in sovereign-gatewayd's dependency
+#      tree links CUDA (only sovereign-nvfp4-runtime does, and it is not a dep).
+#      A 30B BF16 forward pass on CPU is not interactive, whatever the RAM.
+#
+# So the profile's model is ASPIRATIONAL — it describes where this is going, not
+# what today's gateway can serve. Converge does not pretend otherwise and does
+# not silently substitute: it reports the gap, and serves the model the runtime
+# actually supports, declared as a machine truth in converge.conf.
+#
+# When the loader grows shard + GPU support, drop IAC_MODEL_REPO from
+# converge.conf and this module follows the profile again.
 #
 # shellcheck shell=bash
 
-_repo="$(profile_get provisioning.model.repo)"
-_dir="$(profile_get provisioning.model.local_dir)"
+_prof_repo="$(profile_get provisioning.model.repo)"
+_prof_dir="$(profile_get provisioning.model.local_dir)"
 _minfree="$(profile_get provisioning.model.min_free_gb 0)"
 
+# Machine truth wins where the profile outruns the runtime (same pattern as the
+# GPU power floor). Empty override ⇒ follow the profile verbatim.
+_repo="${IAC_MODEL_REPO:-${_prof_repo}}"
+_dir="${IAC_MODEL_DIR:-${_prof_dir}}"
+
 if [ -z "${_repo}" ] || [ -z "${_dir}" ]; then
-  skip "provisioning.model not fully declared"
+  skip "no model declared (profile provisioning.model + no converge.conf override)"
   return 0 2>/dev/null || exit 0
 fi
 
-iac_info "repo=${_repo}"
-iac_info "dir=${_dir} (min_free_gb=${_minfree})"
+if [ "${_repo}" != "${_prof_repo}" ]; then
+  iac_info "profile asks for : ${_prof_repo}"
+  iac_info "serving instead  : ${_repo}"
+  iac_info "reason: the gateway loads single-file safetensors on CPU; see this module's header"
+fi
+iac_info "dir=${_dir}"
 
+# ---- the gateway must be pointed at this exact directory or it ignores it ----
+_gw_model="$(systemctl show sovereign-gatewayd -p Environment --value 2>/dev/null \
+             | tr ' ' '\n' | sed -n 's/^SOVEREIGN_GATEWAY_MODEL=//p')"
+if [ -n "${_gw_model}" ] && [ "${_gw_model}" != "${_dir}" ]; then
+  iac_info "note: sovereign-gatewayd looks at ${_gw_model}"
+  iac_info "      a model elsewhere is downloaded but never served"
+fi
+
+# ---- storage ----
 _parent="$(dirname "${_dir}")"
-_mountroot="/$(printf '%s' "${_dir}" | cut -d/ -f2)"   # e.g. /mnt
-
-# ---- storage must exist and be a real mount, not an accidental root dir ----
 if [ ! -d "${_parent}" ]; then
-  # Is the intended vault even mounted?
-  if [ "${_mountroot}" != "/" ] && ! mountpoint -q "$(printf '%s' "${_dir}" | cut -d/ -f1-3)" 2>/dev/null; then
-    fail "$(printf '%s' "${_dir}" | cut -d/ -f1-3) is not a mounted filesystem — create the vault storage before fetching a ~60GB model"
-  else
-    fail "${_parent} does not exist"
+  _mnt="$(printf '%s' "${_dir}" | cut -d/ -f1-3)"
+  if printf '%s' "${_dir}" | grep -q '^/mnt/' && ! mountpoint -q "${_mnt}" 2>/dev/null; then
+    fail "${_mnt} is not a mounted filesystem — create the vault storage first, or set IAC_MODEL_DIR"
+    return 0 2>/dev/null || exit 0
   fi
-  return 0 2>/dev/null || exit 0
+  ensure_dir "${_parent}" 0755 root:root
 fi
 
-# ---- free space ----
 if [ "${_minfree}" -gt 0 ] 2>/dev/null; then
   _avail_gb="$(df -BG --output=avail "${_parent}" 2>/dev/null | tail -1 | tr -dc '0-9')"
   if [ -n "${_avail_gb}" ] && [ "${_avail_gb}" -lt "${_minfree}" ] 2>/dev/null; then
     fail "only ${_avail_gb}GB free at ${_parent}, profile requires min_free_gb=${_minfree}"
     return 0 2>/dev/null || exit 0
   fi
-  ok "free space at ${_parent}: ${_avail_gb:-?}GB (need ${_minfree}GB)"
+  ok "free space at ${_parent}: ${_avail_gb:-?}GB (profile wants ${_minfree}GB)"
 fi
 
-# ---- already fetched? ----
-if [ -s "${_dir}/config.json" ]; then
+# ---- already fetched? the loader needs all three ----
+_complete=1
+for f in config.json tokenizer.json model.safetensors; do
+  [ -s "${_dir}/${f}" ] || _complete=0
+done
+if [ "${_complete}" = 1 ]; then
   ok "model present at ${_dir}"
   return 0 2>/dev/null || exit 0
 fi
 
 _fetch=/opt/sovereign-os/scripts/intelligence/fetch-model.sh
+[ -x "${_fetch}" ] || _fetch="${IAC_SOURCE_RESOLVED_DIR:-/home/jfortin/sovereign-os}/scripts/intelligence/fetch-model.sh"
 if [ ! -x "${_fetch}" ]; then
-  fail "fetch script missing: ${_fetch}"
+  fail "fetch script not found"
   return 0 2>/dev/null || exit 0
 fi
 
 if [ "${IAC_DRY_RUN}" = 1 ]; then
   changed "fetch ${_repo} → ${_dir}"
-else
-  iac_info "fetching — this is a large download"
-  if SOVEREIGN_MODEL_REPO="${_repo}" "${_fetch}" "${_dir}" >/dev/null 2>&1; then
-    changed "model fetched → ${_dir}"
+  return 0 2>/dev/null || exit 0
+fi
+
+# The script reads MODEL_REPO. (An earlier version of this module exported
+# SOVEREIGN_MODEL_REPO, which fetch-model.sh ignores — it would have silently
+# downloaded the DEFAULT model while reporting the requested one.)
+iac_info "fetching — network download"
+if MODEL_REPO="${_repo}" "${_fetch}" "${_dir}" >/dev/null 2>&1; then
+  _missing=""
+  for f in config.json tokenizer.json model.safetensors; do
+    [ -s "${_dir}/${f}" ] || _missing="${_missing} ${f}"
+  done
+  if [ -n "${_missing}" ]; then
+    # Sharded repos "succeed" with a 404-free partial set — catch that here
+    # rather than handing the gateway an unloadable directory.
+    fail "fetch incomplete, missing:${_missing} (is ${_repo} sharded? this loader needs a single model.safetensors)"
   else
-    fail "model fetch failed — see ${_fetch}"
+    changed "model fetched → ${_dir}"
+    # The gateway loads the model at STARTUP only.
+    if systemctl is-active --quiet sovereign-gatewayd 2>/dev/null \
+       && [ "${_gw_model}" = "${_dir}" ]; then
+      if run "restart-gateway" systemctl restart sovereign-gatewayd; then
+        changed "sovereign-gatewayd restarted to load the model"
+      else
+        fail "could not restart sovereign-gatewayd"
+      fi
+    fi
   fi
+else
+  fail "model fetch failed — MODEL_REPO=${_repo} ${_fetch} ${_dir}"
 fi
