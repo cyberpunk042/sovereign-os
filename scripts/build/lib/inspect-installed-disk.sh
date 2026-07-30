@@ -47,7 +47,7 @@ if [ -x "${DEBUGFS}" ] && [ "${IMG#/dev/}" = "${IMG}" ] && command -v qemu-img >
   # operator named (2026-07-30, inspecting the first Ubuntu appliance).
   case "${IMG}" in
     *.raw|*.img) RAW="${IMG}" ;;
-    *)           RAW="${IMG%.qcow2}.raw" ;;
+    *)           RAW="${SOVEREIGN_OS_INSPECT_SCRATCH:-${TMPDIR:-/tmp}}/$(basename "${IMG%.qcow2}").raw" ;;
   esac
   if [ "${RAW}" != "${IMG}" ] && { [ ! -f "${RAW}" ] || [ "${IMG}" -nt "${RAW}" ]; }; then
     # -U: this is a strictly READ-ONLY inspection, so do not take the image
@@ -194,7 +194,11 @@ PY
   # which would have made every assertion below silently read nothing. Caught by
   # smoke-testing the inspector against a synthetic ext4 image BEFORE trusting it
   # on a real install (2026-07-29). So carve the partition out to its own file.
-  ROOTIMG="${RAW%.raw}.root.img"
+  # SCRATCH GOES TO SCRATCH, not next to the operator's artifacts. This wrote
+  # an 8 GB <name>.root.img into build/<profile>/output/ — the directory step 09
+  # checksums and the flash panel lists. Inspecting an image must not modify the
+  # place the image lives (2026-07-30).
+  ROOTIMG="${SOVEREIGN_OS_INSPECT_SCRATCH:-${TMPDIR:-/tmp}}/$(basename "${RAW%.raw}").root.img"
   if [ ! -f "${ROOTIMG}" ] || [ "${RAW}" -nt "${ROOTIMG}" ]; then
     dd if="${RAW}" of="${ROOTIMG}" bs=1M skip=$((ROOT_OFF/1048576)) \
        count=$((ROOT_LEN/1048576)) status=none 2>/dev/null || true

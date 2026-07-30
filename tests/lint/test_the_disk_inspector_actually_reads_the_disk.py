@@ -620,3 +620,24 @@ def test_nomodeset_in_a_debian_uki_is_correct(tmp_path):
     _, out = inspect(disk)
     assert "nomodeset in the UKI (the Debian route)" in out, out
     assert "Wayland-only" not in out, f"Debian must not be flagged.\n{out}"
+
+
+def test_inspecting_an_image_does_not_write_beside_it(tmp_path):
+    """Scratch goes to scratch — never into the artifact directory.
+
+    The inspector wrote an 8 GB <name>.root.img next to the image, i.e. into
+    build/<profile>/output/ — the directory step 09 checksums and the flash
+    panel lists. Inspecting an artifact must not modify where it lives
+    (2026-07-30).
+    """
+    artifacts = tmp_path / "output"
+    disk = build_disk(artifacts, {"/usr/lib/os-release": OSREL_DEB})
+    before = {p.name for p in artifacts.iterdir()}
+    inspect(disk)
+    after = {p.name for p in artifacts.iterdir()}
+    new = after - before
+    assert not new, (
+        f"inspecting wrote {sorted(new)} into the artifact directory. Those "
+        "files land in sha256sums.txt and build-provenance.json, and the flash "
+        "panel lists what is there."
+    )
