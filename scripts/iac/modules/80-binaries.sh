@@ -79,18 +79,28 @@ fi
 
 # ---- toolchain ----
 # rust-toolchain.toml pins 1.89.0 and rustup honours it automatically, so we
-# only need rustup itself on PATH — not a specific system rustc.
-_cargo="$(command -v cargo 2>/dev/null || true)"
-if [ -z "${_cargo}" ] && [ -x "${HOME:-/root}/.cargo/bin/cargo" ]; then
-  _cargo="${HOME:-/root}/.cargo/bin/cargo"
-fi
+# only need the rustup shim — not a specific system rustc.
+#
+# Resolve cargo from the CHECKOUT OWNER's home, not $HOME. rust-toolchain.sh
+# installs user-level into ~/.cargo for the operator (deliberately, and it is
+# $SUDO_USER-aware), but converge runs under sudo where $HOME is /root — so
+# "${HOME}/.cargo/bin/cargo" looks in the one place it will never be. The build
+# runs as the owner anyway, so ask about the owner.
+_owner="$(stat -c '%U' "${_src}" 2>/dev/null || echo root)"
+_owner_home="$(getent passwd "${_owner}" 2>/dev/null | cut -d: -f6)"
+: "${_owner_home:=/root}"
+
+_cargo=""
+for c in "${_owner_home}/.cargo/bin/cargo" "$(command -v cargo 2>/dev/null || true)"; do
+  [ -n "${c}" ] && [ -x "${c}" ] && { _cargo="${c}"; break; }
+done
 if [ -z "${_cargo}" ]; then
   # Deliberately NOT auto-installing rustup: it is a curl|sh into root's home
   # and belongs to an explicit operator decision, not a converge side effect.
   fail "cargo not found — install the pinned toolchain first: ${_src}/scripts/install/rust-toolchain.sh (rustup, channel 1.89.0)"
   return 0 2>/dev/null || exit 0
 fi
-iac_info "cargo: ${_cargo}"
+iac_info "cargo: ${_cargo} (build user: ${_owner})"
 
 if [ "${IAC_DRY_RUN}" = 1 ]; then
   changed "build + install ${_rust_bins// /, } (cargo release build)"
@@ -99,37 +109,73 @@ fi
 
 # `make bins` CPU-tunes via scripts/build/cpu-features.py against PROFILE.
 # Build as the checkout's owner so target/ and ~/.cargo stay theirs, not root's.
-_owner="$(stat -c '%U' "${_src}" 2>/dev/null || echo root)"
 iac_info "building as ${_owner} — this takes a while"
 
-if sudo -u "${_owner}" env PATH="$(dirname "${_cargo}"):${PATH}" \
-      make -C "${_src}" bins PROFILE="${IAC_PROFILE_ID}" PREFIX="${_prefix}" >/dev/null 2>&1; then
+# Build output goes to a LOG, never /dev/null. A compile failure is exactly the
+# case where the operator needs the error, and discarding it turns a one-line
+# rustc diagnostic into a blind "make bins failed". Learned the hard way.
+_log="/var/log/sovereign-os/iac-build.log"
+install -d "$(dirname "${_log}")" 2>/dev/null || true
+
+# `make bins` is build-THEN-install in one target. The build must run as the
+# checkout owner (so target/ and ~/.cargo stay theirs, and so rustup resolves
+# the pinned toolchain), but its install step writes to PREFIX/bin — which is
+# root:root drwxr-xr-x. Run wholesale as the owner, the compile succeeds and
+# then `install` dies with permission denied, so make exits non-zero and the
+# whole step reads as "build failed" when the binaries are sitting in
+# target/release perfectly fine.
+#
+# Stage into a DESTDIR the owner CAN write, so make completes honestly, then
+# copy into place as root below. DESTDIR is exactly what the Makefile's
+# $(DESTDIR)$(PREFIX) install lines are for.
+_stage="$(mktemp -d)"
+chown "${_owner}" "${_stage}" 2>/dev/null || true
+
+_mk() {
+  sudo -u "${_owner}" env PATH="$(dirname "${_cargo}"):${PATH}" \
+    make -C "${_src}" bins PROFILE="${IAC_PROFILE_ID}" PREFIX="${_prefix}" \
+      DESTDIR="${_stage}" "$@"
+}
+
+if _mk >"${_log}" 2>&1; then
   :
-elif sudo -u "${_owner}" env PATH="$(dirname "${_cargo}"):${PATH}" \
-      make -C "${_src}" bins PROFILE="${IAC_PROFILE_ID}" PREFIX="${_prefix}" SOVEREIGN_OS_BINS_TUNE=0 >/dev/null 2>&1; then
+elif _mk SOVEREIGN_OS_BINS_TUNE=0 >>"${_log}" 2>&1; then
   # A CPU-tuned build can fail on RUSTFLAGS the host rustc rejects; the portable
   # build is the documented fallback (SOVEREIGN_OS_BINS_TUNE=0).
   iac_info "CPU-tuned build failed; portable build succeeded"
 else
-  fail "make bins failed — run manually: make -C ${_src} bins PROFILE=${IAC_PROFILE_ID}"
+  # Surface the actual reason inline — the operator should not have to go
+  # hunting for a log to learn what broke.
+  _err="$(grep -oE '^error(\[[A-Z0-9]+\])?: .*' "${_log}" 2>/dev/null | head -3)"
+  [ -z "${_err}" ] && _err="$(tail -5 "${_log}" 2>/dev/null)"
+  fail "make bins failed"
+  printf '%s\n' "${_err}" | while IFS= read -r l; do [ -n "${l}" ] && iac_info "${l}"; done
+  iac_info "full log: ${_log}"
+  iac_info "reproduce: make -C ${_src} bins PROFILE=${IAC_PROFILE_ID}"
+  rm -rf "${_stage}" 2>/dev/null || true
   return 0 2>/dev/null || exit 0
 fi
 
-# `make bins` installs as the build user, which cannot write /usr/local/bin.
-# Re-install from target/release as root when the make step could not.
+# ---- promote the staged binaries into place, as root ----
+# Prefer the staged copy (what make just produced); fall back to target/release
+# so a partially-staged build still lands something verifiable.
 for b in ${_rust_bins}; do
-  _art="${_src}/target/release/${b}"
-  if [ -x "${_prefix}/bin/${b}" ]; then
-    ok "binary ${b}"
-  elif [ -x "${_art}" ]; then
-    if install -m 755 "${_art}" "${_prefix}/bin/${b}" 2>/dev/null; then
-      changed "installed ${b} → ${_prefix}/bin/${b}"
-    else
-      fail "could not install ${b}"
-    fi
-  else
+  _art="${_stage}${_prefix}/bin/${b}"
+  [ -x "${_art}" ] || _art="${_src}/target/release/${b}"
+
+  if [ ! -x "${_art}" ]; then
     fail "${b} not produced by the build"
+    continue
+  fi
+  if [ -x "${_prefix}/bin/${b}" ] && cmp -s "${_art}" "${_prefix}/bin/${b}"; then
+    ok "binary ${b}"
+  elif install -m 755 "${_art}" "${_prefix}/bin/${b}" 2>/dev/null; then
+    changed "installed ${b} → ${_prefix}/bin/${b}"
+  else
+    fail "could not install ${b}"
   fi
 done
+
+rm -rf "${_stage}" 2>/dev/null || true
 
 iac_info "re-run converge so module 20 promotes gatewayd + the telemetry timer"

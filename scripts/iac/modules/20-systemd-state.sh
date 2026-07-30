@@ -44,17 +44,21 @@
 # down while absent; promoted automatically once present. That way "fix the
 # packaging gap" and "turn the feature on" are the same operation, and nobody
 # has to remember to edit this table.
+# Note the two-word values: "<enable-state> <run-state>". `enabled` alone only
+# takes effect at the NEXT boot — a daemon whose binary exists should be serving
+# now, and a timer that is enabled but not started never fires until reboot.
+# "enabled" without a run-state is correct only for units something else starts.
 if [ -x /usr/local/bin/sovereign-gatewayd ]; then
-  _gatewayd_state=enabled
+  _gatewayd_state="enabled started"
   iac_info "sovereign-gatewayd binary present → promoting unit to enabled"
 else
-  _gatewayd_state=masked
+  _gatewayd_state="masked"
 fi
 if command -v sovereign-telemetry >/dev/null 2>&1 || [ -x /opt/sovereign-os/bin/sovereign-telemetry ]; then
-  _telemetry_state=enabled
+  _telemetry_state="enabled started"
   iac_info "sovereign-telemetry binary present → promoting timer to enabled"
 else
-  _telemetry_state=disabled
+  _telemetry_state="disabled"
 fi
 
 IAC_UNIT_STATE="
@@ -79,7 +83,7 @@ sovereign-nvidia-power-limit.service      enabled
 # apc-modbus UPS at 192.168.1.69, a NETWORK UPS that never appears on USB, and
 # the host pings. Module 50 owns those two units and unmasks them.
 
-while read -r unit want; do
+while read -r unit want run; do
   [ -n "${unit}" ] || continue
   case "${unit}" in \#*) continue ;; esac
 
@@ -89,7 +93,7 @@ while read -r unit want; do
     skip "unit ${unit} not installed on this host"
     continue
   fi
-  ensure_unit_state "${unit}" "${want}"
+  ensure_unit_state "${unit}" "${want}" "${run:-}"
 done <<< "${IAC_UNIT_STATE}"
 
 # ─── restart-loop guard for gatewayd ─────────────────────────────────────────
