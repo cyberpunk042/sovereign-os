@@ -2059,6 +2059,42 @@ cmd_selfdef() {
   esac
 }
 
+# Run a ConditionFirstBoot=yes installer unit's payload NOW.
+#
+# `systemctl start` cannot do this after the first boot. systemd evaluates
+# ConditionFirstBoot, finds it false, SKIPS the unit — and a skipped unit reports
+# SUCCESS. So `systemctl start "${INSTALLER}" && journalctl …` printed a journal
+# that said "skipped, unmet condition check ConditionFirstBoot=yes" while the
+# caller saw exit 0 and reported success. Every `sovereign-osctl <x> install` on
+# an established system was a silent no-op, including the one this tool's own
+# `status` output tells operators to run (found 2026-07-30).
+#
+# The unit's ExecStart is read back from systemd rather than hardcoded, so this
+# stays in lockstep with the unit file. ConditionFirstBoot is left in place: it
+# is correct for BOOT-time behaviour (these are one-shot provisioners): the bug
+# was only ever in invoking them through systemd afterwards.
+run_firstboot_installer() {
+  local unit="$1" exe rc
+  systemctl list-unit-files --no-legend "${unit}" 2>/dev/null | grep -q . || {
+    log_error "installer unit ${unit} not present"
+    return 1
+  }
+  exe="$(systemctl show "${unit}" -p ExecStart --value 2>/dev/null \
+         | sed -n 's/.*path=\([^ ;]*\).*/\1/p' | head -1)"
+  if [ -z "${exe}" ] || [ ! -x "${exe}" ]; then
+    log_error "cannot resolve a runnable ExecStart for ${unit} (got: ${exe:-none})"
+    return 1
+  fi
+  log_info "running ${exe}"
+  log_info "  (directly, not via ${unit} — it is ConditionFirstBoot=yes and would be skipped)"
+  "${exe}"
+  rc=$?
+  # These hooks are deliberately best-effort (the units are ExecStart=-), so a
+  # non-zero exit is a report, not a hard stop. Say so plainly.
+  [ "${rc}" -eq 0 ] || log_warn "${exe} exited ${rc} — provisioning may be partial; re-run to resume"
+  return "${rc}"
+}
+
 # SDD-705: OpenClaw Node gateway daemon lifecycle (installed-off, selfdef shape).
 # The daemon (sovereign-openclaw.service) is staged by bake.openclaw + installed by
 # the first-boot installer (Node + npm + preconfig → the local endpoint); it stays
@@ -2103,12 +2139,8 @@ cmd_openclaw() {
     install|provision)
       # Run the first-boot installer NOW (Node + npm + preconfig). Non-fatal + resumable.
       require_root
-      if systemctl list-unit-files --no-legend "${INSTALLER}" 2>/dev/null | grep -q .; then
-        systemctl start "${INSTALLER}" && journalctl -u "${INSTALLER}" -n 40 --no-pager
-      else
-        log_error "installer unit ${INSTALLER} not present — run: sovereign-osctl openclaw install-units"
-        return 1
-      fi
+      run_firstboot_installer "${INSTALLER}" \
+        || { log_error "run: sovereign-osctl openclaw install-units"; return 1; }
       ;;
     on|enable)
       require_root
@@ -2200,12 +2232,8 @@ cmd_open_computer() {
       ;;
     install|provision)
       require_root
-      if systemctl list-unit-files --no-legend "${INSTALLER}" 2>/dev/null | grep -q .; then
-        systemctl start "${INSTALLER}" && journalctl -u "${INSTALLER}" -n 40 --no-pager
-      else
-        log_error "installer unit ${INSTALLER} not present — run: sovereign-osctl open-computer install-units"
-        return 1
-      fi
+      run_firstboot_installer "${INSTALLER}" \
+        || { log_error "run: sovereign-osctl open-computer install-units"; return 1; }
       ;;
     on|enable)
       require_root
