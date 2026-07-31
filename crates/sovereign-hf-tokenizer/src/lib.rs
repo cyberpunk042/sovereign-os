@@ -390,6 +390,22 @@ impl HfBpeTokenizer {
         self.bos_id
     }
 
+    /// Resolve a literal token piece to its id — the whole string as ONE token,
+    /// not an encoding of it.
+    ///
+    /// Needed for end-of-turn handling: `tokenizer_config.json` names its
+    /// `eos_token` as text (`<|im_end|>` for ChatML, `<|eot_id|>` for Llama-3),
+    /// and the decode loop has to compare sampled ids against it. Going through
+    /// [`encode`] would be wrong — that would BPE-split the marker into several
+    /// ordinary pieces and never match the single special id the model actually
+    /// emits. Added tokens are inserted into `vocab` verbatim at load, so a
+    /// direct lookup is the correct resolution.
+    ///
+    /// [`encode`]: Self::encode
+    pub fn token_id(&self, piece: &str) -> Option<u32> {
+        self.vocab.get(piece).copied()
+    }
+
     /// Encode text to token ids. GPT-2 path: pre-tokenize → byte-map → BPE →
     /// vocab. Metaspace path: `▁`-normalize → per-word BPE over direct-unicode
     /// pieces → vocab, with `<0xXX>` byte fallback (F-2026-086).

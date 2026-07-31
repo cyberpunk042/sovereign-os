@@ -962,6 +962,15 @@ struct Generator {
     /// exactly as before; `Some` ⇒ the prompt is rendered with the model's real
     /// turn markers so an instruction-tuned checkpoint behaves.
     chat_template: Option<String>,
+    /// The model's end-of-turn token id, resolved from `tokenizer_config.json`'s
+    /// `eos_token` against the tokenizer's added-token vocab.
+    ///
+    /// `None` ⇒ decoding ends only at `max_tokens`, which is what every request
+    /// did before: an instruction-tuned checkpoint emitted its `<|im_end|>`, the
+    /// loop ignored it, and the model kept writing to the token cap. At CPU
+    /// decode speeds that is most of the latency on a short answer, not just a
+    /// cosmetic tail.
+    eos_id: Option<u32>,
 }
 
 /// Architecture summary of the primary in-process model, surfaced on
@@ -1303,17 +1312,28 @@ impl<'a, F: FnMut(&str)> StreamGuard<'a, F> {
 /// chat template. Shared by the safetensors + GGUF load paths (F-2026-085).
 fn load_tokenizer_and_template(
     dir: &str,
-) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>), String> {
+) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>, Option<u32>), String> {
     let tok_bytes = std::fs::read(format!("{dir}/tokenizer.json"))
         .map_err(|e| format!("read tokenizer.json: {e}"))?;
     let tokenizer = sovereign_hf_tokenizer::HfBpeTokenizer::from_tokenizer_json(&tok_bytes)
         .map_err(|e| format!("tokenizer.json: {e}"))?;
     // F-2026-086: chat template from tokenizer_config.json if present.
-    let chat_template = std::fs::read(format!("{dir}/tokenizer_config.json"))
+    let cfg = std::fs::read(format!("{dir}/tokenizer_config.json"))
         .ok()
-        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok())
+        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok());
+    let chat_template = cfg
+        .as_ref()
         .and_then(|c| c.chat_template().map(str::to_string));
-    Ok((tokenizer, chat_template))
+    // The eos_token is TEXT here ("<|im_end|>", "<|eot_id|>", …); resolve it to
+    // the single added-token id the model actually emits. token_id() is a direct
+    // vocab lookup rather than encode(), which would BPE-split the marker into
+    // ordinary pieces and never match.
+    let eos_id = cfg
+        .as_ref()
+        .and_then(|c| c.eos_token.as_ref())
+        .map(|t| t.text())
+        .and_then(|t| tokenizer.token_id(t));
+    Ok((tokenizer, chat_template, eos_id))
 }
 
 /// The runtime precision GGUF weights are re-quantized to, from
@@ -1353,7 +1373,7 @@ fn parse_gguf_precision(v: Option<&str>) -> sovereign_safetensors_loader::Precis
 fn load_gguf_tokenizer_or_sidecar(
     dir: &str,
     gguf_bytes: &[u8],
-) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>), String> {
+) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>, Option<u32>), String> {
     if std::path::Path::new(&format!("{dir}/tokenizer.json")).exists() {
         return load_tokenizer_and_template(dir);
     }
@@ -1376,12 +1396,23 @@ fn load_gguf_tokenizer_or_sidecar(
         tk.bos,
     )
     .map_err(|e| format!("gguf embedded tokenizer: {e}"))?;
-    // A chat template may still be supplied out-of-band via tokenizer_config.json.
-    let chat_template = std::fs::read(format!("{dir}/tokenizer_config.json"))
+    // A chat template — and an end-of-turn token — may still be supplied
+    // out-of-band via tokenizer_config.json even when the tokenizer itself came
+    // from the GGUF container.
+    let cfg = std::fs::read(format!("{dir}/tokenizer_config.json"))
         .ok()
-        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok())
+        .and_then(|b| sovereign_hf_tokenizer::TokenizerConfig::from_json(&b).ok());
+    let chat_template = cfg
+        .as_ref()
         .and_then(|c| c.chat_template().map(str::to_string));
-    Ok((tokenizer, chat_template))
+    // Prefer the sidecar's eos_token; fall back to the GGUF's own declared eos.
+    let eos_id = cfg
+        .as_ref()
+        .and_then(|c| c.eos_token.as_ref())
+        .map(|t| t.text())
+        .and_then(|t| tokenizer.token_id(t))
+        .or(tk.eos);
+    Ok((tokenizer, chat_template, eos_id))
 }
 
 /// Find a single `*.<ext>` file in `dir` (returns its path, or None).
@@ -1416,7 +1447,7 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
             .map_err(|e| format!("gguf load: {e}"))?;
         // Prefer a sidecar tokenizer.json; else use the tokenizer embedded in the
         // GGUF metadata so a bare *.gguf runs standalone (F-2026-085).
-        let (tokenizer, chat_template) = load_gguf_tokenizer_or_sidecar(dir, &bytes)?;
+        let (tokenizer, chat_template, eos_id) = load_gguf_tokenizer_or_sidecar(dir, &bytes)?;
         if model.vocab() != tokenizer.vocab_size() {
             return Err(format!(
                 "vocab mismatch: gguf model {} vs tokenizer {}",
@@ -1428,6 +1459,7 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
             model,
             tokenizer,
             chat_template,
+            eos_id,
         }));
     }
 
@@ -1446,7 +1478,7 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
         .ok_or_else(|| format!("no *.safetensors in {dir}"))?;
     let st = std::fs::read(&st_path).map_err(|e| format!("read weights: {e}"))?;
     let model = load(&st, &config).map_err(|e| format!("weight load: {e}"))?;
-    let (tokenizer, chat_template) = load_tokenizer_and_template(dir)?;
+    let (tokenizer, chat_template, eos_id) = load_tokenizer_and_template(dir)?;
     if model.vocab() != tokenizer.vocab_size() {
         return Err(format!(
             "vocab mismatch: model {} vs tokenizer {}",
@@ -1458,6 +1490,7 @@ fn load_generator_from_dir(dir: &str) -> Result<Option<Generator>, String> {
         model,
         tokenizer,
         chat_template,
+        eos_id,
     }))
 }
 
@@ -2674,8 +2707,14 @@ impl GatewayServer {
                 .ok_or_else(|| "no local model loaded".to_string())?
         };
         let Generator {
-            model, tokenizer, ..
+            model,
+            tokenizer,
+            eos_id,
+            ..
         } = &mut *guard;
+        // The model's own end-of-turn marker. Empty when the checkpoint declares
+        // none, which reproduces the previous max_tokens-only behaviour exactly.
+        let stop_ids: Vec<usize> = eos_id.map(|e| vec![e as usize]).unwrap_or_default();
         model.set_sampler(sovereign_safetensors_loader::Sampler::new(sampler_config));
 
         let mut ids: Vec<usize> = Vec::new();
@@ -2743,7 +2782,7 @@ impl GatewayServer {
                     .map_err(|e| e.to_string())?;
             } else {
                 model
-                    .generate_masked_with(&ids, max_new, 0, &mask, &mut emit)
+                    .generate_masked_until_with(&ids, max_new, 0, &mask, &stop_ids, &mut emit)
                     .map_err(|e| e.to_string())?;
             }
             let tail = stream.finish();
@@ -2797,7 +2836,7 @@ impl GatewayServer {
                 .map_err(|e| e.to_string())?;
         } else {
             model
-                .generate_masked_with(&ids, max_new, 0, &mask, &mut emit)
+                .generate_masked_until_with(&ids, max_new, 0, &mask, &stop_ids, &mut emit)
                 .map_err(|e| e.to_string())?;
         }
         let tail = stream.finish();
@@ -3951,8 +3990,11 @@ mod tests {
         // A dir with no tokenizer.json → the tokenizer comes from GGUF metadata.
         let dir = temp_mem_path(); // unique path, never created (no sidecar files)
         let gguf = gguf_with_tokenizer_only();
-        let (tok, tmpl) =
+        let (tok, tmpl, eos) =
             load_gguf_tokenizer_or_sidecar(dir.to_str().unwrap(), &gguf).expect("embedded build");
+        // With no sidecar tokenizer_config.json the eos falls back to whatever
+        // the GGUF container itself declares.
+        let _ = eos;
         assert_eq!(tok.vocab_size(), 6);
         assert!(!tok.is_metaspace());
         assert_eq!(tok.encode("ab"), vec![5]); // a+b merge → id 5

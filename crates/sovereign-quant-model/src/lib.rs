@@ -451,6 +451,36 @@ impl QuantModel {
         max_new: usize,
         seed: u64,
         mask: &LogitMask,
+        on_token: F,
+    ) -> Result<Vec<usize>, QuantModelError> {
+        self.generate_masked_until_with(prompt, max_new, seed, mask, &[], on_token)
+    }
+
+    /// [`generate_masked_with`] with end-of-turn tokens.
+    ///
+    /// Decoding stops as soon as a sampled id appears in `stop_ids`, and that
+    /// token is NOT passed to `on_token` — it is a control marker, not output.
+    /// An empty `stop_ids` reproduces [`generate_masked_with`] exactly, which is
+    /// why that method now delegates here.
+    ///
+    /// Without this the loop only ever ended at `max_new`: an instruction-tuned
+    /// model emitted its `<|im_end|>`, decoding sailed straight past it, and the
+    /// model carried on inventing a conversation. Observed with
+    /// SmolLM2-1.7B-Instruct answering "The capital of France is Paris." and
+    /// then continuing into fabricated `system` / `user` turns for the remaining
+    /// 50 tokens of its budget.
+    ///
+    /// The returned `Vec` excludes the stop token for the same reason, so a
+    /// caller counting tokens or caching the result sees only real output.
+    ///
+    /// [`generate_masked_with`]: Self::generate_masked_with
+    pub fn generate_masked_until_with<F: FnMut(usize)>(
+        &mut self,
+        prompt: &[usize],
+        max_new: usize,
+        seed: u64,
+        mask: &LogitMask,
+        stop_ids: &[usize],
         mut on_token: F,
     ) -> Result<Vec<usize>, QuantModelError> {
         if prompt.is_empty() {
@@ -470,6 +500,11 @@ impl QuantModel {
                 &self.recent[start..],
                 seed.wrapping_add(pos),
             )?;
+            // Stop BEFORE recording or emitting: the marker is not output, and
+            // leaving it out of `recent` keeps the repetition window clean.
+            if stop_ids.contains(&token) {
+                break;
+            }
             self.recent.push(token);
             generated.push(token);
             on_token(token);
@@ -785,6 +820,59 @@ mod tests {
             streamed, out,
             "on_token must stream exactly the generated ids"
         );
+    }
+
+    #[test]
+    fn generate_masked_until_stops_on_a_stop_token_and_does_not_emit_it() {
+        // An end-of-turn marker is a control token, not output: decoding must
+        // stop AT it and never hand it to the caller. Before stop_ids existed,
+        // the loop ran to max_new regardless and an instruct model's <|im_end|>
+        // was emitted as ordinary text, after which it kept inventing turns.
+        let mask = LogitMask::new();
+
+        // What this fixture deterministically produces with no stop. Do NOT
+        // assume the ids are distinct — an earlier version of this test picked
+        // baseline[2] as the stop and got length 0, because this fixture repeats
+        // a single token and baseline[2] == baseline[0].
+        let baseline = mixed_model(8, Sampler::new(SamplerConfig::default()))
+            .generate_masked_with(&[1, 2, 3], 6, 0, &mask, |_| {})
+            .unwrap();
+        assert_eq!(baseline.len(), 6, "baseline runs to max_new");
+
+        // Stopping on the FIRST token must yield nothing at all, and must not
+        // emit the marker.
+        let mut emitted = Vec::new();
+        let out = mixed_model(8, Sampler::new(SamplerConfig::default()))
+            .generate_masked_until_with(&[1, 2, 3], 6, 0, &mask, &[baseline[0]], |t| {
+                emitted.push(t)
+            })
+            .unwrap();
+        assert!(out.is_empty(), "stops at the very first token");
+        assert!(emitted.is_empty(), "the stop token is never emitted");
+
+        // A stop id the model never samples must not truncate anything.
+        let absent = (0..usize::MAX)
+            .find(|c| !baseline.contains(c))
+            .expect("some id is not in a 6-token sample");
+        let out2 = mixed_model(8, Sampler::new(SamplerConfig::default()))
+            .generate_masked_until_with(&[1, 2, 3], 6, 0, &mask, &[absent], |_| {})
+            .unwrap();
+        assert_eq!(out2, baseline, "an unsampled stop id changes nothing");
+    }
+
+    #[test]
+    fn generate_masked_until_with_no_stop_ids_matches_the_original() {
+        // The empty-stop path must be byte-identical to generate_masked_with,
+        // since that method now delegates here — every existing caller depends
+        // on it being unchanged.
+        let mask = LogitMask::new();
+        let a = mixed_model(8, Sampler::new(SamplerConfig::default()))
+            .generate_masked_with(&[1, 2, 3], 5, 11, &mask, |_| {})
+            .unwrap();
+        let b = mixed_model(8, Sampler::new(SamplerConfig::default()))
+            .generate_masked_until_with(&[1, 2, 3], 5, 11, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(a, b, "no stop ids ⇒ identical to the original loop");
     }
 
     #[test]
