@@ -191,3 +191,26 @@ for u in nut-server.service nut-monitor.service; do
     skip "unit ${u} not started — driver is down"
   fi
 done
+
+# ---- the D-xx UPS cockpit panel ----
+# sovereign-ups-api.service ships disabled under provisioning.posture
+# "installed-off", which was right while NUT was unconfigured: the panel reads
+# live data via scripts/hardware/power-status.py -> upsc, and explicitly checks
+# that nut-server is active. With a real UPS answering (Smart-UPS 2200, OL,
+# ~250 min runtime) the panel now has something to show, so the dashboards hub
+# stops listing it as unreachable.
+#
+# Gated on the SAME _driver_up as upsd/upsmon above: enabling a panel whose only
+# data source is down would just move the failure one layer up. It binds
+# 127.0.0.1:8128 by its own unit default — deliberately not widened here.
+_ups_api=sovereign-ups-api.service
+if ! systemctl list-unit-files "${_ups_api}" --no-legend 2>/dev/null | grep -q .; then
+  skip "unit ${_ups_api} not installed"
+elif [ "${IAC_UPS_PANEL:-1}" != 1 ]; then
+  skip "${_ups_api} left alone (IAC_UPS_PANEL=0)"
+elif [ "${_driver_up}" = 1 ]; then
+  ensure_unit_state "${_ups_api}" enabled started
+else
+  ensure_unit_state "${_ups_api}" enabled
+  skip "unit ${_ups_api} not started — UPS driver is down, the panel would have no data"
+fi
