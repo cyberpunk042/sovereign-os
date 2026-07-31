@@ -149,6 +149,38 @@ done
 if [ "${_complete}" = 1 ]; then
   ok "model present at ${_dir}"
 
+  # ---- the chat template is optional to FETCH but decisive for instruct models ----
+  # sovereign-gatewayd reads tokenizer_config.json out of the model dir
+  # (lib.rs:1312) for chat_template + eos_token. Without it the prompt falls back
+  # to plain role concatenation, an instruction-tuned model never sees the markers
+  # it was trained on, never emits its end-of-turn token, and runs past the answer.
+  # It is not part of the completeness check — plenty of base models have no
+  # template — but a model already on disk from before this was fetched needs it
+  # backfilled rather than silently degrading every reply.
+  _tmpl_added=0
+  if [ ! -s "${_dir}/tokenizer_config.json" ] && [ "${IAC_DRY_RUN}" != 1 ]; then
+    if curl -fsSL --retry 3 --max-time 120 \
+         "https://huggingface.co/${_repo}/resolve/main/tokenizer_config.json" \
+         -o "${_dir}/tokenizer_config.json.part" 2>/dev/null; then
+      mv "${_dir}/tokenizer_config.json.part" "${_dir}/tokenizer_config.json"
+      if grep -q '"chat_template"' "${_dir}/tokenizer_config.json" 2>/dev/null; then
+        changed "backfilled tokenizer_config.json (chat_template present)"
+        _tmpl_added=1
+      else
+        changed "backfilled tokenizer_config.json (no chat_template — base model)"
+      fi
+    else
+      rm -f "${_dir}/tokenizer_config.json.part"
+      skip "no tokenizer_config.json published for ${_repo}"
+    fi
+  elif [ -s "${_dir}/tokenizer_config.json" ]; then
+    if grep -q '"chat_template"' "${_dir}/tokenizer_config.json" 2>/dev/null; then
+      ok "chat_template present"
+    else
+      ok "tokenizer_config.json present (no chat_template)"
+    fi
+  fi
+
   # ---- does the RUNNING gateway actually serve this model? ----
   # Config being right proves nothing: the daemon reads SOVEREIGN_GATEWAY_MODEL
   # once, at startup. An earlier version checked only that the drop-in existed
@@ -167,6 +199,16 @@ if [ "${_complete}" = 1 ]; then
 
   if [ -z "${_live}" ] || [ "${_live}" = "None None" ]; then
     skip "gateway not serving a model yet — cannot compare geometry"
+  elif [ "${_tmpl_added:-0}" = 1 ]; then
+    # Geometry is unchanged, so the check below would say "serving this model"
+    # and skip the restart — but the daemon read tokenizer_config.json at
+    # startup and does not have the template we just backfilled.
+    iac_info "chat_template backfilled — gateway must reload to pick it up"
+    if run "restart-gateway" systemctl restart sovereign-gatewayd; then
+      changed "sovereign-gatewayd restarted to load the chat template"
+    else
+      fail "could not restart sovereign-gatewayd"
+    fi
   elif [ "${_live_l}" = "${_cfg_l}" ] && [ "${_live_d}" = "${_cfg_d}" ]; then
     ok "gateway serving this model (layers=${_cfg_l} dim=${_cfg_d})"
   elif [ "${IAC_DRY_RUN}" = 1 ]; then

@@ -48,10 +48,18 @@ _dst=/opt/sovereign-os
 # scripts/hooks/post-install/open-computer-install.sh   (commit 7e0ff05a)
 #   The ~3GB base image extracted even when its sha256 sidecar failed to
 #   download, so a truncated image would install silently. Fails closed now.
+#
+# scripts/intelligence/fetch-model.sh                (commit pending)
+#   Fetched only config.json + tokenizer.json + model.safetensors, omitting
+#   tokenizer_config.json — which is where chat_template and eos_token live, and
+#   which sovereign-gatewayd reads straight out of the model dir (lib.rs:1312).
+#   Without it an instruction-tuned model never sees the markers it was trained
+#   on, never emits its end-of-turn token, and runs past its own answer.
 _files="
 scripts/lib/ms003.py
 scripts/sovereign-osctl
 scripts/hooks/post-install/open-computer-install.sh
+scripts/intelligence/fetch-model.sh
 "
 
 _patched=0
