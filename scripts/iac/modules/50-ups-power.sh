@@ -154,14 +154,28 @@ if [ "${IAC_DRY_RUN}" = 1 ]; then
 elif ! systemctl list-unit-files 'nut-driver@.service' --no-legend >/dev/null 2>&1; then
   skip "nut-driver@.service template not installed"
 else
-  # nut-driver-enumerator materialises the instance from ups.conf; without it the
-  # instance may not exist yet on a first run.
-  systemctl start nut-driver-enumerator.service >/dev/null 2>&1 || true
-  systemctl restart "${_inst}" >/dev/null 2>&1 || true
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    systemctl is-active --quiet "${_inst}" 2>/dev/null && { _driver_up=1; break; }
-    sleep 1
-  done
+  # NEVER BOUNCE A HEALTHY DRIVER.
+  # This used to `systemctl restart` unconditionally on every converge run. On a
+  # card that accepts ONE Modbus/TCP session that is actively harmful: the stop
+  # closes the session, the immediate start reconnects before the card has freed
+  # it, and the card answers "Connection refused" — so a working UPS was taken
+  # down by a converge run that changed nothing. This module documented the
+  # single-session constraint and then violated it.
+  #
+  # Verified after the fact: with the driver stopped, 502 accepts immediately.
+  # The card was never the problem.
+  if systemctl is-active --quiet "${_inst}" 2>/dev/null; then
+    _driver_up=1
+  else
+    # nut-driver-enumerator materialises the instance from ups.conf; without it
+    # the instance may not exist yet on a first run.
+    systemctl start nut-driver-enumerator.service >/dev/null 2>&1 || true
+    systemctl start "${_inst}" >/dev/null 2>&1 || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      systemctl is-active --quiet "${_inst}" 2>/dev/null && { _driver_up=1; break; }
+      sleep 1
+    done
+  fi
 
   if [ "${_driver_up}" = 1 ]; then
     ok "driver ${_inst} connected to ${_host}:${_modbus_port}"

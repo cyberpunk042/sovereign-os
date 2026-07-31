@@ -198,6 +198,13 @@ for b in ${_rust_bins}; do
   fi
   if [ -x "${_prefix}/bin/${b}" ] && cmp -s "${_art}" "${_prefix}/bin/${b}"; then
     ok "binary ${b}"
+    # Identical content, so nothing is installed — but the staleness check above
+    # compares source mtime against the INSTALLED file, which therefore keeps
+    # its old timestamp and looks stale forever. That made every converge run
+    # rebuild these two crates, find no change, and report "0 changed" while
+    # burning a full cargo build each time. Stamp it: the binary is current as
+    # of this source, and saying so is what makes the next run cheap.
+    touch "${_prefix}/bin/${b}" 2>/dev/null || true
   elif install -m 755 "${_art}" "${_prefix}/bin/${b}" 2>/dev/null; then
     changed "installed ${b} → ${_prefix}/bin/${b}"
     # Remember it: the restart loop below only touches units whose binary
