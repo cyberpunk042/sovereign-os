@@ -227,6 +227,23 @@ def verify_record(record: dict) -> str:
         sig = record.get("signature")
         if sig is None:
             return "no-signature-field"
+        # A non-string `signature` is not an MS003 signature — it is incidental
+        # JSON that happens to use that key name, so it is not a record at all.
+        # Reporting it as "invalid-signature" reads as TAMPERING and fails
+        # sovereign-ms003-verify.service, which is a security alarm nobody can
+        # action.
+        #
+        # Found 2026-07-31: sweep() walks every *.json under /var/lib/sovereign-os
+        # and _iter_records collects "every dict carrying a signature key". A
+        # HuggingFace tokenizer.json fetched into
+        # /var/lib/sovereign-os/models/smollm-135m carries a BPE vocab whose
+        # token→id map includes "signature": 30181 (alongside "ts", "event",
+        # "actor" — all ordinary words). That single int tripped
+        #     MS003 INTEGRITY FAILURE: invalid=1
+        # on a machine with nothing wrong with it. The ledger sweep must not be
+        # able to cry tamper over an unrelated file's vocabulary.
+        if not isinstance(sig, str):
+            return "no-signature-field"
         if sig == UNSIGNED:
             return "unsigned-placeholder"
         if not is_signed(sig):
