@@ -144,6 +144,86 @@ else
   fi
 fi
 
+# ---- patch the CLI's QEMU args (two upstream portability bugs) ----
+#
+# DELIBERATELY OUTSIDE THE PROVISIONING BRANCH ABOVE. A first version nested
+# this inside the `else` (the needs-provisioning path), so on an already-
+# provisioned host — the normal case — it never ran: converge reported
+# "ok, provisioned", started the VM with the unpatched CLI, and the guest still
+# had no network. Idempotent, so running it every time is correct.
+#
+# BUG 1 — the guest never gets a network on this host.
+#   The image's /etc/network/interfaces pins DHCP to a LITERAL interface name:
+#       allow-hotplug enp0s1 / iface enp0s1 inet dhcp
+#   and ifupdown is its only network manager. enpXsY encodes PCI bus/slot, so
+#   the name depends entirely on where QEMU puts the NIC. vm.ts passes
+#   `-device virtio-net-pci` with no addr=, and QEMU auto-adds a default VGA at
+#   slot 1 — so the NIC lands on slot 2 and the guest names it enp0s2. ifupdown
+#   finds no stanza, networking.service "succeeds" having raised nothing, the
+#   guest never leases 10.0.2.15, and slirp forwards into the void. sshd and the
+#   desktop are up the entire time, which is what made this so hard to see.
+#   Confirmed from the guest's own journal:
+#       upstream 2026-07-08:  enp0s1 -> carrier -> DHCP -> ssh OK
+#       this host 2026-07-30: enp0s2 -> nothing raised -> banner-exchange timeout
+#   A/B tested: control (no addr) = no SSH; -vga none + addr=0x1 = enp0s1,
+#   10.0.2.15 leased, SSH banner, ssh/open-computer/memory-manager all active.
+#
+# BUG 2 — hostfwd binds 0.0.0.0, exposing the sandbox to the whole LAN.
+#   `hostfwd=tcp::PORT` with an empty host address means every interface. For a
+#   VM running autonomous agent activity, with SSH forwarded, on a host with a
+#   LAN address, that should not be the default. Bind loopback, matching
+#   sovereign-gatewayd's own posture.
+_vm_ts="${_app}/cli/src/vm.ts"
+_oc_repatched=0
+if [ -f "${_vm_ts}" ] && [ "${IAC_DRY_RUN}" != 1 ]; then
+  if python3 - "${_vm_ts}" <<'PY'
+import re, sys
+p = sys.argv[1]
+src = open(p).read()
+orig = src
+src = src.replace(
+    "'-device', 'virtio-net-pci,netdev=net0',",
+    "'-device', 'virtio-net-pci,netdev=net0,addr=0x1',  // sovereign-iac: guest pins enp0s1")
+if "'-vga'" not in src:
+    src = src.replace(
+        "  const args: string[] = [\n    ...buildMachineArgs(),",
+        "  const args: string[] = [\n    ...buildMachineArgs(),\n"
+        "    '-vga', 'none',  // sovereign-iac: free PCI slot 1 for the NIC\n")
+src = re.sub(r'hostfwd=tcp::\$\{sshPort\}', 'hostfwd=tcp:127.0.0.1:${sshPort}', src)
+src = re.sub(r'hostfwd=tcp::\$\{appPort\}', 'hostfwd=tcp:127.0.0.1:${appPort}', src)
+if src == orig:
+    sys.exit(3)
+open(p, 'w').write(src)
+PY
+  then
+    changed "patched vm.ts (NIC->slot 1, -vga none, loopback hostfwd)"
+    _oc_repatched=1
+  else
+    [ $? = 3 ] && ok "vm.ts already patched" || fail "could not patch ${_vm_ts}"
+  fi
+
+  if [ "${_oc_repatched}" = 1 ]; then
+    iac_info "rebuilding the CLI"
+    _oclog="${_oclog:-/var/log/sovereign-os/iac-open-computer.log}"
+    install -d "$(dirname "${_oclog}")" 2>/dev/null || true
+    # shellcheck disable=SC2024  # root owns the redirect; only the build drops privilege
+    if sudo -u "${_user}" bash -c "cd '${_app}/cli' && npm run build" >>"${_oclog}" 2>&1; then
+      # build.mjs writes the artefact 0664 (see the chmod note above), so repair
+      # it again after every rebuild or the CLI becomes unrunnable.
+      [ -f "${_app}/cli/dist/open-computer" ] && chmod 0755 "${_app}/cli/dist/open-computer" 2>/dev/null
+      changed "CLI rebuilt"
+      # The VM is very likely running with the OLD args — stop it so the
+      # ensure_unit_state below starts it fresh with the patched CLI.
+      if systemctl is-active --quiet sovereign-open-computer.service 2>/dev/null; then
+        systemctl stop sovereign-open-computer.service >/dev/null 2>&1 || true
+        changed "stopped the VM so it restarts with the patched CLI"
+      fi
+    else
+      fail "CLI rebuild failed — see ${_oclog}"
+    fi
+  fi
+fi
+
 # ---- UEFI firmware shim: upstream names vs Debian/Ubuntu names ----
 # open-computer/cli/src/config.ts resolves, on Linux with no QEMU_DIST:
 #     resolveEfiCode() -> /usr/share/qemu/edk2-x86_64-code.fd
