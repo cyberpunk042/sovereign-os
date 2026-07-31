@@ -86,7 +86,28 @@ sovereign-tetragon-verify.timer           disabled
 openipmi.service                          masked
 whoopsie.service                          masked
 sovereign-nvidia-power-limit.service      enabled
+sovereign-control-exec-api.service        enabled started
 "
+
+# ─── sovereign-control-exec-api: the cockpit's control rail ──────────────────
+# Shipped disabled under posture "installed-off", which for this one unit
+# degrades the ENTIRE cockpit rather than just withholding a feature. Every
+# panel's control rail proxies through :8130, so with it down each panel renders
+# and then fills with
+#     HTTP 502 {"error": "backing API on :8130 not reachable"}
+# on /api/control/registry, /compat, /setup, /notifykit. The pages load, the
+# health probes pass, and the panels look broken to anyone actually using them —
+# which is exactly what the operator reported and what "53/60 reachable" failed
+# to capture.
+#
+# Enabling it is safe by the unit's own design, quoted from its header:
+#   "SHIPPED SAFE: DRY_RUN by default. This unit does NOT set
+#    SOVEREIGN_OS_ACTION_EXEC_LIVE, so every /api/control/execute is a dry-run
+#    that changes no host state."
+# It is also loopback-bound and R171-hardened. LIVE mode needs a deliberate
+# drop-in (live.conf: User=<operator with NOPASSWD grant>,
+# SOVEREIGN_OS_ACTION_EXEC_LIVE=1, relaxed NoNewPrivileges) which is NOT created
+# here and remains an explicit operator decision.
 
 # ─── stock units with no hardware behind them ────────────────────────────────
 # openipmi: no /dev/ipmi* — this board has no BMC.
