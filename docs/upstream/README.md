@@ -15,6 +15,31 @@ gh issue create --repo <upstream> --title "<title line>" \
 | draft | upstream | status |
 |---|---|---|
 | [colibri-omp-cuda-gate.md](colibri-omp-cuda-gate.md) | [JustVugg/colibri](https://github.com/JustVugg/colibri) | **filed 2026-07-28 → [#669](https://github.com/JustVugg/colibri/issues/669)** |
+| [anything-llm-open-computer-linux.md](anything-llm-open-computer-linux.md) | [Mintplex-Labs/anything-llm](https://github.com/Mintplex-Labs/anything-llm) | draft — not filed |
+
+## anything-llm-open-computer-linux
+
+Five defects that together make `open-computer` unusable on Debian/Ubuntu through its
+documented path. Found while provisioning the SDD-706 sandbox on ai-workstation
+(2026-07-30/31), all with host-side workarounds now carried in
+[`scripts/iac/modules/60-open-computer.sh`](../../scripts/iac/modules/60-open-computer.sh).
+
+What made this expensive to diagnose is worth noting for anyone who hits it: the VM
+**looks healthy the entire time**. It boots to a full XFCE desktop, `sshd` logs
+`Server listening on 0.0.0.0 port 22`, and the forwarded host ports accept TCP — because
+QEMU's slirp accepts the connection itself before discovering the guest never got a DHCP
+lease. Four hypotheses (corrupt image, mismatched pflash pair, a skipped `build` step,
+then `build` being mandatory) were all wrong; the guest's own persistent journal settled
+it in one line, comparing the image-build boot to ours:
+
+```
+2026-07-08 (upstream): virtio_net virtio0 enp0s1: renamed from eth0  -> DHCP, ssh OK
+2026-07-30 (here):     virtio_net virtio0 enp0s2: renamed from eth0  -> nothing raised
+```
+
+The image pins `enp0s1` in `/etc/network/interfaces`, `enpXsY` encodes the PCI slot, and
+`vm.ts` never pins one — so the image only works on the QEMU topology it was built
+against.
 
 ## colibri-omp-cuda-gate
 
