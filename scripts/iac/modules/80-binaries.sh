@@ -68,14 +68,43 @@ fi
 # Everything `make bins` installs, so we can tell "already built" cheaply.
 _rust_bins="sovereign-telemetry sovereign-resource-control sovereign-gatewayd"
 
-_all_present=1
-for b in ${_rust_bins}; do
-  [ -x "${_prefix}/bin/${b}" ] || _all_present=0
+# PRESENT IS NOT CURRENT.
+# This used to test only [ -x "${_prefix}/bin/${b}" ] and return early, so once
+# the binaries existed the module never rebuilt again — a source change could be
+# committed, tested, and converged with converge reporting "0 changed" while the
+# running daemon kept the binary from days earlier. Exactly what happened after
+# the end-of-turn fix landed: 213 tests green, gatewayd restarted, identical
+# output, because /usr/local/bin/sovereign-gatewayd predated the source by a day.
+#
+# Compare the installed binary against the newest source that feeds it. Cargo
+# already does precise dependency tracking; this only decides whether to ask it.
+_newest_src=0
+for d in "${_src}/crates" "${_src}/Cargo.toml" "${_src}/Cargo.lock"; do
+  [ -e "${d}" ] || continue
+  _t="$(find "${d}" \( -name '*.rs' -o -name 'Cargo.toml' -o -name 'Cargo.lock' \) \
+        -printf '%T@\n' 2>/dev/null | cut -d. -f1 | sort -rn | head -1)"
+  [ -n "${_t}" ] && [ "${_t}" -gt "${_newest_src}" ] 2>/dev/null && _newest_src="${_t}"
 done
-if [ "${_all_present}" = 1 ]; then
-  ok "rust binaries present (${_rust_bins// /, })"
+
+_all_current=1
+_stale=""
+for b in ${_rust_bins}; do
+  if [ ! -x "${_prefix}/bin/${b}" ]; then
+    _all_current=0; _stale="${_stale} ${b}(missing)"
+    continue
+  fi
+  _bt="$(stat -c %Y "${_prefix}/bin/${b}" 2>/dev/null || echo 0)"
+  if [ "${_newest_src}" -gt "${_bt}" ] 2>/dev/null; then
+    _all_current=0; _stale="${_stale} ${b}(stale)"
+  fi
+done
+
+if [ "${_all_current}" = 1 ]; then
+  ok "rust binaries current (${_rust_bins// /, })"
   return 0 2>/dev/null || exit 0
 fi
+iac_info "rebuild needed —${_stale}"
+iac_info "newest source $(date -d "@${_newest_src}" '+%Y-%m-%d %H:%M' 2>/dev/null)"
 
 # ---- toolchain ----
 # rust-toolchain.toml pins 1.89.0 and rustup honours it automatically, so we
@@ -171,6 +200,9 @@ for b in ${_rust_bins}; do
     ok "binary ${b}"
   elif install -m 755 "${_art}" "${_prefix}/bin/${b}" 2>/dev/null; then
     changed "installed ${b} → ${_prefix}/bin/${b}"
+    # Remember it: the restart loop below only touches units whose binary
+    # actually changed on this run.
+    _installed_bins="${_installed_bins:-} ${b}"
   else
     fail "could not install ${b}"
   fi
@@ -178,4 +210,34 @@ done
 
 rm -rf "${_stage}" 2>/dev/null || true
 
-iac_info "re-run converge so module 20 promotes gatewayd + the telemetry timer"
+# ---- restart whatever is RUNNING an old copy of a binary we just replaced ----
+# Installing a binary does nothing to a process already holding the previous
+# one. This module used to end by saying "re-run converge so module 20 promotes
+# gatewayd" — but module 20 only asserts enabled/active, and the daemon is
+# already active, so nothing ever restarted it. Net effect: a rebuilt binary
+# landed on disk, converge reported success, and the old process kept serving
+# indefinitely. Exactly how the end-of-turn fix appeared to do nothing despite
+# 213 passing tests.
+#
+# Own the consequence of the change, the way module 50 does for the NUT driver
+# and module 60 for the patched QEMU args.
+_restart_for() {
+  case "$1" in
+    sovereign-gatewayd)          echo "sovereign-gatewayd.service" ;;
+    sovereign-telemetry)         echo "" ;;  # timer-driven oneshot; next tick picks it up
+    sovereign-resource-control)  echo "" ;;  # invoked ad hoc, no long-lived unit
+    *)                           echo "" ;;
+  esac
+}
+
+for b in ${_installed_bins:-}; do
+  for u in $(_restart_for "${b}"); do
+    systemctl list-unit-files "${u}" --no-legend >/dev/null 2>&1 || continue
+    systemctl is-active --quiet "${u}" 2>/dev/null || continue
+    if run "restart-consumer" systemctl restart "${u}"; then
+      changed "restarted ${u} onto the new ${b}"
+    else
+      fail "installed ${b} but could not restart ${u}"
+    fi
+  done
+done
