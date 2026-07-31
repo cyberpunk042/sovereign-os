@@ -2259,6 +2259,19 @@ impl GatewayServer {
     /// The reserved model id that routes to the designated background model.
     pub const BACKGROUND_ALIAS: &'static str = "background";
 
+    /// The reserved model id meaning "you choose" — resolves to the primary.
+    ///
+    /// SDD-902 specifies the composer's model picker as
+    /// "primary / loaded secondaries / GPU proxies / the `background` alias / `auto`"
+    /// and, critically, that it "degrades to `auto` when the gateway is offline" —
+    /// so `auto` is the picker's DEFAULT, and `scripts/inference/prompt.py` also
+    /// defaults `--model` to it. It was specified and never implemented here: any
+    /// id that is not the primary is treated as a secondary, so `auto` fell through
+    /// to `resolve_secondary("auto")` → `None` → "no local model loaded". The
+    /// gateway was loaded and healthy the whole time; only the alias was missing.
+    /// Reported from the D-23 Code Console, whose every message failed this way.
+    pub const AUTO_ALIAS: &'static str = "auto";
+
     /// Designate (or clear, with `None`) the model the `"background"` alias routes
     /// to (Phase 2 increment 3). Loopback-trust operator action.
     pub fn set_background(&self, id: Option<&str>) {
@@ -2285,13 +2298,20 @@ impl GatewayServer {
         loaded.then_some(id)
     }
 
-    /// Expand the reserved `"background"` alias to the designated background model
-    /// id (or `None` → the primary). Any other id passes through unchanged. Used at
+    /// Expand the reserved `"background"` / `"auto"` aliases to a concrete model id
+    /// (or `None` → the primary). Any other id passes through unchanged. Used at
     /// every routing entry point so a background hint targets the same backend
     /// whether it is a CPU secondary or a GPU proxy.
+    ///
+    /// `"auto"` and `""` both mean "caller expressed no preference" → `None` → the
+    /// primary, which is the same honest fallback an undesignated `"background"`
+    /// already takes. `""` is included because a caller that omits the field and one
+    /// that sends it empty mean the same thing, and `Some("")` would otherwise be
+    /// routed as a secondary named "" and fail.
     pub fn expand_alias(&self, model: Option<&str>) -> Option<String> {
         match model {
             Some(Self::BACKGROUND_ALIAS) => self.background_id(),
+            Some(Self::AUTO_ALIAS) | Some("") => None,
             other => other.map(str::to_string),
         }
     }
@@ -4451,6 +4471,47 @@ mod tests {
         s.set_background(Some("gpu-big"));
         s.set_background(None);
         assert_eq!(s.background_id(), None);
+    }
+
+    #[test]
+    fn auto_alias_resolves_to_the_primary_even_with_a_background_designated() {
+        // Regression: `auto` is the composer's DEFAULT model (SDD-902: the picker
+        // "degrades to auto when the gateway is offline"), and prompt.py defaults
+        // --model to it. It was never implemented, so it fell through to the
+        // secondary path and every Code Console message came back as
+        // "[gateway generation error: no local model loaded]" on a healthy gateway.
+        let s = GatewayServer::new();
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::AUTO_ALIAS)),
+            None,
+            "auto means 'no preference' → the primary"
+        );
+        assert_eq!(s.expand_alias(Some("")), None, "empty id == omitted id");
+
+        // The distinguishing case: with a background DESIGNATED, `background`
+        // resolves to it while `auto` must still mean the primary. Asserting only
+        // the undesignated case above would pass even if auto were aliased to
+        // background, so this is the assertion that actually pins the semantics.
+        s.register_proxy("gpu-big", "127.0.0.1:9", "logic", 18.0, "openai")
+            .unwrap();
+        s.set_background(Some("gpu-big"));
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::BACKGROUND_ALIAS))
+                .as_deref(),
+            Some("gpu-big")
+        );
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::AUTO_ALIAS)),
+            None,
+            "auto must NOT follow the background designation"
+        );
+
+        // And a real id still passes through untouched.
+        assert_eq!(
+            s.expand_alias(Some("gpu-big")).as_deref(),
+            Some("gpu-big"),
+            "adding aliases must not swallow concrete model ids"
+        );
     }
 
     #[test]
