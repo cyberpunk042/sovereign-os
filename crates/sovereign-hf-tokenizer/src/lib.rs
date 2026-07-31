@@ -256,6 +256,21 @@ fn parse_merge(v: &serde_json::Value) -> Result<(String, String), HfTokenizerErr
     }
 }
 
+/// Index the added/special tokens for `encode`'s pre-split, LONGEST FIRST.
+///
+/// Longest-first matters when one marker is a prefix of another (`<|im_start|>`
+/// vs a hypothetical `<|im_start|>x`): the longer piece must win at a given
+/// position or the shorter one would cut it in half. Ties break on the piece
+/// text so the order is deterministic across runs (`special_ids` is a HashSet).
+fn index_added(special_ids: &HashSet<u32>, decoder: &HashMap<u32, String>) -> Vec<(String, u32)> {
+    let mut v: Vec<(String, u32)> = special_ids
+        .iter()
+        .filter_map(|id| decoder.get(id).map(|piece| (piece.clone(), *id)))
+        .collect();
+    v.sort_by(|a, b| b.0.len().cmp(&a.0.len()).then_with(|| a.0.cmp(&b.0)));
+    v
+}
+
 /// A loaded HuggingFace byte-level BPE tokenizer.
 #[derive(Debug)]
 pub struct HfBpeTokenizer {
@@ -268,6 +283,9 @@ pub struct HfBpeTokenizer {
     byte_encoder: [char; 256],
     byte_decoder: HashMap<char, u8>,
     special_ids: HashSet<u32>,
+    /// `(piece, id)` for every added/special token, LONGEST FIRST, so `encode`
+    /// can cut them out of the text before BPE ever sees them.
+    added_pieces: Vec<(String, u32)>,
     vocab_size: usize,
     bos_id: Option<u32>,
     /// Segmentation strategy (GPT-2 byte-level vs SentencePiece Metaspace).
@@ -308,6 +326,7 @@ impl HfBpeTokenizer {
 
         let vocab_size = decoder.keys().copied().max().map_or(0, |m| m as usize + 1);
         let pretok = parse_pretok(raw.pre_tokenizer.as_ref());
+        let added_pieces = index_added(&special_ids, &decoder);
         Ok(Self {
             vocab,
             decoder,
@@ -315,6 +334,7 @@ impl HfBpeTokenizer {
             byte_encoder,
             byte_decoder,
             special_ids,
+            added_pieces,
             vocab_size,
             bos_id,
             pretok,
@@ -360,6 +380,7 @@ impl HfBpeTokenizer {
 
         let special_ids: HashSet<u32> = special_ids.iter().copied().collect();
         let vocab_size = decoder.keys().copied().max().map_or(0, |m| m as usize + 1);
+        let added_pieces = index_added(&special_ids, &decoder);
         Ok(Self {
             vocab,
             decoder,
@@ -367,6 +388,7 @@ impl HfBpeTokenizer {
             byte_encoder,
             byte_decoder,
             special_ids,
+            added_pieces,
             vocab_size,
             bos_id,
             // GGUF gpt2/bpe tokenizers use the byte-level alphabet (not Metaspace).
@@ -410,6 +432,57 @@ impl HfBpeTokenizer {
     /// vocab. Metaspace path: `▁`-normalize → per-word BPE over direct-unicode
     /// pieces → vocab, with `<0xXX>` byte fallback (F-2026-086).
     pub fn encode(&self, text: &str) -> Vec<u32> {
+        // Added/special tokens are ATOMIC: cut them out of the text and emit
+        // their ids directly, BPE-ing only the spans between them.
+        //
+        // Without this an added token is unreachable from `encode`. BPE merges
+        // are learned over the byte-level alphabet, and a marker like
+        // `<|im_start|>` is stored in the vocab as literal text with no merge
+        // path leading to it — so it was segmented into the ordinary pieces
+        // `<`,`|`,`im`,`_`,`start`,`|`,`>` (7 tokens; measured on
+        // SmolLM2-1.7B-Instruct, where the real ids are 1 and 2).
+        //
+        // The consequence was not subtle. gatewayd renders a correct ChatML
+        // prompt, but the model received the control markers SPELLED OUT, so it
+        // never saw the turn structure it was instruction-tuned on: it behaved
+        // like a base model, imitated the spelling in its own output (a reply of
+        // literally `<|im_end|>`), and could never emit the real eos id — so the
+        // stop-token path added in 9d579ef8 had nothing to fire on.
+        if self.added_pieces.is_empty() {
+            return self.encode_raw(text);
+        }
+        let mut ids = Vec::new();
+        let mut rest = text;
+        while !rest.is_empty() {
+            // Earliest match wins; at equal position the longest does, which
+            // `added_pieces` being longest-first already gives us.
+            let mut best: Option<(usize, usize, u32)> = None; // (pos, len, id)
+            for (piece, id) in &self.added_pieces {
+                if let Some(pos) = rest.find(piece.as_str())
+                    && best.is_none_or(|(bp, _, _)| pos < bp)
+                {
+                    best = Some((pos, piece.len(), *id));
+                }
+            }
+            match best {
+                Some((pos, len, id)) => {
+                    if pos > 0 {
+                        ids.extend(self.encode_raw(&rest[..pos]));
+                    }
+                    ids.push(id);
+                    rest = &rest[pos + len..];
+                }
+                None => {
+                    ids.extend(self.encode_raw(rest));
+                    break;
+                }
+            }
+        }
+        ids
+    }
+
+    /// Segment + BPE a span that is known to contain no added/special token.
+    fn encode_raw(&self, text: &str) -> Vec<u32> {
         match self.pretok {
             Pretok::Gpt2 => self.encode_gpt2(text),
             Pretok::Metaspace {
@@ -708,6 +781,47 @@ mod tests {
 
     fn mini() -> HfBpeTokenizer {
         HfBpeTokenizer::from_tokenizer_json(MINI.as_bytes()).unwrap()
+    }
+
+    /// Two added markers plus a shared prefix, to pin longest-first matching.
+    const CHATML: &str = r#"{
+      "added_tokens": [
+        {"id": 1, "content": "<|im_start|>", "special": true},
+        {"id": 2, "content": "<|im_end|>", "special": true},
+        {"id": 3, "content": "<|im_start|>x", "special": true}
+      ],
+      "model": {
+        "type": "BPE",
+        "vocab": {"a": 10, "b": 11, "ab": 12, "<": 13, "|": 14},
+        "merges": ["a b"]
+      }
+    }"#;
+
+    #[test]
+    fn added_tokens_encode_atomically_not_spelled_out() {
+        // Regression: BPE merges are learned over the byte-level alphabet and no
+        // merge path leads to an added token, so `<|im_start|>` was segmented
+        // into ordinary pieces (7 of them against the real SmolLM2 vocab) and the
+        // marker id was unreachable from encode(). gatewayd rendered a correct
+        // ChatML prompt that the model then received SPELLED OUT — so it never
+        // saw the turn structure it was tuned on, and could not emit the real eos.
+        let t = HfBpeTokenizer::from_tokenizer_json(CHATML.as_bytes()).unwrap();
+        assert_eq!(t.encode("<|im_start|>"), vec![1], "one marker ⇒ one id");
+        assert_eq!(t.encode("<|im_end|>"), vec![2]);
+
+        // Markers with ordinary text between them: ids inline, text still BPE'd
+        // ("ab" merges to 12), and nothing spelled out.
+        assert_eq!(t.encode("<|im_start|>ab<|im_end|>"), vec![1, 12, 2]);
+
+        // Longest-first: "<|im_start|>x" must win over the shorter marker that
+        // prefixes it, otherwise it would be cut into id 1 + a stray "x".
+        assert_eq!(t.encode("<|im_start|>x"), vec![3]);
+
+        // Leading/trailing text around a marker survives.
+        assert_eq!(t.encode("ab<|im_end|>ab"), vec![12, 2, 12]);
+
+        // A tokenizer with no added tokens is untouched by the split path.
+        assert_eq!(mini().encode("abc"), vec![7]);
     }
 
     #[test]
