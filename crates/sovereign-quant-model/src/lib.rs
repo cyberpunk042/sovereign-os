@@ -409,6 +409,7 @@ impl QuantModel {
         let hidden = self.stack.run(&hidden)?;
         let normed = self.final_norm.normalize(&hidden)?;
         let mut logits = self.project_head(&normed);
+        // (see forward_prefill below for the head-skipping prefill variant)
         // Optional Gemma-2-style logit soft-capping: bound each logit into
         // (−cap, cap) via cap·tanh(logit/cap), which tames over-confident
         // outliers while staying ~linear near zero and order-preserving.
@@ -418,6 +419,42 @@ impl QuantModel {
             }
         }
         Ok(logits)
+    }
+
+    /// Advance model state by one token WITHOUT producing logits.
+    ///
+    /// Prefill only needs the logits of the LAST prompt token — every earlier
+    /// one is fed in purely to build KV state, and its logits are computed and
+    /// thrown away. On this model the LM head is 2048×49152 ≈ 101M MACs against
+    /// ~1611M for the 24 layers, so that discard is ~5.9% of every prefill
+    /// token's work.
+    ///
+    /// Skipping it is exact, not an approximation: `final_norm` and
+    /// `project_head` are pure functions of the hidden state and mutate
+    /// nothing. All model state lives in `stack.run`, which still runs.
+    ///
+    /// Note this does NOT make prefill cheap — it stays one full forward pass
+    /// per prompt token, because the stack has no batched entry point. Batched
+    /// prefill (a single matmul over the whole prompt) is the change that would
+    /// actually matter, and it needs batched variants of attention, FFN and the
+    /// norms across several crates. See
+    /// `docs/evaluations/gatewayd-cpu-decode-latency-2026-07-31.md`.
+    pub fn forward_prefill(&mut self, token: usize) -> Result<(), QuantModelError> {
+        if token >= self.vocab {
+            return Err(QuantModelError::TokenOutOfRange {
+                token,
+                vocab: self.vocab,
+            });
+        }
+        if self.exec_mode == ExecMode::GpuFold {
+            // Defer to forward() so the GpuFold honest-degrade message stays in
+            // exactly one place rather than being duplicated and drifting.
+            self.forward(token)?;
+            return Ok(());
+        }
+        let hidden = self.embed(token);
+        let _ = self.stack.run(&hidden)?;
+        Ok(())
     }
 
     /// Ingest a prompt and autoregressively generate up to `max_new` tokens.
@@ -486,9 +523,18 @@ impl QuantModel {
         if prompt.is_empty() {
             return Err(QuantModelError::EmptyPrompt);
         }
+        // Only the LAST prompt token's logits are used — the rest are fed in to
+        // build KV state. forward_prefill skips the LM head for those, which is
+        // exact (the head is a pure function of the hidden state) and saves
+        // ~5.9% of each prefill token's work on a 1.7B/49152-vocab model.
         let mut logits = Vec::new();
-        for &t in prompt {
-            logits = self.forward(t)?;
+        let last = prompt.len() - 1;
+        for (i, &t) in prompt.iter().enumerate() {
+            if i == last {
+                logits = self.forward(t)?;
+            } else {
+                self.forward_prefill(t)?;
+            }
         }
         let mut generated = Vec::with_capacity(max_new);
         for _ in 0..max_new {
@@ -820,6 +866,53 @@ mod tests {
             streamed, out,
             "on_token must stream exactly the generated ids"
         );
+    }
+
+    #[test]
+    fn head_skipping_prefill_is_bit_identical_to_the_full_forward() {
+        // forward_prefill drops final_norm + project_head for non-final prompt
+        // tokens. Both are pure functions of the hidden state, so the KV state
+        // they leave behind must be identical — if it is not, generation would
+        // silently diverge and this optimisation would be a correctness bug
+        // rather than a saving.
+        let mask = LogitMask::new();
+        let prompt = [1usize, 2, 3, 4, 5];
+
+        // Reference: drive the stack with full forwards, then read logits.
+        let mut a = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        let mut ref_logits = Vec::new();
+        for &t in &prompt {
+            ref_logits = a.forward(t).unwrap();
+        }
+
+        // Same prompt, head skipped on every token but the last.
+        let mut b = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        let mut got_logits = Vec::new();
+        let last = prompt.len() - 1;
+        for (i, &t) in prompt.iter().enumerate() {
+            if i == last {
+                got_logits = b.forward(t).unwrap();
+            } else {
+                b.forward_prefill(t).unwrap();
+            }
+        }
+        assert_eq!(ref_logits, got_logits, "skipping the head must not change the final logits");
+
+        // And end to end, the generated sequences must match exactly.
+        let out_a = mixed_model(8, Sampler::new(SamplerConfig::default()))
+            .generate_masked_with(&prompt, 6, 3, &mask, |_| {})
+            .unwrap();
+        let out_b = mixed_model(8, Sampler::new(SamplerConfig::default()))
+            .generate_masked_until_with(&prompt, 6, 3, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(out_a, out_b, "generation is unchanged by head-skipping prefill");
+    }
+
+    #[test]
+    fn forward_prefill_rejects_out_of_range_tokens_like_forward() {
+        let mut m = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        let v = m.vocab;
+        assert!(m.forward_prefill(v).is_err(), "out-of-range must still error");
     }
 
     #[test]
