@@ -5,7 +5,7 @@
 # THE PROBLEM THIS SOLVES
 #   The runtime reads /opt/sovereign-os — the dpkg payload — not the git
 #   checkout. So a fix committed to the repo is inert on this machine until a
-#   new sovereign-os-cockpit package is built and installed. Three real fixes
+#   new sovereign-os-cockpit package is built and installed. Six real fixes
 #   are currently in that state, each one a bug that actively misbehaves here.
 #
 #   This module copies those specific files from the checkout into the payload,
@@ -49,21 +49,21 @@ _dst=/opt/sovereign-os
 #   The ~3GB base image extracted even when its sha256 sidecar failed to
 #   download, so a truncated image would install silently. Fails closed now.
 #
-# scripts/intelligence/fetch-model.sh                (commit pending)
-# scripts/hooks/recurrent/root-modules-verify.sh   (commit pending)
-# scripts/hooks/recurrent/selfdef-sync.sh          (commit pending)
-#   Both default a checkout path to ${HOME}/... under `set -u`, but systemd
-#   starts a root service with NO HOME (it only sets it when User= is given, and
-#   neither unit does). Both died with "HOME: unbound variable" on every
-#   scheduled fire — weekly, silently — long before reaching the absent-checkout
-#   handling each is designed to have. Found by test-firing the timers that had
-#   never run rather than waiting for 03:00.
-#
+# scripts/intelligence/fetch-model.sh               (commit 99926459)
 #   Fetched only config.json + tokenizer.json + model.safetensors, omitting
 #   tokenizer_config.json — which is where chat_template and eos_token live, and
 #   which sovereign-gatewayd reads straight out of the model dir (lib.rs:1312).
 #   Without it an instruction-tuned model never sees the markers it was trained
 #   on, never emits its end-of-turn token, and runs past its own answer.
+#
+# scripts/hooks/recurrent/root-modules-verify.sh    (commit f4658e3e)
+# scripts/hooks/recurrent/selfdef-sync.sh           (commit f4658e3e)
+#   Both default a checkout path to ${HOME}/… under `set -u`, but systemd starts
+#   a root service with NO HOME (it only sets it when User= is given, and neither
+#   unit does). Both died with "HOME: unbound variable" on every scheduled fire —
+#   weekly, silently — ~30 lines above the absent-checkout handling each was
+#   deliberately written to have. Found by test-firing the timers that had never
+#   run, rather than waiting for 03:00.
 _files="
 scripts/lib/ms003.py
 scripts/sovereign-osctl
