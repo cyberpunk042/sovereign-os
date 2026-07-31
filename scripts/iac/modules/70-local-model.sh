@@ -51,6 +51,50 @@ if [ "${_repo}" != "${_prof_repo}" ]; then
 fi
 iac_info "dir=${_dir}"
 
+# ---- the gateway must ADVERTISE the id its clients ask for ----
+# profiles.provisioning.open_computer.model_id and .openclaw.model_id both say
+# "local-oracle", but the gateway defaults its primary id to "primary"
+# (SOVEREIGN_GATEWAY_MODEL_ID, lib.rs:1969). The serving path treats any name
+# that is not primary_id as a SECONDARY model and, finding none registered,
+# returns "no local model loaded" — indistinguishable from having no model at
+# all. Both clients would have failed that way against a perfectly loaded model.
+#
+# Align the daemon with the profile via a drop-in (never by editing the shipped
+# unit), so the id the clients request is the id the gateway answers to.
+_client_model_id="$(profile_get provisioning.open_computer.model_id)"
+[ -n "${_client_model_id}" ] || _client_model_id="$(profile_get provisioning.openclaw.model_id)"
+
+if [ -n "${_client_model_id}" ]; then
+  _cur_id="$(systemctl show sovereign-gatewayd -p Environment --value 2>/dev/null \
+             | tr ' ' '\n' | sed -n 's/^SOVEREIGN_GATEWAY_MODEL_ID=//p')"
+  : "${_cur_id:=primary}"
+  if [ "${_cur_id}" = "${_client_model_id}" ]; then
+    ok "gateway advertises '${_client_model_id}' (matches profile clients)"
+  else
+    iac_info "gateway advertises '${_cur_id}' but clients ask for '${_client_model_id}'"
+    ensure_dropin sovereign-gatewayd.service 20-model-id <<EOF
+# Managed by scripts/iac/modules/70-local-model.sh — do not edit by hand.
+# provisioning.open_computer.model_id / .openclaw.model_id = ${_client_model_id}
+# The gateway's default primary id is "primary"; a request for any other name is
+# treated as a secondary model and fails with "no local model loaded" even when
+# the primary is loaded and healthy. Make the daemon answer to what its own
+# clients are configured to ask for.
+[Service]
+Environment=SOVEREIGN_GATEWAY_MODEL_ID=${_client_model_id}
+EOF
+    if [ "${IAC_DRY_RUN}" != 1 ]; then
+      systemctl daemon-reload 2>/dev/null || true
+      if systemctl is-active --quiet sovereign-gatewayd 2>/dev/null; then
+        if run "restart-gateway-id" systemctl restart sovereign-gatewayd; then
+          changed "sovereign-gatewayd restarted to advertise '${_client_model_id}'"
+        else
+          fail "could not restart sovereign-gatewayd after model-id change"
+        fi
+      fi
+    fi
+  fi
+fi
+
 # ---- the gateway must be pointed at this exact directory or it ignores it ----
 _gw_model="$(systemctl show sovereign-gatewayd -p Environment --value 2>/dev/null \
              | tr ' ' '\n' | sed -n 's/^SOVEREIGN_GATEWAY_MODEL=//p')"

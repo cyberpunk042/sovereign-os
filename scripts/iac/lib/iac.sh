@@ -179,9 +179,54 @@ ensure_unit_state() {
 
   case "${run_state}" in
     started)
-      if systemctl is-active --quiet "${unit}" 2>/dev/null; then ok "unit ${unit} active"
-      elif run "start" systemctl start "${unit}"; then changed "unit ${unit} started"
-      else fail "unit ${unit} start"; fi
+      # "started" means STAYS started. Three separate units in this codebase
+      # (sovereign-gatewayd, nut-driver@, sovereign-open-computer) carry
+      # Restart= and will respawn forever on a bad config or a half-finished
+      # provision. `systemctl start` returns success for all of them — it only
+      # reports that the job was queued, not that the service survived. Every
+      # time converge trusted that, it handed back a machine quietly burning
+      # PIDs while reporting "converged".
+      #
+      # So: start it, let it settle, and confirm it is BOTH active AND not
+      # accumulating restarts. If it will not hold, stop it — a quiet
+      # diagnosable machine beats a silent restart loop — and fail loudly.
+      if systemctl is-active --quiet "${unit}" 2>/dev/null; then
+        ok "unit ${unit} active"
+      elif ! run "start" systemctl start "${unit}"; then
+        fail "unit ${unit} start"
+      elif [ "${IAC_DRY_RUN}" = 1 ]; then
+        changed "unit ${unit} started"
+      else
+        local _r0 _r1 _settled=0
+        _r0="$(systemctl show "${unit}" -p NRestarts --value 2>/dev/null || echo 0)"
+        for _ in 1 2 3 4 5 6; do
+          sleep 1
+          systemctl is-active --quiet "${unit}" 2>/dev/null && { _settled=1; break; }
+        done
+        _r1="$(systemctl show "${unit}" -p NRestarts --value 2>/dev/null || echo 0)"
+
+        if [ "${_settled}" = 1 ] && [ "${_r1}" -le "${_r0}" ] 2>/dev/null; then
+          changed "unit ${unit} started"
+        elif [ "${_settled}" = 1 ]; then
+          # Active, but it restarted to get there — it is flapping, not healthy.
+          systemctl stop "${unit}" >/dev/null 2>&1 || true
+          fail "unit ${unit} is flapping (${_r0}→${_r1} restarts) — stopped it; see: journalctl -u ${unit}"
+        else
+          systemctl stop "${unit}" >/dev/null 2>&1 || true
+          # Prefer a line that looks like a DIAGNOSIS over merely the last line —
+          # picking the tail blindly reported a service's own startup banner
+          # ("=== Starting 'sovereign' [prod] …") as though it were the error.
+          local _why _jrnl
+          _jrnl="$(journalctl -u "${unit}" -n 25 --no-pager 2>/dev/null \
+                   | grep -viE 'systemd\[1\]:|Scheduled restart|^-- ')"
+          _why="$(printf '%s\n' "${_jrnl}" \
+                  | grep -iE 'error|fail|cannot|could not|denied|refused|not found|no such|missing|unable' \
+                  | grep -oE '[^]]*$' | tail -1)"
+          # Fall back to the last line only when nothing self-identifies as an error.
+          [ -n "${_why}" ] || _why="$(printf '%s\n' "${_jrnl}" | grep -oE '[^]]*$' | tail -1)"
+          fail "unit ${unit} will not stay up — stopped it${_why:+ — ${_why}}"
+        fi
+      fi
       ;;
     stopped)
       if ! systemctl is-active --quiet "${unit}" 2>/dev/null; then ok "unit ${unit} inactive"
