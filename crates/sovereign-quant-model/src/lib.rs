@@ -353,6 +353,19 @@ impl QuantModel {
         &self.recent
     }
 
+    /// Drop all per-sequence state — every layer's KV cache and the repetition
+    /// window — so the next generation starts from nothing.
+    ///
+    /// The `generate_*` entry points call this themselves, because each takes a
+    /// COMPLETE prompt and prefills it; continuing from a previous call's cache
+    /// would mean prefilling the prompt twice over. Public so a caller that
+    /// holds a long-lived model (gatewayd keeps one per worker) can drop a
+    /// conversation's residue explicitly.
+    pub fn reset(&mut self) {
+        self.stack.reset();
+        self.recent.clear();
+    }
+
     fn embed(&self, token: usize) -> Vec<f32> {
         let d = self.model_dim;
         self.embedding[token * d..(token + 1) * d].to_vec()
@@ -523,6 +536,14 @@ impl QuantModel {
         if prompt.is_empty() {
             return Err(QuantModelError::EmptyPrompt);
         }
+        // A generation call takes a COMPLETE prompt, so it must start from an
+        // empty cache. Without this, a long-lived model (gatewayd keeps one per
+        // worker for the process lifetime) prefills each request on top of every
+        // earlier request's KV state: the sampler's stream shifts with
+        // `seed + position`, so identical requests diverge, and the model can
+        // continue a STRANGER'S conversation — closing an inherited turn with
+        // `<|im_end|>` and opening a `<|im_start|>user` turn of its own.
+        self.reset();
         // Only the LAST prompt token's logits are used — the rest are fed in to
         // build KV state. forward_prefill skips the LM head for those, which is
         // exact (the head is a pure function of the hidden state) and saves
@@ -588,6 +609,10 @@ impl QuantModel {
         if prompt.is_empty() {
             return Err(QuantModelError::EmptyPrompt);
         }
+        // Same contract as generate_masked_until_with: a complete prompt starts
+        // a new sequence. gatewayd reaches THIS loop whenever a token-law is
+        // compiled for the request, so it needs the reset just as much.
+        self.reset();
         let mut logits = Vec::new();
         for &t in prompt {
             logits = self.forward(t)?;
@@ -966,6 +991,44 @@ mod tests {
             .generate_masked_until_with(&[1, 2, 3], 5, 11, &mask, &[], |_| {})
             .unwrap();
         assert_eq!(a, b, "no stop ids ⇒ identical to the original loop");
+    }
+
+    #[test]
+    fn a_second_generation_on_the_same_model_is_independent_of_the_first() {
+        // gatewayd holds ONE long-lived QuantModel per worker and serves every
+        // request through it, so this is the real serving shape — not the shape
+        // every other test here uses. Each test above builds a fresh
+        // mixed_model(...) per generation, which is precisely why nothing caught
+        // that the KV cache is never cleared between calls: request N+1 prefills
+        // ON TOP of request N's cache, and `sample_seeded(seed + position)` makes
+        // the sampler's stream depend on how many tokens the process has ever
+        // decoded. Symptom on the box: identical requests with the hard-coded
+        // seed 0 returned different answers, and the model would occasionally
+        // close an inherited turn with `<|im_end|>` and open a `<|im_start|>user`
+        // turn recovered from an earlier conversation.
+        let mask = LogitMask::new();
+        let mut m = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        let first = m
+            .generate_masked_until_with(&[1, 2, 3], 5, 0, &mask, &[], |_| {})
+            .unwrap();
+        let second = m
+            .generate_masked_until_with(&[1, 2, 3], 5, 0, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(
+            first, second,
+            "same prompt + same seed on the same model must give the same tokens; \
+             a difference means prior-request state leaked into this generation"
+        );
+
+        // And the same prompt on a FRESH model must agree too — otherwise the
+        // reused model is self-consistent but still carrying a warm cache.
+        let fresh = mixed_model(8, Sampler::new(SamplerConfig::default()))
+            .generate_masked_until_with(&[1, 2, 3], 5, 0, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(
+            first, fresh,
+            "a reused model must generate exactly what a fresh one does"
+        );
     }
 
     #[test]

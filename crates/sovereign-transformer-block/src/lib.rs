@@ -168,6 +168,13 @@ impl DecoderBlock {
         self.values.is_empty()
     }
 
+    /// Drop this block's KV cache so the next `step` begins a NEW sequence.
+    /// Only `rotated_keys`/`values` are per-sequence; weights are untouched.
+    pub fn reset_cache(&mut self) {
+        self.rotated_keys.clear();
+        self.values.clear();
+    }
+
     /// Advance one position: consume a token's `hidden` state, extend the KV
     /// cache with this token's key/value (causal self-attention therefore
     /// includes the new token), and return the updated hidden state.

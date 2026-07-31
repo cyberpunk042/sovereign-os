@@ -101,6 +101,15 @@ impl KvStore {
         }
     }
 
+    /// Drop every cached position, PRESERVING the storage mode — a block built
+    /// with `with_quantized_kv` must stay quantized across a reset.
+    fn clear(&mut self) {
+        match self {
+            KvStore::Full(v) => v.clear(),
+            KvStore::Quant(v) => v.clear(),
+        }
+    }
+
     /// Append a vector, quantizing it (as a `1 × dim` matrix) when compressed.
     fn push(&mut self, vec: Vec<f32>) -> Result<(), MhaBlockError> {
         match self {
@@ -905,6 +914,15 @@ impl MhaDecoderBlock {
         self.rotated_keys = KvStore::Quant(Vec::new());
         self.values = KvStore::Quant(Vec::new());
         self
+    }
+
+    /// Drop this block's KV cache so the next `step` begins a NEW sequence.
+    ///
+    /// Only `rotated_keys`/`values` are per-sequence; every other field is
+    /// weights or shape and survives untouched. The storage mode is preserved.
+    pub fn reset_cache(&mut self) {
+        self.rotated_keys.clear();
+        self.values.clear();
     }
 
     /// Whether this block stores its KV cache NVFP4-compressed.

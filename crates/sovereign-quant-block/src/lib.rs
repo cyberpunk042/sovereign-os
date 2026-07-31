@@ -167,6 +167,13 @@ impl QuantDecoderBlock {
         self.values.is_empty()
     }
 
+    /// Drop this block's KV cache so the next `step` begins a NEW sequence.
+    /// Only `rotated_keys`/`values` are per-sequence; weights are untouched.
+    pub fn reset_cache(&mut self) {
+        self.rotated_keys.clear();
+        self.values.clear();
+    }
+
     /// Average bits/param across the seven projections at this precision.
     pub fn bits_per_param(&self) -> f64 {
         let ls = [

@@ -66,6 +66,15 @@ pub trait DecoderLayer: std::fmt::Debug + Send {
     /// Number of positions currently in this layer's KV cache.
     fn cached_positions(&self) -> usize;
 
+    /// Drop this layer's KV cache so the next [`step`](Self::step) starts a NEW
+    /// sequence. `cached_positions()` must return 0 afterwards.
+    ///
+    /// Deliberately REQUIRED, with no default. A defaulted no-op would let a new
+    /// layer type compile while silently carrying state across sequences, which
+    /// is the exact defect this method exists to fix and is invisible in every
+    /// test that builds a fresh model per generation.
+    fn reset_cache(&mut self);
+
     /// `(num_experts, experts_per_tok)` when this layer's FFN is a mixture of
     /// experts, else `None` for a dense layer. Lets a [`LayerStack`] report a
     /// model's MoE shape (how many layers are sparse, the expert count / top-k)
@@ -83,6 +92,9 @@ impl DecoderLayer for DecoderBlock {
     fn cached_positions(&self) -> usize {
         self.len()
     }
+    fn reset_cache(&mut self) {
+        DecoderBlock::reset_cache(self)
+    }
 }
 
 impl DecoderLayer for QuantDecoderBlock {
@@ -92,6 +104,9 @@ impl DecoderLayer for QuantDecoderBlock {
     fn cached_positions(&self) -> usize {
         self.len()
     }
+    fn reset_cache(&mut self) {
+        QuantDecoderBlock::reset_cache(self)
+    }
 }
 
 impl DecoderLayer for MhaDecoderBlock {
@@ -100,6 +115,9 @@ impl DecoderLayer for MhaDecoderBlock {
     }
     fn cached_positions(&self) -> usize {
         self.len()
+    }
+    fn reset_cache(&mut self) {
+        MhaDecoderBlock::reset_cache(self)
     }
     fn moe_layer_info(&self) -> Option<(usize, usize)> {
         self.is_moe()
@@ -172,6 +190,14 @@ impl LayerStack {
             .first()
             .map(|l| l.cached_positions())
             .unwrap_or(0)
+    }
+
+    /// Drop every layer's KV cache so the next [`run`](Self::run) begins a NEW
+    /// sequence. [`positions`](Self::positions) returns 0 afterwards.
+    pub fn reset(&mut self) {
+        for layer in &mut self.layers {
+            layer.reset_cache();
+        }
     }
 
     /// Run one position through every layer in order, threading the hidden
