@@ -24,17 +24,30 @@ mapfile -t _svcs < <(
   | awk '{print $NF}' | sort -u
 )
 
+# Fire anything that has NEVER run, or that ran and FAILED. The first version
+# only looked for never-run, which made it useless for exactly the case it had
+# just created: once a unit is fired and fails, it is no longer "never run", so
+# re-running the script after fixing the bug reported "nothing to test-fire" and
+# verified nothing. A test tool that cannot re-test what it just found broken is
+# only useful once.
+#
+# --all re-checks everything, including units that already succeeded.
 _never=()
 for s in "${_svcs[@]}"; do
-  [ -z "$(systemctl show "$s" -p ExecMainStartTimestamp --value 2>/dev/null)" ] && _never+=("$s")
+  _ts="$(systemctl show "$s" -p ExecMainStartTimestamp --value 2>/dev/null)"
+  _st="$(systemctl show "$s" -p ExecMainStatus --value 2>/dev/null)"
+  if [ "${1:-}" = "--all" ] || [ -z "${_ts}" ] || { [ -n "${_st}" ] && [ "${_st}" != 0 ]; }; then
+    _never+=("$s")
+  fi
 done
 
 if [ "${#_never[@]}" -eq 0 ]; then
-  echo "  every timer-driven unit has run at least once — nothing to test-fire"
+  echo "  every timer-driven unit has run and succeeded — nothing to re-test"
+  echo "  (use --all to fire them anyway)"
   exit 0
 fi
 
-say "firing ${#_never[@]} unit(s) that have never run"
+say "firing ${#_never[@]} unit(s): never-run or last-run-failed"
 printf '  %s\n' "${_never[@]}"
 
 _fail=0
