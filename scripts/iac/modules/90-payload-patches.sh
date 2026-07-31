@@ -8,6 +8,9 @@
 #   new sovereign-os-cockpit package is built and installed. Six real fixes
 #   are currently in that state, each one a bug that actively misbehaves here.
 #
+#   There is a second, distinct gap: files the package never shipped AT ALL, so
+#   there is nothing to patch. Those are handled by _add_files near the bottom.
+#
 #   This module copies those specific files from the checkout into the payload,
 #   idempotently, and only those files. It is not a general sync: a blanket
 #   rsync would silently ship every uncommitted experiment into the runtime.
@@ -106,6 +109,66 @@ while read -r rel; do
     fail "could not install ${rel} into the payload"
   fi
 done <<< "${_files}"
+
+# ─── payload ADDITIONS — in the repo, never packaged at all ──────────────────
+#
+# The loop above patches files present in BOTH trees. These are a different
+# failure: the file exists in the checkout and is absent from the payload
+# entirely, so the old loop reported `skip "not in payload"` and moved on. That
+# skip was hiding a real outage.
+#
+# The package ships scripts/, webapp/, config/, profiles/ and systemd/ but no
+# data trees. Most of that is correct — docs/, backlog/, schemas/, assets/ and
+# crates/ are referenced only by build-time `gen-*`/`render-*` generators that
+# never run on a serving host. models/ is the exception: it is read by NINE
+# daemons at request time, which is why a single missing file degraded panels
+# all over the cockpit rather than just one.
+#
+# models/catalog.yaml
+#   The canonical model registry, 79 entries across the four SRP tiers
+#   (pulse 29, logic 25, oracle 20, router 5). Resolved as
+#   _REPO_ROOT/"models"/"catalog.yaml" by scripts/inference/model-health.py,
+#   overridable with SOVEREIGN_OS_MODEL_CATALOG. Its load_catalog() is
+#   documented "absent/unreadable catalog → empty list (never raises)", so every
+#   consumer degraded silently to zero instead of erroring:
+#     D-23 Model Catalog ....... "0 models · catalog empty or unreadable"
+#     sovereign-brain-api, sovereign-lm-orchestration-api,
+#     sovereign-lm-status-operability-api, sovereign-master-dashboard-api,
+#     model-health-api, adapters-api, and gatewayd's prompt.py
+#   Reported by the operator from the D-23 panel; found by resolving the path
+#   the panel itself printed. Verified before shipping: the payload's own
+#   hand-rolled stdlib parser (NOT PyYAML — it expects 4-space list entries and
+#   6-space scalar fields) reads this exact file as 79 models, so the format
+#   contract holds and the copy is sufficient.
+_add_files="
+models/catalog.yaml
+"
+
+while read -r rel; do
+  [ -n "${rel}" ] || continue
+  _a="${_src}/${rel}"
+  _b="${_dst}/${rel}"
+
+  if [ ! -f "${_a}" ]; then
+    skip "not in checkout: ${rel}"
+    continue
+  fi
+  if [ -f "${_b}" ] && cmp -s "${_a}" "${_b}"; then
+    ok "payload current: ${rel}"
+    continue
+  fi
+  if [ "${IAC_DRY_RUN}" = 1 ]; then
+    changed "payload += checkout: ${rel}"
+    continue
+  fi
+  # -D creates the parent directory; the package never made /opt/sovereign-os/models.
+  # Data, not an executable: 0644, unlike the 0755 scripts patched above.
+  if install -D -m 0644 "${_a}" "${_b}" 2>/dev/null; then
+    changed "payload += checkout: ${rel}"
+  else
+    fail "could not install ${rel} into the payload"
+  fi
+done <<< "${_add_files}"
 
 # ms003-verify is a timer-driven oneshot: once the fix is live, clear the stale
 # failure so `systemctl is-system-running` stops reporting degraded over it.
