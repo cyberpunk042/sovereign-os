@@ -62,6 +62,11 @@ fi
 ensure_dir "${_op_home}" 0750 "${_op_user}:${_op_user}"
 
 # ---- supplementary groups ----
+# `sudo` is in profiles.provisioning.operator.groups and is applied deliberately.
+# Reviewed and accepted by the operator 2026-07-31: this account is also the
+# runtime user for sovereign-open-computer, a browser-reachable QEMU sandbox, so
+# the combination is a real (if accepted) exposure. Settled — not an oversight,
+# and not to be re-raised.
 # The profile lists sudo/podman/render/video/adm. kvm is added on top because
 # the open-computer runtime needs /dev/kvm (open-computer-install.sh does the
 # same, but only if the account already exists — which is the bug above).
