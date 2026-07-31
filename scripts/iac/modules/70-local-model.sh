@@ -95,12 +95,30 @@ EOF
   fi
 fi
 
-# ---- the gateway must be pointed at this exact directory or it ignores it ----
+# ---- point the gateway at the directory this module manages ----
+# The shipped unit hardcodes SOVEREIGN_GATEWAY_MODEL=/var/lib/sovereign-os/
+# models/smollm-135m. Earlier this module only WARNED when the managed dir
+# differed, which meant a model could be fetched correctly and never served —
+# the download succeeds, converge reports ok, and the gateway keeps loading
+# something else (or nothing). Assert it instead, via a drop-in so the shipped
+# unit is untouched and an apt upgrade cannot silently repoint it.
 _gw_model="$(systemctl show sovereign-gatewayd -p Environment --value 2>/dev/null \
              | tr ' ' '\n' | sed -n 's/^SOVEREIGN_GATEWAY_MODEL=//p')"
-if [ -n "${_gw_model}" ] && [ "${_gw_model}" != "${_dir}" ]; then
-  iac_info "note: sovereign-gatewayd looks at ${_gw_model}"
-  iac_info "      a model elsewhere is downloaded but never served"
+if [ "${_gw_model}" = "${_dir}" ]; then
+  ok "gateway model path = ${_dir}"
+else
+  iac_info "gateway looks at '${_gw_model:-unset}', managed dir is '${_dir}'"
+  ensure_dropin sovereign-gatewayd.service 30-model-path <<EOF
+# Managed by scripts/iac/modules/70-local-model.sh — do not edit by hand.
+# The shipped unit points at a directory this module does not manage. A model
+# fetched anywhere else is downloaded and never served.
+[Service]
+Environment=SOVEREIGN_GATEWAY_MODEL=${_dir}
+EOF
+  if [ "${IAC_DRY_RUN}" != 1 ]; then
+    systemctl daemon-reload 2>/dev/null || true
+    _gw_needs_restart=1
+  fi
 fi
 
 # ---- storage ----
@@ -130,6 +148,45 @@ for f in config.json tokenizer.json model.safetensors; do
 done
 if [ "${_complete}" = 1 ]; then
   ok "model present at ${_dir}"
+
+  # ---- does the RUNNING gateway actually serve this model? ----
+  # Config being right proves nothing: the daemon reads SOVEREIGN_GATEWAY_MODEL
+  # once, at startup. An earlier version checked only that the drop-in existed
+  # and the files were on disk, then reported "machine already matches profile"
+  # while the process served a completely different model — unit env pointing at
+  # a 1.7B, gateway still holding the 135M it loaded 40 minutes earlier.
+  #
+  # So compare the LIVE geometry against the configured checkpoint. /v1/models
+  # reports the architecture the daemon actually built; config.json says what it
+  # should be. Two numbers, no inference from configuration state.
+  _cfg_l="$(python3 -c "import json;print(json.load(open('${_dir}/config.json'))['num_hidden_layers'])" 2>/dev/null)"
+  _cfg_d="$(python3 -c "import json;print(json.load(open('${_dir}/config.json'))['hidden_size'])" 2>/dev/null)"
+  _live="$(curl -s --max-time 5 http://127.0.0.1:8787/v1/models 2>/dev/null \
+           | python3 -c "import json,sys;a=json.load(sys.stdin).get('architecture',{});print(f\"{a.get('layers')} {a.get('model_dim')}\")" 2>/dev/null)"
+  _live_l="${_live%% *}"; _live_d="${_live##* }"
+
+  if [ -z "${_live}" ] || [ "${_live}" = "None None" ]; then
+    skip "gateway not serving a model yet — cannot compare geometry"
+  elif [ "${_live_l}" = "${_cfg_l}" ] && [ "${_live_d}" = "${_cfg_d}" ]; then
+    ok "gateway serving this model (layers=${_cfg_l} dim=${_cfg_d})"
+  elif [ "${IAC_DRY_RUN}" = 1 ]; then
+    changed "restart gateway: serving layers=${_live_l} dim=${_live_d}, configured layers=${_cfg_l} dim=${_cfg_d}"
+  else
+    iac_info "gateway serves layers=${_live_l} dim=${_live_d}, configured is layers=${_cfg_l} dim=${_cfg_d}"
+    if run "restart-gateway" systemctl restart sovereign-gatewayd; then
+      # Verify the restart achieved it, rather than assuming.
+      sleep 3
+      _live2="$(curl -s --max-time 10 http://127.0.0.1:8787/v1/models 2>/dev/null \
+                | python3 -c "import json,sys;a=json.load(sys.stdin).get('architecture',{});print(f\"{a.get('layers')} {a.get('model_dim')}\")" 2>/dev/null)"
+      if [ "${_live2}" = "${_cfg_l} ${_cfg_d}" ]; then
+        changed "sovereign-gatewayd restarted onto ${_dir} (layers=${_cfg_l} dim=${_cfg_d})"
+      else
+        fail "restarted but gateway reports '${_live2:-nothing}' — expected layers=${_cfg_l} dim=${_cfg_d}"
+      fi
+    else
+      fail "could not restart sovereign-gatewayd"
+    fi
+  fi
   return 0 2>/dev/null || exit 0
 fi
 
@@ -160,9 +217,15 @@ if MODEL_REPO="${_repo}" "${_fetch}" "${_dir}" >/dev/null 2>&1; then
     fail "fetch incomplete, missing:${_missing} (is ${_repo} sharded? this loader needs a single model.safetensors)"
   else
     changed "model fetched → ${_dir}"
-    # The gateway loads the model at STARTUP only.
-    if systemctl is-active --quiet sovereign-gatewayd 2>/dev/null \
-       && [ "${_gw_model}" = "${_dir}" ]; then
+    # The gateway loads its model at STARTUP ONLY, so a fresh fetch always needs
+    # a restart. This used to be guarded on [ "${_gw_model}" = "${_dir}" ] —
+    # but _gw_model is captured near the top of the module, BEFORE the
+    # 30-model-path drop-in is written, so on the run that repoints the gateway
+    # it still held the OLD path, the comparison failed, and no restart
+    # happened: the unit env said the new model while the running process
+    # served the old one. Reading a value, then changing the thing it described,
+    # then testing the stale copy.
+    if systemctl is-active --quiet sovereign-gatewayd 2>/dev/null; then
       if run "restart-gateway" systemctl restart sovereign-gatewayd; then
         changed "sovereign-gatewayd restarted to load the model"
       else
