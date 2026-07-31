@@ -116,6 +116,48 @@ baseline prompts.
 The conclusion is unchanged: ~8% is real and exact, and prefill remains one full
 forward pass per prompt token. Batched prefill is still where the leverage is.
 
+## Scoping batched prefill — what it would actually take
+
+Recorded so the next person does not have to re-derive it.
+
+The whole stack is vector-shaped from top to bottom:
+
+```rust
+DecoderStack::run(&mut self, hidden: &[f32]) -> Vec<f32>
+MhaBlock::step(&mut self,    hidden: &[f32]) -> Vec<f32>
+Ffn::forward(&self,          x: &[f32])      -> Vec<f32>
+Linear::forward(&self,       x: &[f32])      -> Vec<f32>   // matvec, not matmul
+```
+
+Batching is therefore not a refactor of one function — it is a **second forward
+path** alongside the existing one, through at least `sovereign-quant-model`,
+`sovereign-safetensors-loader` (the stack), `sovereign-mha-block`,
+`sovereign-attention`, `sovereign-ffn` and `sovereign-linear`.
+
+The attention layer is the hard part and the risky one. Single-query attention
+against a KV cache is a **different computation** from full-sequence
+self-attention with causal masking — not the same code with an extra dimension.
+Getting the mask subtly wrong produces output that looks plausible and is wrong,
+which is the worst failure mode available.
+
+**Expected payoff is real but bounded on CPU.** The dramatic prefill speedups
+quoted for batching are largely a GPU phenomenon: batching raises arithmetic
+intensity, which matters when you have thousands of idle FLOPs waiting on
+memory. On CPU the gain comes from better cache reuse and SIMD utilisation —
+plausibly 2–5× on prefill, so perhaps 2–3× on a whole request, not 10–100×.
+
+Weighed against that: a multi-day change across six crates, touching the
+correctness-critical attention path, on a daemon that currently works.
+
+**Recommendation: do not start this as an incidental task.** Either commit to it
+properly with its own test plan, or put the effort into M01283 (the Blackwell
+CUDA bridge), where the same batching work buys an order of magnitude more and
+the two idle GPUs in this chassis — an RTX PRO 6000 (96 GiB) and an RTX 5090
+(32 GiB) — stop being decoration.
+
+The cheap win in this area has already been taken: `2b7ff23e` skips the LM head
+on non-final prefill tokens for a measured ~8%.
+
 ## Reproduce
 
 ```sh
