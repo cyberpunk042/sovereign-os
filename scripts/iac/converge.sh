@@ -75,11 +75,16 @@ printf '  host    : %s   kernel %s\n' "$(hostname)" "$(uname -r)"
 
 # ---- run modules in lexical (numeric-prefix) order ----
 ran=0
+matched=0
 for module in "${IAC_DIR}"/modules/*.sh; do
   [ -f "${module}" ] || continue
   name="$(basename "${module}" .sh)"
 
   if [ -n "${ONLY}" ] && [[ "${name}" != "${ONLY}"* ]]; then continue; fi
+  # Matched the --only filter. Tracked separately from `ran`, because a module
+  # that matched but is gated OFF is not "no such module" — reporting it that
+  # way made `--only 95` look like a typo when it had correctly refused to run.
+  matched=$((matched+1))
 
   # `# gate: VAR` in the module header names the converge.conf switch.
   gate_var="$(sed -n 's/^# *gate: *\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' "${module}" | head -1)"
@@ -95,7 +100,10 @@ for module in "${IAC_DIR}"/modules/*.sh; do
   ran=$((ran+1))
 done
 
-[ "${ran}" -eq 0 ] && [ -n "${ONLY}" ] && { printf '\nno module matched --only %s\n' "${ONLY}" >&2; exit 2; }
+if [ -n "${ONLY}" ] && [ "${matched}" -eq 0 ]; then
+  printf '\nno module matched --only %s\n' "${ONLY}" >&2
+  exit 2
+fi
 
 iac_daemon_reload
 
