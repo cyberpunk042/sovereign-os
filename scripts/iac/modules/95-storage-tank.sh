@@ -114,6 +114,45 @@ if [ "${_have_pool}" = 0 ]; then
   fi
 fi
 
+# ---- boot-mount path: zfs-mount-generator ----
+# Ubuntu VENDOR-MASKS zfs-load-key.service (/usr/lib/systemd/system/zfs-load-key
+# .service is a symlink to /dev/null) and relies on zfs-mount-generator instead.
+# That generator reads /etc/zfs/zfs-list.cache/<pool> and emits per-dataset
+# .mount units — including the load-key step for encrypted datasets.
+#
+# On this host that cache directory DID NOT EXIST, so the generator had nothing
+# to work from and /mnt/vault mounted only because zfs-mount.service runs
+# `zfs mount -a`. That is fine while everything is unencrypted and silently
+# fatal the moment it is not: `zfs mount -a` does not load keys, so an encrypted
+# tank/context would simply not mount after a reboot — with no error anywhere
+# obvious. Set the cache up BEFORE encrypting anything.
+#
+# zed's history_event-zfs-list-cacher.sh maintains the file once it exists; it
+# only acts on pools that already have a cache entry, which is why the empty
+# file has to be created by hand first.
+_zlc=/etc/zfs/zfs-list.cache
+if zpool list -H -o name 2>/dev/null | grep -qx "${_pool}"; then
+  ensure_dir "${_zlc}" 0755 root:root
+  if [ -f "${_zlc}/${_pool}" ] && [ -s "${_zlc}/${_pool}" ]; then
+    ok "zfs-list.cache/${_pool} populated ($(wc -l < "${_zlc}/${_pool}") dataset lines)"
+  elif [ "${IAC_DRY_RUN}" = 1 ]; then
+    changed "seed ${_zlc}/${_pool} for zfs-mount-generator"
+  else
+    : > "${_zlc}/${_pool}" 2>/dev/null || true
+    # zed only writes the cache in response to a property-change event, so nudge
+    # one. Setting a property to its current value still emits the history event.
+    zfs set canmount=on "${_pool}" >/dev/null 2>&1 || true
+    sleep 2
+    if [ -s "${_zlc}/${_pool}" ]; then
+      changed "seeded ${_zlc}/${_pool} ($(wc -l < "${_zlc}/${_pool}") dataset lines)"
+      systemctl daemon-reload 2>/dev/null || true
+    else
+      fail "${_zlc}/${_pool} still empty — zed did not populate it; encrypted datasets would not mount at boot"
+      iac_info "check: systemctl is-active zfs-zed  /  /etc/zfs/zed.d/history_event-zfs-list-cacher.sh"
+    fi
+  fi
+fi
+
 # ---- datasets, per profiles.storage.datasets ----
 # tank/models  : 1M recordsize, lz4 — big sequential weight files
 # tank/context : 16k, zstd-9, copies=2, sync=always — the state fabric
@@ -138,7 +177,120 @@ _mk_ds() {
 }
 
 if zpool list -H -o name 2>/dev/null | grep -qx "${_pool}" || [ "${IAC_DRY_RUN}" = 1 ]; then
-  _mk_ds models  -o recordsize=1M  -o compression=lz4    -o redundant_metadata=most
-  _mk_ds context -o recordsize=16k -o compression=zstd-9 -o copies=2 -o sync=always
-  [ "${IAC_DRY_RUN}" = 1 ] || iac_info "encryption NOT enabled on ${_pool}/context — see this module's header"
+  _mk_ds models -o recordsize=1M -o compression=lz4 -o redundant_metadata=most
+
+  # ---- tank/context, optionally encrypted ----
+  # profiles.storage asks for encryption=aes-256-gcm. Operator decision
+  # 2026-07-31: keyfile on the ROOT disk. That is a real boundary here, not the
+  # usual same-disk theatre — tank lives on nvme1n1 and the key on nvme0n1, so
+  # the pool disk leaving the building (RMA, resale, theft, disposal) yields
+  # nothing on its own. It does NOT protect against an attacker who already has
+  # root on the running machine; nothing keyed for unattended boot can.
+  #
+  # keylocation MUST be a file:// URI. zfs-mount-generator rejects a bare path
+  # ("unknown non-URI keylocation=%s") and then emits no zfs-load-key@ unit, so
+  # the dataset would silently fail to mount at boot.
+  _keyfile="${IAC_TANK_KEYFILE:-/etc/zfs/keys/tank-context.key}"
+  _want_enc="${IAC_TANK_ENCRYPT_CONTEXT:-0}"
+  _enc_now="$(zfs get -H -o value encryption "${_pool}/context" 2>/dev/null)"
+
+  if [ "${_want_enc}" != 1 ]; then
+    _mk_ds context -o recordsize=16k -o compression=zstd-9 -o copies=2 -o sync=always
+    [ "${IAC_DRY_RUN}" = 1 ] || iac_info "encryption NOT enabled on ${_pool}/context (IAC_TANK_ENCRYPT_CONTEXT=0)"
+
+  elif [ "${_enc_now}" = "aes-256-gcm" ]; then
+    ok "dataset ${_pool}/context (encrypted, aes-256-gcm)"
+    _ks="$(zfs get -H -o value keystatus "${_pool}/context" 2>/dev/null)"
+    [ "${_ks}" = available ] && ok "key loaded" || fail "key status: ${_ks}"
+
+  elif [ "${IAC_DRY_RUN}" = 1 ]; then
+    changed "recreate ${_pool}/context with aes-256-gcm (destroys it and its snapshots)"
+
+  else
+    # Encryption cannot be turned on in place — the dataset must be recreated.
+    # Refuse if it holds anything meaningful rather than destroying data to
+    # satisfy a config flag.
+    _used_kb="$(zfs get -Hp -o value used "${_pool}/context" 2>/dev/null)"
+    _used_kb=$(( ${_used_kb:-0} / 1024 ))
+    _snaps="$(zfs list -H -t snapshot -o name -r "${_pool}/context" 2>/dev/null | wc -l)"
+    iac_info "${_pool}/context currently: ${_used_kb}KB used, ${_snaps} snapshot(s)"
+    if [ "${_used_kb}" -gt 10240 ] && [ "${IAC_TANK_ENCRYPT_CONFIRM:-}" != "destroy-context" ]; then
+      fail "${_pool}/context holds ${_used_kb}KB — refusing to destroy it to enable encryption"
+      iac_info "encryption cannot be enabled in place; set IAC_TANK_ENCRYPT_CONFIRM=\"destroy-context\" to accept the loss"
+    else
+      # Key first: 32 raw bytes, root-only, on the root disk.
+      if [ ! -s "${_keyfile}" ]; then
+        install -d -m 0700 "$(dirname "${_keyfile}")" 2>/dev/null || true
+        if dd if=/dev/urandom of="${_keyfile}" bs=32 count=1 status=none 2>/dev/null \
+           && chmod 0400 "${_keyfile}" 2>/dev/null; then
+          changed "generated key ${_keyfile} (32 raw bytes, 0400 root)"
+          iac_info "BACK THIS UP. Lose it and ${_pool}/context is unrecoverable."
+        else
+          fail "could not generate ${_keyfile}"
+          return 0 2>/dev/null || exit 0
+        fi
+      else
+        ok "key ${_keyfile} present"
+      fi
+
+      zfs destroy -r "${_pool}/context" >/dev/null 2>&1 || true
+      if zfs create -o recordsize=16k -o compression=zstd-9 -o copies=2 -o sync=always \
+           -o encryption=aes-256-gcm -o keyformat=raw \
+           -o keylocation="file://${_keyfile}" "${_pool}/context" 2>/dev/null; then
+        changed "recreated ${_pool}/context with aes-256-gcm"
+        # Refresh the generator cache so a zfs-load-key@ unit is emitted for it.
+        zfs set canmount=on "${_pool}" >/dev/null 2>&1 || true
+        sleep 2
+        systemctl daemon-reload 2>/dev/null || true
+      else
+        fail "could not create encrypted ${_pool}/context"
+      fi
+    fi
+  fi
+
+  # ---- every dataset must actually be MOUNTED ----
+  # (placed after the encryption branch so it covers every path through it)
+  # `zfs create` leaves the dataset unmounted in some paths, and an unmounted
+  # child leaves a plain directory on the PARENT dataset at the same path. That
+  # is the dangerous case for tank/context specifically: the ms003 audit log and
+  # the snapshot hook would happily write to /mnt/vault/context and land on the
+  # UNENCRYPTED parent, with everything looking fine. Assert mounted state, do
+  # not infer it from the dataset existing.
+  # USE SYSTEMD, NOT `zfs mount`. With zfs-mount-generator active, systemd owns
+  # these mounts: it generates mnt-vault-context.mount from the zfs-list.cache
+  # and pulls it in via local-fs.target.wants. Mounting behind its back with
+  # `zfs mount` makes systemd see a mount appear for a unit it believes is
+  # stopped, and it promptly unmounts it again:
+  #     Unmounting mnt-vault-context.mount ... Deactivated successfully.
+  # which is exactly what happened here — converge reported "mounted", the
+  # dataset came back unmounted seconds later, and /mnt/vault/context reverted
+  # to a plain directory on the UNENCRYPTED parent.
+  for _ds in models context; do
+    [ "${IAC_DRY_RUN}" = 1 ] && continue
+    zfs list -H -o name "${_pool}/${_ds}" >/dev/null 2>&1 || continue
+    _mp="$(zfs get -H -o value mountpoint "${_pool}/${_ds}" 2>/dev/null)"
+    _unit="$(systemd-escape -p --suffix=mount "${_mp}" 2>/dev/null)"
+
+    if [ "$(zfs get -H -o value mounted "${_pool}/${_ds}" 2>/dev/null)" = yes ]; then
+      ok "${_pool}/${_ds} mounted"
+      continue
+    fi
+
+    if [ -n "${_unit}" ] && systemctl cat "${_unit}" >/dev/null 2>&1; then
+      if run "mount-unit" systemctl start "${_unit}"; then
+        # Confirm against ZFS, not against systemd's own report.
+        if [ "$(zfs get -H -o value mounted "${_pool}/${_ds}" 2>/dev/null)" = yes ]; then
+          changed "mounted ${_pool}/${_ds} via ${_unit}"
+        else
+          fail "${_unit} started but ${_pool}/${_ds} is still unmounted"
+        fi
+      else
+        fail "could not start ${_unit} — see: journalctl -u ${_unit}"
+      fi
+    elif zfs mount "${_pool}/${_ds}" 2>/dev/null; then
+      changed "mounted ${_pool}/${_ds}"
+    else
+      fail "${_pool}/${_ds} is NOT mounted — writes to its mountpoint would land on the parent dataset"
+    fi
+  done
 fi
