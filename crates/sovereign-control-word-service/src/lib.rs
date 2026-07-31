@@ -623,9 +623,22 @@ pub enum PersistBackend {
 /// no process is spawned, so this is side-effect-free.
 #[must_use]
 pub fn detect_persist_backend() -> PersistBackend {
-    if on_path("zfs") {
+    detect_persist_backend_with(on_path)
+}
+
+/// The backend-selection RULE, with executable lookup injected: the first of
+/// `zfs` → `criu` → file that is available wins.
+///
+/// Split out because the priority order is the actual contract, and it cannot be
+/// tested through [`detect_persist_backend`] without asserting what happens to
+/// be installed on the machine running the suite. The test that did exactly that
+/// asserted `File` with the comment "in CI there is no zfs/criu", and started
+/// failing the moment this host gained a zpool — the code was right and the test
+/// was pinned to an environment.
+pub fn detect_persist_backend_with(available: impl Fn(&str) -> bool) -> PersistBackend {
+    if available("zfs") {
         PersistBackend::Zfs
-    } else if on_path("criu") {
+    } else if available("criu") {
         PersistBackend::Criu
     } else {
         PersistBackend::File
@@ -907,8 +920,29 @@ mod tests {
 
     #[test]
     fn persist_backend_detects_and_builds_commands() {
-        // in CI there is no zfs/criu → the file fallback (the tested path)
-        assert_eq!(detect_persist_backend(), PersistBackend::File);
+        // Priority order is the contract, asserted with lookup injected so it
+        // holds on a bare CI box and on a host with a zpool alike. Asserting a
+        // fixed value from the real PATH pinned the environment instead.
+        assert_eq!(
+            detect_persist_backend_with(|_| false),
+            PersistBackend::File,
+            "nothing available → the file fallback"
+        );
+        assert_eq!(
+            detect_persist_backend_with(|e| e == "criu"),
+            PersistBackend::Criu
+        );
+        assert_eq!(
+            detect_persist_backend_with(|e| e == "zfs"),
+            PersistBackend::Zfs
+        );
+        assert_eq!(
+            detect_persist_backend_with(|_| true),
+            PersistBackend::Zfs,
+            "zfs outranks criu when both are present"
+        );
+        // The real detector still has to agree with the rule on THIS host.
+        assert_eq!(detect_persist_backend(), detect_persist_backend_with(on_path));
         assert_eq!(snapshot_command(PersistBackend::File, "x", "y"), None);
         // the ZFS/CRIU command construction is pure + exact
         assert_eq!(
