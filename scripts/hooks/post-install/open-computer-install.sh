@@ -137,18 +137,47 @@ if [ ! -s "${OC_BASE}/base.qcow2" ] && [ -n "${base_url}" ]; then
   log_info "downloading the open-computer base image (~3GB, resumable) from ${base_url}"
   tar_dst="${OC_BASE}/base-image.tar"
   if command -v curl >/dev/null 2>&1 && curl -fL -C - --retry 3 -o "${tar_dst}" "${base_url}" 2>/dev/null; then
-    # sha256 sidecar (best-effort verify — a mismatch aborts the extract, keeps the .tar for a retry)
+    # sha256 verify — FAIL CLOSED. A ~3GB image that boots a kernel and then
+    # dies in userspace is indistinguishable from a wedged guest, and costs
+    # hours to diagnose; refusing to extract something we could not verify is
+    # much cheaper than debugging it later. The previous form only verified
+    # when the sidecar happened to download:
+    #     if curl … .sha256; then <compare> ; fi
+    #     tar -xf …            # ran even when that fetch FAILED
+    # so a truncated or corrupted download extracted silently.
+    # Set SOVEREIGN_OS_OC_SKIP_SHA=1 to knowingly accept an unverified image.
     if curl -fsSL -o "${tar_dst}.sha256" "${base_url}.sha256" 2>/dev/null; then
       exp="$(awk '{print $1}' "${tar_dst}.sha256" 2>/dev/null)"
       got="$(sha256sum "${tar_dst}" 2>/dev/null | awk '{print $1}')"
-      if [ -n "${exp}" ] && [ "${exp}" != "${got}" ]; then
+      if [ -z "${exp}" ]; then
+        log_warn "base image checksum file is empty/unparseable — keeping .tar, not extracting"
+        emit_oc_metric base-image-bad-sha; exit 0
+      fi
+      if [ "${exp}" != "${got}" ]; then
         log_warn "base image sha256 mismatch (exp ${exp:0:12}… got ${got:0:12}…) — keeping .tar for resume; not extracting"
         emit_oc_metric base-image-bad-sha; exit 0
       fi
+      log_info "base image sha256 verified (${got:0:12}…)"
+    elif [ "${SOVEREIGN_OS_OC_SKIP_SHA:-0}" = "1" ]; then
+      log_warn "checksum unavailable and SOVEREIGN_OS_OC_SKIP_SHA=1 — extracting UNVERIFIED image"
+      emit_oc_metric base-image-unverified
+    else
+      log_warn "could not fetch ${base_url}.sha256 — refusing to extract an unverifiable ~3GB image"
+      log_warn "  the .tar is kept, so a re-run resumes. To accept it anyway:"
+      log_warn "    SOVEREIGN_OS_OC_SKIP_SHA=1 sovereign-osctl open-computer install"
+      emit_oc_metric base-image-no-sha; exit 0
     fi
-    tar -xf "${tar_dst}" -C "${OC_BASE}" 2>/dev/null && rm -f "${tar_dst}" "${tar_dst}.sha256" \
-      && log_info "base image extracted → ${OC_BASE}" \
-      || log_warn "base image extract hiccup (non-fatal)"
+    # An extract failure must NOT be shrugged off: a partially-extracted image
+    # leaves base.qcow2 present-but-wrong, which every downstream check then
+    # reads as "provisioned".
+    if tar -xf "${tar_dst}" -C "${OC_BASE}" 2>/dev/null; then
+      rm -f "${tar_dst}" "${tar_dst}.sha256"
+      log_info "base image extracted → ${OC_BASE}"
+    else
+      log_warn "base image extract FAILED — removing partial output so this is not mistaken for a good image"
+      rm -f "${OC_BASE}/base.qcow2" "${OC_BASE}/efi-vars.fd"
+      emit_oc_metric base-image-extract-failed; exit 0
+    fi
   else
     log_warn "base image download incomplete (no network?) — resumable via 'sovereign-osctl open-computer install'"
     emit_oc_metric base-image-incomplete; exit 0
