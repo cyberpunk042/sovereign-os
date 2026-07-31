@@ -50,6 +50,15 @@ _dst=/opt/sovereign-os
 #   download, so a truncated image would install silently. Fails closed now.
 #
 # scripts/intelligence/fetch-model.sh                (commit pending)
+# scripts/hooks/recurrent/root-modules-verify.sh   (commit pending)
+# scripts/hooks/recurrent/selfdef-sync.sh          (commit pending)
+#   Both default a checkout path to ${HOME}/... under `set -u`, but systemd
+#   starts a root service with NO HOME (it only sets it when User= is given, and
+#   neither unit does). Both died with "HOME: unbound variable" on every
+#   scheduled fire — weekly, silently — long before reaching the absent-checkout
+#   handling each is designed to have. Found by test-firing the timers that had
+#   never run rather than waiting for 03:00.
+#
 #   Fetched only config.json + tokenizer.json + model.safetensors, omitting
 #   tokenizer_config.json — which is where chat_template and eos_token live, and
 #   which sovereign-gatewayd reads straight out of the model dir (lib.rs:1312).
@@ -60,6 +69,8 @@ scripts/lib/ms003.py
 scripts/sovereign-osctl
 scripts/hooks/post-install/open-computer-install.sh
 scripts/intelligence/fetch-model.sh
+scripts/hooks/recurrent/root-modules-verify.sh
+scripts/hooks/recurrent/selfdef-sync.sh
 "
 
 _patched=0

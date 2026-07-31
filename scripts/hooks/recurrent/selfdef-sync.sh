@@ -37,6 +37,13 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/observability.sh
 . "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
+# systemd starts a root service with NO HOME set (it only populates HOME when
+# User= is given, and these units set neither). Under `set -u` that makes the
+# ${HOME}-derived default below a fatal "unbound variable" — the hook died at
+# that line on every scheduled fire, weekly and silently, long before reaching
+# the absent-checkout handling further down that is designed to report and
+# exit 0. Default it so the script behaves the same run by hand or by timer.
+: "${HOME:=/root}"
 : "${SOVEREIGN_OS_SELFDEF_DIR:=${HOME}/selfdef}"
 : "${SOVEREIGN_OS_SELFDEF_REMOTE:=origin}"
 : "${SOVEREIGN_OS_SELFDEF_BRANCH:=main}"

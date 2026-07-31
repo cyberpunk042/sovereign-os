@@ -29,6 +29,14 @@ __REPO_ROOT="$(cd "${__SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../build/lib/observability.sh
 . "${__REPO_ROOT}/scripts/build/lib/observability.sh"
 
+# systemd starts a root service with NO HOME set (it only populates HOME when
+# User= is given, and these units set neither). Under `set -u` that makes the
+# ${HOME}-derived default below a fatal "unbound variable" — the hook died at
+# that line on every scheduled fire, weekly and silently, long before reaching
+# the absent-checkout handling further down that is designed to report and
+# exit 0. Default it so the script behaves the same run by hand or by timer.
+: "${HOME:=/root}"
+
 # Renamed 2026-07-19: the upstream project root-ghostproxy is now root-modules
 # ("ghostproxy" now names the proxy module combo this binding keeps OFF).
 # Canonical env: SOVEREIGN_OS_ROOT_MODULES_DIR; legacy SOVEREIGN_OS_ROOT_GHOSTPROXY_DIR
