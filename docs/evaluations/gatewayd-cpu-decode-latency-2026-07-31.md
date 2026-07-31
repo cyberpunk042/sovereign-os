@@ -88,6 +88,34 @@ because each step re-reads the weights to produce a single token.
   `sovereign-nvfp4-runtime`'s `blackwell-cuda` feature is an empty placeholder
   for M01283).
 
+## Follow-up — head-skipping prefill, measured
+
+`2b7ff23e` stopped computing the LM head for non-final prefill tokens (their
+logits were discarded). Predicted ~5.9% from MAC counts: the head is
+2048×49152 ≈ 101M against ~1611M for the 24 layers.
+
+Same three prompts, one output token, before and after:
+
+| prompt | before | after | change |
+|---|---|---|---|
+| "Hi" | 19.6s | 18.0s | −8.2% |
+| 14 words | 29.4s | 27.0s | −8.2% |
+| 36 words | 58.1s | 53.8s | −7.4% |
+
+**~8%**, slightly above the MAC-count prediction — plausibly because the head is
+~100M weights re-read per token, so it is more memory-bandwidth-bound than its
+share of arithmetic suggests.
+
+A caution about how this was nearly mis-reported. The first post-change run used
+`"word " × N` prompts instead of the originals and showed −10%/−14%/−34%. That
+was not a speedup; `"word " × 36` simply tokenises to fewer tokens than
+`"Please answer concisely. " × 12`. Changing the workload and the code in the
+same step produced a number 4× too good. The table above re-runs the exact
+baseline prompts.
+
+The conclusion is unchanged: ~8% is real and exact, and prefill remains one full
+forward pass per prompt token. Batched prefill is still where the leverage is.
+
 ## Reproduce
 
 ```sh
