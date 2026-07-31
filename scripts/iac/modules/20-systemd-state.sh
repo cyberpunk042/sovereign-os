@@ -30,11 +30,13 @@
 #   unavailable) but /opt/sovereign-os/bin/sovereign-telemetry does not exist,
 #   so it can only ever fail — once a minute, permanently degrading the system.
 #
-# sovereign-zfs-scrub.timer / sovereign-backup-snapshot.timer: there is no ZFS
-#   pool on this machine (both NVMe devices are vfat/ext4/swap) and, on the
-#   custom 6.12.0 kernel, there was no zfs module either. The stock 7.0.0 kernel
-#   restores the module but the pool still does not exist. Re-enable after
-#   creating the pool these expect (tank/context).
+# sovereign-zfs-scrub.timer / sovereign-backup-snapshot.timer: originally held
+#   down because there was no ZFS pool at all — both NVMe devices were
+#   vfat/ext4/swap, and the custom 6.12.0 kernel had no zfs module either. The
+#   stock 7.0.0 kernel restored the module, and module 95 built the pool the
+#   hooks expect (tank, tank/context) on the reclaimed Debian disk. Their state
+#   is now DERIVED from whether that pool is imported, so they hold themselves
+#   down again if it ever disappears rather than failing on every fire.
 #
 # sovereign-tetragon-verify.timer: tetragon is not installed (no binary,
 #   sovereign-tetragon-install.service is disabled) so the daily verify fails.
@@ -61,11 +63,25 @@ else
   _telemetry_state="disabled"
 fi
 
+# The ZFS timers are derived the same way, on the POOL rather than a binary.
+# Both hooks default to exactly what module 95 builds:
+#     zfs-scrub.sh        SOVEREIGN_OS_POOL_NAME=tank
+#     backup-snapshot.sh  SOVEREIGN_OS_SNAPSHOT_DATASET=tank/context
+# They were held disabled because no pool existed and they would fail on every
+# fire. Timers are STARTED but not run immediately: a weekly scrub and a daily
+# snapshot should begin on their own schedule, not the moment converge runs.
+if zpool list -H -o name 2>/dev/null | grep -qx "${IAC_TANK_POOL:-tank}"; then
+  _zfs_state="enabled started"
+  iac_info "pool '${IAC_TANK_POOL:-tank}' imported → promoting the ZFS timers to enabled"
+else
+  _zfs_state="disabled"
+fi
+
 IAC_UNIT_STATE="
 sovereign-gatewayd.service                ${_gatewayd_state}
 sovereign-telemetry-textfile.timer        ${_telemetry_state}
-sovereign-zfs-scrub.timer                 disabled
-sovereign-backup-snapshot.timer           disabled
+sovereign-zfs-scrub.timer                 ${_zfs_state}
+sovereign-backup-snapshot.timer           ${_zfs_state}
 sovereign-tetragon-verify.timer           disabled
 openipmi.service                          masked
 whoopsie.service                          masked
