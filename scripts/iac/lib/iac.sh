@@ -197,13 +197,21 @@ ensure_unit_state() {
       elif [ "${IAC_DRY_RUN}" = 1 ]; then
         changed "unit ${unit} started"
       else
+        # NRestarts is a SERVICE property. Timers, sockets, targets and mounts
+        # do not have it, and `systemctl show` returns an EMPTY string rather
+        # than an error — so `[ "" -le "" ]` blew up and the guard reported two
+        # perfectly healthy ZFS timers as "flapping (→ restarts)", with both
+        # numbers visibly blank in the message. Coerce to 0 and only compare
+        # when both sides are numeric.
         local _r0 _r1 _settled=0
-        _r0="$(systemctl show "${unit}" -p NRestarts --value 2>/dev/null || echo 0)"
+        _r0="$(systemctl show "${unit}" -p NRestarts --value 2>/dev/null)"
+        case "${_r0}" in ''|*[!0-9]*) _r0=0 ;; esac
         for _ in 1 2 3 4 5 6; do
           sleep 1
           systemctl is-active --quiet "${unit}" 2>/dev/null && { _settled=1; break; }
         done
-        _r1="$(systemctl show "${unit}" -p NRestarts --value 2>/dev/null || echo 0)"
+        _r1="$(systemctl show "${unit}" -p NRestarts --value 2>/dev/null)"
+        case "${_r1}" in ''|*[!0-9]*) _r1=0 ;; esac
 
         if [ "${_settled}" = 1 ] && [ "${_r1}" -le "${_r0}" ] 2>/dev/null; then
           changed "unit ${unit} started"
