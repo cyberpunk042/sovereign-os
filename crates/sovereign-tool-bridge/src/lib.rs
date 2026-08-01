@@ -92,24 +92,37 @@ pub fn tool_specs_to_prompt(specs: &[ToolSpec]) -> String {
     if specs.is_empty() {
         return String::new();
     }
-    // The wording and the worked example both matter, and the original had
-    // neither right. It said ARGS is "a compact JSON object of the tool's
-    // parameters" — true for SDD-711 tools supplied as OpenAI JSON, but WRONG
-    // for the built-in registry, whose tools take a bare string and declare
-    // `parameters: {}`. And it gave no example at all. Asked to compute (2+3)*4
+    // Three things a small model needs, and the original gave none of them: the
+    // exact literal syntax, correct argument semantics, and how to FINISH.
+    //
+    // It said ARGS is "a compact JSON object of the tool's parameters" — true
+    // for SDD-711 tools supplied as OpenAI JSON, but WRONG for the built-in
+    // registry, whose tools take a bare string and declare `parameters: {}`.
+    // And it gave no example at all. Asked to compute (2+3)*4
     // with the calc tool, SmolLM2-1.7B emitted
     //     [[calc: (2+3)*4]]
     // — the right idea with the `tool:` prefix dropped and `|` replaced by `:`.
     // The loop saw no valid call, treated the reply as final, and the model
     // fabricated "14" (the answer is 20). A model that nearly hits the syntax is
     // being failed by the instructions, not only by its size.
+    //
+    // Fixing the syntax exposed the next gap: the model called the tool, got its
+    // `Observation:` back, and called another tool — twice, to the step cap,
+    // never answering. The loop's contract is "a reply with NO tool call IS the
+    // final answer", and nothing anywhere told the model that. The preamble said
+    // only "the result is given back to you", which describes what happens and
+    // not what to do about it. Saying how to finish is as load-bearing as saying
+    // how to call.
     let mut s = String::from(
         "You can call tools. To call one, emit exactly one line of the form \
          [[tool:NAME|ARGS]] — the literal text `[[tool:`, then the tool name, \
          then `|`, then the argument, then `]]`. ARGS is the tool's argument as \
          plain text, or a compact JSON object when the tool takes named \
          parameters. Emit the call ALONE, with no code fence and no explanation, \
-         and stop; the result is given back to you. Available tools:\n",
+         and stop; the result comes back to you on an `Observation:` line. Once \
+         an Observation gives you what you need, reply to the user in plain \
+         words with NO tool call — that reply is your final answer and ends the \
+         task. Available tools:\n",
     );
     for spec in specs {
         s.push_str("- ");
