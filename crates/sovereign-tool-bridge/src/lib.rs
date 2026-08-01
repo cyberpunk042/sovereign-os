@@ -113,16 +113,27 @@ pub fn tool_specs_to_prompt(specs: &[ToolSpec]) -> String {
     // only "the result is given back to you", which describes what happens and
     // not what to do about it. Saying how to finish is as load-bearing as saying
     // how to call.
+    //
+    // And HOW that is said matters. The first attempt read "reply to the user in
+    // plain words with NO tool call — that reply is your final answer". The loop
+    // then terminated correctly and answered
+    //     "No tool call is needed for this task."
+    // — the model narrating the negation instead of answering the question. A
+    // small model primes on the salient phrase, and "NO tool call" was the most
+    // salient thing in the sentence. The instruction is now positive and shows
+    // the shape of a finished answer (`Observation: 20` -> `The answer is 20.`)
+    // rather than describing what the reply must not contain.
     let mut s = String::from(
         "You can call tools. To call one, emit exactly one line of the form \
          [[tool:NAME|ARGS]] — the literal text `[[tool:`, then the tool name, \
          then `|`, then the argument, then `]]`. ARGS is the tool's argument as \
          plain text, or a compact JSON object when the tool takes named \
          parameters. Emit the call ALONE, with no code fence and no explanation, \
-         and stop; the result comes back to you on an `Observation:` line. Once \
-         an Observation gives you what you need, reply to the user in plain \
-         words with NO tool call — that reply is your final answer and ends the \
-         task. Available tools:\n",
+         and stop; the result comes back to you on an `Observation:` line. When \
+         an `Observation:` line holds the result, write the answer to the user's \
+         question in plain words, stating the result itself — for example, \
+         after `Observation: 20`, write `The answer is 20.` That sentence ends \
+         the task. Available tools:\n",
     );
     for spec in specs {
         s.push_str("- ");

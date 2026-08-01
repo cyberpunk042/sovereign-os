@@ -237,7 +237,37 @@ pub fn run_loop<R: Responder>(
     let mut agent =
         AgentLoop::new(responder, registry, max_steps).with_repeat_guard(DEFAULT_MAX_REPEATS);
     match agent.run(&format!("{preamble}\n\nUser: {user}"), seed) {
-        Ok(result) => format_agent_answer(&result),
+        Ok(result) => {
+            // Log what the loop actually DID. Only the final answer reaches the
+            // caller, so without this there is no way — from the response, the
+            // journal, or anywhere else — to tell a turn that called a tool and
+            // used its result from one that called nothing and made the answer
+            // up. Both look like a plain assistant message. Diagnosing a wrong
+            // answer meant guessing at which of the two had happened.
+            for (i, step) in result.steps.iter().enumerate() {
+                match &step.tool {
+                    Some(o) => eprintln!(
+                        "sovereign-gatewayd: agentic step {}/{}: {}({}) -> {}",
+                        i + 1,
+                        max_steps,
+                        o.call.name,
+                        o.call.args,
+                        o.result
+                    ),
+                    None => eprintln!(
+                        "sovereign-gatewayd: agentic step {}/{}: no tool call (final answer)",
+                        i + 1,
+                        max_steps
+                    ),
+                }
+            }
+            eprintln!(
+                "sovereign-gatewayd: agentic finished after {} step(s): {:?}",
+                result.steps.len(),
+                result.stop_reason
+            );
+            format_agent_answer(&result)
+        }
         Err(e) => format!("[agentic error: {e}]"),
     }
 }
