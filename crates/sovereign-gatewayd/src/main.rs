@@ -1748,11 +1748,21 @@ fn stream_chat_completions(
             let _ = write_sse(writer, &obj);
         }
         let final_obj = match gen_res {
-            Ok(n) => serde_json::json!({
-                "id": &id, "object": "chat.completion.chunk",
-                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-                "usage": {"completion_tokens": n, "prompt_tokens": 0, "total_tokens": n},
-            }),
+            Ok(n) => {
+                // OpenAI semantics: "length" when the cap ended generation,
+                // "stop" only when the model chose to stop. This was hard-coded
+                // to "stop", so a truncated answer was indistinguishable from a
+                // finished one and NO client could tell. With max_tokens
+                // defaulting to 96, a console reply simply ceased mid-sentence
+                // ("However, I won't be") and read as a freeze — there was
+                // nothing in the stream to say otherwise.
+                let reason = if n >= max_new { "length" } else { "stop" };
+                serde_json::json!({
+                    "id": &id, "object": "chat.completion.chunk",
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": reason}],
+                    "usage": {"completion_tokens": n, "prompt_tokens": 0, "total_tokens": n},
+                })
+            }
             Err(e) => serde_json::json!({
                 "id": &id, "object": "chat.completion.chunk",
                 "choices": [{"index": 0,
@@ -1791,11 +1801,21 @@ fn stream_chat_completions(
                     // Honor `stop`: truncate at the earliest stop sequence
                     // (no-op when none configured).
                     let content = stops.cut(&buf).to_string();
+                    // Same contract as the streaming path: report "length" when
+                    // the cap ended generation. A configured stop sequence that
+                    // actually cut the buffer is a real stop even at the cap, so
+                    // it takes precedence.
+                    let cut_by_stop = content.len() < buf.len();
+                    let reason = if !cut_by_stop && n >= max_new {
+                        "length"
+                    } else {
+                        "stop"
+                    };
                     total_completion += n;
                     choices.push(serde_json::json!({
                         "index": index,
                         "message": {"role": "assistant", "content": content},
-                        "finish_reason": "stop"
+                        "finish_reason": reason
                     }));
                 }
                 Err(e) => {

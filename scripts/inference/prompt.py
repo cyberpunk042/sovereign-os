@@ -51,6 +51,12 @@ MODEL_LATENCY_PATH = Path(os.environ.get(
 MAX_PROMPT_CHARS = int(os.environ.get("SOVEREIGN_OS_MAX_PROMPT_CHARS", "8000"))
 MAX_CHAT_TURNS = int(os.environ.get("SOVEREIGN_OS_MAX_CHAT_TURNS", "8"))  # SDD-103
 DEFAULT_TIMEOUT = int(os.environ.get("SOVEREIGN_OS_PROMPT_TIMEOUT", "300"))
+# Generation budget for a chat turn. The gateway's own default is 96 tokens,
+# which truncates an ordinary answer mid-sentence — a console reply ended at
+# "However, I won't be" and read as a freeze, because the gateway also reported
+# finish_reason "stop" for it. Chat surfaces need room for a real answer; the
+# gateway clamps to 1024 regardless, so this cannot exceed what it will serve.
+MAX_NEW_TOKENS = int(os.environ.get("SOVEREIGN_OS_MAX_NEW_TOKENS", "512"))
 
 # QCFA + interactive-clarification scaffold (docs/standing-directives/
 # 2026-07-11-qcfa-interactive-clarification.md). OPT-IN via SOVEREIGN_OS_QCFA so
@@ -208,7 +214,7 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
     # Interactive-clarification scaffold (opt-in) — makes the sovereign AI a
     # thinking partner (hold execution, interview first) when a capable model runs.
     chat = _maybe_prepend_qcfa(chat)
-    body = {"model": model, "messages": chat,
+    body = {"model": model, "messages": chat, "max_tokens": MAX_NEW_TOKENS,
             "stream": True, "stream_options": {"include_usage": True}}
     # M075 device-target override (cpu0/gpu0/gpu1) — the router honors it as an
     # explicit routing signal and strips it before proxying. "auto"/blank → normal
@@ -219,6 +225,7 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
     tier = _classify(body)
     started = time.monotonic()
     tokens = 0
+    finish_reason = None
     try:
         for payload in _stream_completion(body, timeout):
             if payload == "[DONE]":
@@ -232,6 +239,12 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
                 tokens = int(usage["completion_tokens"])
             choices = chunk.get("choices") or []
             if choices:
+                # "length" means the token budget ended the answer, not the model.
+                # Carried into the done event so a surface can say so instead of
+                # rendering a sentence that simply stops.
+                fr = choices[0].get("finish_reason")
+                if fr:
+                    finish_reason = fr
                 delta = (choices[0].get("delta") or {}).get("content")
                 if delta:
                     tokens += 0 if usage else 1  # count deltas only w/o usage
@@ -245,7 +258,8 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
     elapsed = max(time.monotonic() - started, 1e-6)
     tps = round(tokens / elapsed, 2) if tokens else 0.0
     yield {"type": "done", "tokens": tokens, "elapsed_s": round(elapsed, 3),
-           "tokens_per_sec": tps, "tier": tier}
+           "tokens_per_sec": tps, "tier": tier,
+           "finish_reason": finish_reason, "truncated": finish_reason == "length"}
 
 
 def publish_telemetry(tier: str, tokens_per_sec: float, latency_ms: float | None = None,

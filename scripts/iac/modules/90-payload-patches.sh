@@ -77,6 +77,16 @@ _dst=/opt/sovereign-os
 #   handler counted it as a clean end of stream: the browser got HTTP 200 with
 #   an EMPTY body and the console rendered "(no response)". Direct to :8140 the
 #   same request streamed fine — only the browser's hop through :8100 failed.
+#
+# scripts/inference/prompt.py                       (with the gatewayd fix below)
+# webapp/code-console/index.html
+#   Chat sent no max_tokens, so every answer took the gateway's 96-token default
+#   and stopped mid-sentence; the gateway then reported finish_reason "stop" for
+#   it, so nothing downstream could tell a capped answer from a finished one and
+#   it read as a freeze. prompt.py now asks for a real budget
+#   (SOVEREIGN_OS_MAX_NEW_TOKENS, default 512; the gateway clamps at 1024) and
+#   carries finish_reason into its done event; the console renders an explicit
+#   "truncated at N tokens" note instead of a sentence that simply ends.
 _files="
 scripts/lib/ms003.py
 scripts/sovereign-osctl
@@ -85,6 +95,8 @@ scripts/intelligence/fetch-model.sh
 scripts/hooks/recurrent/root-modules-verify.sh
 scripts/hooks/recurrent/selfdef-sync.sh
 scripts/operator/build-configurator-api.py
+scripts/inference/prompt.py
+webapp/code-console/index.html
 "
 
 _patched=0

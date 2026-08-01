@@ -2729,7 +2729,20 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
           let ev; try { ev = JSON.parse(dm[1]); } catch { continue; }
           if (ev.type === 'token') { acc += ev.text; span.textContent = acc; t.scrollTop = t.scrollHeight; }
           else if (ev.type === 'error') { hadError = true; span.textContent = '⚠ ' + ev.error; }
-          else if (ev.type === 'done') { out.title = `${ev.tier} · ${ev.tokens} tok · ${ev.tokens_per_sec} tok/s`; }
+          else if (ev.type === 'done') {
+            out.title = `${ev.tier} · ${ev.tokens} tok · ${ev.tokens_per_sec} tok/s`
+              + (ev.truncated ? ' · TRUNCATED at the token budget' : '');
+            // An answer that stops at the budget must SAY so. Without this a
+            // capped reply just ends mid-sentence and reads as a freeze.
+            if (ev.truncated) {
+              const m = document.createElement('div');
+              m.className = 'meta';
+              m.textContent = '⋯ truncated at ' + ev.tokens
+                + ' tokens (the budget, not the end of the answer) — '
+                + 'raise SOVEREIGN_OS_MAX_NEW_TOKENS or ask it to continue';
+              out.appendChild(m);
+            }
+          }
         }
       }
       if (!acc && !hadError) span.textContent = '(no response)';
