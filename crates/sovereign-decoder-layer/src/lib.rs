@@ -441,6 +441,53 @@ mod tests {
     }
 
     #[test]
+    fn reset_rewinds_every_layer_type_including_an_mha_first_stack() {
+        // `positions()` reads only the FIRST layer, so a stack led by a
+        // transformer block (whose len() IS values.len(), self-clearing) reports
+        // 0 after reset even if a later MHA layer kept its own `position`
+        // counter advanced. That is exactly how an incomplete reset hid: the
+        // stack looked rewound while MHA layers went on rotating RoPE by the
+        // previous sequence's length. Lead with MHA so the counter is the thing
+        // being read, and assert on every ordering.
+        // Built twice from the same recipe so "after reset" can be compared
+        // against a genuinely fresh stack of IDENTICAL composition.
+        type Recipe = fn() -> Vec<Box<dyn DecoderLayer>>;
+        let recipes: [Recipe; 2] = [
+            || {
+                vec![
+                    Box::new(mha_layer(Precision::F32)) as Box<dyn DecoderLayer>,
+                    Box::new(quant_layer(Precision::F32)),
+                    Box::new(transformer_layer()),
+                ]
+            },
+            || {
+                vec![
+                    Box::new(transformer_layer()) as Box<dyn DecoderLayer>,
+                    Box::new(mha_layer(Precision::F32)),
+                ]
+            },
+        ];
+        for recipe in recipes {
+            let mut stack = LayerStack::new(recipe()).unwrap();
+            let h = vec![0.1f32; MD];
+            stack.run(&h).unwrap();
+            stack.run(&h).unwrap();
+            assert_eq!(stack.positions(), 2);
+
+            stack.reset();
+            assert_eq!(stack.positions(), 0, "reset must rewind the lead layer");
+
+            // The assertion that actually catches a stale RoPE position rather
+            // than merely a stale counter: the first run after reset must equal
+            // the first run of an identical, never-used stack.
+            let after = stack.run(&h).unwrap();
+            let mut fresh = LayerStack::new(recipe()).unwrap();
+            let first = fresh.run(&h).unwrap();
+            assert_eq!(after, first, "a reset stack must behave like a fresh one");
+        }
+    }
+
+    #[test]
     fn width_mismatch_surfaces_the_failing_layer() {
         let mut stack = LayerStack::new(vec![Box::new(transformer_layer())]).unwrap();
         let err = stack.run(&[1.0, 2.0]).unwrap_err();

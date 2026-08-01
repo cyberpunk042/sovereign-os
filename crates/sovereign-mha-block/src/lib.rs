@@ -918,11 +918,22 @@ impl MhaDecoderBlock {
 
     /// Drop this block's KV cache so the next `step` begins a NEW sequence.
     ///
-    /// Only `rotated_keys`/`values` are per-sequence; every other field is
-    /// weights or shape and survives untouched. The storage mode is preserved.
+    /// `rotated_keys`/`values` AND `position` are all per-sequence; every other
+    /// field is weights or shape and survives untouched. The storage mode is
+    /// preserved.
+    ///
+    /// `position` is easy to miss and the most damaging to omit — it is what
+    /// RoPE rotates by, and what `len()`/`is_empty()` report. The first version
+    /// of this method cleared only the two vectors, so a second sequence on the
+    /// same block was rotated by the FIRST sequence's length while reporting a
+    /// cache it no longer held. Unlike the other two block types, whose `len()`
+    /// is `values.len()` and therefore self-clearing, this one keeps its own
+    /// counter because the sliding window evicts entries without un-advancing
+    /// the sequence.
     pub fn reset_cache(&mut self) {
         self.rotated_keys.clear();
         self.values.clear();
+        self.position = 0;
     }
 
     /// Whether this block stores its KV cache NVFP4-compressed.
@@ -1231,7 +1242,7 @@ mod tests {
         (0..n).map(|i| ((i as f32 + s) * 0.017).sin()).collect()
     }
 
-    fn weights(
+    pub(super) fn weights(
         model_dim: usize,
         head_dim: usize,
         num_q: usize,
@@ -2326,5 +2337,37 @@ mod tests {
             let b = gpu.step(&x).unwrap();
             assert_eq!(a, b, "step {step}: fold seam not bit-exact with CPU path");
         }
+    }
+}
+
+#[cfg(test)]
+mod reset_probe {
+    use super::tests::weights;
+    use super::*;
+
+    /// reset_cache must return the block to a FRESH state, not merely drop the
+    /// cached vectors: `position` is what RoPE rotates by, so leaving it
+    /// advanced silently rotates the next sequence's tokens by the previous
+    /// sequence's length. `len()`/`is_empty()` read it too, so a stale position
+    /// also makes the block report a cache it no longer has.
+    #[test]
+    fn reset_cache_rewinds_the_rope_position_too() {
+        let w = weights(4, 4, 1, 1, 4);
+        let mut b = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        let h = vec![0.1f32; 4];
+        b.step(&h).unwrap();
+        b.step(&h).unwrap();
+        assert_eq!(b.len(), 2, "two positions processed");
+
+        b.reset_cache();
+        assert_eq!(b.len(), 0, "reset must rewind the RoPE position");
+        assert!(b.is_empty(), "reset must leave the block empty");
+
+        // The decisive check: a step after reset must equal the FIRST step of a
+        // fresh block. Comparing only len() would pass even with RoPE stuck.
+        let after = b.step(&h).unwrap();
+        let mut fresh = MhaDecoderBlock::from_weights(&w, Precision::F32).unwrap();
+        let first = fresh.step(&h).unwrap();
+        assert_eq!(after, first, "a reset block must behave like a fresh one");
     }
 }
