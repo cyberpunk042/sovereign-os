@@ -151,6 +151,14 @@ pub struct QuantModel {
     sampler: Sampler,
     recent: Vec<usize>,
     recent_window: usize,
+    /// The exact token sequence currently held in the stack's KV cache, in
+    /// order. Lets a generation reuse the longest common prefix with a new
+    /// prompt instead of re-prefilling from zero.
+    cached: Vec<usize>,
+    /// How many tokens the LAST prefill actually forwarded (prompt length minus
+    /// the reused prefix). Observability for the reuse path — a cache that
+    /// silently stops being hit is otherwise invisible.
+    prefilled: usize,
     /// Decode execution mode (SDD-401). `Cpu` (default) runs the reference
     /// path; `GpuFold` is the opt-in hotswap.
     exec_mode: ExecMode,
@@ -196,6 +204,8 @@ impl QuantModel {
             sampler,
             recent: Vec::new(),
             recent_window: 64,
+            cached: Vec::new(),
+            prefilled: 0,
             exec_mode: ExecMode::Cpu,
             fold_backend: None,
         })
@@ -232,6 +242,8 @@ impl QuantModel {
             sampler,
             recent: Vec::new(),
             recent_window: 64,
+            cached: Vec::new(),
+            prefilled: 0,
             exec_mode: ExecMode::Cpu,
             fold_backend: None,
         })
@@ -364,6 +376,49 @@ impl QuantModel {
     pub fn reset(&mut self) {
         self.stack.reset();
         self.recent.clear();
+        self.cached.clear();
+    }
+
+    /// Tokens forwarded during the last prefill. With prefix reuse this is
+    /// `prompt.len() - reused`, so a repeated prompt reports 1 (only the final
+    /// token, whose logits are needed, is recomputed).
+    pub fn last_prefill_len(&self) -> usize {
+        self.prefilled
+    }
+
+    /// Prefill `prompt`, reusing the longest prefix already in the KV cache, and
+    /// return the logits of its LAST token.
+    ///
+    /// Correctness rests on one property: a cached position's key/value depends
+    /// only on the tokens at or before it, so if the first `k` tokens of the new
+    /// prompt equal the first `k` cached tokens, those entries are bit-identical
+    /// to what a fresh prefill would produce. RoPE is applied at absolute
+    /// positions, which truncation preserves.
+    ///
+    /// The last prompt token is ALWAYS recomputed even when cached: generation
+    /// needs its logits, and logits are not stored.
+    fn prefill_reusing_prefix(&mut self, prompt: &[usize]) -> Result<Vec<f32>, QuantModelError> {
+        let last = prompt.len() - 1;
+        let mut lcp = 0;
+        while lcp < last && lcp < self.cached.len() && self.cached[lcp] == prompt[lcp] {
+            lcp += 1;
+        }
+        // Trust what the stack RETAINED, not what was asked for — a layer under
+        // a sliding window may hold less (see LayerStack::truncate).
+        let reused = self.stack.truncate(lcp);
+        self.cached.truncate(reused);
+
+        let mut logits = Vec::new();
+        for (i, &t) in prompt.iter().enumerate().skip(reused) {
+            if i == last {
+                logits = self.forward(t)?;
+            } else {
+                self.forward_prefill(t)?;
+            }
+            self.cached.push(t);
+        }
+        self.prefilled = prompt.len() - reused;
+        Ok(logits)
     }
 
     fn embed(&self, token: usize) -> Vec<f32> {
@@ -543,20 +598,14 @@ impl QuantModel {
         // `seed + position`, so identical requests diverge, and the model can
         // continue a STRANGER'S conversation — closing an inherited turn with
         // `<|im_end|>` and opening a `<|im_start|>user` turn of its own.
-        self.reset();
+        // The repetition window is per-RESPONSE and always starts empty; the KV
+        // cache is not, and is reused up to the longest common prefix.
+        self.recent.clear();
         // Only the LAST prompt token's logits are used — the rest are fed in to
         // build KV state. forward_prefill skips the LM head for those, which is
         // exact (the head is a pure function of the hidden state) and saves
         // ~5.9% of each prefill token's work on a 1.7B/49152-vocab model.
-        let mut logits = Vec::new();
-        let last = prompt.len() - 1;
-        for (i, &t) in prompt.iter().enumerate() {
-            if i == last {
-                logits = self.forward(t)?;
-            } else {
-                self.forward_prefill(t)?;
-            }
-        }
+        let mut logits = self.prefill_reusing_prefix(prompt)?;
         let mut generated = Vec::with_capacity(max_new);
         for _ in 0..max_new {
             mask.apply(&mut logits);
@@ -576,6 +625,9 @@ impl QuantModel {
             generated.push(token);
             on_token(token);
             logits = self.forward(token)?;
+            // The generated token is now IN the cache; the prefix bookkeeping
+            // must say so, or the next call would reuse positions it cannot see.
+            self.cached.push(token);
         }
         Ok(generated)
     }
@@ -612,11 +664,8 @@ impl QuantModel {
         // Same contract as generate_masked_until_with: a complete prompt starts
         // a new sequence. gatewayd reaches THIS loop whenever a token-law is
         // compiled for the request, so it needs the reset just as much.
-        self.reset();
-        let mut logits = Vec::new();
-        for &t in prompt {
-            logits = self.forward(t)?;
-        }
+        self.recent.clear();
+        let mut logits = self.prefill_reusing_prefix(prompt)?;
         let mut generated = Vec::with_capacity(max_new);
         for _ in 0..max_new {
             let Some(allow) = law_fn(&generated) else {
@@ -634,6 +683,9 @@ impl QuantModel {
             generated.push(token);
             on_token(token);
             logits = self.forward(token)?;
+            // The generated token is now IN the cache; the prefix bookkeeping
+            // must say so, or the next call would reuse positions it cannot see.
+            self.cached.push(token);
         }
         Ok(generated)
     }
@@ -1029,6 +1081,59 @@ mod tests {
             first, fresh,
             "a reused model must generate exactly what a fresh one does"
         );
+    }
+
+    #[test]
+    fn prefix_reuse_skips_the_shared_prompt_and_changes_no_output() {
+        // The optimization has to be OBSERVABLE, or "it's cached" is a claim
+        // nobody can check — the whole point is the agentic loop re-sending a
+        // ~210-token preamble every step. last_prefill_len() reports what the
+        // prefill actually forwarded, so reuse is asserted, not assumed. Every
+        // case also pins the output against a FRESH model: a cache that changes
+        // results is worse than no cache.
+        let mask = LogitMask::new();
+        let cfg = || Sampler::new(SamplerConfig::default());
+        let fresh_run = |p: &[usize]| {
+            mixed_model(8, cfg())
+                .generate_masked_until_with(p, 4, 0, &LogitMask::new(), &[], |_| {})
+                .unwrap()
+        };
+
+        let mut m = mixed_model(8, cfg());
+        let a = m
+            .generate_masked_until_with(&[1, 2, 3], 4, 0, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(m.last_prefill_len(), 3, "cold cache prefills the whole prompt");
+
+        // Identical prompt: everything but the final token is reused. The final
+        // one is always recomputed — generation needs its logits, and logits are
+        // not stored alongside the KV entries.
+        let b = m
+            .generate_masked_until_with(&[1, 2, 3], 4, 0, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(m.last_prefill_len(), 1, "repeat prompt ⇒ only the last token");
+        assert_eq!(a, b, "reuse must not change the output");
+
+        // Shares a 2-token prefix with what the cache holds, then diverges.
+        let c = m
+            .generate_masked_until_with(&[1, 2, 7], 4, 0, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(m.last_prefill_len(), 1, "shared [1,2] reused, [7] forwarded");
+        assert_eq!(c, fresh_run(&[1, 2, 7]), "a reused prefix must be exact");
+
+        // No shared prefix at all ⇒ full prefill, no false reuse.
+        let d = m
+            .generate_masked_until_with(&[5, 6, 7], 4, 0, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(m.last_prefill_len(), 3, "nothing shared ⇒ nothing reused");
+        assert_eq!(d, fresh_run(&[5, 6, 7]));
+
+        // An explicit reset drops the prefix, so the next prompt is cold again.
+        m.reset();
+        let _ = m
+            .generate_masked_until_with(&[5, 6, 7], 4, 0, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(m.last_prefill_len(), 3, "reset must invalidate the prefix");
     }
 
     #[test]

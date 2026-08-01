@@ -174,6 +174,16 @@ impl QuantDecoderBlock {
         self.values.clear();
     }
 
+    /// Keep the first `n` cached positions; returns how many are retained.
+    /// `len()` here IS `values.len()`, so there is no separate counter to
+    /// rewind (unlike the multi-head block, which tracks its own position).
+    pub fn truncate_cache(&mut self, n: usize) -> usize {
+        let keep = n.min(self.values.len());
+        self.rotated_keys.truncate(keep);
+        self.values.truncate(keep);
+        keep
+    }
+
     /// Average bits/param across the seven projections at this precision.
     pub fn bits_per_param(&self) -> f64 {
         let ls = [

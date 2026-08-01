@@ -101,6 +101,14 @@ impl KvStore {
         }
     }
 
+    /// Keep only the first `n` cached positions, preserving the storage mode.
+    fn truncate(&mut self, n: usize) {
+        match self {
+            KvStore::Full(v) => v.truncate(n),
+            KvStore::Quant(v) => v.truncate(n),
+        }
+    }
+
     /// Drop every cached position, PRESERVING the storage mode — a block built
     /// with `with_quantized_kv` must stay quantized across a reset.
     fn clear(&mut self) {
@@ -934,6 +942,27 @@ impl MhaDecoderBlock {
         self.rotated_keys.clear();
         self.values.clear();
         self.position = 0;
+    }
+
+    /// Keep the first `n` cached positions and rewind `position` to match, so
+    /// the next `step` continues the sequence AT position `n`. Returns how many
+    /// positions are actually retained.
+    ///
+    /// The return value is not decoration. Under a sliding window the cache is
+    /// no longer a prefix of the sequence — old entries were evicted — so a
+    /// positional truncate is meaningless and this drops everything and reports
+    /// 0. A caller reusing a prompt prefix MUST believe the returned count
+    /// rather than the one it asked for.
+    pub fn truncate_cache(&mut self, n: usize) -> usize {
+        if self.window.is_some() && self.values.len() < self.position {
+            self.reset_cache();
+            return 0;
+        }
+        let keep = n.min(self.values.len());
+        self.rotated_keys.truncate(keep);
+        self.values.truncate(keep);
+        self.position = keep;
+        keep
     }
 
     /// Whether this block stores its KV cache NVFP4-compressed.

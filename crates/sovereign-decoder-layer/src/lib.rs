@@ -75,6 +75,18 @@ pub trait DecoderLayer: std::fmt::Debug + Send {
     /// test that builds a fresh model per generation.
     fn reset_cache(&mut self);
 
+    /// Keep only the first `n` cached positions, so the next
+    /// [`step`](Self::step) continues the sequence AT position `n`. Returns how
+    /// many positions were ACTUALLY retained, which may be fewer than `n`.
+    ///
+    /// The return value is the contract. A layer that cannot honour a positional
+    /// truncate — a sliding window has evicted entries, so its cache is no
+    /// longer a prefix of the sequence — must drop what it has and report the
+    /// smaller number. A caller reusing a cached prompt prefix has to trust the
+    /// reported count, never the requested one, or it will believe positions are
+    /// cached that are not.
+    fn truncate_cache(&mut self, n: usize) -> usize;
+
     /// `(num_experts, experts_per_tok)` when this layer's FFN is a mixture of
     /// experts, else `None` for a dense layer. Lets a [`LayerStack`] report a
     /// model's MoE shape (how many layers are sparse, the expert count / top-k)
@@ -95,6 +107,9 @@ impl DecoderLayer for DecoderBlock {
     fn reset_cache(&mut self) {
         DecoderBlock::reset_cache(self)
     }
+    fn truncate_cache(&mut self, n: usize) -> usize {
+        DecoderBlock::truncate_cache(self, n)
+    }
 }
 
 impl DecoderLayer for QuantDecoderBlock {
@@ -107,6 +122,9 @@ impl DecoderLayer for QuantDecoderBlock {
     fn reset_cache(&mut self) {
         QuantDecoderBlock::reset_cache(self)
     }
+    fn truncate_cache(&mut self, n: usize) -> usize {
+        QuantDecoderBlock::truncate_cache(self, n)
+    }
 }
 
 impl DecoderLayer for MhaDecoderBlock {
@@ -118,6 +136,9 @@ impl DecoderLayer for MhaDecoderBlock {
     }
     fn reset_cache(&mut self) {
         MhaDecoderBlock::reset_cache(self)
+    }
+    fn truncate_cache(&mut self, n: usize) -> usize {
+        MhaDecoderBlock::truncate_cache(self, n)
     }
     fn moe_layer_info(&self) -> Option<(usize, usize)> {
         self.is_moe()
@@ -198,6 +219,28 @@ impl LayerStack {
         for layer in &mut self.layers {
             layer.reset_cache();
         }
+    }
+
+    /// Keep only the first `n` cached positions in EVERY layer, returning the
+    /// number retained across the whole stack — the MINIMUM any layer managed.
+    ///
+    /// The minimum is the only safe answer: the stack advances in lockstep, so a
+    /// prefix is only genuinely reusable up to the shallowest layer that still
+    /// holds it. Reporting anything higher would let a caller skip re-prefilling
+    /// positions that some layer has already dropped.
+    pub fn truncate(&mut self, n: usize) -> usize {
+        let mut retained = n;
+        for layer in &mut self.layers {
+            retained = retained.min(layer.truncate_cache(n));
+        }
+        // A layer that retained less than the others leaves the stack ragged —
+        // level it by truncating every layer to the agreed depth.
+        if retained < n {
+            for layer in &mut self.layers {
+                layer.truncate_cache(retained);
+            }
+        }
+        retained
     }
 
     /// Run one position through every layer in order, threading the hidden

@@ -175,6 +175,16 @@ impl DecoderBlock {
         self.values.clear();
     }
 
+    /// Keep the first `n` cached positions; returns how many are retained.
+    /// `len()` here IS `values.len()`, so there is no separate counter to
+    /// rewind (unlike the multi-head block, which tracks its own position).
+    pub fn truncate_cache(&mut self, n: usize) -> usize {
+        let keep = n.min(self.values.len());
+        self.rotated_keys.truncate(keep);
+        self.values.truncate(keep);
+        keep
+    }
+
     /// Advance one position: consume a token's `hidden` state, extend the KV
     /// cache with this token's key/value (causal self-attention therefore
     /// includes the new token), and return the updated hidden state.
