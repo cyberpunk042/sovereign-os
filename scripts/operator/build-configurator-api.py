@@ -1114,6 +1114,11 @@ class Handler(BaseHTTPRequestHandler):
         try:
             conn.request(method, path,
                          body=body if method == "POST" else None, headers=headers)
+            # Grab the socket BEFORE getresponse(). For a streaming response
+            # http.client transfers ownership to the response object and sets
+            # conn.sock = None, so the streaming branch below cannot reach it
+            # afterwards — see the timeout-clearing comment there.
+            sock = conn.sock
             r = conn.getresponse()
         except (OSError, http.client.HTTPException) as e:
             conn.close()
@@ -1138,9 +1143,19 @@ class Handler(BaseHTTPRequestHandler):
         # API not reachable, timed out'). No read timeout: an idle console sitting
         # at a login prompt must not trip a cutoff. Runs in its own thread
         # (ThreadingHTTPServer), so it never blocks other hub requests.
+        # Clear the read timeout on the socket captured above, NOT on conn.sock:
+        # by now http.client has set conn.sock to None for a streaming response,
+        # so `conn.sock.settimeout(None)` raised AttributeError, the bare except
+        # swallowed it, and the 30s ceiling stayed armed on every stream. A
+        # /api/code-console/chat generation needs ~40s+ before its first token
+        # (CPU decode at ~1 tok/s), so read1() below raised TimeoutError at
+        # exactly 30s, the OSError handler treated it as a clean end of stream,
+        # and the browser got HTTP 200 with an EMPTY body — rendered in the
+        # console as "(no response)" with no error anywhere to explain it.
         try:
-            conn.sock.settimeout(None)
-        except (AttributeError, OSError):
+            if sock is not None:
+                sock.settimeout(None)
+        except OSError:
             pass
         self.send_response(r.status)
         self.send_header("Content-Type", rtype)
@@ -1160,6 +1175,21 @@ class Handler(BaseHTTPRequestHandler):
                     break
                 self.wfile.write(chunk)
                 self.wfile.flush()
+        except TimeoutError:
+            # Must be caught BEFORE OSError (it is a subclass). The timeout is
+            # cleared above, so this should be unreachable — but silence is how
+            # the 30s cutoff hid for as long as it did: an empty 200 is
+            # indistinguishable from a model that had nothing to say. Emit an
+            # SSE error frame instead; the headers are long gone, so this is the
+            # only honest channel left. Panels that read {"type":"error"} will
+            # show it (the code-console composer does).
+            try:
+                self.wfile.write(
+                    b'event: error\ndata: {"type": "error", '
+                    b'"error": "proxy read timeout waiting on the backing API"}\n\n')
+                self.wfile.flush()
+            except OSError:
+                pass
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass  # client disconnected — normal end of a live stream
         finally:

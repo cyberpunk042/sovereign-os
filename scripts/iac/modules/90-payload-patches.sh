@@ -67,6 +67,16 @@ _dst=/opt/sovereign-os
 #   weekly, silently — ~30 lines above the absent-checkout handling each was
 #   deliberately written to have. Found by test-firing the timers that had never
 #   run, rather than waiting for 03:00.
+#
+# scripts/operator/build-configurator-api.py
+#   The cockpit hub's _proxy cleared its 30s read timeout via `conn.sock`, which
+#   http.client has already set to None for a streaming (no Content-Length)
+#   response — so the AttributeError was swallowed by a bare except and the
+#   ceiling stayed armed. /api/code-console/chat needs ~40s+ before its first
+#   token on CPU, so read1() raised TimeoutError at exactly 30s and the OSError
+#   handler counted it as a clean end of stream: the browser got HTTP 200 with
+#   an EMPTY body and the console rendered "(no response)". Direct to :8140 the
+#   same request streamed fine — only the browser's hop through :8100 failed.
 _files="
 scripts/lib/ms003.py
 scripts/sovereign-osctl
@@ -74,6 +84,7 @@ scripts/hooks/post-install/open-computer-install.sh
 scripts/intelligence/fetch-model.sh
 scripts/hooks/recurrent/root-modules-verify.sh
 scripts/hooks/recurrent/selfdef-sync.sh
+scripts/operator/build-configurator-api.py
 "
 
 _patched=0
