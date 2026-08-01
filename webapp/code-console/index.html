@@ -2203,6 +2203,9 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
           <option value="GPU1">GPU1 · Oracle</option>
         </select>
       </label>
+      <label title="SDD-712 server-side tool use: the model may call calc / time / recall / search and the text tools, then answer from the result. OFF by default — with tools offered on every turn a small model reaches for one even when you are just talking (a plain 'Hello' came back as upper(hello) -> 'The answer is HELLO.'). Turn it on for a question a tool can actually answer.">
+        <input type="checkbox" id="cc-agentic"> Tools
+      </label>
       <button class="cc-ghost" id="cc-new" title="Clear the in-page conversation">New chat</button>
       <span class="muted" id="cc-hint">POST <code>/api/code-console/chat</code> → loopback <code>/v1/chat/completions</code> (the one sanctioned read-compute; in-page buffer only, no server state — R10212)</span>
     </div>
@@ -2712,7 +2715,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       const r = await fetch('/api/code-console/chat', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: chatHistory.slice(-CHAT_MAX_TURNS), model: ($('cc-model') && $('cc-model').value) || 'auto', target: ($('cc-target') && $('cc-target').value) || 'auto' }),
+        body: JSON.stringify({ messages: chatHistory.slice(-CHAT_MAX_TURNS), model: ($('cc-model') && $('cc-model').value) || 'auto', target: ($('cc-target') && $('cc-target').value) || 'auto', agentic: !!($('cc-agentic') && $('cc-agentic').checked) }),
       });
       if (!r.ok || !r.body) throw new Error('HTTP ' + r.status);
       const reader = r.body.getReader(), dec = new TextDecoder();

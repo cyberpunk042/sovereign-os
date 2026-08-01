@@ -270,13 +270,25 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
         text = str(req.get("prompt", ""))
         target = str(req.get("target", ""))  # M075 device target (auto|CPU0|GPU0|GPU1); router honors + strips it
         model = str(req.get("model", "") or "auto")  # gateway model id / "background" alias / "auto"
-        # SDD-712 agentic tool use. The console advertises itself as a tool-using
-        # surface, so it opts in BY DEFAULT here (the shared engine defaults off,
-        # keeping the CLI plain). The daemon gates it independently with
-        # SOVEREIGN_GATEWAY_AGENTIC — if that is off the request degrades to
-        # ordinary generation rather than failing. Send "agentic": false to
-        # force plain chat for one turn.
-        agentic = bool(req.get("agentic", True))
+        # SDD-712 agentic tool use — OPT-IN per turn (the composer's "Tools"
+        # checkbox), NOT the default.
+        #
+        # It was default-on here for exactly one round of testing, which was
+        # enough to show why that is wrong: with nine tools advertised on every
+        # turn, a 1.7B model reaches for one whether or not the message calls for
+        # it. "Hello! How are you today?" produced
+        #     agentic step 1/3: upper(hello) -> HELLO
+        #     "The answer is HELLO."
+        # A greeting became a string-manipulation result. The loop also runs up
+        # to max_steps generations, so ordinary chat paid multi-step latency for
+        # a capability it never needed.
+        #
+        # Tool use itself works — calc(7*6) -> 42 -> "The answer is 42." — so this
+        # is about WHEN to offer it, not whether it functions. The daemon gates it
+        # independently with SOVEREIGN_GATEWAY_AGENTIC; a request that opts in
+        # against a daemon with the gate off degrades to ordinary generation
+        # rather than failing.
+        agentic = bool(req.get("agentic", False))
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
