@@ -92,10 +92,24 @@ pub fn tool_specs_to_prompt(specs: &[ToolSpec]) -> String {
     if specs.is_empty() {
         return String::new();
     }
+    // The wording and the worked example both matter, and the original had
+    // neither right. It said ARGS is "a compact JSON object of the tool's
+    // parameters" — true for SDD-711 tools supplied as OpenAI JSON, but WRONG
+    // for the built-in registry, whose tools take a bare string and declare
+    // `parameters: {}`. And it gave no example at all. Asked to compute (2+3)*4
+    // with the calc tool, SmolLM2-1.7B emitted
+    //     [[calc: (2+3)*4]]
+    // — the right idea with the `tool:` prefix dropped and `|` replaced by `:`.
+    // The loop saw no valid call, treated the reply as final, and the model
+    // fabricated "14" (the answer is 20). A model that nearly hits the syntax is
+    // being failed by the instructions, not only by its size.
     let mut s = String::from(
         "You can call tools. To call one, emit exactly one line of the form \
-         [[tool:NAME|ARGS]] where ARGS is a compact JSON object of the tool's \
-         parameters. Available tools:\n",
+         [[tool:NAME|ARGS]] — the literal text `[[tool:`, then the tool name, \
+         then `|`, then the argument, then `]]`. ARGS is the tool's argument as \
+         plain text, or a compact JSON object when the tool takes named \
+         parameters. Emit the call ALONE, with no code fence and no explanation, \
+         and stop; the result is given back to you. Available tools:\n",
     );
     for spec in specs {
         s.push_str("- ");
@@ -105,6 +119,13 @@ pub fn tool_specs_to_prompt(specs: &[ToolSpec]) -> String {
             s.push_str(&spec.description);
         }
         s.push('\n');
+    }
+    // A worked example in the exact shape, using a real offered tool so the
+    // model never has to generalize from a placeholder.
+    if let Some(first) = specs.first() {
+        s.push_str("Example: [[tool:");
+        s.push_str(&first.name);
+        s.push_str("|your argument here]]\n");
     }
     s
 }
@@ -300,6 +321,21 @@ mod tests {
         assert!(p.contains("[[tool:NAME|ARGS]]"));
         assert!(p.contains("- a: does a"));
         assert!(p.contains("- b\n"));
+
+        // A worked example in the exact accepted shape, built from a REAL
+        // offered tool. Without one, SmolLM2-1.7B emitted "[[calc: (2+3)*4]]" —
+        // `tool:` dropped, `|` replaced by `:` — so no call parsed and it
+        // fabricated an answer instead. The example must therefore round-trip
+        // through the parser the loop actually uses, not merely look right.
+        assert!(p.contains("Example: [[tool:a|"), "preamble must show an example");
+        let example = p
+            .lines()
+            .find(|l| l.starts_with("Example: "))
+            .expect("example line")
+            .trim_start_matches("Example: ");
+        let parsed = brk::parse_call(example)
+            .expect("the advertised example must parse as a real tool call");
+        assert_eq!(parsed.name, "a");
     }
 
     #[test]
