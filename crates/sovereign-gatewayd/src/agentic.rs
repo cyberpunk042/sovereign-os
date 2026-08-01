@@ -245,6 +245,23 @@ pub fn run_loop<R: Responder>(
             // up. Both look like a plain assistant message. Diagnosing a wrong
             // answer meant guessing at which of the two had happened.
             for (i, step) in result.steps.iter().enumerate() {
+                // The RAW reply, not just the parsed call. Logging only the
+                // parsed form cannot distinguish "the model wrote a malformed
+                // argument" from "the parser mangled a good one" — which is
+                // exactly the question a call like calc(2+3]*4) raises. Bounded
+                // so a runaway reply cannot flood the journal.
+                let raw: String = step.reply.chars().take(200).collect();
+                eprintln!(
+                    "sovereign-gatewayd: agentic step {}/{} raw reply: {:?}{}",
+                    i + 1,
+                    max_steps,
+                    raw,
+                    if step.reply.chars().count() > 200 {
+                        " …(truncated)"
+                    } else {
+                        ""
+                    }
+                );
                 match &step.tool {
                     Some(o) => eprintln!(
                         "sovereign-gatewayd: agentic step {}/{}: {}({}) -> {}",
