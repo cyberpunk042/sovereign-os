@@ -146,10 +146,16 @@ pub fn tool_specs_to_prompt(specs: &[ToolSpec]) -> String {
     }
     // A worked example in the exact shape, using a real offered tool so the
     // model never has to generalize from a placeholder.
+    //
+    // The argument must be a CONCRETE literal. The first version read
+    // `[[tool:NAME|your argument here]]` and SmolLM2-1.7B copied the filler
+    // verbatim — it emitted `[[tool:calc|your argument here` for a question
+    // about (2+3)*4. A phrase that reads as "substitute something here" is an
+    // instruction to a large model and a string to copy to a small one.
     if let Some(first) = specs.first() {
         s.push_str("Example: [[tool:");
         s.push_str(&first.name);
-        s.push_str("|your argument here]]\n");
+        s.push_str("|hello]] — replace `hello` with the real argument.\n");
     }
     s
 }
@@ -352,6 +358,11 @@ mod tests {
         // fabricated an answer instead. The example must therefore round-trip
         // through the parser the loop actually uses, not merely look right.
         assert!(p.contains("Example: [[tool:a|"), "preamble must show an example");
+        assert!(
+            !p.contains("your argument here"),
+            "the example argument must be a concrete literal — a small model \
+             copies filler phrasing verbatim instead of substituting it"
+        );
         let example = p
             .lines()
             .find(|l| l.starts_with("Example: "))
