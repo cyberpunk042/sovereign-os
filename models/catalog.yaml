@@ -1625,3 +1625,49 @@ catalog:
         Qwen3-Coder Logic default and the Nemotron-30B Oracle default
         at a fraction of the active params. Bench gate before any
         binding change.
+
+    - id: SmolLM2-1.7B-Instruct
+      tier: pulse
+      engine: custom
+      class: slm
+      quantization: bf16
+      size_class: s
+      purpose: [chat, agent]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: HuggingFaceTB/SmolLM2-1.7B-Instruct
+      parameters_millions: 1711.0
+      context_window_tokens: 8192
+      master_spec_section: "operator catalog addition 2026-08-01"
+      runtime_profile_bindings: []
+      operator_note: |
+        THE MODEL THIS BOX IS ACTUALLY SERVING, added 2026-08-01 because
+        it was missing: the catalog listed 79 models and not the one
+        running.
+
+        Resident at /mnt/vault/models/smollm2-1.7b-instruct (3.2 GB, bf16
+        safetensors) and served by sovereign-gatewayd under the model id
+        "local-oracle" (SOVEREIGN_GATEWAY_MODEL_ID). That id is a ROLE on
+        this host, not a claim about the model: by size this is pulse
+        tier, and it fills the oracle slot only because it is the sole
+        model installed.
+
+        engine: custom — gatewayd runs it on its own pure-Rust
+        safetensors decoder (sovereign-quant-model / sovereign-mha-block),
+        not on any of the enum's named engines. None of bitnet.cpp, vllm,
+        llama.cpp or transformers is installed here, which is why the
+        other 79 entries are a portfolio rather than an inventory.
+
+        vram_gib_min 0.0 is literal: decode runs entirely on CPU. Both
+        GPUs (RTX PRO 6000 96 GiB, RTX 5090 32 GiB) sit idle because no
+        crate links a GPU backend — sovereign-nvfp4-runtime's
+        blackwell-cuda feature is an empty placeholder (M01283).
+
+        Measured on this host 2026-08-01: 24 layers x 2048, vocab 49152,
+        8192 context. ~1 tok/s decode; a repeated prompt is ~51% faster
+        once prefix caching reuses its KV. Drives the SDD-712 agentic
+        loop correctly on simple arguments — calc(7*6) -> 42 -> "The
+        answer is 42." — but garbles an argument containing parentheses
+        nested in the [[tool:...]] delimiters, emitting
+        [[tool:calc|2+3]*4]] for (2+3)*4. It diagnoses that error when
+        shown it, then repeats the same call verbatim.
