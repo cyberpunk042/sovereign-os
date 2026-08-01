@@ -5,9 +5,19 @@
 > 24 layers × 2048, vocab 49152), served by `sovereign-gatewayd` on
 > `127.0.0.1:8787`. Every number is wall-clock over the real HTTP surface.
 >
-> Status: **MEASURED.** The headline finding is that there is no fixed
-> per-request overhead to remove — prefill and decode cost the same per token,
-> because prefill is not batched.
+> Status: **MEASURED, and PARTLY INVALIDATED 2026-08-01 — do not cite the
+> template figure.** Every number here was taken while `HfBpeTokenizer::encode`
+> segmented added tokens into ordinary BPE pieces (fixed in ddc758e0): each
+> ChatML marker cost **7 tokens instead of 1**. So the per-token costs below
+> stand, but the prompt-length attribution does not — the template overhead was
+> several times what a correct tokenizer produces, and the marker-cost sentence
+> under "Conclusion" is wrong as written. The measurements also predate the
+> per-generation KV reset (f2fb8b4e); they ran against a cache that carried over
+> between requests, so prefill was operating on a dirtier and longer context than
+> a correct run would. Re-measure before using any absolute figure here.
+>
+> The structural finding is unaffected and still holds: prefill runs the decode
+> path one token at a time, so prompt tokens cost the same as generated ones.
 
 ## The question
 
@@ -51,9 +61,16 @@ There is **no fixed overhead worth chasing**. Total latency is approximately
 (prompt_tokens + generated_tokens) × ~0.75s
 ```
 
-The apparent 18s "constant" in measurement 1 is the ChatML template: ~20 tokens
-of `<|im_start|>` / role / `<|im_end|>` markers rendered before any user content,
-each costing a full forward pass.
+The apparent 18s "constant" in measurement 1 is the ChatML template rendered
+before any user content, each token costing a full forward pass.
+
+**Correction (2026-08-01).** This originally read "~20 tokens of `<|im_start|>` /
+role / `<|im_end|>` markers", which understated it by about 7×. At the time
+`encode` spelled every marker out as ordinary BPE pieces — `<|im_start|>` became
+`<`,`|`,`im`,`_`,`start`,`|`,`>` — so a four-marker ChatML frame cost ~28 marker
+tokens rather than 4, and that was the bulk of the "constant". ddc758e0 makes
+markers atomic, which should cut most of this floor. The number above has NOT
+been re-measured since; treat it as an upper bound from a broken tokenizer.
 
 ## Cause
 
