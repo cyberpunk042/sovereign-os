@@ -18,6 +18,7 @@
 #   sudo ./converge.sh                 # converge everything gated on
 #   sudo ./converge.sh --dry-run       # show what would change, touch nothing
 #   sudo ./converge.sh --only 30       # run one module (prefix match)
+#   sudo ./converge.sh --only 20,90    # several (repeatable, or comma-separated)
 #   sudo ./converge.sh --list          # list modules and their gates
 #   sudo ./converge.sh --verbose       # show each underlying command
 set -uo pipefail
@@ -29,13 +30,18 @@ export IAC_DIR
 . "${IAC_DIR}/lib/iac.sh"
 
 # ---- args ----
-ONLY=""; LIST=0
+# --only accumulates. It used to be a plain assignment, so `--only 20 --only 90`
+# silently kept ONLY the last one and ran half of what the operator asked for —
+# with no warning, and a report that looked perfectly successful. Now every
+# --only adds to a list, and a comma-separated value expands, so all of
+# `--only 20 --only 90`, `--only 20,90` and `--only=20,90` do the same thing.
+ONLY_LIST=(); LIST=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run|-n) IAC_DRY_RUN=1 ;;
     --verbose|-v) IAC_VERBOSE=1 ;;
-    --only)       ONLY="${2:-}"; shift ;;
-    --only=*)     ONLY="${1#*=}" ;;
+    --only)       IFS=',' read -r -a _o <<< "${2:-}"; ONLY_LIST+=("${_o[@]}"); shift ;;
+    --only=*)     IFS=',' read -r -a _o <<< "${1#*=}"; ONLY_LIST+=("${_o[@]}") ;;
     --list|-l)    LIST=1 ;;
     --profile)    IAC_PROFILE_ID="${2:-}"; IAC_PROFILE_FILE="/opt/sovereign-os/profiles/${2:-}.yaml"; shift ;;
     --help|-h)    sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'; exit 0 ;;
@@ -80,7 +86,14 @@ for module in "${IAC_DIR}"/modules/*.sh; do
   [ -f "${module}" ] || continue
   name="$(basename "${module}" .sh)"
 
-  if [ -n "${ONLY}" ] && [[ "${name}" != "${ONLY}"* ]]; then continue; fi
+  if [ "${#ONLY_LIST[@]}" -gt 0 ]; then
+    _hit=0
+    for _sel in "${ONLY_LIST[@]}"; do
+      [ -n "${_sel}" ] || continue
+      if [[ "${name}" == "${_sel}"* ]]; then _hit=1; break; fi
+    done
+    [ "${_hit}" = 1 ] || continue
+  fi
   # Matched the --only filter. Tracked separately from `ran`, because a module
   # that matched but is gated OFF is not "no such module" — reporting it that
   # way made `--only 95` look like a typo when it had correctly refused to run.
@@ -100,8 +113,8 @@ for module in "${IAC_DIR}"/modules/*.sh; do
   ran=$((ran+1))
 done
 
-if [ -n "${ONLY}" ] && [ "${matched}" -eq 0 ]; then
-  printf '\nno module matched --only %s\n' "${ONLY}" >&2
+if [ "${#ONLY_LIST[@]}" -gt 0 ] && [ "${matched}" -eq 0 ]; then
+  printf '\nno module matched --only %s\n' "${ONLY_LIST[*]}" >&2
   exit 2
 fi
 
