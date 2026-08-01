@@ -137,6 +137,30 @@ done <<< "${IAC_UNIT_STATE}"
 # Belt-and-braces for the day the binary IS installed and the unit unmasked:
 # widen the start-limit window so 5 failures in 60s actually gives up, instead
 # of the shipped unit's un-trippable 5-in-10s-at-3s-intervals configuration.
+# ─── agentic tool use for the Code Console ───────────────────────────────────
+# SDD-712 ships a full ReAct loop inside the daemon, gated on BOTH a per-request
+# `sovereign_agentic: true` AND this env var, which defaults OFF ("the daemon
+# does not autonomously execute tools unless an operator opts in"). The console
+# advertises itself as a tool-using surface, so the operator opting in is the
+# intent — enabled here, deliberately and visibly, rather than by an env var
+# somebody sets by hand and forgets.
+#
+# WHAT THIS DOES AND DOES NOT GRANT. The built-in registry is:
+#     upper, lower, reverse, wordcount, charcount, calc, time,
+#     recall (the daemon's own learned memory), search (the RAG corpus)
+# Text utilities plus two READ-ONLY retrievals. Nothing here opens a file, writes
+# one, or runs a command, so "can it modify files on my system" stays NO with
+# this on — that surface is /api/control/execute on :8130, which is DRY_RUN by
+# default and needs its own deliberate live.conf. Turning this on does not move
+# that line.
+ensure_dropin sovereign-gatewayd.service 20-agentic <<'EOF'
+# Managed by scripts/iac — do not edit by hand.
+# Enables the SDD-712 in-daemon ReAct loop. Requests must still opt in with
+# "sovereign_agentic": true; this only lifts the daemon-side gate.
+[Service]
+Environment=SOVEREIGN_GATEWAY_AGENTIC=1
+EOF
+
 ensure_dropin sovereign-gatewayd.service 10-startlimit <<'EOF'
 # Managed by scripts/iac — do not edit by hand.
 # The shipped unit cannot ever hit its own rate limit: Restart=on-failure with

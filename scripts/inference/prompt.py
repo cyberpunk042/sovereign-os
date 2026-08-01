@@ -57,6 +57,14 @@ DEFAULT_TIMEOUT = int(os.environ.get("SOVEREIGN_OS_PROMPT_TIMEOUT", "300"))
 # finish_reason "stop" for it. Chat surfaces need room for a real answer; the
 # gateway clamps to 1024 regardless, so this cannot exceed what it will serve.
 MAX_NEW_TOKENS = int(os.environ.get("SOVEREIGN_OS_MAX_NEW_TOKENS", "512"))
+# SDD-712 agentic tool use. Per-call (`run(..., agentic=True)`); this env var only
+# sets the default, so the CLI and any other caller keep plain chat unless they
+# ask. The daemon gates it independently with SOVEREIGN_GATEWAY_AGENTIC, so a
+# request that opts in against a daemon that has not simply falls through to
+# normal generation — never an error.
+AGENTIC_DEFAULT = os.environ.get("SOVEREIGN_OS_AGENTIC", "").strip().lower() \
+    not in ("", "0", "false", "no", "off")
+AGENTIC_MAX_STEPS = int(os.environ.get("SOVEREIGN_OS_AGENTIC_MAX_STEPS", "4"))
 
 # QCFA + interactive-clarification scaffold (docs/standing-directives/
 # 2026-07-11-qcfa-interactive-clarification.md). OPT-IN via SOVEREIGN_OS_QCFA so
@@ -189,7 +197,8 @@ def _bound_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
 
 def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
         stream: bool = True, timeout: int = DEFAULT_TIMEOUT,
-        model: str = "auto", target: str = "") -> Iterator[dict[str, Any]]:
+        model: str = "auto", target: str = "",
+        agentic: bool | None = None) -> Iterator[dict[str, Any]]:
     """Run a prompt through the router. `text` is a single user turn (back-compatible);
     `messages` is a bounded multi-turn conversation (SDD-103) — when given it takes
     precedence. Yields event dicts: {"type":"token","text":…} per delta, then a final
@@ -216,6 +225,12 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
     chat = _maybe_prepend_qcfa(chat)
     body = {"model": model, "messages": chat, "max_tokens": MAX_NEW_TOKENS,
             "stream": True, "stream_options": {"include_usage": True}}
+    # Opt into the daemon-side ReAct loop. The gateway answers on the same SSE
+    # shape (one content chunk carrying the final answer), so the caller's stream
+    # handling is unchanged whether this is set or not.
+    if AGENTIC_DEFAULT if agentic is None else agentic:
+        body["sovereign_agentic"] = True
+        body["max_steps"] = AGENTIC_MAX_STEPS
     # M075 device-target override (cpu0/gpu0/gpu1) — the router honors it as an
     # explicit routing signal and strips it before proxying. "auto"/blank → normal
     # content classification. Ignored when absent (fully back-compatible).

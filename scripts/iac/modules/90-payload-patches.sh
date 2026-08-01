@@ -96,6 +96,7 @@ scripts/hooks/recurrent/root-modules-verify.sh
 scripts/hooks/recurrent/selfdef-sync.sh
 scripts/operator/build-configurator-api.py
 scripts/inference/prompt.py
+scripts/operator/code-console-api.py
 webapp/code-console/index.html
 "
 

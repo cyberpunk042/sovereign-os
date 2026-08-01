@@ -270,6 +270,13 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
         text = str(req.get("prompt", ""))
         target = str(req.get("target", ""))  # M075 device target (auto|CPU0|GPU0|GPU1); router honors + strips it
         model = str(req.get("model", "") or "auto")  # gateway model id / "background" alias / "auto"
+        # SDD-712 agentic tool use. The console advertises itself as a tool-using
+        # surface, so it opts in BY DEFAULT here (the shared engine defaults off,
+        # keeping the CLI plain). The daemon gates it independently with
+        # SOVEREIGN_GATEWAY_AGENTIC — if that is off the request degrades to
+        # ordinary generation rather than failing. Send "agentic": false to
+        # force plain chat for one turn.
+        agentic = bool(req.get("agentic", True))
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -278,8 +285,10 @@ class CodeConsoleAPIHandler(BaseHTTPRequestHandler):
         _emit_metric("chat", "open")
         done = None
         try:
-            for ev in (_prompt.run(messages=messages, model=model, target=target) if messages is not None
-                       else _prompt.run(text, model=model, target=target)):
+            for ev in (_prompt.run(messages=messages, model=model, target=target,
+                                   agentic=agentic) if messages is not None
+                       else _prompt.run(text, model=model, target=target,
+                                        agentic=agentic)):
                 self.wfile.write(
                     f"event: {ev['type']}\ndata: {json.dumps(ev)}\n\n".encode("utf-8"))
                 self.wfile.flush()
