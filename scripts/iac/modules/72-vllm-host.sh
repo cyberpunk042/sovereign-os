@@ -175,7 +175,12 @@ VLLM_CACHE_ROOT=/var/lib/sovereign-os/cache/vllm
 # CUDA 12.4, and Blackwell (sm_120) needs 12.8+, so that compile would fail too.
 # TRITON_ATTN goes through triton 3.6.0, which is already installed and carries
 # its own LLVM — it compiles kernels without nvcc at all.
-VLLM_ATTENTION_BACKEND=${IAC_VLLM_ATTENTION_BACKEND:-TRITON_ATTN}
+# Passed through to vLLM's --attention-backend by start-logic-engine.sh. NOT
+# VLLM_ATTENTION_BACKEND: that env var no longer exists in vLLM 0.26 — it is
+# referenced nowhere in the package — so setting it was silently inert, and the
+# flashinfer JIT kept being reached through attention prefill while the
+# traceback made it look like a new and separate route each time.
+LOGIC_ATTENTION_BACKEND=${IAC_VLLM_ATTENTION_BACKEND:-TRITON_ATTN}
 # …and flashinfer is reached a SECOND way, which switching the attention backend
 # did not touch. The traceback after that change still ended in nvcc, but from
 #     flashinfer/sampling.py:1974 in top_k_mask_logits

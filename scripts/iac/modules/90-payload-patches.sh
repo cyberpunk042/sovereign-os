@@ -87,6 +87,13 @@ _dst=/opt/sovereign-os
 #   (SOVEREIGN_OS_MAX_NEW_TOKENS, default 512; the gateway clamps at 1024) and
 #   carries finish_reason into its done event; the console renders an explicit
 #   "truncated at N tokens" note instead of a sentence that simply ends.
+#
+# scripts/inference/start-logic-engine.sh
+#   The vllm_host branch had no way to select an attention backend. vLLM removed
+#   VLLM_ATTENTION_BACKEND (0.26 references the name nowhere), leaving
+#   --attention-backend as the only mechanism, so a host without nvcc could not
+#   tell vLLM to avoid flashinfer's JIT-only kernels. Adds a LOGIC_ATTENTION_BACKEND
+#   passthrough.
 _files="
 scripts/lib/ms003.py
 scripts/sovereign-osctl
@@ -98,6 +105,7 @@ scripts/operator/build-configurator-api.py
 scripts/inference/prompt.py
 scripts/operator/code-console-api.py
 webapp/code-console/index.html
+scripts/inference/start-logic-engine.sh
 "
 
 _patched=0

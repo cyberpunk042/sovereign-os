@@ -19,6 +19,10 @@
 #   LOGIC_MAX_MODEL_LEN           vllm_host only (default: 32768)
 #   LOGIC_SERVED_MODEL_NAME       vllm_host only; else the served id is the weights path
 #   LOGIC_TRUST_REMOTE_CODE       vllm_host only; set for models shipping custom code
+#   LOGIC_ATTENTION_BACKEND       vllm_host only; --attention-backend value
+#                                 (TRITON_ATTN / FLASH_ATTN / TORCH_SDPA / …).
+#                                 The env var VLLM_ATTENTION_BACKEND no longer
+#                                 exists in vLLM; this flag is the only way.
 #   LOGIC_MODEL                 Path to weights (default: /mnt/vault/models/qwen3-coder)
 #   LOGIC_HOST                  Listen host (default: 127.0.0.1)
 #   LOGIC_PORT                  Listen port (default: 8082 — router routes here)
@@ -94,6 +98,14 @@ PY
     argv="${argv} --max-model-len ${LOGIC_MAX_MODEL_LEN}"
     [ -n "${LOGIC_SERVED_MODEL_NAME:-}" ] && argv="${argv} --served-model-name ${LOGIC_SERVED_MODEL_NAME}"
     [ -n "${LOGIC_TRUST_REMOTE_CODE:-}" ] && argv="${argv} --trust-remote-code"
+    # Attention backend selection. There is NO env var for this — vLLM removed
+    # VLLM_ATTENTION_BACKEND, and setting it is silently inert (0.26 does not
+    # reference the name anywhere). The only mechanism is this CLI flag, so a
+    # deployment that must avoid FlashInfer — e.g. a host with no nvcc, where
+    # flashinfer's JIT-only build cannot compile — has no way to say so without
+    # it. Accepts any AttentionBackendEnum name (TRITON_ATTN, FLASH_ATTN,
+    # TORCH_SDPA, FLASHINFER, …).
+    [ -n "${LOGIC_ATTENTION_BACKEND:-}" ] && argv="${argv} --attention-backend ${LOGIC_ATTENTION_BACKEND}"
     ;;
   llama_cpp)
     argv=$(python3 - <<PY
