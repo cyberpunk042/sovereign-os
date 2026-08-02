@@ -109,6 +109,7 @@ scripts/inference/start-logic-engine.sh
 "
 
 _patched=0
+_changed_files=""
 while read -r rel; do
   [ -n "${rel}" ] || continue
   _a="${_src}/${rel}"
@@ -137,6 +138,7 @@ while read -r rel; do
   if install -m "$(stat -c '%a' "${_b}")" "${_a}" "${_b}" 2>/dev/null; then
     changed "payload ← checkout: ${rel}"
     _patched=1
+    _changed_files="${_changed_files:-} ${rel}"
   else
     fail "could not install ${rel} into the payload"
   fi
@@ -197,10 +199,54 @@ while read -r rel; do
   # Data, not an executable: 0644, unlike the 0755 scripts patched above.
   if install -D -m 0644 "${_a}" "${_b}" 2>/dev/null; then
     changed "payload += checkout: ${rel}"
+    _changed_files="${_changed_files:-} ${rel}"
   else
     fail "could not install ${rel} into the payload"
   fi
 done <<< "${_add_files}"
+
+# ─── restart whatever is RUNNING the code we just replaced ────────────────────
+#
+# The same gap module 80 closed for binaries, still open here for scripts:
+# copying a file into the payload does nothing to a process already executing
+# the previous version. Caught live — module 72 configured and STARTED
+# sovereign-logic-engine, then this module patched the very launcher that unit
+# runs. The tier only picked up the fix because it happened to be in a restart
+# loop and re-executed the script 15s later. On a healthy unit, converge would
+# have reported success while the service kept running stale code.
+#
+# Ordering alone would not fix it. Even with this module running first, a unit
+# already active from a previous boot holds the old copy, so the restart has to
+# be driven by "did this file change", not by module order.
+_restart_for_script() {
+  case "$1" in
+    scripts/inference/start-logic-engine.sh) echo "sovereign-logic-engine.service" ;;
+    scripts/operator/build-configurator-api.py) echo "sovereign-dashboards.service" ;;
+    scripts/operator/code-console-api.py)    echo "sovereign-code-console-api.service" ;;
+    # prompt.py is imported at request time by the console API, which also holds
+    # it via _load(); restart so a patched engine is actually the one running.
+    scripts/inference/prompt.py)             echo "sovereign-code-console-api.service" ;;
+    # Timer-driven oneshots re-exec from disk on their next fire, and the webapp
+    # + catalog are read per request. Nothing long-lived to restart.
+    *)                                       echo "" ;;
+  esac
+}
+
+for _rel in ${_changed_files:-}; do
+  for _u in $(_restart_for_script "${_rel}"); do
+    systemctl list-unit-files "${_u}" --no-legend >/dev/null 2>&1 || continue
+    systemctl is-active --quiet "${_u}" 2>/dev/null || continue
+    if [ "${IAC_DRY_RUN}" = 1 ]; then
+      changed "would restart ${_u} onto the patched ${_rel}"
+      continue
+    fi
+    if run "restart-consumer" systemctl restart "${_u}"; then
+      changed "restarted ${_u} onto the patched ${_rel}"
+    else
+      fail "patched ${_rel} but could not restart ${_u}"
+    fi
+  done
+done
 
 # ms003-verify is a timer-driven oneshot: once the fix is live, clear the stale
 # failure so `systemctl is-system-running` stops reporting degraded over it.
