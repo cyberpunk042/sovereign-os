@@ -156,10 +156,19 @@ PATH=${_venv}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # vLLM/HF write caches; ProtectSystem=strict makes everything else read-only.
 HF_HOME=/var/lib/sovereign-os/hf
 XDG_CACHE_HOME=/var/lib/sovereign-os/cache
+# HOME must be relocated, not merely have XDG_CACHE_HOME set. flashinfer (vLLM's
+# attention kernel provider) builds its path from $HOME/.cache directly and
+# ignores XDG_CACHE_HOME, so with the unit's ProtectHome=read-only it died on
+#     OSError: [Errno 30] Read-only file system: '/root/.cache/flashinfer'
+# Pointing HOME at a state directory we own is cleaner than punching /root back
+# open, and keeps the unit's ProtectHome intact.
+HOME=/var/lib/sovereign-os/vllm-home
+VLLM_CACHE_ROOT=/var/lib/sovereign-os/cache/vllm
 EOF
 
 ensure_dir /var/lib/sovereign-os/hf 0750 root:root
 ensure_dir /var/lib/sovereign-os/cache 0750 root:root
+ensure_dir /var/lib/sovereign-os/vllm-home 0750 root:root
 
 # The shipped unit is written for the podman backend and hard-codes
 #     ExecStop=/usr/bin/podman stop vllm-logic_engine
@@ -172,7 +181,7 @@ ensure_dropin sovereign-logic-engine.service 10-vllm-host <<EOF
 # Managed by scripts/iac — do not edit by hand.
 [Service]
 ExecStop=
-ReadWritePaths=/var/lib/sovereign-os/hf /var/lib/sovereign-os/cache
+ReadWritePaths=/var/lib/sovereign-os/hf /var/lib/sovereign-os/cache /var/lib/sovereign-os/vllm-home
 # A multi-GB checkpoint load on a cold page cache exceeds the shipped 180s.
 TimeoutStartSec=900
 EOF
