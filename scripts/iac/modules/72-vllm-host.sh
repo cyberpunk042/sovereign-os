@@ -164,6 +164,18 @@ XDG_CACHE_HOME=/var/lib/sovereign-os/cache
 # open, and keeps the unit's ProtectHome intact.
 HOME=/var/lib/sovereign-os/vllm-home
 VLLM_CACHE_ROOT=/var/lib/sovereign-os/cache/vllm
+# Attention backend. vLLM's default on CUDA is FlashInfer, and the flashinfer
+# 0.6.14 that ships in this venv bundles ZERO prebuilt .so files — it is
+# JIT-only, so it shells out to nvcc, and the engine died with
+#     RuntimeError: Could not find nvcc and default cuda_home='/usr/local/cuda'
+#         doesn't exist
+# after successfully loading all 21 GB onto the card.
+#
+# Installing a toolkit does not fix it cheaply: apt's nvidia-cuda-toolkit is
+# CUDA 12.4, and Blackwell (sm_120) needs 12.8+, so that compile would fail too.
+# TRITON_ATTN goes through triton 3.6.0, which is already installed and carries
+# its own LLVM — it compiles kernels without nvcc at all.
+VLLM_ATTENTION_BACKEND=${IAC_VLLM_ATTENTION_BACKEND:-TRITON_ATTN}
 EOF
 
 ensure_dir /var/lib/sovereign-os/hf 0750 root:root
