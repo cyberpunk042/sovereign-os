@@ -70,7 +70,9 @@ if [ -x "${_py}" ] && "${_py}" -c 'import vllm' >/dev/null 2>&1; then
 fi
 
 if [ "${_have_vllm}" = 1 ]; then
-  _ver="$("${_py}" -c 'import vllm; print(vllm.__version__)' 2>/dev/null)"
+  # 2>/dev/null on the PROBE, not just the import test: vllm prints CUDA
+  # warnings at import, and they landed mid-sentence in the converge report.
+  _ver="$("${_py}" -c 'import vllm; print(vllm.__version__)' 2>/dev/null | tail -1)"
   ok "vllm ${_ver:-installed} in ${_venv}"
 elif [ "${IAC_DRY_RUN}" = 1 ]; then
   changed "would pip install vllm into ${_venv} (multi-GB download)"
@@ -81,7 +83,7 @@ else
   run "pip-upgrade" "${_py}" -m pip install --quiet --upgrade pip setuptools wheel || true
   if run "pip-vllm" "${_py}" -m pip install --quiet vllm; then
     if "${_py}" -c 'import vllm' >/dev/null 2>&1; then
-      _ver="$("${_py}" -c 'import vllm; print(vllm.__version__)' 2>/dev/null)"
+      _ver="$("${_py}" -c 'import vllm; print(vllm.__version__)' 2>/dev/null | tail -1)"
       changed "vllm ${_ver:-?} installed into ${_venv}"
       _have_vllm=1
     else
@@ -102,6 +104,17 @@ fi
 # CUDA_VISIBLE_DEVICES pins the tier to ONE card. The profile puts Logic on the
 # RTX 5090; index is resolved from nvidia-smi rather than hard-coded, because
 # PCI enumeration order is not guaranteed to match the profile's intent.
+#
+# CUDA_DEVICE_ORDER=PCI_BUS_ID is not decoration. nvidia-smi enumerates by PCI
+# bus; the CUDA runtime defaults to FASTEST_FIRST, so an index resolved from
+# nvidia-smi is not guaranteed to name the same card to CUDA. vLLM warns about
+# exactly this on a mixed-GPU box ("Detected different devices in the system …
+# please make sure to set CUDA_DEVICE_ORDER=PCI_BUS_ID"), and this IS one: an
+# RTX PRO 6000 Blackwell beside an RTX 5090. Measured here the two orderings
+# agree — PRO 6000 at 0, 5090 at 1 — but that is a coincidence of the current
+# ranking, not a guarantee, and a driver update could silently swap the cards
+# under a pin that still looks right. Forcing PCI order makes the resolution
+# below sound by construction rather than by luck.
 _logic_idx="$(nvidia-smi --query-gpu=index,name --format=csv,noheader 2>/dev/null \
   | awk -F', *' '/5090/{print $1; exit}')"
 if [ -z "${_logic_idx}" ]; then
@@ -118,6 +131,7 @@ LOGIC_HOST=127.0.0.1
 LOGIC_PORT=8082
 LOGIC_GPU_MEMORY_UTILIZATION=${IAC_VLLM_GPU_UTIL:-0.90}
 LOGIC_MAX_MODEL_LEN=${IAC_VLLM_MAX_LEN:-32768}
+CUDA_DEVICE_ORDER=PCI_BUS_ID
 ${_logic_idx:+CUDA_VISIBLE_DEVICES=${_logic_idx}}
 # The launcher invokes a bare \`python3\`, so the venv must come first on PATH.
 PATH=${_venv}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -145,10 +159,61 @@ ReadWritePaths=/var/lib/sovereign-os/hf /var/lib/sovereign-os/cache
 TimeoutStartSec=900
 EOF
 
-# ─── weights + activation, both deliberately withheld ────────────────────────
-_model="${IAC_VLLM_LOGIC_MODEL:-/mnt/vault/models/qwen3-coder}"
-if [ ! -d "${_model}" ]; then
-  skip "no weights at ${_model} — set IAC_VLLM_LOGIC_MODEL, or fetch a checkpoint, before enabling the tier"
+# ─── weights ─────────────────────────────────────────────────────────────────
+# Fetched with the repo's OWN downloader (scripts/models/pull.sh) rather than a
+# hand-rolled curl: it resolves hf_repo_id from models/catalog.yaml, so the
+# thing that lands on disk is the thing the catalog claims, and it emits the
+# Layer B pull metrics. The venv goes first on PATH because the `hf` CLI it
+# needs lives there, not on the system.
+#
+# Default model: Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4. Chosen because
+# start-logic-engine.sh's own header records it MEASURED on this exact card —
+# "2026-07-28 on the RTX 5090 with Nemotron-3-Nano-Omni-30B NVFP4: 314.41 tok/s
+# decode, TTFT 0.173s" — and because NVFP4 is native to Blackwell tensor cores,
+# which both cards here are. 30B total but A3B (~3B active per token), so it is
+# an MoE: 22.4 GiB on disk, 24 GiB VRAM, inside the 5090's 32 GiB at 0.90
+# utilization with room for a 32k KV cache.
+_model_id="${IAC_VLLM_MODEL_ID:-Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4}"
+_models_dir="${IAC_VLLM_MODELS_DIR:-/mnt/vault/models}"
+_model="${IAC_VLLM_LOGIC_MODEL:-${_models_dir}/${_model_id}}"
+
+# "Has weights" means a loadable checkpoint, not merely a directory: an
+# interrupted download leaves the directory behind, and a bare `-d` test would
+# call that provisioned and then hand vLLM something it cannot open.
+_have_weights=0
+if [ -f "${_model}/config.json" ] && \
+   ls "${_model}"/*.safetensors >/dev/null 2>&1; then
+  _have_weights=1
+fi
+
+if [ "${_have_weights}" = 1 ]; then
+  ok "weights present: ${_model} ($(du -sh "${_model}" 2>/dev/null | cut -f1))"
+elif [ "${IAC_VLLM_FETCH_MODEL:-0}" != 1 ]; then
+  skip "no weights at ${_model} — set IAC_VLLM_FETCH_MODEL=1 to download (~22 GiB)"
+elif [ "${IAC_DRY_RUN}" = 1 ]; then
+  changed "would fetch ${_model_id} (~22 GiB) into ${_models_dir}"
+else
+  iac_info "fetching ${_model_id} — ~22 GiB, this takes a while"
+  # Prefer the checkout's downloader over the payload's — module 15 keeps it
+  # current, and this is the same tree the catalog entry is read from.
+  _pull="${IAC_SOURCE_RESOLVED_DIR:-${IAC_SOURCE_DIR:-}}/scripts/models/pull.sh"
+  [ -f "${_pull}" ] || _pull=/opt/sovereign-os/scripts/models/pull.sh
+  if PATH="${_venv}/bin:${PATH}" SOVEREIGN_OS_MODELS_DIR="${_models_dir}" \
+     run "pull-model" bash "${_pull}" "${_model_id}"; then
+    if [ -f "${_model}/config.json" ] && ls "${_model}"/*.safetensors >/dev/null 2>&1; then
+      changed "fetched ${_model_id} → ${_model}"
+      _have_weights=1
+    else
+      fail "pull.sh succeeded but ${_model} has no config.json + safetensors"
+    fi
+  else
+    fail "could not fetch ${_model_id} — check the log; some NVIDIA repos need HUGGINGFACE_HUB_TOKEN"
+  fi
+fi
+
+# ─── activation, deliberately withheld ───────────────────────────────────────
+if [ "${_have_weights}" != 1 ]; then
+  skip "no usable weights at ${_model} — not enabling a tier with nothing to serve"
 elif [ "${IAC_VLLM_ENABLE_UNIT:-0}" != 1 ]; then
   skip "weights present; unit left disabled (set IAC_VLLM_ENABLE_UNIT=1 to serve)"
 elif [ "${_have_vllm}" != 1 ]; then
