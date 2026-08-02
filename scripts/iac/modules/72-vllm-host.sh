@@ -121,16 +121,34 @@ if [ -z "${_logic_idx}" ]; then
   iac_info "no RTX 5090 found by name — leaving CUDA_VISIBLE_DEVICES unset (vLLM would see every GPU)"
 fi
 
+# Resolve the model path BEFORE writing the env file. These were computed in the
+# weights section below on the first version, so the env file fell back to its
+# own hard-coded default and the unit was pointed at /mnt/vault/models/qwen3-coder
+# while the fetch correctly populated the Nemotron directory. vLLM then treated
+# the missing path as a HuggingFace repo id and died with
+#     OSError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'
+# One value, computed once, used by both — a second fallback is a second source
+# of truth.
+_model_id="${IAC_VLLM_MODEL_ID:-Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4}"
+_models_dir="${IAC_VLLM_MODELS_DIR:-/mnt/vault/models}"
+_model="${IAC_VLLM_LOGIC_MODEL:-${_models_dir}/${_model_id}}"
+
 ensure_dir /etc/sovereign-os 0755 root:root
 ensure_file /etc/sovereign-os/inference-logic-engine.env 0644 root:root <<EOF
 # Managed by scripts/iac — do not edit by hand.
 # Host-resident vLLM for the Logic tier (SDD-011).
 SOVEREIGN_OS_LOGIC_BACKEND=vllm_host
-LOGIC_MODEL=${IAC_VLLM_LOGIC_MODEL:-/mnt/vault/models/qwen3-coder}
+LOGIC_MODEL=${_model}
 LOGIC_HOST=127.0.0.1
 LOGIC_PORT=8082
 LOGIC_GPU_MEMORY_UTILIZATION=${IAC_VLLM_GPU_UTIL:-0.90}
 LOGIC_MAX_MODEL_LEN=${IAC_VLLM_MAX_LEN:-32768}
+# This checkpoint ships its own modeling code (modeling_nemotron_h.py,
+# configuration_radio.py, processing.py …) and vLLM refuses to load it without
+# an explicit opt-in. Setting this EXECUTES code from the checkpoint directory,
+# so it is defensible only because the weights come from the catalog's declared
+# hf_repo_id (nvidia/…) via scripts/models/pull.sh, not from an arbitrary path.
+LOGIC_TRUST_REMOTE_CODE=${IAC_VLLM_TRUST_REMOTE_CODE:-1}
 CUDA_DEVICE_ORDER=PCI_BUS_ID
 ${_logic_idx:+CUDA_VISIBLE_DEVICES=${_logic_idx}}
 # The launcher invokes a bare \`python3\`, so the venv must come first on PATH.
@@ -160,6 +178,7 @@ TimeoutStartSec=900
 EOF
 
 # ─── weights ─────────────────────────────────────────────────────────────────
+# (_model_id / _models_dir / _model are resolved above, before the env file.)
 # Fetched with the repo's OWN downloader (scripts/models/pull.sh) rather than a
 # hand-rolled curl: it resolves hf_repo_id from models/catalog.yaml, so the
 # thing that lands on disk is the thing the catalog claims, and it emits the
@@ -173,9 +192,6 @@ EOF
 # which both cards here are. 30B total but A3B (~3B active per token), so it is
 # an MoE: 22.4 GiB on disk, 24 GiB VRAM, inside the 5090's 32 GiB at 0.90
 # utilization with room for a 32k KV cache.
-_model_id="${IAC_VLLM_MODEL_ID:-Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4}"
-_models_dir="${IAC_VLLM_MODELS_DIR:-/mnt/vault/models}"
-_model="${IAC_VLLM_LOGIC_MODEL:-${_models_dir}/${_model_id}}"
 
 # "Has weights" means a loadable checkpoint, not merely a directory: an
 # interrupted download leaves the directory behind, and a bare `-d` test would
