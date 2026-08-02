@@ -2577,7 +2577,18 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       html += '<option value="' + esc(m.id) + '">' + esc(m.id) + dev + '</option>';
     });
     sel.innerHTML = html;
-    if (Array.prototype.some.call(sel.options, o => o.value === cur)) sel.value = cur;
+    // Preserve an explicit operator choice; otherwise prefer a GPU-backed model
+    // over the default. "auto" resolves to the gateway's PRIMARY, which on this
+    // box is a 1.7B decoding on the CPU at ~1 tok/s while a 30B on the RTX 5090
+    // answers at ~268 tok/s. Defaulting to the slow path when the fast one is
+    // registered and idle is a worse default, not a safer one. Any device other
+    // than "cpu" means a GPU tier or proxy.
+    if (Array.prototype.some.call(sel.options, o => o.value === cur) && cur !== 'auto') {
+      sel.value = cur;
+    } else {
+      const gpu = models.find(m => m.device && m.device !== 'cpu');
+      sel.value = gpu ? gpu.id : 'auto';
+    }
     const note = $('cc-models-note');
     if (note) note.textContent = models.length
       ? (models.length + ' model' + (models.length > 1 ? 's' : '') + ' loaded' + (bg ? ' · background → ' + bg : ''))

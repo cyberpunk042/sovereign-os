@@ -133,6 +133,9 @@ _model_id="${IAC_VLLM_MODEL_ID:-Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4}"
 _models_dir="${IAC_VLLM_MODELS_DIR:-/mnt/vault/models}"
 _model="${IAC_VLLM_LOGIC_MODEL:-${_models_dir}/${_model_id}}"
 
+_cfg_before="$(cat /etc/sovereign-os/inference-logic-engine.env \
+  /etc/systemd/system/sovereign-logic-engine.service.d/10-vllm-host.conf 2>/dev/null | sha256sum)"
+
 ensure_dir /etc/sovereign-os 0755 root:root
 ensure_file /etc/sovereign-os/inference-logic-engine.env 0644 root:root <<EOF
 # Managed by scripts/iac — do not edit by hand.
@@ -143,6 +146,13 @@ LOGIC_HOST=127.0.0.1
 LOGIC_PORT=8082
 LOGIC_GPU_MEMORY_UTILIZATION=${IAC_VLLM_GPU_UTIL:-0.90}
 LOGIC_MAX_MODEL_LEN=${IAC_VLLM_MAX_LEN:-32768}
+# Serve under a STABLE id, not the weights path. gatewayd's proxy relay forwards
+# the client's request verbatim (`oai = req.clone()`), model field included, so
+# whatever id a caller uses reaches vLLM unchanged. Without this vLLM serves
+# under "/mnt/vault/models/…" and every proxied request would 404 on a model
+# name mismatch. Matching the gateway's proxy id makes the two agree by
+# construction rather than by a rewrite nobody would remember to maintain.
+LOGIC_SERVED_MODEL_NAME=${IAC_GPU_PROXY_ID:-gpu-logic}
 # This checkpoint ships its own modeling code (modeling_nemotron_h.py,
 # configuration_radio.py, processing.py …) and vLLM refuses to load it without
 # an explicit opt-in. Setting this EXECUTES code from the checkpoint directory,
@@ -210,6 +220,23 @@ ReadWritePaths=/var/lib/sovereign-os/hf /var/lib/sovereign-os/cache /var/lib/sov
 # A multi-GB checkpoint load on a cold page cache exceeds the shipped 180s.
 TimeoutStartSec=900
 EOF
+
+# Config changes must reach a RUNNING tier. ensure_unit_state "... started" only
+# starts a unit that is stopped — it will not restart one that is already active
+# with stale environment, which is the same class of bug module 90 had with
+# patched scripts. Hash the inputs before and after so a changed env file or
+# drop-in actually takes effect.
+_cfg_now="$(cat /etc/sovereign-os/inference-logic-engine.env \
+  /etc/systemd/system/sovereign-logic-engine.service.d/10-vllm-host.conf 2>/dev/null | sha256sum)"
+if [ -n "${_cfg_before:-}" ] && [ "${_cfg_before}" != "${_cfg_now}" ] \
+   && systemctl is-active --quiet sovereign-logic-engine.service 2>/dev/null \
+   && [ "${IAC_DRY_RUN}" != 1 ]; then
+  if run "restart-tier" systemctl restart sovereign-logic-engine.service; then
+    changed "restarted sovereign-logic-engine onto the new configuration"
+  else
+    fail "configuration changed but sovereign-logic-engine would not restart"
+  fi
+fi
 
 # ─── weights ─────────────────────────────────────────────────────────────────
 # (_model_id / _models_dir / _model are resolved above, before the env file.)
