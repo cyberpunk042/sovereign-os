@@ -176,6 +176,14 @@ VLLM_CACHE_ROOT=/var/lib/sovereign-os/cache/vllm
 # TRITON_ATTN goes through triton 3.6.0, which is already installed and carries
 # its own LLVM — it compiles kernels without nvcc at all.
 VLLM_ATTENTION_BACKEND=${IAC_VLLM_ATTENTION_BACKEND:-TRITON_ATTN}
+# …and flashinfer is reached a SECOND way, which switching the attention backend
+# did not touch. The traceback after that change still ended in nvcc, but from
+#     flashinfer/sampling.py:1974 in top_k_mask_logits
+#         -> get_sampling_module -> build_and_load -> write_ninja
+# vLLM uses flashinfer's SAMPLING kernels independently of its attention
+# backend, so the same JIT wall arrived by a different route. This falls back to
+# the PyTorch-native top-k/top-p sampler, which needs no compiler.
+VLLM_USE_FLASHINFER_SAMPLER=${IAC_VLLM_FLASHINFER_SAMPLER:-0}
 EOF
 
 ensure_dir /var/lib/sovereign-os/hf 0750 root:root
