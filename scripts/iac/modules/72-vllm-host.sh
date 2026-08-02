@@ -147,7 +147,7 @@ LOGIC_PORT=8082
 LOGIC_GPU_MEMORY_UTILIZATION=${IAC_VLLM_GPU_UTIL:-0.90}
 LOGIC_MAX_MODEL_LEN=${IAC_VLLM_MAX_LEN:-32768}
 # Serve under a STABLE id, not the weights path. gatewayd's proxy relay forwards
-# the client's request verbatim (`oai = req.clone()`), model field included, so
+# the client's request verbatim -- oai = req.clone() -- model field included, so
 # whatever id a caller uses reaches vLLM unchanged. Without this vLLM serves
 # under "/mnt/vault/models/…" and every proxied request would 404 on a model
 # name mismatch. Matching the gateway's proxy id makes the two agree by
