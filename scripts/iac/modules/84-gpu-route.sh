@@ -154,7 +154,24 @@ esac
 if [ -n "${IAC_GPU_DEFAULT_ID:-}" ] && [ "${_default_target}" != "${IAC_GPU_DEFAULT_ID}" ]; then
   iac_info "preferred default '${IAC_GPU_DEFAULT_ID}' is not serving — using '${_default_target:-primary}'"
 fi
-if [ "${IAC_GPU_SET_DEFAULT:-1}" = 1 ] && [ -n "${_default_target}" ] && [ "${IAC_DRY_RUN}" != 1 ]; then
+# Read the CURRENT designation before writing one. Reporting `changed` on every
+# run is how a converge that altered nothing still says it did — the full-run
+# idempotency check caught this as the only non-zero line in 107 assertions.
+# "Converged" has to mean the machine matched, not that the module executed.
+_cur_default="$(curl -fsS --max-time 5 "${_gw}/v1/models" 2>/dev/null \
+  | python3 -c "
+import sys, json
+try: print(json.load(sys.stdin).get('default') or '')
+except Exception: print('')
+" 2>/dev/null)"
+
+if [ "${IAC_GPU_SET_DEFAULT:-1}" != 1 ] || [ -z "${_default_target}" ]; then
+  :
+elif [ "${_cur_default}" = "${_default_target}" ]; then
+  ok "auto → ${_default_target}"
+elif [ "${IAC_DRY_RUN}" = 1 ]; then
+  changed "would set auto → ${_default_target} (currently ${_cur_default:-primary})"
+else
   _df="$(curl -fsS --max-time 10 -X POST "${_gw}/v1/models/default" \
     -H 'Content-Type: application/json' -d "{\"id\":\"${_default_target}\"}" 2>&1)"
   # The reply reports both what was asked and what is ACTIVE; only "active"
@@ -183,11 +200,27 @@ esac
 if [ -n "${IAC_GPU_BACKGROUND_ID:-}" ] && [ "${_bg_target}" != "${IAC_GPU_BACKGROUND_ID}" ]; then
   iac_info "preferred background '${IAC_GPU_BACKGROUND_ID}' is not serving — using '${_bg_target:-none}'"
 fi
-if [ "${IAC_GPU_SET_BACKGROUND:-1}" = 1 ] && [ -n "${_bg_target}" ] && [ "${IAC_DRY_RUN}" != 1 ]; then
+# Background had the mirror-image inaccuracy: it reported `ok` unconditionally,
+# staying silent about a designation it HAD just changed. Both directions matter —
+# a converge report is only useful if `changed` and `ok` each mean what they say.
+_cur_bg="$(curl -fsS --max-time 5 "${_gw}/v1/models" 2>/dev/null \
+  | python3 -c "
+import sys, json
+try: print(json.load(sys.stdin).get('background') or '')
+except Exception: print('')
+" 2>/dev/null)"
+
+if [ "${IAC_GPU_SET_BACKGROUND:-1}" != 1 ] || [ -z "${_bg_target}" ]; then
+  :
+elif [ "${_cur_bg}" = "${_bg_target}" ]; then
+  ok "background alias → ${_bg_target}"
+elif [ "${IAC_DRY_RUN}" = 1 ]; then
+  changed "would set background → ${_bg_target} (currently ${_cur_bg:-none})"
+else
   _bg="$(curl -fsS --max-time 10 -X POST "${_gw}/v1/models/background" \
     -H 'Content-Type: application/json' -d "{\"id\":\"${_bg_target}\"}" 2>&1)"
   case "${_bg}" in
-    *"${_bg_target}"*) ok "background alias → ${_bg_target}" ;;
-    *)                 iac_info "could not set the background alias: ${_bg}" ;;
+    *'"active":"'"${_bg_target}"'"'*) changed "background alias → ${_bg_target}" ;;
+    *) fail "gatewayd recorded the background alias but it is not active: ${_bg}" ;;
   esac
 fi
