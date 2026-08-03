@@ -109,6 +109,42 @@ else
   fi
 fi
 
+# ─── reclaim alternate-runtime weight trees ──────────────────────────────────
+# The repo shipped 178 GiB against a 63 GiB catalog figure: 58 GiB of safetensors
+# plus original/ (60 GiB) and metal/ (60 GiB) — an original-layout checkpoint and
+# Apple Metal weights, neither loadable by vLLM on CUDA. pull.sh now excludes
+# them by default, but this box already has them.
+#
+# Deleting inside a model directory deserves a guard, so the only trees removed
+# are ones the safetensors index does NOT reference. If the index names anything
+# under a candidate, it is kept and reported — an index-referenced file is part
+# of the model no matter what the directory is called.
+if [ "${IAC_ORACLE_PRUNE_UNUSED:-0}" = 1 ] && [ "${_have}" = 1 ]; then
+  for _cand in ${IAC_ORACLE_PRUNE_DIRS:-original metal}; do
+    _d="${_model}/${_cand}"
+    [ -d "${_d}" ] || continue
+    if python3 -c 'import json,sys
+idx, sub = sys.argv[1], sys.argv[2]
+try:
+    wm = json.load(open(idx)).get("weight_map", {})
+except Exception:
+    sys.exit(1)   # unreadable index -> refuse to prune
+sys.exit(0 if not any(f.startswith(sub + "/") for f in set(wm.values())) else 1)' \
+         "${_model}/model.safetensors.index.json" "${_cand}"; then
+      _sz="$(du -sh "${_d}" 2>/dev/null | cut -f1)"
+      if [ "${IAC_DRY_RUN}" = 1 ]; then
+        changed "would reclaim ${_d} (${_sz}, not referenced by the index)"
+      elif run "prune-${_cand}" rm -rf "${_d}"; then
+        changed "reclaimed ${_d} (${_sz}, not referenced by the index)"
+      else
+        fail "could not remove ${_d}"
+      fi
+    else
+      skip "keeping ${_d} — the safetensors index references it"
+    fi
+  done
+fi
+
 # ─── activation ──────────────────────────────────────────────────────────────
 if [ "${_have}" != 1 ]; then
   skip "no usable weights — not enabling a tier with nothing to serve"

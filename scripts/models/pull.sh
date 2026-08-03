@@ -23,6 +23,10 @@
 # Env vars:
 #   SOVEREIGN_OS_MODELS_DIR   destination (default: /mnt/vault/models)
 #   HUGGINGFACE_HUB_TOKEN     optional auth token (some licenses gated)
+#   SOVEREIGN_OS_PULL_EXCLUDE comma-separated globs passed as --exclude
+#                             (default: original/*,metal/* — alternate-runtime
+#                             weight trees a CUDA box cannot use; gpt-oss-120b
+#                             ships 120 GiB of them). Set empty to mirror all.
 #   SOVEREIGN_OS_DRY_RUN      print intent + exit 0
 #
 # Layer B metrics:
@@ -160,7 +164,29 @@ pull_one() {
   fi
 
   mkdir -p "${SOVEREIGN_OS_MODELS_DIR}/${model_id}"
-  if "${HF_DL[@]}" "${repo}" \
+
+  # A HuggingFace repo is not just the weights a given runtime needs. gpt-oss-120b
+  # pulled 178 GiB against a 63 GiB catalog figure, because alongside the 58 GiB
+  # of safetensors the repo also ships original/ (60 GiB, original-layout
+  # checkpoint) and metal/ (60 GiB, Apple Metal weights) — 120 GiB unusable on a
+  # CUDA box, downloaded in full because `hf download` takes the whole repo.
+  #
+  # SOVEREIGN_OS_PULL_EXCLUDE is a comma-separated list of glob patterns passed
+  # through as --exclude. Defaults to the two known alternate-runtime trees; set
+  # it empty to mirror a repo verbatim. The safetensors index names only files
+  # this skips nothing of, so a served checkpoint stays complete.
+  _excl_args=()
+  _excl="${SOVEREIGN_OS_PULL_EXCLUDE-original/*,metal/*}"
+  if [ -n "${_excl}" ]; then
+    IFS=',' read -r -a _excl_list <<< "${_excl}"
+    for _e in "${_excl_list[@]}"; do
+      [ -n "${_e}" ] || continue
+      _excl_args+=(--exclude "${_e}")
+      log_info "  excluding: ${_e}"
+    done
+  fi
+
+  if "${HF_DL[@]}" "${repo}" "${_excl_args[@]}" \
        --local-dir "${SOVEREIGN_OS_MODELS_DIR}/${model_id}"; then
     log_info "  ✓ ${model_id} resident at ${SOVEREIGN_OS_MODELS_DIR}/${model_id}"
     emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"success\""
