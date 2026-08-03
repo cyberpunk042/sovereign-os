@@ -56,7 +56,10 @@ DEFAULT_TIMEOUT = int(os.environ.get("SOVEREIGN_OS_PROMPT_TIMEOUT", "300"))
 # "However, I won't be" and read as a freeze, because the gateway also reported
 # finish_reason "stop" for it. Chat surfaces need room for a real answer; the
 # gateway clamps to 1024 regardless, so this cannot exceed what it will serve.
-MAX_NEW_TOKENS = int(os.environ.get("SOVEREIGN_OS_MAX_NEW_TOKENS", "512"))
+# 1024 (the gateway's clamp) rather than 512: a reasoning model spends its budget
+# THINKING before it answers, so a 512-token cap produced 746 chars of
+# chain-of-thought and no answer at all on a one-sentence question.
+MAX_NEW_TOKENS = int(os.environ.get("SOVEREIGN_OS_MAX_NEW_TOKENS", "1024"))
 # SDD-712 agentic tool use. Per-call (`run(..., agentic=True)`); this env var only
 # sets the default, so the CLI and any other caller keep plain chat unless they
 # ask. The daemon gates it independently with SOVEREIGN_GATEWAY_AGENTIC, so a
@@ -241,6 +244,8 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
     started = time.monotonic()
     tokens = 0
     finish_reason = None
+    reasoning_chars = 0
+    produced_content = False
     try:
         for payload in _stream_completion(body, timeout):
             if payload == "[DONE]":
@@ -260,8 +265,18 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
                 fr = choices[0].get("finish_reason")
                 if fr:
                     finish_reason = fr
-                delta = (choices[0].get("delta") or {}).get("content")
+                _d = choices[0].get("delta") or {}
+                # Reasoning models stream their chain-of-thought in a SEPARATE
+                # field, and the field name differs by parser: vLLM's
+                # nemotron_v3 emits "reasoning", others emit "reasoning_content".
+                # Count it. Without this a turn that spends its whole budget
+                # thinking looks identical to a model that said nothing, which is
+                # exactly the "(no response)" the console showed before.
+                reasoning_chars += len(_d.get("reasoning") or
+                                       _d.get("reasoning_content") or "")
+                delta = _d.get("content")
                 if delta:
+                    produced_content = True
                     tokens += 0 if usage else 1  # count deltas only w/o usage
                     yield {"type": "token", "text": delta}
     except (urllib.error.URLError, ConnectionError, OSError, TimeoutError) as e:
@@ -272,9 +287,19 @@ def run(text: str = "", *, messages: list[dict[str, Any]] | None = None,
         return
     elapsed = max(time.monotonic() - started, 1e-6)
     tps = round(tokens / elapsed, 2) if tokens else 0.0
+    # A turn that produced ONLY reasoning is not an empty answer — it ran out of
+    # budget mid-thought. Say so, rather than leaving the surface to render
+    # nothing and let the operator conclude the model is broken.
+    if reasoning_chars and not produced_content:
+        yield {"type": "error", "tier": tier,
+               "error": f"the model used its entire {MAX_NEW_TOKENS}-token budget "
+                        f"reasoning ({reasoning_chars} chars) and did not reach an "
+                        f"answer — raise SOVEREIGN_OS_MAX_NEW_TOKENS"}
+        return
     yield {"type": "done", "tokens": tokens, "elapsed_s": round(elapsed, 3),
            "tokens_per_sec": tps, "tier": tier,
-           "finish_reason": finish_reason, "truncated": finish_reason == "length"}
+           "finish_reason": finish_reason, "truncated": finish_reason == "length",
+           "reasoning_chars": reasoning_chars}
 
 
 def publish_telemetry(tier: str, tokens_per_sec: float, latency_ms: float | None = None,
