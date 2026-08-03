@@ -802,7 +802,12 @@ fn stream_anthropic_messages(
     let requested = req
         .get("model")
         .and_then(|m| m.as_str())
-        .unwrap_or("sovereign-local")
+        // An OMITTED model means no preference — the same thing "auto" means.
+        // This defaulted to "sovereign-local", the placeholder id /v1/models
+        // advertises when NOTHING is loaded. It matches no backend, so every
+        // request without a model field routed as an unknown secondary and
+        // failed with "no local model loaded" on a perfectly healthy primary.
+        .unwrap_or(GatewayServer::AUTO_ALIAS)
         .to_string();
     // Expand the reserved "background" alias to the designated backend (Phase 2
     // inc.3) so a streamed background request targets the secondary, and the proxy
@@ -1603,7 +1608,12 @@ fn stream_chat_completions(
     let requested = req
         .get("model")
         .and_then(|m| m.as_str())
-        .unwrap_or("sovereign-local")
+        // An OMITTED model means no preference — the same thing "auto" means.
+        // This defaulted to "sovereign-local", the placeholder id /v1/models
+        // advertises when NOTHING is loaded. It matches no backend, so every
+        // request without a model field routed as an unknown secondary and
+        // failed with "no local model loaded" on a perfectly healthy primary.
+        .unwrap_or(GatewayServer::AUTO_ALIAS)
         .to_string();
     let model = server.expand_alias(Some(&requested)).unwrap_or(requested);
     if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
@@ -2038,7 +2048,12 @@ fn agentic_anthropic_message(
     let requested = req
         .get("model")
         .and_then(|m| m.as_str())
-        .unwrap_or("sovereign-local")
+        // An OMITTED model means no preference — the same thing "auto" means.
+        // This defaulted to "sovereign-local", the placeholder id /v1/models
+        // advertises when NOTHING is loaded. It matches no backend, so every
+        // request without a model field routed as an unknown secondary and
+        // failed with "no local model loaded" on a perfectly healthy primary.
+        .unwrap_or(GatewayServer::AUTO_ALIAS)
         .to_string();
     let model = server.expand_alias(Some(&requested)).unwrap_or(requested);
     // Agentic runs the loop on the local model; a proxy backend has no in-process

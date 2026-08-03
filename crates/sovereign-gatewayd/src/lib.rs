@@ -2268,6 +2268,10 @@ impl GatewayServer {
     /// The reserved model id that routes to the designated background model.
     pub const BACKGROUND_ALIAS: &'static str = "background";
 
+    /// The placeholder id `GET /v1/models` reports when no model is loaded, so a
+    /// client's picker is never empty. Resolves to the primary.
+    pub const LOCAL_PLACEHOLDER_ID: &'static str = "sovereign-local";
+
     /// The reserved model id meaning "you choose" — resolves to the primary.
     ///
     /// SDD-902 specifies the composer's model picker as
@@ -2356,6 +2360,11 @@ impl GatewayServer {
             // This box is why it is not simply None: two GPUs served 268 and 107
             // tok/s while "auto" resolved to a 1.7B on the CPU at ~1 tok/s.
             Some(Self::AUTO_ALIAS) | Some("") => self.default_model_id(),
+            // The placeholder id /v1/models advertises when nothing is loaded.
+            // A client that picks it from an empty picker means "whatever this
+            // box serves locally", so resolve it to the primary rather than
+            // treating it as an unknown secondary.
+            Some(Self::LOCAL_PLACEHOLDER_ID) => None,
             other => other.map(str::to_string),
         }
     }
@@ -4572,6 +4581,15 @@ mod tests {
 
         // Concrete ids still pass through untouched.
         assert_eq!(s.expand_alias(Some("gpu-b")).as_deref(), Some("gpu-b"));
+
+        // The placeholder /v1/models advertises when nothing is loaded resolves
+        // to the primary, not to an unknown secondary. A client that picks it
+        // from an otherwise-empty picker means "whatever this box serves".
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::LOCAL_PLACEHOLDER_ID)),
+            None,
+            "the local placeholder must mean the primary"
+        );
     }
 
     #[test]
