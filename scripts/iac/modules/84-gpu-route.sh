@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
-# route sovereign-gatewayd at the GPU tier
+# route sovereign-gatewayd at the GPU tiers
 # gate: IAC_ENABLE_GPU_ROUTE
+#
+# WHY 84 AND NOT 74
+#   Modules run in NUMERIC order, not the order they are listed on the command
+#   line. As 74 this ran BEFORE 80-binaries, with two consequences on the same
+#   converge: it talked to the OLD gatewayd — which 404'd on /v1/models/default
+#   because that route had just been written — and then 80 installed the new
+#   binary and restarted the daemon, wiping the proxy table it had just
+#   populated. The registry is IN-MEMORY, so every gatewayd restart empties it.
+#   Routing configuration must therefore come after the binary that serves it,
+#   and after the tiers it points at (72, 76).
+#
+#   Corollary worth knowing: a gatewayd restart OUTSIDE converge (a crash, a
+#   manual systemctl) also drops the proxies until the next converge re-runs this
+#   module. That is inherent to an in-memory registry, not a bug introduced here.
 #
 # WHY
 #   Module 72 puts a 30B model on the RTX 5090 serving at ~268 tok/s, but the
