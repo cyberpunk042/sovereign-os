@@ -494,6 +494,100 @@ fn http_streams_a_proxy_backend_through_the_openai_shim() {
     assert!(sbody.contains("[DONE]"), "sse:\n{sbody}");
 }
 
+/// A mock OpenAI SSE upstream that ECHOES the `model` field it received back as
+/// the response content. Lets a test assert what the gateway actually forwarded,
+/// rather than only what it decided to route.
+fn spawn_mock_openai_echo_model_upstream() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap().to_string();
+    std::thread::spawn(move || {
+        for conn in listener.incoming() {
+            let Ok(mut sock) = conn else { break };
+            let mut buf = [0u8; 8192];
+            let n = sock.read(&mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]).to_string();
+            // Crude but sufficient: pull "model":"..." out of the forwarded body.
+            let got = req
+                .split("\"model\":\"")
+                .nth(1)
+                .and_then(|r| r.split('"').next())
+                .unwrap_or("<none>")
+                .to_string();
+            let frames = [
+                format!(r#"data: {{"choices":[{{"delta":{{"content":"got:{got}"}},"finish_reason":"stop"}}]}}"#),
+                "data: [DONE]".to_string(),
+            ];
+            let mut body = String::new();
+            for f in frames {
+                let frame = format!("{f}\n\n");
+                body.push_str(&format!("{:x}\r\n{}\r\n", frame.len(), frame));
+            }
+            body.push_str("0\r\n\r\n");
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n{body}"
+            );
+            let _ = sock.write_all(resp.as_bytes());
+        }
+    });
+    addr
+}
+
+#[test]
+fn proxy_forwards_the_resolved_model_not_the_alias() {
+    // Regression. "auto" and "background" are GATEWAY-side names: expand_alias
+    // rewrites them to pick a backend, but the request body was relayed verbatim
+    // (`oai = req.clone()`), so the tier received the alias it had never heard of:
+    //     proxy upstream 404: The model `auto` does not exist.
+    // Routing was correct and the request still failed at the far end. The mock
+    // echoes back whatever model it was sent, so this asserts what was FORWARDED
+    // rather than what was chosen.
+    let up = spawn_mock_openai_echo_model_upstream();
+    let d = spawn("--http");
+
+    let reg = serde_json::json!({
+        "id": "gpu-x", "endpoint": up, "device": "logic", "vram_gb": 32.0, "dialect": "openai",
+    })
+    .to_string();
+    let (rstatus, _) = http_request(&d.addr, "POST", "/v1/models/register", &reg);
+    assert!(rstatus.starts_with("HTTP/1.1 200"), "register: {rstatus}");
+
+    // Designate it as what "auto" means.
+    let (dstatus, dbody) = http_request(
+        &d.addr,
+        "POST",
+        "/v1/models/default",
+        &serde_json::json!({"id": "gpu-x"}).to_string(),
+    );
+    assert!(dstatus.starts_with("HTTP/1.1 200"), "default: {dstatus}");
+    assert!(
+        dbody.contains("\"active\":\"gpu-x\""),
+        "the designation must be ACTIVE, not merely recorded; body: {dbody}"
+    );
+
+    for alias in ["auto", ""] {
+        let req = serde_json::json!({
+            "model": alias, "max_tokens": 16, "stream": true,
+            "messages": [{"role": "user", "content": "hi"}],
+        })
+        .to_string();
+        let (status, body) = http_request(&d.addr, "POST", "/v1/chat/completions", &req);
+        assert!(status.starts_with("HTTP/1.1 200"), "alias {alias:?}: {status}");
+        assert!(
+            body.contains("got:gpu-x"),
+            "alias {alias:?} must be forwarded as the resolved id, not verbatim; sse:\n{body}"
+        );
+    }
+
+    // A concrete id still passes through untouched.
+    let req = serde_json::json!({
+        "model": "gpu-x", "max_tokens": 16, "stream": true,
+        "messages": [{"role": "user", "content": "hi"}],
+    })
+    .to_string();
+    let (_, body) = http_request(&d.addr, "POST", "/v1/chat/completions", &req);
+    assert!(body.contains("got:gpu-x"), "sse:\n{body}");
+}
+
 /// A mock OpenAI SSE upstream whose content carries a secret (an AWS key) — used
 /// to prove the proxy-relay redaction actually scrubs it.
 fn spawn_mock_openai_sse_secret_upstream() -> String {

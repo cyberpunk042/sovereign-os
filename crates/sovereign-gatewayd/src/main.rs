@@ -829,7 +829,7 @@ fn stream_anthropic_messages(
                 ),
             );
         }
-        return stream_proxy_message(writer, &endpoint, &dialect, &model, &req, body);
+        return stream_proxy_message(writer, &endpoint, &dialect, &model, &req);
     }
     if !server.has_generator() {
         return write_http(
@@ -1070,13 +1070,19 @@ fn stream_proxy_message(
     dialect: &str,
     model: &str,
     req: &serde_json::Value,
-    body: &str,
 ) -> std::io::Result<()> {
+    // Both branches must carry the RESOLVED model id upstream. The alias the
+    // client sent ("auto", "background", "") is a gateway-side name the tier has
+    // never heard of — it names WHERE to route, not what the backend serves —
+    // and forwarding it produces a 404 at the far end after correct routing.
     let (path, up_body) = if dialect == "anthropic" {
-        ("/v1/messages", body.to_string())
+        let mut anth = req.clone();
+        anth["model"] = serde_json::Value::String(model.to_string());
+        ("/v1/messages", anth.to_string())
     } else {
         let mut oai = http::anthropic_to_openai_chat(req);
         oai["stream"] = serde_json::Value::Bool(true);
+        oai["model"] = serde_json::Value::String(model.to_string());
         ("/v1/chat/completions", oai.to_string())
     };
     let (mut reader, up_status, chunked) = match open_proxy_stream(endpoint, path, &up_body) {
@@ -1278,9 +1284,22 @@ fn stream_proxy_chat_completions(
     writer: &mut TcpStream,
     endpoint: &str,
     req: &serde_json::Value,
+    resolved_model: &str,
 ) -> std::io::Result<()> {
     let mut oai = req.clone();
     oai["stream"] = serde_json::Value::Bool(true);
+    // Forward the RESOLVED model id, not the client's.
+    //
+    // The body is relayed verbatim, which is right for messages, sampling
+    // parameters and everything else — but the model field has already been
+    // rewritten once by expand_alias to decide WHERE this request goes. Sending
+    // the caller's original string upstream means an alias routes correctly and
+    // then 404s at the tier that received it:
+    //     proxy upstream 404: The model `auto` does not exist.
+    // vLLM serves under the proxy id (--served-model-name), and "auto" is a
+    // gateway-side name it has never heard of. Any alias hits this — "auto",
+    // "background", and "" alike.
+    oai["model"] = serde_json::Value::String(resolved_model.to_string());
     let (mut reader, up_status, chunked) =
         match open_proxy_stream(endpoint, "/v1/chat/completions", &oai.to_string()) {
             Ok(t) => t,
@@ -1600,7 +1619,7 @@ fn stream_chat_completions(
                 ),
             );
         }
-        return stream_proxy_chat_completions(writer, &endpoint, &req);
+        return stream_proxy_chat_completions(writer, &endpoint, &req, &model);
     }
     if !server.has_generator() {
         return write_http(
