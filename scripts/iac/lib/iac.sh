@@ -137,6 +137,53 @@ ensure_dir() {
   fi
 }
 
+# ---- model weights ----
+# Is a checkpoint directory COMPLETE, not merely present?
+#
+# Two versions of this test were already wrong, both on the same real download —
+# a gpt-oss-120b fetch that stopped with 13 of its 14 shards and no index file:
+#   1. "config.json + any *.safetensors" passed, because 13 shards is some.
+#   2. "index exists -> check it, else any *.safetensors" ALSO passed, because a
+#      missing index fell through to the lenient branch — and a missing index on
+#      a sharded model is precisely the broken case.
+# Converge would then have skipped the fetch as "weights present" and started a
+# tier on a model vLLM cannot load.
+#
+# Shardedness is decided by the FILENAMES (`model-00003-of-00014.safetensors`),
+# which state the expected total, so a missing index cannot downgrade the check
+# to the lenient path.
+weights_complete() {
+  local dir="$1"
+  [ -f "${dir}/config.json" ] || return 1
+  python3 -c 'import json,os,re,sys,glob
+d = sys.argv[1]
+shards = sorted(glob.glob(os.path.join(d, "*-of-*.safetensors")))
+if shards:
+    m = re.search(r"-of-(\d+)\.safetensors$", shards[0])
+    want = int(m.group(1)) if m else 0
+    if len(shards) != want:
+        print("have %d of %d shards" % (len(shards), want), file=sys.stderr)
+        sys.exit(1)
+    idx = os.path.join(d, "model.safetensors.index.json")
+    if not os.path.exists(idx):
+        print("sharded checkpoint with no model.safetensors.index.json", file=sys.stderr)
+        sys.exit(1)
+    try:
+        wm = json.load(open(idx)).get("weight_map", {})
+    except Exception:
+        print("index is unreadable", file=sys.stderr)
+        sys.exit(1)
+    missing = sorted({f for f in wm.values()
+                      if not os.path.exists(os.path.join(d, f))})
+    if missing:
+        print("index names %d absent file(s), e.g. %s" % (len(missing), missing[0]),
+              file=sys.stderr)
+        sys.exit(1)
+    sys.exit(0)
+# Unsharded: a single weights file is the whole model.
+sys.exit(0 if glob.glob(os.path.join(d, "*.safetensors")) else 1)' "${dir}"
+}
+
 # ---- systemd convergence ----
 # ensure_unit_state <unit> <masked|disabled|enabled> [started|stopped]
 ensure_unit_state() {

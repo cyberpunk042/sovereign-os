@@ -80,13 +80,11 @@ ORACLE_EXTRA_ARGS=--served-model-name ${_proxy_id} --attention-backend ${IAC_VLL
 EOF
 
 # ─── weights ─────────────────────────────────────────────────────────────────
-# config.json AND a safetensors, not a bare directory: a 63 GiB download that
-# stops halfway leaves the directory behind, and vLLM would be handed something
-# it cannot open.
+# Completeness, not mere presence — see weights_complete() in lib/iac.sh. A 63 GiB
+# download that stops halfway leaves 13 of 14 shards behind, which two earlier
+# versions of this check both accepted.
 _have=0
-if [ -f "${_model}/config.json" ] && ls "${_model}"/*.safetensors >/dev/null 2>&1; then
-  _have=1
-fi
+if weights_complete "${_model}" 2>/dev/null; then _have=1; fi
 
 if [ "${_have}" = 1 ]; then
   ok "weights present: ${_model} ($(du -sh "${_model}" 2>/dev/null | cut -f1))"
@@ -100,11 +98,11 @@ else
   [ -f "${_pull}" ] || _pull=/opt/sovereign-os/scripts/models/pull.sh
   if PATH="${_venv}/bin:${PATH}" SOVEREIGN_OS_MODELS_DIR="${_models_dir}" \
      run "pull-oracle" bash "${_pull}" "${_model_id}"; then
-    if [ -f "${_model}/config.json" ] && ls "${_model}"/*.safetensors >/dev/null 2>&1; then
+    if weights_complete "${_model}" 2>/dev/null; then
       changed "fetched ${_model_id} → ${_model}"
       _have=1
     else
-      fail "pull.sh succeeded but ${_model} has no config.json + safetensors"
+      fail "pull.sh exited 0 but ${_model} is still incomplete: $(weights_complete "${_model}" 2>&1 >/dev/null)"
     fi
   else
     fail "could not fetch ${_model_id}"

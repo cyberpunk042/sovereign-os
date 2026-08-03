@@ -268,10 +268,7 @@ fi
 # interrupted download leaves the directory behind, and a bare `-d` test would
 # call that provisioned and then hand vLLM something it cannot open.
 _have_weights=0
-if [ -f "${_model}/config.json" ] && \
-   ls "${_model}"/*.safetensors >/dev/null 2>&1; then
-  _have_weights=1
-fi
+if weights_complete "${_model}" 2>/dev/null; then _have_weights=1; fi
 
 if [ "${_have_weights}" = 1 ]; then
   ok "weights present: ${_model} ($(du -sh "${_model}" 2>/dev/null | cut -f1))"
@@ -287,11 +284,11 @@ else
   [ -f "${_pull}" ] || _pull=/opt/sovereign-os/scripts/models/pull.sh
   if PATH="${_venv}/bin:${PATH}" SOVEREIGN_OS_MODELS_DIR="${_models_dir}" \
      run "pull-model" bash "${_pull}" "${_model_id}"; then
-    if [ -f "${_model}/config.json" ] && ls "${_model}"/*.safetensors >/dev/null 2>&1; then
+    if weights_complete "${_model}" 2>/dev/null; then
       changed "fetched ${_model_id} → ${_model}"
       _have_weights=1
     else
-      fail "pull.sh succeeded but ${_model} has no config.json + safetensors"
+      fail "pull.sh exited 0 but ${_model} is still incomplete: $(weights_complete "${_model}" 2>&1 >/dev/null)"
     fi
   else
     fail "could not fetch ${_model_id} — check the log; some NVIDIA repos need HUGGINGFACE_HUB_TOKEN"
