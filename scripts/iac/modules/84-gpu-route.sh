@@ -50,8 +50,21 @@ ${IAC_ORACLE_PROXY_ID:-gpu-oracle} 127.0.0.1:${IAC_ORACLE_PORT:-8083} oracle ${I
 # Registering a dead endpoint would leave gatewayd holding an id that resolves to
 # nothing, so each tier is probed first and simply skipped when down. A tier that
 # is still loading is not an error — converge is re-runnable.
-if ! curl -fsS --max-time 5 "${_gw}/health" >/dev/null 2>&1; then
-  skip "sovereign-gatewayd not reachable at ${_gw} — cannot register proxies"
+# WAIT for gatewayd rather than probing once. Module 80 restarts the daemon in
+# the SAME converge run when the binary changed, and gatewayd loads its primary
+# model before it listens — so a single probe here loses a race it is guaranteed
+# to enter, and the run reports
+#     skip  sovereign-gatewayd not reachable — cannot register proxies
+# leaving the GPU tiers unregistered until someone converges again. A module that
+# depends on a service an earlier module just restarted has to give it time.
+_gw_up=0
+for _i in $(seq 1 "${IAC_GATEWAY_WAIT_TRIES:-30}"); do
+  if curl -fsS --max-time 3 "${_gw}/health" >/dev/null 2>&1; then _gw_up=1; break; fi
+  [ "${_i}" = 1 ] && iac_info "waiting for gatewayd at ${_gw} (it loads a model before listening)"
+  sleep 2
+done
+if [ "${_gw_up}" != 1 ]; then
+  fail "sovereign-gatewayd still not reachable at ${_gw} after $(( ${IAC_GATEWAY_WAIT_TRIES:-30} * 2 ))s — proxies unregistered"
   return 0 2>/dev/null || exit 0
 fi
 
@@ -78,7 +91,15 @@ print(' '.join(m.get('id','') for m in d.get('data', [])))
 _last_ok=""
 while read -r _id _ep _dev _vram; do
   [ -n "${_id}" ] || continue
-  if ! curl -fsS --max-time 5 "http://${_ep}/v1/models" >/dev/null 2>&1; then
+  # Same grace for the tiers: modules 72/76 may have restarted them moments ago,
+  # and a 21 GB or 58 GB checkpoint takes longer to load than the gateway does.
+  _tier_up=0
+  for _i in $(seq 1 "${IAC_TIER_WAIT_TRIES:-45}"); do
+    if curl -fsS --max-time 3 "http://${_ep}/v1/models" >/dev/null 2>&1; then _tier_up=1; break; fi
+    [ "${_i}" = 1 ] && iac_info "waiting for tier ${_id} at ${_ep}"
+    sleep 2
+  done
+  if [ "${_tier_up}" != 1 ]; then
     skip "tier ${_id} not serving at ${_ep} — nothing to route to"
     continue
   fi
