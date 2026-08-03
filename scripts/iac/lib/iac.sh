@@ -48,12 +48,33 @@ run() {
     iac_debug "[${desc}] would run: $*"
     return 0
   fi
-  if "$@" >/dev/null 2>&1; then
+  # Capture rather than discard. This used to be `>/dev/null 2>&1` with the
+  # output visible only under --verbose, so a failure surfaced as a bare
+  # `fail "could not fetch gpt-oss-120b"` with no reason attached anywhere — a
+  # 63 GiB download that stopped for an unstated cause, twice. A command that
+  # fails should say why without needing the run repeated at a higher verbosity;
+  # by then the transient that caused it may be gone.
+  local out rc
+  out="$(mktemp)"
+  # Capture the status IMMEDIATELY. `if cmd; then …; fi` leaves $? as the
+  # STATUS OF THE IF CONSTRUCT (0 when the condition merely failed), so reading
+  # $? after the block reported "exit 0" for a command that exited 3.
+  "$@" >"${out}" 2>&1
+  rc=$?
+  if [ "${rc}" -eq 0 ]; then
     iac_debug "[${desc}] ok: $*"
+    rm -f "${out}"
     return 0
   fi
-  iac_debug "[${desc}] FAILED: $*"
-  return 1
+  iac_debug "[${desc}] FAILED (exit ${rc}): $*"
+  # Tail only: a failed pip or download can emit thousands of lines, and the
+  # cause is almost always at the end.
+  if [ -s "${out}" ]; then
+    printf '     \033[2m[%s] exit %s — last output:\033[0m\n' "${desc}" "${rc}" >&2
+    tail -n "${IAC_RUN_FAIL_LINES:-6}" "${out}" | sed 's/^/       /' >&2
+  fi
+  rm -f "${out}"
+  return "${rc}"
 }
 
 need_root() {

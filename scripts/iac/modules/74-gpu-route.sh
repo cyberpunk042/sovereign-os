@@ -77,6 +77,7 @@ while read -r _id _ep _dev _vram; do
     continue
   fi
   _last_ok="${_id}"
+  _registered_now="${_registered_now:-} ${_id}"
 
   case " ${_registered} " in
     *" ${_id} "*) ok "proxy ${_id} already registered (${_ep})"; continue ;;
@@ -102,7 +103,19 @@ done <<< "${_TIERS}"
 # primary. Prefer the ORACLE tier when it is up — it is the larger card and the
 # more capable model — else whichever tier registered. Either beats a 1 tok/s CPU
 # primary for every caller already using the alias.
-_bg_target="${IAC_GPU_BACKGROUND_ID:-${_last_ok}}"
+# Only designate a tier that actually registered. The configured preference is
+# honoured just when it is among them: pointing the alias at an absent id looked
+# fine in the report ("background alias → gpu-oracle") while gatewayd, whose
+# background_id() resolves only a LOADED backend, silently fell back to the
+# 1 tok/s CPU primary. A green line for a routing decision that did not happen.
+_bg_target=""
+case " ${_registered_now:-} " in
+  *" ${IAC_GPU_BACKGROUND_ID:-} "*) _bg_target="${IAC_GPU_BACKGROUND_ID}" ;;
+  *) _bg_target="${_last_ok}" ;;
+esac
+if [ -n "${IAC_GPU_BACKGROUND_ID:-}" ] && [ "${_bg_target}" != "${IAC_GPU_BACKGROUND_ID}" ]; then
+  iac_info "preferred background '${IAC_GPU_BACKGROUND_ID}' is not serving — using '${_bg_target:-none}'"
+fi
 if [ "${IAC_GPU_SET_BACKGROUND:-1}" = 1 ] && [ -n "${_bg_target}" ] && [ "${IAC_DRY_RUN}" != 1 ]; then
   _bg="$(curl -fsS --max-time 10 -X POST "${_gw}/v1/models/background" \
     -H 'Content-Type: application/json' -d "{\"id\":\"${_bg_target}\"}" 2>&1)"
