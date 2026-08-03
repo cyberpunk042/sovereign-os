@@ -98,6 +98,38 @@ while read -r _id _ep _dev _vram; do
   esac
 done <<< "${_TIERS}"
 
+# ─── designate what "auto" means ─────────────────────────────────────────────
+# "auto" is what every caller that expresses no preference sends — the console
+# picker's fallback, prompt.py's default, any bare API client. It resolved to the
+# PRIMARY, which on this box is a 1.7B on the CPU at ~1 tok/s while two GPUs
+# served 268 and 107 tok/s. Choosing the slowest available backend is a strange
+# reading of "you choose".
+#
+# Deliberately a SEPARATE designation from background: background exists so
+# deliberation runs off the primary, and reusing it here would move foreground
+# traffic every time an operator pointed background at something cheap.
+#
+# gatewayd resolves a designated-but-unloaded id to null, so this cannot strand
+# routing at a tier that goes away — "auto" falls back to the primary honestly.
+_default_target=""
+case " ${_registered_now:-} " in
+  *" ${IAC_GPU_DEFAULT_ID:-} "*) _default_target="${IAC_GPU_DEFAULT_ID}" ;;
+  *) _default_target="${_last_ok}" ;;
+esac
+if [ -n "${IAC_GPU_DEFAULT_ID:-}" ] && [ "${_default_target}" != "${IAC_GPU_DEFAULT_ID}" ]; then
+  iac_info "preferred default '${IAC_GPU_DEFAULT_ID}' is not serving — using '${_default_target:-primary}'"
+fi
+if [ "${IAC_GPU_SET_DEFAULT:-1}" = 1 ] && [ -n "${_default_target}" ] && [ "${IAC_DRY_RUN}" != 1 ]; then
+  _df="$(curl -fsS --max-time 10 -X POST "${_gw}/v1/models/default" \
+    -H 'Content-Type: application/json' -d "{\"id\":\"${_default_target}\"}" 2>&1)"
+  # The reply reports both what was asked and what is ACTIVE; only "active"
+  # means routing actually changed.
+  case "${_df}" in
+    *'"active":"'"${_default_target}"'"'*) changed "auto → ${_default_target}" ;;
+    *) fail "gatewayd recorded the default but it is not active: ${_df}" ;;
+  esac
+fi
+
 # ─── designate a background model ────────────────────────────────────────────
 # The reserved "background" alias routes deliberation and CoAT expansion off the
 # primary. Prefer the ORACLE tier when it is up — it is the larger card and the

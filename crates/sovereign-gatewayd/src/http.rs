@@ -163,6 +163,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         ("POST", "/v1/models/unload") => models_unload(server, body),
         ("POST", "/v1/models/register") => models_register(server, body),
         ("POST", "/v1/models/background") => models_background(server, body),
+        ("POST", "/v1/models/default") => models_default(server, body),
         ("POST", "/v1/corpus/reload") => corpus_reload(server),
         ("POST", "/v1/cache/clear") => cache_clear(server),
         ("POST", "/v1/messages/count_tokens") => anthropic_count_tokens(body),
@@ -267,6 +268,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/v1/models/unload")
         | (_, "/v1/models/register")
         | (_, "/v1/models/background")
+        | (_, "/v1/models/default")
         | (_, "/v1/corpus/reload")
         | (_, "/v1/cache/clear")
         | (_, "/v1/infer")
@@ -534,6 +536,9 @@ fn anthropic_models(server: &GatewayServer) -> HttpReply {
             // the model the "background" alias resolves to (null = none designated /
             // designated-but-unloaded → the primary), so a UI can show it (inc.3/UX loop)
             "background": server.background_id(),
+            // the model "auto" resolves to (null = none designated / not loaded,
+            // in which case "auto" means the primary)
+            "default": server.default_model_id(),
             "architecture": architecture,
         }),
     )
@@ -1231,6 +1236,35 @@ fn models_background(server: &GatewayServer, body: &str) -> HttpReply {
         &serde_json::json!({
             "background": id,
             "active": server.background_id(),
+        }),
+    )
+}
+
+/// `POST /v1/models/default` — designate the model the reserved `"auto"` alias
+/// resolves to. `{"id": null}` clears it, restoring "auto means the primary".
+///
+/// Loopback-trust, like the background designation. The reply reports both what
+/// was ASKED for and what is ACTIVE: a designated id that is not loaded resolves
+/// to null, so an operator can see immediately that the request was recorded but
+/// is not in effect, rather than assuming routing changed.
+fn models_default(server: &GatewayServer, body: &str) -> HttpReply {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return anthropic_err(
+                400,
+                "invalid_request_error",
+                format!("invalid default body: {e}"),
+            );
+        }
+    };
+    let id = req.get("id").and_then(|v| v.as_str());
+    server.set_default_model(id);
+    json_reply(
+        200,
+        &serde_json::json!({
+            "default": id,
+            "active": server.default_model_id(),
         }),
     )
 }

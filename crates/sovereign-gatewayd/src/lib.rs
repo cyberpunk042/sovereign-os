@@ -621,6 +621,10 @@ pub struct GatewayServer {
     /// chat. `None` (or a designated-but-unloaded id) falls back to the primary.
     /// Seeded from `SOVEREIGN_GATEWAY_BACKGROUND_MODEL`, runtime-settable.
     background: RwLock<Option<String>>,
+    /// The model the reserved `"auto"` alias resolves to. `None` (the default)
+    /// means `"auto"` falls back to the primary, which is the historical
+    /// behaviour.
+    default_model: RwLock<Option<String>>,
     /// The id under which the primary is listed by `/v1/models`.
     primary_id: String,
     /// The safety spine: input prompt screening + output secret/PII redaction
@@ -1994,6 +1998,11 @@ impl GatewayServer {
             worker_idx: std::sync::atomic::AtomicUsize::new(0),
             secondaries: RwLock::new(BTreeMap::new()),
             proxies: RwLock::new(BTreeMap::new()),
+            default_model: RwLock::new(
+                std::env::var("SOVEREIGN_GATEWAY_DEFAULT_MODEL")
+                    .ok()
+                    .filter(|s| !s.is_empty()),
+            ),
             background: RwLock::new(
                 std::env::var("SOVEREIGN_GATEWAY_BACKGROUND_MODEL")
                     .ok()
@@ -2298,6 +2307,37 @@ impl GatewayServer {
         loaded.then_some(id)
     }
 
+    /// Designate (or clear, with `None`) the model the reserved `"auto"` alias
+    /// resolves to. Loopback-trust operator action, like [`set_background`].
+    ///
+    /// [`set_background`]: Self::set_background
+    pub fn set_default_model(&self, id: Option<&str>) {
+        if let Ok(mut d) = self.default_model.write() {
+            *d = id.filter(|s| !s.is_empty()).map(str::to_string);
+        }
+    }
+
+    /// The designated default model id IF one is set AND currently loaded (a
+    /// secondary or a proxy). A designated-but-unloaded id returns `None` so
+    /// `"auto"` falls back to the primary honestly rather than routing at a
+    /// backend that is not there — the same rule [`background_id`] follows.
+    ///
+    /// [`background_id`]: Self::background_id
+    pub fn default_model_id(&self) -> Option<String> {
+        let id = self.default_model.read().ok().and_then(|d| d.clone())?;
+        let loaded = self
+            .secondaries
+            .read()
+            .map(|m| m.contains_key(&id))
+            .unwrap_or(false)
+            || self
+                .proxies
+                .read()
+                .map(|m| m.contains_key(&id))
+                .unwrap_or(false);
+        loaded.then_some(id)
+    }
+
     /// Expand the reserved `"background"` / `"auto"` aliases to a concrete model id
     /// (or `None` → the primary). Any other id passes through unchanged. Used at
     /// every routing entry point so a background hint targets the same backend
@@ -2311,7 +2351,11 @@ impl GatewayServer {
     pub fn expand_alias(&self, model: Option<&str>) -> Option<String> {
         match model {
             Some(Self::BACKGROUND_ALIAS) => self.background_id(),
-            Some(Self::AUTO_ALIAS) | Some("") => None,
+            // "auto" = "you choose". Choose the designated default when one is
+            // set AND loaded; otherwise None -> the primary, exactly as before.
+            // This box is why it is not simply None: two GPUs served 268 and 107
+            // tok/s while "auto" resolved to a 1.7B on the CPU at ~1 tok/s.
+            Some(Self::AUTO_ALIAS) | Some("") => self.default_model_id(),
             other => other.map(str::to_string),
         }
     }
@@ -4474,7 +4518,64 @@ mod tests {
     }
 
     #[test]
-    fn auto_alias_resolves_to_the_primary_even_with_a_background_designated() {
+    fn auto_alias_follows_the_designated_default_and_is_distinct_from_background() {
+        // "auto" means "you choose". With a default designated it resolves there;
+        // with none it still means the primary. The two designations are
+        // SEPARATE: background exists so deliberation runs off the primary, and
+        // conflating them would silently move foreground traffic whenever an
+        // operator designated a cheap background model.
+        let s = GatewayServer::new();
+        s.register_proxy("gpu-a", "127.0.0.1:9", "logic", 32.0, "openai")
+            .unwrap();
+        s.register_proxy("gpu-b", "127.0.0.1:9", "oracle", 96.0, "openai")
+            .unwrap();
+
+        // Undesignated: unchanged historical behaviour.
+        assert_eq!(s.expand_alias(Some(GatewayServer::AUTO_ALIAS)), None);
+
+        s.set_default_model(Some("gpu-a"));
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::AUTO_ALIAS)).as_deref(),
+            Some("gpu-a"),
+            "auto follows the designated default"
+        );
+        assert_eq!(s.expand_alias(Some("")).as_deref(), Some("gpu-a"),
+            "an empty model id means the same as an omitted one");
+
+        // Background points elsewhere; the two must not bleed into each other.
+        s.set_background(Some("gpu-b"));
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::BACKGROUND_ALIAS)).as_deref(),
+            Some("gpu-b")
+        );
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::AUTO_ALIAS)).as_deref(),
+            Some("gpu-a"),
+            "auto must NOT follow the background designation"
+        );
+
+        // A designated-but-unloaded default falls back to the primary rather
+        // than routing at a backend that is not there.
+        assert!(s.unload_model("gpu-a"));
+        assert_eq!(
+            s.default_model_id(),
+            None,
+            "an unloaded default must not resolve"
+        );
+        assert_eq!(s.expand_alias(Some(GatewayServer::AUTO_ALIAS)), None);
+
+        // Clearing restores the primary meaning.
+        s.set_default_model(Some("gpu-b"));
+        assert_eq!(s.expand_alias(Some(GatewayServer::AUTO_ALIAS)).as_deref(), Some("gpu-b"));
+        s.set_default_model(None);
+        assert_eq!(s.expand_alias(Some(GatewayServer::AUTO_ALIAS)), None);
+
+        // Concrete ids still pass through untouched.
+        assert_eq!(s.expand_alias(Some("gpu-b")).as_deref(), Some("gpu-b"));
+    }
+
+    #[test]
+    fn auto_alias_resolves_to_the_primary_when_no_default_is_designated() {
         // Regression: `auto` is the composer's DEFAULT model (SDD-902: the picker
         // "degrades to auto when the gateway is offline"), and prompt.py defaults
         // --model to it. It was never implemented, so it fell through to the
