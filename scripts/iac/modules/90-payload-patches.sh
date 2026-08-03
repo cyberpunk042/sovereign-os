@@ -94,6 +94,12 @@ _dst=/opt/sovereign-os
 #   --attention-backend as the only mechanism, so a host without nvcc could not
 #   tell vLLM to avoid flashinfer's JIT-only kernels. Adds a LOGIC_ATTENTION_BACKEND
 #   passthrough.
+#
+# scripts/inference/start-oracle-core.sh
+#   Same gap on the Oracle tier: VllmBackend already appends config.extra_args,
+#   but the launcher never populated it, so any flag the backend class does not
+#   model was unreachable. The Logic tier needed three of them. Adds
+#   ORACLE_EXTRA_ARGS.
 _files="
 scripts/lib/ms003.py
 scripts/sovereign-osctl
@@ -106,6 +112,7 @@ scripts/inference/prompt.py
 scripts/operator/code-console-api.py
 webapp/code-console/index.html
 scripts/inference/start-logic-engine.sh
+scripts/inference/start-oracle-core.sh
 "
 
 _patched=0
@@ -221,6 +228,7 @@ done <<< "${_add_files}"
 _restart_for_script() {
   case "$1" in
     scripts/inference/start-logic-engine.sh) echo "sovereign-logic-engine.service" ;;
+    scripts/inference/start-oracle-core.sh)  echo "sovereign-oracle-core.service" ;;
     scripts/operator/build-configurator-api.py) echo "sovereign-dashboards.service" ;;
     scripts/operator/code-console-api.py)    echo "sovereign-code-console-api.service" ;;
     # prompt.py is imported at request time by the console API, which also holds

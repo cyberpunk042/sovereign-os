@@ -74,6 +74,10 @@ oracle_max_vram_gib() {
 #   ORACLE_KV_CACHE_DTYPE     fp8 | auto (default: fp8 — deep-context-friendly)
 #   ORACLE_DFLASH_DRAFT       Optional DFlash draft model id for speculative decode
 #   ORACLE_VRAM_REQUIRED_GIB  Min VRAM required (R455 default: 22 for nvfp4, 64 for bf16)
+#   ORACLE_EXTRA_ARGS         Extra vLLM argv appended verbatim (shlex-split),
+#                             for flags the backend class does not model —
+#                             e.g. --served-model-name / --attention-backend /
+#                             --reasoning-parser
 #   SOVEREIGN_OS_DRY_RUN      Print argv + exit without exec
 #   SOVEREIGN_OS_METRICS_DISABLE  Skip Layer B metrics
 # R151: honor active runtime profile § 18 oracle-tier allocation
@@ -157,6 +161,15 @@ b = VllmBackend.for_oracle_core(
 )
 b.config.host = os.environ["ORACLE_HOST"]
 b.config.port = int(os.environ["ORACLE_PORT"])
+# Operator escape hatch. VllmBackend already appends config.extra_args, but the
+# launcher never populated it, so flags the backend class does not model could
+# not be reached at all. The Logic tier needed exactly three such flags —
+# --served-model-name, --attention-backend, --reasoning-parser — and each had to
+# be threaded through by hand. shlex.split so quoted values survive.
+import shlex
+b.config.extra_args = list(b.config.extra_args) + shlex.split(
+    os.environ.get("ORACLE_EXTRA_ARGS", "")
+)
 print(" ".join(b.start_command()))
 PY
 )
