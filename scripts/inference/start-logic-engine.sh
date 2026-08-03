@@ -19,6 +19,9 @@
 #   LOGIC_MAX_MODEL_LEN           vllm_host only (default: 32768)
 #   LOGIC_SERVED_MODEL_NAME       vllm_host only; else the served id is the weights path
 #   LOGIC_TRUST_REMOTE_CODE       vllm_host only; set for models shipping custom code
+#   LOGIC_REASONING_PARSER        vllm_host only; --reasoning-parser value
+#                                 (nemotron_v3 / deepseek_r1 / qwen3 / …) for
+#                                 models that emit chain-of-thought
 #   LOGIC_ATTENTION_BACKEND       vllm_host only; --attention-backend value
 #                                 (TRITON_ATTN / FLASH_ATTN / TORCH_SDPA / …).
 #                                 The env var VLLM_ATTENTION_BACKEND no longer
@@ -106,6 +109,11 @@ PY
     # it. Accepts any AttentionBackendEnum name (TRITON_ATTN, FLASH_ATTN,
     # TORCH_SDPA, FLASHINFER, …).
     [ -n "${LOGIC_ATTENTION_BACKEND:-}" ] && argv="${argv} --attention-backend ${LOGIC_ATTENTION_BACKEND}"
+    # Reasoning models emit chain-of-thought and then the answer. Without a
+    # parser the whole trace is returned as message content, so a caller sees the
+    # model thinking out loud plus a stray closing marker. vLLM splits it into
+    # reasoning_content when told which format to expect.
+    [ -n "${LOGIC_REASONING_PARSER:-}" ] && argv="${argv} --reasoning-parser ${LOGIC_REASONING_PARSER}"
     ;;
   llama_cpp)
     argv=$(python3 - <<PY

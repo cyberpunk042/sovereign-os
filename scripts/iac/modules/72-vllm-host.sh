@@ -191,6 +191,16 @@ VLLM_CACHE_ROOT=/var/lib/sovereign-os/cache/vllm
 # flashinfer JIT kept being reached through attention prefill while the
 # traceback made it look like a new and separate route each time.
 LOGIC_ATTENTION_BACKEND=${IAC_VLLM_ATTENTION_BACKEND:-TRITON_ATTN}
+# This checkpoint is a REASONING model (config model_type
+# NemotronH_Nano_Omni_Reasoning_V3) and emits its chain-of-thought followed by
+# the answer. Unparsed, the whole trace arrives as message content — a request
+# for three colours came back as
+#     The user asks: "Name three colours." Simple request. We can comply.
+#     Provide three colors, e.g., red, blue, green. No issues. </think> Red,
+#     blue, and green.
+# including the bare closing marker. vLLM ships a parser matched to this family;
+# it moves the trace to reasoning_content and leaves content as the answer.
+LOGIC_REASONING_PARSER=${IAC_VLLM_REASONING_PARSER:-nemotron_v3}
 # …and flashinfer is reached a SECOND way, which switching the attention backend
 # did not touch. The traceback after that change still ended in nvcc, but from
 #     flashinfer/sampling.py:1974 in top_k_mask_logits
