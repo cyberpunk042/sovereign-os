@@ -181,8 +181,31 @@ done <<< "${_files}"
 #   hand-rolled stdlib parser (NOT PyYAML — it expects 4-space list entries and
 #   6-space scalar fields) reads this exact file as 79 models, so the format
 #   contract holds and the copy is sufficient.
+#
+# tools/__init__.py + tools/notifykit/*.py
+#   control-exec-api.py does `sys.path.insert(parents[2])` then
+#       from tools.notifykit import cli
+#   and on ImportError degrades to
+#       503 {"error": "notifykit module unavailable"}
+#   which is what every panel's 🔔 overlay has been showing. tools/ is another
+#   data/code tree the Architecture:all package omitted.
+#
+#   Missed by the earlier sweep that found models/catalog.yaml: that one looked
+#   for `REPO_ROOT / "dir"` path literals, and this is a PYTHON IMPORT. Two
+#   different ways for the payload to reference something it does not ship, and
+#   only one of them greps as a path.
+#
+#   Listed file-by-file rather than as a tree, keeping this module a manifest of
+#   known-needed files instead of a directory sync.
 _add_files="
 models/catalog.yaml
+tools/__init__.py
+tools/notifykit/__init__.py
+tools/notifykit/cli.py
+tools/notifykit/config.py
+tools/notifykit/channels.py
+tools/notifykit/event.py
+tools/notifykit/registry.py
 "
 
 while read -r rel; do
@@ -231,6 +254,10 @@ _restart_for_script() {
     scripts/inference/start-oracle-core.sh)  echo "sovereign-oracle-core.service" ;;
     scripts/operator/build-configurator-api.py) echo "sovereign-dashboards.service" ;;
     scripts/operator/code-console-api.py)    echo "sovereign-code-console-api.service" ;;
+    # control-exec-api imports tools.notifykit ONCE at module load and caches the
+    # failure as _notifykit_cli = None, so shipping the package is not enough —
+    # the daemon has to be restarted to retry the import.
+    tools/__init__.py|tools/notifykit/*)     echo "sovereign-control-exec-api.service" ;;
     # prompt.py is imported at request time by the console API, which also holds
     # it via _load(); restart so a patched engine is actually the one running.
     scripts/inference/prompt.py)             echo "sovereign-code-console-api.service" ;;
