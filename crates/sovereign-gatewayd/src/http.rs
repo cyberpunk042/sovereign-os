@@ -1272,7 +1272,19 @@ fn models_default(server: &GatewayServer, body: &str) -> HttpReply {
 /// A minimal blocking HTTP POST to an upstream (`host:port`) — forwards a request
 /// to a GPU serve-process backend and returns `(status, body)`. Non-streaming; the
 /// streaming forward is a follow-up (increment 2b).
-fn proxy_forward(endpoint: &str, path: &str, body: &str) -> Result<(u16, String), String> {
+/// A minimal blocking HTTP POST to an upstream `host:port`, returning
+/// `(status, raw_response)`.
+///
+/// `pub` rather than crate-private because the agentic loop lives in the BINARY
+/// crate (`mod agentic;` in main.rs) while this is in the LIB — `pub(crate)`
+/// cannot bridge the two. It is the same forward the streaming relay uses,
+/// reused so the ReAct loop can drive a proxy backend instead of being confined
+/// to the local generator.
+pub fn proxy_forward(
+    endpoint: &str,
+    path: &str,
+    body: &str,
+) -> Result<(u16, String), String> {
     use std::io::{Read, Write};
     let mut stream =
         std::net::TcpStream::connect(endpoint).map_err(|e| format!("connect {endpoint}: {e}"))?;

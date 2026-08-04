@@ -588,6 +588,82 @@ fn proxy_forwards_the_resolved_model_not_the_alias() {
     assert!(body.contains("got:gpu-x"), "sse:\n{body}");
 }
 
+/// A mock non-streaming OpenAI upstream that answers a ReAct turn: the FIRST
+/// request gets a `[[tool:calc|7*6]]` call, the second (which now carries the
+/// Observation) gets a final answer. Lets a test drive the whole loop against a
+/// "remote" backend with no model anywhere.
+fn spawn_mock_openai_agentic_upstream() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap().to_string();
+    std::thread::spawn(move || {
+        for conn in listener.incoming() {
+            let Ok(mut sock) = conn else { break };
+            let mut buf = [0u8; 16384];
+            let n = sock.read(&mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]).to_string();
+            // The loop feeds the transcript back, so an Observation line means
+            // the tool already ran and this turn should conclude.
+            let reply = if req.contains("Observation:") {
+                "The answer is 42."
+            } else {
+                "[[tool:calc|7*6]]"
+            };
+            let body = serde_json::json!({
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": reply}}],
+            })
+            .to_string();
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = sock.write_all(resp.as_bytes());
+        }
+    });
+    addr
+}
+
+#[test]
+fn agentic_runs_against_a_proxy_backend_and_is_not_swallowed_by_it() {
+    // Two bugs in one request, both silent.
+    //
+    // 1. ORDER: /v1/chat/completions dispatched the proxy BEFORE checking
+    //    sovereign_agentic, so a tool-using request naming a GPU model came back
+    //    as an ordinary completion — capability dropped with no error and nothing
+    //    in the journal. (/v1/messages ordered it the other way, so the same
+    //    request meant different things on the two surfaces.)
+    // 2. REACH: GatewayResponder called generate_chat, which resolves the local
+    //    worker pool and in-process secondaries and never consults resolve_proxy
+    //    — so even when reached, the loop ran on the CPU primary while the caller
+    //    believed a remote model was reasoning.
+    //
+    // The mock returns a tool call first and a final answer once it sees the
+    // Observation, so a pass proves the loop TALKED to the proxy, executed calc
+    // locally, and fed the result back.
+    let up = spawn_mock_openai_agentic_upstream();
+    // The capability is env-gated OFF by default, so the daemon must be spawned
+    // with it on — the kill-switch is part of the contract being tested.
+    let d = spawn_with_env("--http", &[("SOVEREIGN_GATEWAY_AGENTIC", "1")]);
+
+    let reg = serde_json::json!({
+        "id": "gpu-t", "endpoint": up, "device": "logic", "vram_gb": 32.0, "dialect": "openai",
+    })
+    .to_string();
+    let (rstatus, _) = http_request(&d.addr, "POST", "/v1/models/register", &reg);
+    assert!(rstatus.starts_with("HTTP/1.1 200"), "register: {rstatus}");
+
+    let req = serde_json::json!({
+        "model": "gpu-t", "sovereign_agentic": true, "max_steps": 3, "max_tokens": 128,
+        "messages": [{"role": "user", "content": "What is 7*6? Use the calc tool."}],
+    })
+    .to_string();
+    let (status, body) = http_request(&d.addr, "POST", "/v1/chat/completions", &req);
+    assert!(status.starts_with("HTTP/1.1 200"), "{status}");
+    assert!(
+        body.contains("The answer is 42"),
+        "the loop must reach the proxy, run calc, and conclude; body:\n{body}"
+    );
+}
+
 /// A mock OpenAI SSE upstream whose content carries a secret (an AWS key) — used
 /// to prove the proxy-relay redaction actually scrubs it.
 fn spawn_mock_openai_sse_secret_upstream() -> String {

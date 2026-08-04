@@ -212,12 +212,82 @@ impl<'a> GatewayResponder<'a> {
 
 impl Responder for GatewayResponder<'_> {
     fn respond(&mut self, prompt: &str, _seed: u64) -> Result<String, String> {
+        // A PROXY-backed model is not reachable through generate_chat: that path
+        // resolves the local worker pool and in-process secondaries and never
+        // consults resolve_proxy. Before this, asking the loop for a GPU model
+        // silently ran it against the CPU primary — the answer came from a 1.7B
+        // while the caller believed a 120B was reasoning.
+        //
+        // The tool convention is a PROMPT convention, so a remote OpenAI-dialect
+        // backend drives the loop exactly as a local generator does: send the
+        // transcript, read the reply, let the loop parse [[tool:...]] out of it.
+        // Non-streaming, because the loop needs a whole turn before it can act.
+        let model = self
+            .server
+            .expand_alias(self.model.as_deref())
+            .or_else(|| self.model.clone());
+        if let Some(id) = model.as_deref()
+            && let Some((endpoint, dialect)) = self.server.resolve_proxy(id)
+        {
+            if dialect != "openai" {
+                return Err(format!(
+                    "model '{id}' is an {dialect}-dialect proxy; the agentic loop                      drives openai-dialect backends"
+                ));
+            }
+            return self.respond_via_proxy(&endpoint, id, prompt);
+        }
         let mut buf = String::new();
         self.server
             .generate_chat(self.model.as_deref(), prompt, self.max_new, |c| {
                 buf.push_str(c)
             })?;
         Ok(buf)
+    }
+}
+
+impl GatewayResponder<'_> {
+    /// One non-streaming turn against an openai-dialect proxy backend.
+    ///
+    /// The `model` sent upstream is the RESOLVED id, never the caller's alias —
+    /// the same rule the streaming relay needs, for the same reason: a tier
+    /// serves under its --served-model-name and 404s on a gateway-side name.
+    fn respond_via_proxy(
+        &self,
+        endpoint: &str,
+        model: &str,
+        prompt: &str,
+    ) -> Result<String, String> {
+        let body = serde_json::json!({
+            "model": model,
+            "max_tokens": self.max_new,
+            "stream": false,
+            "messages": [{"role": "user", "content": prompt}],
+        })
+        .to_string();
+        let (status, resp) = sovereign_gatewayd::http::proxy_forward(endpoint, "/v1/chat/completions", &body)?;
+        if status != 200 {
+            return Err(format!("proxy upstream {status}: {}", resp.trim()));
+        }
+        // proxy_forward returns the raw HTTP response; the JSON body follows the
+        // blank line that ends the headers.
+        let json = resp.split("\r\n\r\n").nth(1).unwrap_or(&resp);
+        let v: serde_json::Value =
+            serde_json::from_str(json.trim()).map_err(|e| format!("proxy reply not JSON: {e}"))?;
+        let msg = v
+            .pointer("/choices/0/message")
+            .ok_or_else(|| "proxy reply has no choices[0].message".to_string())?;
+        // A reasoning model splits its turn: the tool call can land in EITHER
+        // field depending on the parser, and content is often empty while the
+        // model is still thinking. Concatenate both so a [[tool:...]] emitted
+        // mid-reasoning is not lost — the loop's parser takes the first call it
+        // finds either way.
+        let reasoning = msg
+            .get("reasoning")
+            .or_else(|| msg.get("reasoning_content"))
+            .and_then(|r| r.as_str())
+            .unwrap_or("");
+        let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
+        Ok(format!("{reasoning}{content}"))
     }
 }
 

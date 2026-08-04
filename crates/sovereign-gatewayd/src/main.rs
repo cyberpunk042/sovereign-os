@@ -1616,6 +1616,41 @@ fn stream_chat_completions(
         .unwrap_or(GatewayServer::AUTO_ALIAS)
         .to_string();
     let model = server.expand_alias(Some(&requested)).unwrap_or(requested);
+
+    // AGENTIC FIRST, then proxy. This ordering was reversed, and the consequence
+    // was silent: a request naming a proxy-backed model with
+    // "sovereign_agentic": true returned an ordinary proxied completion — the
+    // capability dropped without a word, no tools, no error, nothing in the
+    // journal. Whichever branch runs first wins, and "run the tool loop" is the
+    // more specific instruction; where the loop then SENDS its turns is a
+    // routing question the responder answers.
+    //
+    // /v1/messages already ordered it this way (its agentic check precedes its
+    // proxy dispatch), so the two surfaces disagreed about what the same request
+    // meant. They now agree.
+    if req
+        .get("sovereign_agentic")
+        .and_then(serde_json::Value::as_bool)
+        == Some(true)
+        && agentic::agentic_enabled()
+    {
+        let max_steps = req
+            .get("max_steps")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(agentic::DEFAULT_MAX_STEPS as u64)
+            .clamp(1, 16) as usize;
+        let max_new = req
+            .get("max_tokens")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(96)
+            .clamp(1, 1024) as usize;
+        let prompt = server.rag_augment(&chat_prompt(
+            &req,
+            server.chat_template_for(Some(&model)).as_deref(),
+        ));
+        return agentic_chat_completion(server, writer, &model, &prompt, max_new, max_steps);
+    }
+
     if let Some((endpoint, dialect)) = server.resolve_proxy(&model) {
         if dialect == "anthropic" {
             return write_http(
@@ -1671,19 +1706,6 @@ fn stream_chat_completions(
     // (SOVEREIGN_GATEWAY_AGENTIC=1, default OFF), run the ReAct loop INSIDE the
     // daemon over the built-in tools (Option A: a Responder over the shared
     // Generator, no clone) and return the final answer. Otherwise fall through.
-    if req
-        .get("sovereign_agentic")
-        .and_then(serde_json::Value::as_bool)
-        == Some(true)
-        && agentic::agentic_enabled()
-    {
-        let max_steps = req
-            .get("max_steps")
-            .and_then(serde_json::Value::as_u64)
-            .unwrap_or(agentic::DEFAULT_MAX_STEPS as u64)
-            .clamp(1, 16) as usize;
-        return agentic_chat_completion(server, writer, &model, &prompt, max_new, max_steps);
-    }
 
     // SDD-711 (F-2026-088): OpenAI-compatible tool use. When the request
     // advertises `tools`, take the tool-aware path — generate buffered, then
