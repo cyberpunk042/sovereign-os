@@ -267,20 +267,47 @@ _restart_for_script() {
   esac
 }
 
+# Collect the units FIRST, then restart each exactly once.
+#
+# Restarting inside the per-file loop meant one restart per changed file: seven
+# notifykit files mapped to the same daemon produced seven restarts in a few
+# seconds and tripped systemd's start limit —
+#     Job for sovereign-control-exec-api.service failed because start of the
+#     service was attempted too often.
+# — so the module bricked the very daemon it was repairing, and reported five
+# successful restarts on the way there. The unit was fine; the loop was wrong.
+_units=""
+_why=""
 for _rel in ${_changed_files:-}; do
   for _u in $(_restart_for_script "${_rel}"); do
-    systemctl list-unit-files "${_u}" --no-legend >/dev/null 2>&1 || continue
-    systemctl is-active --quiet "${_u}" 2>/dev/null || continue
-    if [ "${IAC_DRY_RUN}" = 1 ]; then
-      changed "would restart ${_u} onto the patched ${_rel}"
-      continue
-    fi
-    if run "restart-consumer" systemctl restart "${_u}"; then
-      changed "restarted ${_u} onto the patched ${_rel}"
-    else
-      fail "patched ${_rel} but could not restart ${_u}"
-    fi
+    case " ${_units} " in
+      *" ${_u} "*) continue ;;   # already queued
+    esac
+    _units="${_units} ${_u}"
+    _why="${_why} ${_u}=${_rel}"
   done
+done
+
+for _u in ${_units}; do
+  systemctl list-unit-files "${_u}" --no-legend >/dev/null 2>&1 || continue
+  systemctl is-active --quiet "${_u}" 2>/dev/null || continue
+  # Name one representative file rather than all of them; the point is which
+  # unit was restarted and why, not an inventory.
+  _rel="$(printf '%s\n' ${_why} | sed -n "s|^${_u}=||p" | head -1)"
+  if [ "${IAC_DRY_RUN}" = 1 ]; then
+    changed "would restart ${_u} onto the patched ${_rel}"
+    continue
+  fi
+  # A unit already in start-limit lockout (from an earlier buggy run, or its own
+  # crash loop) refuses `restart` until the counter is cleared. Clearing it is
+  # safe: the limit exists to stop runaway respawns, and this is one deliberate
+  # restart, not a loop.
+  systemctl reset-failed "${_u}" >/dev/null 2>&1 || true
+  if run "restart-consumer" systemctl restart "${_u}"; then
+    changed "restarted ${_u} onto the patched payload (${_rel})"
+  else
+    fail "patched ${_rel} but could not restart ${_u}"
+  fi
 done
 
 # ms003-verify is a timer-driven oneshot: once the fix is live, clear the stale
