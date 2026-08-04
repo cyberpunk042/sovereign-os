@@ -142,11 +142,24 @@ if [ "${IAC_FAIL}" -gt 0 ]; then
   exit 1
 fi
 
+# A --only run inspected a SUBSET, so it cannot speak for the machine. Saying
+# "machine already matches profile" after `--only 90` was actively misleading:
+# it printed exactly that while sovereign-control-exec-api sat in a failed state
+# that module 20 — not selected — is the one that asserts. A report has to be
+# honest about its own scope, not only about its own findings.
+_only_note=""
+if [ "${#ONLY_LIST[@]}" -gt 0 ]; then
+  _only_note=" (selected: ${ONLY_LIST[*]})"
+fi
+
 if [ "${IAC_DRY_RUN}" = 1 ]; then
   printf '\n%sdry run complete — re-run without --dry-run to apply%s\n' "${_C_CH}" "${_C_Z}"
+elif [ "${IAC_CHANGED}" -eq 0 ] && [ "${#ONLY_LIST[@]}" -gt 0 ]; then
+  printf '\n%sconverged — selected module(s) already match%s%s\n' "${_C_OK}" "${_only_note}" "${_C_Z}"
+  printf 'this was a PARTIAL run; only a full converge speaks for the machine\n'
 elif [ "${IAC_CHANGED}" -eq 0 ]; then
   printf '\n%sconverged — machine already matches profile%s\n' "${_C_OK}" "${_C_Z}"
 else
-  printf '\n%sconverged — %d change(s) applied%s\n' "${_C_OK}" "${IAC_CHANGED}" "${_C_Z}"
+  printf '\n%sconverged — %d change(s) applied%s%s\n' "${_C_OK}" "${IAC_CHANGED}" "${_only_note}" "${_C_Z}"
   printf 'run again to confirm idempotency (expect: 0 changed)\n'
 fi
