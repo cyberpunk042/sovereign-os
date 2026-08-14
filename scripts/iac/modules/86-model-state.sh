@@ -103,7 +103,21 @@ MemoryDenyWriteExecute=true
 # Loopback HTTP to the tiers. No AF_NETLINK here — unlike the vLLM units this is
 # a plain urllib client with no torch.distributed underneath.
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-ReadWritePaths=/run/sovereign-os
+# RuntimeDirectory, NOT ReadWritePaths=/run/sovereign-os. Nothing on this box
+# has ever created that directory — no tmpfiles.d entry, no unit, only comments
+# in units that read from it — which is the deeper reason model-state.json never
+# existed and every panel fell back to the catalog. ReadWritePaths requires the
+# path to ALREADY exist and fails namespace setup otherwise:
+#     Failed to set up mount namespacing: /run/sovereign-os: No such file or
+#     directory ... status=226/NAMESPACE
+# Creating it from the module would not survive a reboot either, since /run is a
+# tmpfs. RuntimeDirectory has systemd create it before the namespace is built and
+# again on every boot; Preserve=yes keeps it after this oneshot exits, because
+# prompt.py's telemetry and the sessions/latency files live there too and must
+# not vanish when this unit finishes.
+RuntimeDirectory=sovereign-os
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
 TimeoutStartSec=${IAC_MODEL_STATE_TIMEOUT_START:-60}
 EOF
 
@@ -139,6 +153,10 @@ ensure_unit_state "${_timer}" enabled started
 # checking it published is the same "reported the action, not the machine"
 # pattern this whole module exists to correct.
 if [ "${IAC_DRY_RUN}" != 1 ]; then
+  # A previous run may have left it failed (the unit ran before RuntimeDirectory
+  # replaced ReadWritePaths). reset-failed on a healthy unit is a no-op, and
+  # without it a start-limited unit refuses the very run that carries the fix.
+  systemctl reset-failed "${_unit}" >/dev/null 2>&1 || true
   if run "publish-model-state" systemctl start "${_unit}"; then
     _n="$(python3 -c '
 import json, sys
