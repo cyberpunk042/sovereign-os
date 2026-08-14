@@ -111,14 +111,19 @@ _rtmodes = _import_optional("_runtimemodes_api", _REPO_ROOT / "scripts" / "opera
 #   GPU1    = RTX 5090 32 GB → Logic Engine (internal secondary, PCIEX16_2 x8;
 #             operator D-022 2026-07-14 — more bandwidth than the eGPU). model-
 #             health binds the "logic" role to the next Blackwell (the 5090).
-#   EXT_GPU = RTX 4090 on the OcuLink eGPU → DSpark speculative-decode draft /
-#             scout (host-resident by default, opt-in VFIO). Not a named SRP tier.
+#   EXT_GPU = RTX 4090 on the OcuLink eGPU → the Router tier: BAAI-bge-m3
+#             (:8084, embeddings) + BAAI-bge-reranker-v2-m3 (:8085), provisioned
+#             by scripts/iac module 78. Host-resident by default, opt-in VFIO.
+#             It was sketched as the DSpark speculative-decode draft, which vLLM
+#             cannot express — a draft model loads in the SAME process on the
+#             SAME GPU as its target, so a draft on a separate card is not a
+#             configuration that exists.
 #   CPU0    = Ryzen 9 9900X → Conductor / Pulse.
 # One primary (PRO 6000) + one internal secondary Logic (RTX 5090) + one eGPU draft (RTX 4090).
 GRID = [
     {"slot": "GPU0", "role": "oracle", "label": "Oracle Core — RTX PRO 6000 Max-Q 96GB (primary, internal)"},
     {"slot": "GPU1", "role": "logic", "label": "Logic Engine — RTX 5090 32GB (internal secondary, D-022)"},
-    {"slot": "EXT_GPU", "role": None, "label": "RTX 4090 24GB (OcuLink eGPU — DSpark draft / scout)"},
+    {"slot": "EXT_GPU", "role": "router", "label": "Router tier — RTX 4090 24GB (OcuLink eGPU, embed + rerank)"},
     {"slot": "CPU0", "role": "conductor", "label": "Ryzen 9 9900X AM5 AVX-512"},
 ]
 
@@ -152,20 +157,30 @@ def _emit_metric(endpoint: str, result: str) -> None:
 def grid_view() -> dict[str, Any]:
     """Reshape the shared model-health snapshot into the assignment grid:
     one cell per GPU0/GPU1/Ext-GPU/CPU0 with its bound Model 0/1/2 and a
-    per-device Mode. Ext-GPU is N/A until an external card is registered.
-    Degrades to empty cells / `—` when a device is absent, never raises."""
+    per-device Mode. A cell is absent only when model-health binds no hardware
+    to its role. Degrades to empty cells / `—` when a device is absent, never
+    raises.
+
+    EXT_GPU used to be pinned to `role: None`, which fell into an unconditional
+    absent-cell branch — the docstring said "N/A until an external card is
+    registered" but no registration path existed, so the cell read N/A whether or
+    not a card was there. With the eGPU fitted and serving the Router tier it
+    still said N/A. It now resolves through the `router` role like every other
+    cell, so what the panel shows is what model-health found."""
     snap = _core.snapshot()
     roles = snap.get("roles", {})
     cells: list[dict[str, Any]] = []
     for cell in GRID:
         role = cell["role"]
-        if role is None:
+        r = roles.get(role) if role else None
+        if not r:
+            # Absent because nothing is bound to the role — the honest case, and
+            # now the ONLY way a cell reads absent.
             cells.append({
                 "slot": cell["slot"], "label": cell["label"],
-                "present": False, "models": [], "mode": None,
+                "present": False, "role": role, "models": [], "mode": None,
             })
             continue
-        r = roles.get(role, {})
         models = r.get("models") or []
         model_slots = []
         for idx in range(3):

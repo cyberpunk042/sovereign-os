@@ -113,6 +113,8 @@ scripts/operator/code-console-api.py
 webapp/code-console/index.html
 scripts/inference/start-logic-engine.sh
 scripts/inference/start-oracle-core.sh
+scripts/inference/model-health.py
+scripts/operator/lm-orchestration-api.py
 "
 
 _patched=0
@@ -261,6 +263,15 @@ _restart_for_script() {
     # prompt.py is imported at request time by the console API, which also holds
     # it via _load(); restart so a patched engine is actually the one running.
     scripts/inference/prompt.py)             echo "sovereign-code-console-api.service" ;;
+    # model-health.py is imported ONCE at daemon start by every API that reads the
+    # SRP snapshot (importlib exec_module at module scope), so a patched file on
+    # disk is not the code answering requests until each consumer restarts.
+    # Every consumer, not just the panel that prompted the change: all four
+    # daemons exec_module it at start, so patching the file and restarting one of
+    # them would leave the other three serving the old snapshot shape — the same
+    # answer differing by which port you asked.
+    scripts/inference/model-health.py)       echo "sovereign-lm-orchestration-api.service sovereign-model-health-api.service sovereign-models-catalog-api.service sovereign-lm-status-operability-api.service" ;;
+    scripts/operator/lm-orchestration-api.py) echo "sovereign-lm-orchestration-api.service" ;;
     # Timer-driven oneshots re-exec from disk on their next fire, and the webapp
     # + catalog are read per request. Nothing long-lived to restart.
     *)                                       echo "" ;;

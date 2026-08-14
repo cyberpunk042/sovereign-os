@@ -68,21 +68,31 @@ MODEL_LATENCY_PATH = Path(
     os.environ.get("SOVEREIGN_OS_MODEL_LATENCY", "/run/sovereign-os/model-latency.json")
 )
 
-# tier (catalog) → SRP role (M075). router-tier models (embed/reranker/draft)
-# are co-resident helpers, surfaced under the role that hosts them; the
-# dashboard's three role cards are conductor/logic/oracle.
+# tier (catalog) → SRP role (M075).
+#
+# `router` used to fold into `logic` — "RAG/draft helpers ride the Logic GPU by
+# default" — which was true while the router tier was a plan rather than a
+# process. It now has a card of its own: the RTX 4090 OcuLink eGPU serves
+# BAAI-bge-m3 (:8084) and BAAI-bge-reranker-v2-m3 (:8085), and folding them into
+# `logic` reported embedders as residents of a GPU they have never run on, while
+# the card actually hosting them showed EXT_GPU · N/A.
+#
+# D-03 reads conductor/logic/oracle by name, so the fourth role is additive
+# there; what changes for it is that the Logic card stops listing two models it
+# does not hold.
 TIER_TO_ROLE = {
     "pulse": "conductor",
     "logic": "logic",
     "oracle": "oracle",
-    "router": "logic",  # RAG/draft helpers ride the Logic GPU by default
+    "router": "router",
 }
 
 # Oracle = RTX PRO 6000 Blackwell Max-Q (96GB, primary); Logic = RTX 5090
 # (32GB, internal secondary Blackwell GB202) per D-022 (operator 2026-07-14).
 # Declared VRAM ceilings the dashboard gauges divide against (frontend
 # hard-codes 32 / 96).
-ROLE_VRAM_CEILING_GB = {"logic": 32.0, "oracle": 96.0}
+# router = RTX 4090 24 GB on the OcuLink eGPU (sain-01.yaml, role: egpu).
+ROLE_VRAM_CEILING_GB = {"logic": 32.0, "oracle": 96.0, "router": 24.0}
 
 
 def _run(cmd: list[str], timeout: float = 4.0) -> str | None:
@@ -288,9 +298,11 @@ def _size_bytes(model: dict[str, Any]) -> int | None:
 
 
 def catalog_by_role() -> dict[str, list[dict[str, Any]]]:
-    """Catalog models grouped into the three SRP role buckets, each row
-    reduced to the dashboard's per-role shape (id/precision/size_bytes)."""
-    buckets: dict[str, list[dict[str, Any]]] = {"conductor": [], "logic": [], "oracle": []}
+    """Catalog models grouped into the SRP role buckets, each row reduced to
+    the dashboard's per-role shape (id/precision/size_bytes)."""
+    buckets: dict[str, list[dict[str, Any]]] = {
+        "conductor": [], "logic": [], "oracle": [], "router": [],
+    }
     for m in load_catalog():
         role = TIER_TO_ROLE.get(str(m.get("tier", "")).lower())
         if role not in buckets:
@@ -350,11 +362,18 @@ def collect_gpus() -> list[dict[str, Any]]:
 def _assign_gpu_roles(gpus: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """oracle ← highest-VRAM Blackwell (the RTX PRO 6000 96 GB primary) else
     highest-VRAM GPU; logic ← the next Blackwell (the RTX 5090 32 GB internal
-    secondary) else the next-highest-VRAM non-oracle GPU. Per D-022 (operator
-    2026-07-14) the Logic Engine runs on the internal RTX 5090; the RTX 4090
-    OcuLink eGPU is the DSpark draft (not a named SRP tier), left unassigned
-    when the 5090 is present. Mirrors start-oracle-core.sh's Blackwell-detection
-    + start-logic-engine.sh (RTX 5090). Empty when no GPUs present."""
+    secondary) else the next-highest-VRAM non-oracle GPU; router ← whatever card
+    is left (the RTX 4090 OcuLink eGPU). Per D-022 (operator 2026-07-14) the
+    Logic Engine runs on the internal RTX 5090. Mirrors start-oracle-core.sh's
+    Blackwell-detection + start-logic-engine.sh (RTX 5090). Empty when no GPUs
+    present.
+
+    The third card used to be left unassigned — "the DSpark draft (not a named
+    SRP tier)". That was accurate while it sat idle, and stopped being accurate
+    when the Router tier was provisioned onto it (module 78): the box grew a card
+    that hosts two live models and no role could name it, so the panel had
+    nothing to show but N/A. Assignment is by ELIMINATION rather than by model
+    name, so this stays right if the eGPU is swapped for a different card."""
     role_gpu: dict[str, dict[str, Any]] = {}
     if not gpus:
         return role_gpu
@@ -384,6 +403,17 @@ def _assign_gpu_roles(gpus: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         role_gpu["oracle"] = ranked[0]
         if ranked[1:]:
             role_gpu["logic"] = ranked[1]
+
+    # Router ← the highest-VRAM card not already spoken for. By elimination, so
+    # a two-card box simply has no router role rather than a fabricated one.
+    taken = {id(g) for g in role_gpu.values()}
+    spare = sorted(
+        (g for g in gpus if id(g) not in taken),
+        key=lambda g: (g.get("vram_total_gb") or 0),
+        reverse=True,
+    )
+    if spare:
+        role_gpu["router"] = spare[0]
     return role_gpu
 
 
@@ -412,7 +442,12 @@ def snapshot() -> dict[str, Any]:
     tps = state.get("tokens_per_sec") or {}  # {role: float}
 
     roles: dict[str, Any] = {}
-    for role in ("conductor", "logic", "oracle"):
+    for role in ("conductor", "logic", "oracle", "router"):
+        # Only report a router role when a card is actually bound to it —
+        # otherwise a two-GPU box would grow an empty fourth card claiming
+        # hardware it does not have.
+        if role == "router" and not role_gpu.get("router"):
+            continue
         g = role_gpu.get(role, {})
         # Models shown per role: runtime-loaded set when published, else the
         # catalog-configured candidates for that role (transparent via source).
