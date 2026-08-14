@@ -1,8 +1,14 @@
 # RAG retrieval — dense fusion on SAIN-01, 2026-08-14
 
-Measured on the live box against the real corpus (`docs/src` + `docs/sdd`,
-297 files, 3500 passages) with `POST /v1/corpus/search`, which runs the same
-path that grounds a prompt.
+Measured on the live box against the real corpus (`docs/src` + `docs/sdd`) with
+`POST /v1/corpus/search`, which runs the same path that grounds a prompt.
+
+The corpus changed size during this evaluation, so the tables below are not all
+against the same index: the first Result table is 297 files / 3500 passages;
+everything from "the remaining misses" onward is 295 files / 2828 passages,
+after the two navigational documents were dropped. Stated rather than smoothed
+over — the `hybrid` and `dense` rows move between the two, and a reader
+comparing them without knowing that would draw the wrong conclusion.
 
 Reproduce: `python3 docs/evaluations/rag-retrieval-bench.py 8787`
 
