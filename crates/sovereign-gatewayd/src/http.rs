@@ -1263,6 +1263,26 @@ fn cache_clear(server: &GatewayServer) -> HttpReply {
 /// `POST /v1/models/register` — a `model-serve` job registers a GPU serve-process
 /// backend: `{id, endpoint, device?, vram_gb?}`. Future `{model: id}` requests are
 /// proxied to `endpoint`. Loopback-trust.
+/// Ask an upstream what context window it serves, via its own `/v1/models`.
+///
+/// vLLM reports `max_model_len` per model. The gateway needs it because
+/// `max_tokens` is relayed verbatim and a client can ask for more than the
+/// backend holds — Claude Code asks for 32000 against a 32768 window, which a
+/// 769-token prompt overflows by one token, failing the request outright.
+fn probe_context_window(endpoint: &str) -> Option<usize> {
+    let (status, body) = proxy_forward_get(endpoint, "/v1/models").ok()?;
+    if status != 200 {
+        return None;
+    }
+    let doc: serde_json::Value = serde_json::from_str(&body).ok()?;
+    doc.get("data")?
+        .as_array()?
+        .first()?
+        .get("max_model_len")?
+        .as_u64()
+        .map(|n| n as usize)
+}
+
 fn models_register(server: &GatewayServer, body: &str) -> HttpReply {
     let req: serde_json::Value = match serde_json::from_str(body) {
         Ok(v) => v,
@@ -1296,7 +1316,11 @@ fn models_register(server: &GatewayServer, body: &str) -> HttpReply {
         .get("dialect")
         .and_then(|v| v.as_str())
         .unwrap_or("openai");
-    match server.register_proxy(id, endpoint, device, vram, dialect) {
+    // Learn the upstream's context window from its own /v1/models. Best effort:
+    // a tier that does not answer, or does not report one, simply registers
+    // without it and nothing is clamped — the behaviour before this existed.
+    let max_model_len = probe_context_window(endpoint);
+    match server.register_proxy_with_window(id, endpoint, device, vram, dialect, max_model_len) {
         Ok(()) => json_reply(
             200,
             &serde_json::json!({"registered": id, "endpoint": endpoint, "dialect": dialect}),
@@ -1365,6 +1389,38 @@ fn models_default(server: &GatewayServer, body: &str) -> HttpReply {
 /// A minimal blocking HTTP POST to an upstream (`host:port`) — forwards a request
 /// to a GPU serve-process backend and returns `(status, body)`. Non-streaming; the
 /// streaming forward is a follow-up (increment 2b).
+/// A minimal blocking HTTP GET to an upstream `host:port`, returning
+/// `(status, body)`. The sibling of [`proxy_forward`] for the one case that is a
+/// read: asking a tier what it serves and how large a window it holds.
+pub fn proxy_forward_get(endpoint: &str, path: &str) -> Result<(u16, String), String> {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(endpoint)
+        .map_err(|e| format!("connect {endpoint}: {e}"))?;
+    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(10)));
+    let request =
+        format!("GET {path} HTTP/1.1\r\nHost: {endpoint}\r\nConnection: close\r\n\r\n");
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|e| e.to_string())?;
+    let mut resp = String::new();
+    (&mut stream)
+        .take(1024 * 1024)
+        .read_to_string(&mut resp)
+        .map_err(|e| e.to_string())?;
+    let status = resp
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(502);
+    let body = resp
+        .split_once("\r\n\r\n")
+        .map(|(_, b)| b)
+        .unwrap_or("")
+        .to_string();
+    Ok((status, body))
+}
+
 /// A minimal blocking HTTP POST to an upstream `host:port`, returning
 /// `(status, raw_response)`.
 ///
@@ -1534,7 +1590,7 @@ fn embeddings(server: &GatewayServer, body: &str) -> HttpReply {
 /// Same gap as the OpenAI shim: `rag_augment` runs on the local generate path
 /// only, so a proxy-backed model answered ungrounded. Returns the request
 /// unchanged when there is no corpus or nothing is retrieved.
-fn ground_anthropic_request(
+pub fn ground_anthropic_request(
     server: &GatewayServer,
     req: &serde_json::Value,
 ) -> serde_json::Value {
@@ -1586,6 +1642,7 @@ fn ground_anthropic_request(
 /// (llama-server / vLLM) has the request translated to `/v1/chat/completions` and
 /// its reply translated back to the Anthropic message shape.
 fn proxy_message(
+    server: &GatewayServer,
     endpoint: &str,
     dialect: &str,
     model: &str,
@@ -1602,7 +1659,27 @@ fn proxy_message(
             Err(e) => anthropic_err(502, "api_error", format!("proxy to {endpoint} failed: {e}")),
         };
     }
-    let oai_req = anthropic_to_openai_chat(req);
+    let mut oai_req = anthropic_to_openai_chat(req);
+    // Forward the RESOLVED model id, not the client's.
+    //
+    // The same defect the OpenAI shim had and had fixed: anthropic_to_openai_chat
+    // copies `model` straight off the caller's request, so a gateway-side alias
+    // reached the tier that had never heard of it —
+    //     {"error":{"message":"The model `auto` does not exist.","code":404}}
+    // — and this surface is the one Claude Code uses, so `claude -p` against the
+    // local gateway failed on every request while the OpenAI shim worked fine.
+    // Fixing one relay and not the other is how a bug survives being fixed.
+    oai_req["model"] = serde_json::Value::String(model.to_string());
+    // Same clamp the streaming relays apply — a non-streaming caller can overflow
+    // the backend's window exactly as easily.
+    if let Some(requested) = oai_req.get("max_tokens").and_then(serde_json::Value::as_u64) {
+        let prompt_chars = oai_req.get("messages").map_or(0, |m| m.to_string().len());
+        if let Some(allowed) = server.proxy_max_tokens(model, prompt_chars) {
+            if (requested as usize) > allowed {
+                oai_req["max_tokens"] = serde_json::Value::from(allowed as u64);
+            }
+        }
+    }
     match proxy_forward(endpoint, "/v1/chat/completions", &oai_req.to_string()) {
         Ok((200, resp)) => match serde_json::from_str::<serde_json::Value>(&resp) {
             Ok(oai) => json_reply(200, &openai_to_anthropic_message(&oai, model)),
@@ -1822,7 +1899,8 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
         let grounded_req = ground_anthropic_request(server, &req);
         let grounded_body = grounded_req.to_string();
         let t0 = std::time::Instant::now();
-        let mut reply = proxy_message(&endpoint, &dialect, &model, &grounded_req, &grounded_body);
+        let mut reply =
+            proxy_message(server, &endpoint, &dialect, &model, &grounded_req, &grounded_body);
         // Close the redaction bypass: proxy-relayed output never passes through
         // the local generate path's safety spine, so redact secrets/PII from the
         // relayed body here. No-op when the spine (or both passes) is off.
@@ -2802,21 +2880,31 @@ mod tests {
         // a mock llama-server / vLLM upstream: OpenAI /v1/chat/completions shape
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
+        // TWO connections, not one: registration now probes the upstream's
+        // /v1/models for its context window before the request is relayed. A
+        // single-accept mock made that probe eat the only connection and the real
+        // request 502'd — which is also the shape a real single-threaded upstream
+        // would break in, so it is worth the test covering both calls.
         let handle = std::thread::spawn(move || {
-            if let Ok((mut sock, _)) = listener.accept() {
+            let mut seen = String::new();
+            for _ in 0..2 {
+                let Ok((mut sock, _)) = listener.accept() else { break };
                 let mut buf = [0u8; 4096];
                 let _ = sock.read(&mut buf);
-                let seen = String::from_utf8_lossy(&buf).to_string();
-                let payload = r#"{"choices":[{"message":{"role":"assistant","content":"translated OpenAI reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":3}}"#;
+                let req = String::from_utf8_lossy(&buf).to_string();
+                let payload = if req.starts_with("GET /v1/models") {
+                    r#"{"object":"list","data":[{"id":"gpu-llama","max_model_len":4096}]}"#.to_string()
+                } else {
+                    seen = req;
+                    r#"{"choices":[{"message":{"role":"assistant","content":"translated OpenAI reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":3}}"#.to_string()
+                };
                 let resp = format!(
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",
                     payload.len()
                 );
                 let _ = sock.write_all(resp.as_bytes());
-                seen
-            } else {
-                String::new()
             }
+            seen
         });
         let s = srv();
         // register through the HTTP surface with dialect "openai" (the default too)

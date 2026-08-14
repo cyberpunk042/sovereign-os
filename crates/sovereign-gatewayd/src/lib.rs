@@ -1024,6 +1024,16 @@ struct ProxyBackend {
     /// translated to `/v1/chat/completions` and the reply back to the Anthropic
     /// shape) or `"anthropic"` (another sovereign-gatewayd — forwarded verbatim).
     dialect: String,
+    /// The upstream's context window, learned from its own `/v1/models` at
+    /// registration. `None` when it did not report one.
+    ///
+    /// Needed because `max_tokens` is relayed verbatim, and a client that asks
+    /// for more than the backend can hold gets a 400 from the tier rather than a
+    /// sane answer. Claude Code asks for **32000** output tokens; the Logic tier
+    /// serves a 32768 window; a 769-token prompt then overflows by ONE token and
+    /// the whole request fails. The gateway is the only component that knows both
+    /// numbers, so it is the only one that can reconcile them.
+    max_model_len: Option<usize>,
 }
 
 /// Runtime policy for the gateway **safety spine** — the input-screening +
@@ -2570,6 +2580,21 @@ impl GatewayServer {
         vram_gb: f64,
         dialect: &str,
     ) -> Result<(), String> {
+        self.register_proxy_with_window(id, endpoint, device, vram_gb, dialect, None)
+    }
+
+    /// [`register_proxy`](Self::register_proxy) carrying the upstream's context
+    /// window, so the relay can clamp `max_tokens` to something the backend can
+    /// actually serve.
+    pub fn register_proxy_with_window(
+        &self,
+        id: &str,
+        endpoint: &str,
+        device: &str,
+        vram_gb: f64,
+        dialect: &str,
+        max_model_len: Option<usize>,
+    ) -> Result<(), String> {
         if id == self.primary_id {
             return Err(format!("'{id}' is the primary model id"));
         }
@@ -2588,9 +2613,29 @@ impl GatewayServer {
                 device: device.to_string(),
                 vram_gb,
                 dialect: dialect.to_string(),
+                max_model_len,
             },
         );
         Ok(())
+    }
+
+    /// The largest `max_tokens` this proxy backend can serve for a prompt of
+    /// `prompt_chars`, or `None` when its window is unknown (⇒ do not clamp).
+    ///
+    /// The prompt length is ESTIMATED from characters, because the gateway does
+    /// not hold the upstream's tokenizer. ~3 chars per token is deliberately
+    /// pessimistic (typical English is ~4), and a further margin is subtracted:
+    /// an over-estimate costs a few tokens of headroom, while an under-estimate
+    /// costs the entire request with a 400 from the tier.
+    #[must_use]
+    pub fn proxy_max_tokens(&self, model: &str, prompt_chars: usize) -> Option<usize> {
+        let window = self
+            .proxies
+            .read()
+            .ok()
+            .and_then(|m| m.get(model).and_then(|p| p.max_model_len))?;
+        let prompt_estimate = prompt_chars / 3 + 64;
+        Some(window.saturating_sub(prompt_estimate).max(256))
     }
 
     /// The upstream `(endpoint, dialect)` for `model` if it is a proxy backend — the
@@ -2702,6 +2747,23 @@ impl GatewayServer {
             // box serves locally", so resolve it to the primary rather than
             // treating it as an unknown secondary.
             Some(Self::LOCAL_PLACEHOLDER_ID) => None,
+            // A HOSTED Anthropic model id means "no preference" here, because this
+            // box can never serve one. Claude Code pointed at ANTHROPIC_BASE_URL
+            // sends `claude-sonnet-…` / `claude-3-5-haiku-…`; without this the
+            // gateway treats it as an unknown secondary and answers
+            //     [gateway generation error: no local model loaded]
+            // on a perfectly healthy machine, and `claude -p` only works if the
+            // operator also knows to set ANTHROPIC_MODEL=auto.
+            //
+            // Deliberately narrow: ONLY the `claude-` prefix, which no local id
+            // uses. Any other unknown id still fails, because "I asked for
+            // gpu-oracle and silently got gpu-logic" is a bug worth surfacing —
+            // this is not a general fallback, it is a statement that one specific
+            // family of names cannot possibly refer to something on this box.
+            //
+            // The reply reports what actually served (`model: gpu-logic`), so the
+            // substitution is visible rather than hidden.
+            Some(m) if m.starts_with("claude-") => self.default_model_id(),
             other => other.map(str::to_string),
         }
     }
@@ -4673,6 +4735,35 @@ mod tests {
         let out = rag_augment_with(Some(&store), None, "capital of France", 1);
         assert!(out.contains("Paris"), "{out}");
         assert!(!out.contains("Photosynthesis"), "{out}");
+    }
+
+    #[test]
+    fn a_hosted_claude_model_id_means_no_preference() {
+        // Claude Code pointed at ANTHROPIC_BASE_URL sends its own model id. This
+        // box can never serve `claude-sonnet-…`, so treating it as an unknown
+        // secondary answered "[gateway generation error: no local model loaded]"
+        // on a healthy machine, and `claude -p` worked only if the operator also
+        // knew to set ANTHROPIC_MODEL=auto.
+        let s = GatewayServer::new();
+        s.register_proxy("gpu-x", "127.0.0.1:9", "logic", 32.0, "openai")
+            .expect("register");
+        s.set_default_model(Some("gpu-x"));
+
+        for hosted in ["claude-sonnet-4-5-20250929", "claude-3-5-haiku-20241022"] {
+            assert_eq!(
+                s.expand_alias(Some(hosted)).as_deref(),
+                Some("gpu-x"),
+                "a hosted id cannot refer to anything here, so it means 'you choose'"
+            );
+        }
+        // …and it stays NARROW. An unknown LOCAL-looking id must still pass
+        // through unchanged: "I asked for gpu-oracle and silently got gpu-logic"
+        // is a bug worth surfacing, not a convenience.
+        assert_eq!(
+            s.expand_alias(Some("gpu-oracle")).as_deref(),
+            Some("gpu-oracle"),
+            "an unknown non-hosted id must not be silently substituted"
+        );
     }
 
     #[test]

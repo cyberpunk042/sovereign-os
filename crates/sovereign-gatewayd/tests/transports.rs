@@ -834,9 +834,27 @@ fn http_survives_a_malicious_upstream_chunk_size() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let up = listener.local_addr().unwrap().to_string();
     std::thread::spawn(move || {
-        if let Ok((mut sock, _)) = listener.accept() {
+        // Two connections: registration probes /v1/models for the upstream's
+        // context window before anything is relayed, so a single-accept mock has
+        // its only connection eaten by the probe and the relayed request gets
+        // nothing. The probe is answered with no `max_model_len`, which is also
+        // the "upstream does not report one" path — nothing is clamped.
+        for _ in 0..2 {
+            let Ok((mut sock, _)) = listener.accept() else { break };
             let mut buf = [0u8; 2048];
             let _ = sock.read(&mut buf);
+            if String::from_utf8_lossy(&buf).starts_with("GET /v1/models") {
+                let body = br#"{"object":"list","data":[{"id":"gpu-x"}]}"#;
+                let _ = sock.write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    )
+                    .as_bytes(),
+                );
+                let _ = sock.write_all(body);
+                continue;
+            }
             // 200 + chunked, then a 16-hex-digit chunk size (~18 EB) a naive
             // `vec![0u8; n]` would abort on. Then close.
             let _ = sock.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\nffffffffffffffff\r\n");

@@ -843,7 +843,7 @@ fn stream_anthropic_messages(
                 ),
             );
         }
-        return stream_proxy_message(writer, &endpoint, &dialect, &model, &req);
+        return stream_proxy_message(writer, server, &endpoint, &dialect, &model, &req);
     }
     if !server.has_generator() {
         return write_http(
@@ -1080,11 +1080,18 @@ fn open_proxy_stream(
 /// an honest Anthropic error; a client hang-up mid-stream ends the relay cleanly.
 fn stream_proxy_message(
     writer: &mut TcpStream,
+    server: &GatewayServer,
     endpoint: &str,
     dialect: &str,
     model: &str,
     req: &serde_json::Value,
 ) -> std::io::Result<()> {
+    // Ground it, like the non-streaming proxy path. Missing this made the fix to
+    // proxy grounding half a fix: the NON-streaming /v1/messages relay was
+    // grounded and the STREAMING one was not — and streaming is the default for
+    // every real Anthropic client, so the surface that mattered stayed ungrounded
+    // while the tests and the manual check both used the surface that did not.
+    let req = &crate::http::ground_anthropic_request(server, req);
     // Both branches must carry the RESOLVED model id upstream. The alias the
     // client sent ("auto", "background", "") is a gateway-side name the tier has
     // never heard of — it names WHERE to route, not what the backend serves —
@@ -1097,6 +1104,7 @@ fn stream_proxy_message(
         let mut oai = http::anthropic_to_openai_chat(req);
         oai["stream"] = serde_json::Value::Bool(true);
         oai["model"] = serde_json::Value::String(model.to_string());
+        clamp_max_tokens(server, model, &mut oai);
         ("/v1/chat/completions", oai.to_string())
     };
     let (mut reader, up_status, chunked) = match open_proxy_stream(endpoint, path, &up_body) {
@@ -1343,6 +1351,37 @@ fn ground_proxy_request(server: &GatewayServer, oai: &mut serde_json::Value) {
     oai["messages"] = serde_json::Value::Array(grounded);
 }
 
+/// Clamp a relayed `max_tokens` to what the backend can actually serve.
+///
+/// `max_tokens` is forwarded verbatim, which is right until a client asks for
+/// more than the upstream holds. Claude Code asks for **32000** output tokens;
+/// the Logic tier serves a 32768 window; a 769-token prompt overflows it by ONE
+/// token and the tier rejects the whole request:
+///
+/// ```text
+/// 400 This model's maximum context length is 32768 tokens. However, you
+///     requested 32000 output tokens and your prompt contains at least 769
+///     input tokens, for a total of at least 32769 tokens.
+/// ```
+///
+/// The gateway is the only component that knows both the client's ask and the
+/// backend's window, so it is the only one that can reconcile them. A no-op when
+/// the window is unknown or the request already fits.
+fn clamp_max_tokens(server: &GatewayServer, model: &str, oai: &mut serde_json::Value) {
+    let Some(requested) = oai.get("max_tokens").and_then(serde_json::Value::as_u64) else {
+        return;
+    };
+    let prompt_chars = oai
+        .get("messages")
+        .map_or(0, |m| m.to_string().len());
+    let Some(allowed) = server.proxy_max_tokens(model, prompt_chars) else {
+        return;
+    };
+    if (requested as usize) > allowed {
+        oai["max_tokens"] = serde_json::Value::from(allowed as u64);
+    }
+}
+
 fn stream_proxy_chat_completions(
     writer: &mut TcpStream,
     server: &GatewayServer,
@@ -1365,6 +1404,7 @@ fn stream_proxy_chat_completions(
     // gateway-side name it has never heard of. Any alias hits this — "auto",
     // "background", and "" alike.
     oai["model"] = serde_json::Value::String(resolved_model.to_string());
+    clamp_max_tokens(server, resolved_model, &mut oai);
     let (mut reader, up_status, chunked) =
         match open_proxy_stream(endpoint, "/v1/chat/completions", &oai.to_string()) {
             Ok(t) => t,
