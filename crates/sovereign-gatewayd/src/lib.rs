@@ -1779,9 +1779,24 @@ fn select_top_k(
     let mut chosen: Vec<(String, String)> = Vec::with_capacity(k);
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let (mut li, mut di) = (0usize, 0usize);
-    // Lexical first: it is the better ranking when the query and the document
-    // share vocabulary, which is the common case.
-    let mut take_lexical = true;
+    // DENSE first when a dense ranking exists — measured, not assumed.
+    //
+    // The first version alternated lexical-first on the reasoning that lexical is
+    // better when query and document share vocabulary. On this corpus that is
+    // wrong: measured stage by stage over 14 queries with verified ground truth,
+    //
+    //     hybrid  hit@5 6/14  MRR 0.393
+    //     dense   hit@5 8/14  MRR 0.524
+    //     fused   hit@5 8/14  MRR 0.464   (lexical-first)
+    //
+    // dense alone beat the fused pipeline. Starting lexical gives dense only
+    // output slots 2 and 4 — its top-2 — and "how are language models split
+    // across the graphics cards" sits at dense rank 3, so the fusion actively
+    // discarded a hit the dense pass had found.
+    //
+    // Lexical still takes every other slot, because it catches what dense misses:
+    // "inference backend stack tiers" is a dense MISS and a lexical rank-1.
+    let mut take_lexical = dense.is_empty();
     while chosen.len() < k && (li < lexical.len() || di < dense.len()) {
         let src = if take_lexical && li < lexical.len() {
             let v = &lexical[li];
