@@ -197,6 +197,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
 
         ("POST", "/v1/embeddings") => embeddings(server, body),
 
+        ("POST", "/v1/corpus/search") => corpus_search(server, body),
+
         ("POST", "/v1/simple") => match serde_json::from_str::<SimpleRequest>(body) {
             Ok(request) => {
                 let resp = server.handle(GatewayRequest::SimpleInfer { request });
@@ -272,6 +274,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/v1/models/background")
         | (_, "/v1/models/default")
         | (_, "/v1/embeddings")
+        | (_, "/v1/corpus/search")
         | (_, "/v1/corpus/reload")
         | (_, "/v1/cache/clear")
         | (_, "/v1/infer")
@@ -1160,6 +1163,67 @@ fn corpus_reload(server: &GatewayServer) -> HttpReply {
     }
 }
 
+/// `POST /v1/corpus/search` — show which passages the RAG would ground a prompt
+/// on, without generating anything.
+///
+/// # Why a route and not just a test
+/// Retrieval decides what the model is allowed to see, and until now it was the
+/// one component with no way to observe its output: passages were selected,
+/// folded into the prompt, and only the prose came back. So a change to the
+/// ranking could only be judged by how the answer *felt*, and a wrong retrieval
+/// looked exactly like a weak model.
+///
+/// This runs the SAME `corpus_retrieve_ranked` the grounding path uses —
+/// including the coverage rerank and the backfill — so what it reports is what a
+/// prompt would actually receive, not a parallel implementation that might drift.
+///
+/// Read-only: no generation, no memory write, no ledger entry.
+fn corpus_search(server: &GatewayServer, body: &str) -> HttpReply {
+    let req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => return err(400, format!("invalid corpus search body: {e}")),
+    };
+    let query = match req.get("query").and_then(serde_json::Value::as_str) {
+        Some(q) if !q.trim().is_empty() => q,
+        _ => return err(400, "corpus search needs a non-empty `query`".to_string()),
+    };
+    let k = req
+        .get("k")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(5)
+        .clamp(1, 50) as usize;
+
+    let Some(corpus) = server.corpus_handle() else {
+        // 503, not an empty result: "RAG is off" and "nothing matched" are
+        // different answers, and returning [] for both would let a misconfigured
+        // corpus read as a corpus with no relevant passages.
+        return err(
+            503,
+            "no RAG corpus loaded — set SOVEREIGN_GATEWAY_CORPUS (scripts/iac module 88 \
+             stages one and switches it on)"
+                .to_string(),
+        );
+    };
+    let hits = crate::corpus_retrieve_ranked(&corpus, query, k);
+    json_reply(
+        200,
+        &serde_json::json!({
+            "query": query,
+            "k": k,
+            "corpus_docs": corpus.len(),
+            "hits": hits
+                .into_iter()
+                .enumerate()
+                .map(|(rank, (id, text))| serde_json::json!({
+                    "rank": rank,
+                    "id": id,
+                    "text": text,
+                }))
+                .collect::<Vec<_>>(),
+        }),
+    )
+}
+
 /// `POST /v1/cache/clear` — flush the opt-in completion cache without a daemon
 /// restart (a no-op returning `0` when caching is disabled). No body; returns how
 /// many entries were dropped.
@@ -1928,6 +1992,43 @@ mod tests {
         assert_eq!(v["corpus_docs"], 0);
         // wrong verb on the resource is a clean 405, not a 404.
         assert_eq!(respond(&s, "GET", "/v1/corpus/reload", "").status, 405);
+    }
+
+    #[test]
+    fn corpus_search_distinguishes_rag_off_from_no_match() {
+        // With no corpus loaded the route must say so — 503 — rather than return
+        // an empty hit list. Returning [] for both would let a misconfigured
+        // corpus (the state this box was in until module 88 ran: RAG never
+        // switched on at all) read as a corpus that simply had nothing relevant,
+        // which is the difference between "broken" and "answered".
+        let s = srv();
+        let r = respond(
+            &s,
+            "POST",
+            "/v1/corpus/search",
+            r#"{"query":"how does the gateway resolve an alias"}"#,
+        );
+        assert_eq!(r.status, 503, "RAG off must not look like an empty result");
+        assert!(
+            r.body.contains("SOVEREIGN_GATEWAY_CORPUS"),
+            "the error must name the knob that fixes it; body: {}",
+            r.body
+        );
+
+        // The request contract is checked before the corpus is consulted, so a
+        // malformed query is a 400 regardless of whether RAG happens to be on.
+        assert_eq!(
+            respond(&s, "POST", "/v1/corpus/search", r#"{"query":"   "}"#).status,
+            400,
+            "a blank query is a bad request, not a search"
+        );
+        assert_eq!(
+            respond(&s, "POST", "/v1/corpus/search", r#"{"k":3}"#).status,
+            400,
+            "a missing query is a bad request"
+        );
+        // wrong verb on the resource is a clean 405, not a 404.
+        assert_eq!(respond(&s, "GET", "/v1/corpus/search", "").status, 405);
     }
 
     #[test]

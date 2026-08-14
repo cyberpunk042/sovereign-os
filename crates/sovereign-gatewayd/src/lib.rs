@@ -1554,6 +1554,26 @@ pub fn corpus_retrieve(
     query: &str,
     k: usize,
 ) -> Vec<String> {
+    corpus_retrieve_ranked(store, query, k)
+        .into_iter()
+        .map(|(_, text)| text)
+        .collect()
+}
+
+/// [`corpus_retrieve`], but keeping each passage's **id** alongside its text.
+///
+/// The grounding path only needs the text, so ids were dropped on the way out.
+/// That made retrieval unobservable: you could read a generated answer and not
+/// know which passages produced it, which is the wrong property for the one
+/// component whose job is to decide what the model is allowed to see. Ids are
+/// `{file}#{chunk}`, so a caller can say *where* an answer came from — and a
+/// change to the ranking can be measured against a fixed query set instead of
+/// judged by how the prose feels.
+pub fn corpus_retrieve_ranked(
+    store: &sovereign_retrieval::HybridStore,
+    query: &str,
+    k: usize,
+) -> Vec<(String, String)> {
     if k == 0 {
         return Vec::new();
     }
@@ -1566,22 +1586,22 @@ pub fn corpus_retrieve(
         return Vec::new();
     }
     let reranked = sovereign_rerank::rerank(query, &pool, k);
-    let mut chosen: Vec<String> = Vec::with_capacity(k);
+    let mut chosen: Vec<(String, String)> = Vec::with_capacity(k);
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     for h in reranked {
         if chosen.len() >= k {
             break;
         }
-        if seen.insert(h.id) {
-            chosen.push(h.text);
+        if seen.insert(h.id.clone()) {
+            chosen.push((h.id, h.text));
         }
     }
     for (id, text) in pool {
         if chosen.len() >= k {
             break;
         }
-        if seen.insert(id) {
-            chosen.push(text);
+        if seen.insert(id.clone()) {
+            chosen.push((id, text));
         }
     }
     chosen
