@@ -2122,6 +2122,11 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
   <div class="stat"><div class="k">Blackwell models</div><div class="v ok" id="bw-count">—</div></div>
   <div class="stat"><div class="k">Logic (5090) models</div><div class="v warn" id="rtx-count">—</div></div>
   <div class="stat"><div class="k">CPU/Pulse models</div><div class="v accent" id="cpu-count">—</div></div>
+  <!-- Router (eGPU): embedders + cross-encoder rerankers. Without this tile the
+       row does not add up — the router models are counted in `total loaded` but
+       shown in no column, which is exactly the discrepancy the API-side fix
+       removed from summary{}. -->
+  <div class="stat"><div class="k">Router (eGPU) models</div><div class="v accent" id="router-count">—</div></div>
 </div>
 
 <!-- Live Sovereign Gateway (:8787) — the M048 sovereign router in front of every
@@ -2343,6 +2348,7 @@ async function refresh() {
   $('bw-count').textContent = s.summary.blackwell ?? 0;
   $('rtx-count').textContent = s.summary.rtx4090 ?? 0;
   $('cpu-count').textContent = s.summary.cpu ?? 0;
+  $('router-count').textContent = s.summary.router ?? 0;
   // SRP roles
   const r = s.roles || {};
   const c = r.conductor || {}; const l = r.logic || {}; const o = r.oracle || {};

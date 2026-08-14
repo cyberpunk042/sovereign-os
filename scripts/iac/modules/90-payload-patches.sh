@@ -115,6 +115,7 @@ scripts/inference/start-logic-engine.sh
 scripts/inference/start-oracle-core.sh
 scripts/inference/model-health.py
 scripts/operator/lm-orchestration-api.py
+webapp/d-03-model-health/index.html
 "
 
 _patched=0
