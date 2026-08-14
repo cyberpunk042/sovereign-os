@@ -2359,6 +2359,7 @@ impl GatewayServer {
     /// — and reached nothing that anyone actually asked.
     #[must_use]
     pub fn rag_context(&self, query: &str) -> Option<String> {
+        let query = &Self::retrieval_query(query);
         let neural = self.neural_handle();
         let guard = self.corpus.read().ok()?;
         let store = guard.as_deref()?;
@@ -2373,6 +2374,44 @@ impl GatewayServer {
             out.push('\n');
         }
         Some(out)
+    }
+
+    /// Bound a retrieval query to its TAIL.
+    ///
+    /// The query is the caller's last user message, which for a bare question is
+    /// the question. For an agent runtime it is not: Claude Code's user turn
+    /// carries tool definitions, environment context and scaffolding, and
+    /// embedding all of it produces a vector that matches nothing in particular.
+    ///
+    /// Observed: asked which cores the Pulse tier uses, `claude -p` answered
+    /// "cores 1-7, 8-15 and 16-24 with the AVX-512 engine". Those ranges appear
+    /// in exactly ONE corpus document — a D-21/D-22 PANEL LAYOUT spec — while the
+    /// same question asked directly retrieved the two documents that actually
+    /// answer it (`pulse | cpu | 0-7 | bitnet.cpp`). The scaffolding had pulled
+    /// the query away from the question.
+    ///
+    /// The TAIL rather than the head, because the operator's actual request is
+    /// what comes last. This is a heuristic and is named as one: it cannot
+    /// recover a question buried mid-message, and a caller that appends its own
+    /// footer after the user's words will still dilute it.
+    fn retrieval_query(query: &str) -> String {
+        let cap = std::env::var("SOVEREIGN_GATEWAY_RAG_QUERY_CHARS")
+            .ok()
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .filter(|&n| n > 0)
+            .unwrap_or(600);
+        if query.chars().count() <= cap {
+            return query.to_string();
+        }
+        let tail: String = query
+            .chars()
+            .skip(query.chars().count().saturating_sub(cap))
+            .collect();
+        // Start at a word boundary so the query does not open mid-token.
+        match tail.find(char::is_whitespace) {
+            Some(i) => tail[i..].trim_start().to_string(),
+            None => tail,
+        }
     }
 
     /// A shared handle to the RAG corpus (for the agent's `search` tool), or
@@ -4735,6 +4774,32 @@ mod tests {
         let out = rag_augment_with(Some(&store), None, "capital of France", 1);
         assert!(out.contains("Paris"), "{out}");
         assert!(!out.contains("Photosynthesis"), "{out}");
+    }
+
+    #[test]
+    fn a_long_scaffolded_query_is_bounded_to_its_tail() {
+        // The retrieval query is the caller's last user message. For an agent
+        // runtime that message carries tool definitions and environment context,
+        // and embedding all of it produces a vector matching nothing in
+        // particular: `claude -p` asked which cores the Pulse tier uses and
+        // answered with ranges that appear in exactly one corpus document — a
+        // PANEL LAYOUT spec — while the same question asked directly retrieved
+        // the two documents that answer it.
+        let scaffolding = "tool definitions and environment preamble ".repeat(60);
+        let question = "which CPU cores does the Pulse tier run on";
+        let bounded = GatewayServer::retrieval_query(&format!("{scaffolding}{question}"));
+
+        assert!(
+            bounded.ends_with(question),
+            "the operator's actual request is what comes last; got: {bounded}"
+        );
+        assert!(
+            bounded.chars().count() <= 600,
+            "an unbounded query is the dilution being fixed; got {} chars",
+            bounded.chars().count()
+        );
+        // A short query is untouched — this must not rewrite ordinary questions.
+        assert_eq!(GatewayServer::retrieval_query(question), question);
     }
 
     #[test]
