@@ -474,19 +474,33 @@ def snapshot() -> dict[str, Any]:
         roles[role] = entry
 
     # Summary counts: runtime loaded totals when published, else catalog size.
+    #
+    # `router` is counted explicitly. `total` sums every bucket, so splitting the
+    # router models out of `logic` (they run on the eGPU, not the 5090) made
+    # total stop equalling blackwell + rtx4090 + cpu — 80 against 75, with five
+    # models in no visible column. A breakdown that does not add up to its own
+    # total is worse than the miscategorisation it replaced.
+    #
+    # `rtx4090` is a legacy key meaning the LOGIC role, from when the 4090 was
+    # the Logic card; the 5090 took that slot (D-022) and the 4090 is now the
+    # Router eGPU. Kept under the old name because D-03's frontend reads it by
+    # key — renaming is a frontend change, not a data one.
     if loaded:
         total = sum(len(v) for v in loaded.values())
         bw = len(loaded.get("oracle", []))
         rtx = len(loaded.get("logic", []))
         cpu = len(loaded.get("conductor", []))
+        rtr = len(loaded.get("router", []))
     else:
         total = sum(len(v) for v in cat.values())
         bw, rtx, cpu = len(cat["oracle"]), len(cat["logic"]), len(cat["conductor"])
+        rtr = len(cat["router"])
 
     return {
         "schema_version": SCHEMA_VERSION,
         "summary": {
             "total": total, "blackwell": bw, "rtx4090": rtx, "cpu": cpu,
+            "router": rtr,
             "source": "runtime" if loaded else "catalog",
         },
         "roles": roles,

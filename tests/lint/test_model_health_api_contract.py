@@ -84,7 +84,11 @@ def test_core_parses_catalog_into_srp_roles():
         capture_output=True, text=True, timeout=15, check=True,
     )
     buckets = json.loads(out.stdout)
-    assert set(buckets) == {"conductor", "logic", "oracle"}
+    # Four buckets, not three. `router` (embedders + cross-encoder rerankers)
+    # used to be folded into `logic` because it had no card of its own; it now
+    # runs on the RTX 4090 eGPU, and reporting those models under `logic` put
+    # them on a GPU they have never executed on.
+    assert set(buckets) == {"conductor", "logic", "oracle", "router"}
     # The committed catalog has ≥1 model per role; conductor hosts the
     # bitnet.cpp ternary tier (M073), oracle hosts the Blackwell NVFP4 tier.
     assert buckets["conductor"], "conductor (pulse tier) must have ≥1 catalog model"
@@ -152,8 +156,14 @@ def test_health_endpoint_matches_dashboard_contract():
             d = json.loads(r.read())
         # The d-03 webapp refresh() reads exactly these shapes.
         assert set(d) >= {"summary", "roles", "models", "kvcache", "heatmap"}
-        for k in ("total", "blackwell", "rtx4090", "cpu"):
+        # `router` is in the summary unconditionally (it counts catalog rows, not
+        # cards) so the breakdown still adds up to `total`. The ROLE below is
+        # deliberately not asserted: it appears only when a third GPU is actually
+        # bound to it, so a two-card host has no router role and should not.
+        for k in ("total", "blackwell", "rtx4090", "cpu", "router"):
             assert k in d["summary"]
+        assert (d["summary"]["blackwell"] + d["summary"]["rtx4090"]
+                + d["summary"]["cpu"] + d["summary"]["router"]) == d["summary"]["total"]
         for role in ("conductor", "logic", "oracle"):
             assert role in d["roles"]
             assert "models" in d["roles"][role] and isinstance(d["roles"][role]["models"], list)
@@ -170,7 +180,7 @@ def test_catalog_endpoint():
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/models/catalog", timeout=3) as r:
             assert r.status == 200
             d = json.loads(r.read())
-        assert set(d) == {"conductor", "logic", "oracle"}
+        assert set(d) == {"conductor", "logic", "oracle", "router"}
     finally:
         proc.kill(); proc.wait(timeout=3)
 
