@@ -23,6 +23,9 @@ sovereign-cortex = { path = "../sovereign-cortex" }
 sovereign-retrieval = { path = "../sovereign-retrieval" }
 sovereign-chunker = { path = "../sovereign-chunker" }
 sovereign-rerank = { path = "../sovereign-rerank" }
+# Rank-based fusion for the dense retrieval pass (RRF over the hybrid order and
+# the embedding order) — the same primitive HybridStore uses internally.
+sovereign-rank-fusion = { path = "../sovereign-rank-fusion" }
 sovereign-control-word-service = { path = "../sovereign-control-word-service" }
 sovereign-control-word = { path = "../sovereign-control-word" }
 sovereign-branch-scheduler = { path = "../sovereign-branch-scheduler" }

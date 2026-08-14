@@ -111,6 +111,13 @@ fn main() {
 
     let server = Arc::new(GatewayServer::new());
 
+    // Start embedding the corpus for dense retrieval. This returns immediately —
+    // the work happens on a worker thread — so the daemon still binds in a few
+    // seconds. Until the index lands, retrieval is the lexical hybrid it has
+    // always been; if embeddings are unconfigured or the tier is down, it stays
+    // that way and nothing fails.
+    server.start_neural_index();
+
     if args.iter().any(|a| a == "--selftest") {
         selftest(&server);
         return;

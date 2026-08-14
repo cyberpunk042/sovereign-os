@@ -1204,7 +1204,33 @@ fn corpus_search(server: &GatewayServer, body: &str) -> HttpReply {
                 .to_string(),
         );
     };
-    let hits = crate::corpus_retrieve_ranked(&corpus, query, k);
+    // The dense pass when it is ready, the lexical order when it is not — the
+    // same call the grounding path makes, so what this reports is what a prompt
+    // would actually receive.
+    //
+    // `stage` restricts the pipeline for measurement: retrieval is lexical
+    // recall + dense recall + coverage rerank, and a change to one of them moves
+    // the final number without saying which. Default is the real path.
+    let stage = match req.get("stage").and_then(serde_json::Value::as_str) {
+        None | Some("fused") => crate::RetrievalStage::Fused,
+        Some("hybrid") => crate::RetrievalStage::Hybrid,
+        Some("dense") => crate::RetrievalStage::Dense,
+        Some(other) => {
+            return err(
+                400,
+                format!("unknown stage {other:?} — expected fused, hybrid or dense"),
+            )
+        }
+    };
+    let neural = server.neural_handle();
+    if stage == crate::RetrievalStage::Dense && neural.is_none() {
+        return err(
+            503,
+            "no dense index — embeddings unconfigured, unreachable, or still building"
+                .to_string(),
+        );
+    }
+    let hits = crate::corpus_retrieve_staged(&corpus, neural.as_deref(), query, k, stage);
     json_reply(
         200,
         &serde_json::json!({

@@ -30,6 +30,7 @@
 #![warn(missing_docs)]
 
 pub mod http;
+pub mod neural_rag;
 
 #[cfg(test)]
 mod model_fixture;
@@ -674,6 +675,21 @@ pub struct GatewayServer {
     /// re-index the operator's corpus dir in place without a daemon restart (a
     /// reader gets the old or new snapshot atomically). `None` ⇒ RAG off.
     corpus: RwLock<Option<Arc<sovereign_retrieval::HybridStore>>>,
+    /// Optional DENSE index over the same passages, embedded by the Router tier
+    /// (`SOVEREIGN_GATEWAY_EMBED_ENDPOINT`). Fused with the hybrid ranking so a
+    /// paraphrase can be found — the lexical pair scored 0/6 on paraphrase
+    /// queries against this corpus, because BM25 and char-n-grams match
+    /// characters and the answer was written in different words.
+    ///
+    /// Built on a worker thread AFTER the corpus loads, so startup never waits on
+    /// a GPU; `None` until it is ready, and `None` forever when embeddings are
+    /// unconfigured or the tier is unreachable. Every such case degrades to the
+    /// hybrid ranking rather than failing a request.
+    /// The slot itself is behind an `Arc` so the background builder can be handed
+    /// a clone to install into, without needing an `Arc<Self>` — `reload_corpus`
+    /// only has `&self`, and threading `Arc<Self>` through every caller to reach
+    /// one worker thread would be a large change for no benefit.
+    neural: Arc<RwLock<Option<Arc<neural_rag::NeuralIndex>>>>,
     /// Opt-in completion cache (`SOVEREIGN_GATEWAY_CACHE_CAPACITY` > 0). Only
     /// **deterministic** (greedy) generations are cached — a temperature/top-p/
     /// top-k request must vary, so it bypasses the cache. Keyed by `(model,
@@ -1522,13 +1538,17 @@ const RAG_POOL_MIN: usize = 12;
 /// leaves empty is **backfilled** from the fused retrieval order.
 fn rag_augment_with(
     corpus: Option<&sovereign_retrieval::HybridStore>,
+    neural: Option<&neural_rag::NeuralIndex>,
     prompt: &str,
     k: usize,
 ) -> String {
     let Some(store) = corpus else {
         return prompt.to_string();
     };
-    let chosen = corpus_retrieve(store, prompt, k);
+    let chosen: Vec<String> = corpus_retrieve_ranked_with(store, neural, prompt, k)
+        .into_iter()
+        .map(|(_, text)| text)
+        .collect();
     if chosen.is_empty() {
         return prompt.to_string();
     }
@@ -1560,6 +1580,132 @@ pub fn corpus_retrieve(
         .collect()
 }
 
+/// How deep a candidate pool the recall stage draws before reranking.
+fn retrieval_pool(k: usize) -> usize {
+    (k * 4).max(RAG_POOL_MIN)
+}
+
+/// [`corpus_retrieve_ranked`] with an optional DENSE ranking fused in.
+///
+/// The hybrid store already fuses BM25 with char-n-gram embeddings by RRF. Both
+/// are lexical, and against this corpus they missed every paraphrase query in
+/// the benchmark set (0/6). A real embedding model supplies a third ranking, and
+/// the two orders are fused by RRF again — rank-based, so no score calibration
+/// between a BM25 score and a cosine is needed or implied.
+///
+/// The lexical side keeps half the weight. That is deliberate: dense retrieval
+/// is worse at exact identifiers — a query naming `SOVEREIGN_GATEWAY_CORPUS` or
+/// an SDD number wants the lexical match, and drowning it under a semantic
+/// ranking would trade one failure mode for another.
+///
+/// `neural: None`, an empty neural ranking (query could not be embedded), or an
+/// index still building all collapse to exactly the pre-existing behaviour.
+pub fn corpus_retrieve_ranked_with(
+    store: &sovereign_retrieval::HybridStore,
+    neural: Option<&neural_rag::NeuralIndex>,
+    query: &str,
+    k: usize,
+) -> Vec<(String, String)> {
+    corpus_retrieve_staged(store, neural, query, k, RetrievalStage::Fused)
+}
+
+/// Which part of the retrieval pipeline to run — for measuring the stages
+/// separately.
+///
+/// Retrieval is three stages (lexical recall, dense recall, coverage rerank) and
+/// a change to any one of them moves the final number. When the dense pass was
+/// first fused in, the benchmark did not move AT ALL — identical hit@5 and MRR —
+/// and there was no way to tell whether the embeddings were bad, the fusion was
+/// wrong, or a later stage was discarding what the dense pass found. Guessing
+/// between those is how you "fix" the wrong one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RetrievalStage {
+    /// Everything: lexical + dense recall, fused, then coverage-reranked.
+    Fused,
+    /// Lexical only — BM25 + char-n-gram, coverage-reranked. The pre-existing
+    /// behaviour, kept measurable as the baseline.
+    Hybrid,
+    /// Dense only — the embedding ranking, with NO rerank. Answers the question
+    /// the fused number cannot: does the embedder find the right passage at all?
+    Dense,
+}
+
+/// [`corpus_retrieve_ranked_with`], restricted to one stage. See [`RetrievalStage`].
+pub fn corpus_retrieve_staged(
+    store: &sovereign_retrieval::HybridStore,
+    neural: Option<&neural_rag::NeuralIndex>,
+    query: &str,
+    k: usize,
+    stage: RetrievalStage,
+) -> Vec<(String, String)> {
+    if k == 0 {
+        return Vec::new();
+    }
+    if stage == RetrievalStage::Dense {
+        let Some(n) = neural else {
+            return Vec::new();
+        };
+        let entries = store.entries();
+        return n
+            .rank(query, k)
+            .into_iter()
+            .filter_map(|id| {
+                entries
+                    .iter()
+                    .find(|(sid, _)| *sid == id)
+                    .map(|(sid, text)| (sid.clone(), text.clone()))
+            })
+            .collect();
+    }
+    let neural = if stage == RetrievalStage::Hybrid {
+        None
+    } else {
+        neural
+    };
+    let pool_depth = retrieval_pool(k);
+    let hybrid: Vec<(String, String)> = store
+        .retrieve(query, pool_depth)
+        .into_iter()
+        .map(|(id, text, _)| (id, text))
+        .collect();
+    if hybrid.is_empty() {
+        return Vec::new();
+    }
+
+    // Fuse the two ORDERS when a dense ranking is available, then carry the fused
+    // order into the same rerank + backfill the lexical-only path uses, so the
+    // only thing that changed is which candidates arrive.
+    let dense_ids = neural
+        .map(|n| n.rank(query, pool_depth))
+        .filter(|r| !r.is_empty());
+    let pool: Vec<(String, String)> = match dense_ids.clone() {
+        None => hybrid,
+        Some(dense_ids) => {
+            let hybrid_ids: Vec<String> = hybrid.iter().map(|(id, _)| id.clone()).collect();
+            let fused = sovereign_rank_fusion::rrf(&[hybrid_ids, dense_ids]);
+            // Texts come from the hybrid pool where possible; a dense-only hit is
+            // looked up in the store so a passage the lexical side never surfaced
+            // can still be returned — that is the entire point of the dense pass.
+            let mut out = Vec::with_capacity(fused.len());
+            for (id, _) in fused {
+                if let Some((_, text)) = hybrid.iter().find(|(hid, _)| *hid == id) {
+                    out.push((id, text.clone()));
+                } else if let Some((_, text)) =
+                    store.entries().into_iter().find(|(sid, _)| *sid == id)
+                {
+                    out.push((id, text));
+                }
+                if out.len() >= pool_depth {
+                    break;
+                }
+            }
+            out
+        }
+    };
+
+    select_top_k(query, pool, dense_ids.as_deref(), k)
+}
+
 /// [`corpus_retrieve`], but keeping each passage's **id** alongside its text.
 ///
 /// The grounding path only needs the text, so ids were dropped on the way out.
@@ -1574,28 +1720,96 @@ pub fn corpus_retrieve_ranked(
     query: &str,
     k: usize,
 ) -> Vec<(String, String)> {
-    if k == 0 {
-        return Vec::new();
-    }
-    let pool: Vec<(String, String)> = store
-        .retrieve(query, (k * 4).max(RAG_POOL_MIN))
-        .into_iter()
-        .map(|(id, text, _)| (id, text))
-        .collect();
+    corpus_retrieve_ranked_with(store, None, query, k)
+}
+
+/// Coverage-rerank a candidate `pool` for precision, then backfill from the
+/// pool's own order so recall is preserved.
+///
+/// Split out so the lexical-only and dense-fused paths share one implementation:
+/// the rerank and the backfill are the subtle part (a zero-overlap paraphrase hit
+/// is exactly what the reranker drops and the backfill restores), and two copies
+/// would drift precisely where drift is hardest to notice.
+/// Choose the final `k` from a candidate `pool`.
+///
+/// # Why the dense order gets guaranteed slots
+/// `sovereign_rerank::rerank` scores by TERM COVERAGE and **drops any passage
+/// sharing zero query terms**. A paraphrase shares zero query terms — that is
+/// what makes it a paraphrase — so running it last discards exactly what the
+/// dense pass was added to find.
+///
+/// Measured: for "which filesystem holds the operating system datasets" the
+/// dense ranking returned the ZFS root-layout document at rank 1, and the fused
+/// result was a MISS. A perfect retrieval, thrown away by the stage after it.
+///
+/// The existing backfill did not save it: it only fires when the reranker
+/// returns FEWER than k, and on a 20-candidate pool it essentially never does.
+///
+/// So when a dense ranking exists, the two orders are INTERLEAVED — lexical
+/// precision first, then the best dense hit not already chosen, alternating.
+/// Neither stage can shut the other out, which matters in both directions: a
+/// query naming an exact identifier still gets its lexical match, and a query
+/// asking the same thing in different words still gets its semantic one.
+fn select_top_k(
+    query: &str,
+    pool: Vec<(String, String)>,
+    dense_order: Option<&[String]>,
+    k: usize,
+) -> Vec<(String, String)> {
     if pool.is_empty() {
         return Vec::new();
     }
-    let reranked = sovereign_rerank::rerank(query, &pool, k);
+    // Rerank the WHOLE pool, not just k of it: with interleaving below, the
+    // lexical side may contribute fewer than k entries, and truncating here
+    // would leave it nothing to fall back on.
+    let reranked = sovereign_rerank::rerank(query, &pool, pool.len());
+    let lexical: Vec<(String, String)> = reranked.into_iter().map(|h| (h.id, h.text)).collect();
+
+    let text_of = |id: &str| -> Option<String> {
+        pool.iter()
+            .find(|(pid, _)| pid == id)
+            .map(|(_, t)| t.clone())
+    };
+    let dense: Vec<(String, String)> = dense_order
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|id| text_of(id).map(|t| (id.clone(), t)))
+        .collect();
+
     let mut chosen: Vec<(String, String)> = Vec::with_capacity(k);
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for h in reranked {
-        if chosen.len() >= k {
-            break;
+    let (mut li, mut di) = (0usize, 0usize);
+    // Lexical first: it is the better ranking when the query and the document
+    // share vocabulary, which is the common case.
+    let mut take_lexical = true;
+    while chosen.len() < k && (li < lexical.len() || di < dense.len()) {
+        let src = if take_lexical && li < lexical.len() {
+            let v = &lexical[li];
+            li += 1;
+            Some(v)
+        } else if di < dense.len() {
+            let v = &dense[di];
+            di += 1;
+            Some(v)
+        } else if li < lexical.len() {
+            let v = &lexical[li];
+            li += 1;
+            Some(v)
+        } else {
+            None
+        };
+        if let Some((id, text)) = src {
+            if seen.insert(id.clone()) {
+                chosen.push((id.clone(), text.clone()));
+            }
         }
-        if seen.insert(h.id.clone()) {
-            chosen.push((h.id, h.text));
+        // Only alternate when there is a dense side to alternate with; otherwise
+        // this degrades to exactly the previous lexical-then-backfill behaviour.
+        if !dense.is_empty() {
+            take_lexical = !take_lexical;
         }
     }
+    // Backfill from the pool order for any slot neither side filled.
     for (id, text) in pool {
         if chosen.len() >= k {
             break;
@@ -2056,6 +2270,7 @@ impl GatewayServer {
             events: Mutex::new(VecDeque::new()),
             trace_seq: std::sync::atomic::AtomicU64::new(1),
             corpus: RwLock::new(corpus),
+            neural: Arc::new(RwLock::new(None)),
             completion_cache: std::env::var("SOVEREIGN_GATEWAY_CACHE_CAPACITY")
                 .ok()
                 .and_then(|s| s.trim().parse::<usize>().ok())
@@ -2074,8 +2289,11 @@ impl GatewayServer {
     pub fn rag_augment(&self, prompt: &str) -> String {
         // Hold the read guard across the call: the borrowed `&HybridStore` derefs
         // through the guard's Arc, and a concurrent reload only swaps the Arc.
+        let neural = self.neural_handle();
         match self.corpus.read() {
-            Ok(guard) => rag_augment_with(guard.as_deref(), prompt, rag_top_k()),
+            Ok(guard) => {
+                rag_augment_with(guard.as_deref(), neural.as_deref(), prompt, rag_top_k())
+            }
             Err(_) => prompt.to_string(),
         }
     }
@@ -2110,10 +2328,42 @@ impl GatewayServer {
         match self.corpus.write() {
             Ok(mut guard) => {
                 *guard = fresh;
-                Ok(n)
             }
-            Err(_) => Err("corpus lock poisoned".to_string()),
+            Err(_) => return Err("corpus lock poisoned".to_string()),
         }
+        // The dense index describes the OLD passages and is now wrong — a
+        // reloaded corpus can have renumbered, added or deleted chunks, so its
+        // ids no longer mean what the vectors were built from. Drop it first,
+        // then rebuild in the background: a stale index is worse than none,
+        // because it silently ranks ids that may not exist any more.
+        if let Ok(mut g) = self.neural.write() {
+            *g = None;
+        }
+        self.start_neural_index();
+        Ok(n)
+    }
+
+    /// The dense index, when one has finished building. `None` means retrieval
+    /// runs lexical-only — the honest pre-existing behaviour, not an error.
+    #[must_use]
+    pub fn neural_handle(&self) -> Option<Arc<neural_rag::NeuralIndex>> {
+        self.neural.read().ok().and_then(|g| g.clone())
+    }
+
+    /// Kick off a background build of the dense index for the current corpus.
+    ///
+    /// Safe to call when embeddings are unconfigured (returns immediately) or
+    /// when no corpus is loaded (nothing to embed).
+    pub fn start_neural_index(&self) {
+        let Some(store) = self.corpus_handle() else {
+            return;
+        };
+        let slot = Arc::clone(&self.neural);
+        neural_rag::build_in_background(store, move |idx| {
+            if let Ok(mut g) = slot.write() {
+                *g = Some(idx);
+            }
+        });
     }
 
     /// Test-only: rebuild the corpus from an explicit dir and swap it in — the
@@ -4328,14 +4578,14 @@ mod tests {
         store.add("capital", "The capital of France is Paris.");
         store.add("weather", "It often rains in Seattle.");
         // A France query retrieves the capital doc and prepends it as context.
-        let out = rag_augment_with(Some(&store), "capital of France", 1);
+        let out = rag_augment_with(Some(&store), None, "capital of France", 1);
         assert!(out.starts_with("Context:\n"), "{out}");
         assert!(out.contains("capital of France is Paris"), "{out}");
         assert!(out.trim_end().ends_with("capital of France"), "{out}");
         // Irrelevant doc is NOT the top hit.
         assert!(!out.contains("Seattle"), "{out}");
         // No corpus ⇒ passthrough unchanged.
-        assert_eq!(rag_augment_with(None, "hello", 3), "hello");
+        assert_eq!(rag_augment_with(None, None, "hello", 3), "hello");
     }
 
     #[test]
@@ -4353,9 +4603,52 @@ mod tests {
         }
         assert!(store.len() > 1, "long doc should split into passages");
         // The France passage is retrieved, not the biology ones.
-        let out = rag_augment_with(Some(&store), "capital of France", 1);
+        let out = rag_augment_with(Some(&store), None, "capital of France", 1);
         assert!(out.contains("Paris"), "{out}");
         assert!(!out.contains("Photosynthesis"), "{out}");
+    }
+
+    #[test]
+    fn a_dense_only_hit_survives_the_lexical_rerank() {
+        // THE regression. sovereign_rerank::rerank scores by term coverage and
+        // DROPS any passage sharing zero query terms — which is what a paraphrase
+        // is. Running it last discarded exactly what the dense pass was added to
+        // find: measured on the real corpus, "which filesystem holds the
+        // operating system datasets" had the right document at dense rank 1 and
+        // came out of the fused pipeline a MISS.
+        //
+        // The pre-existing backfill did not save it: it only fires when the
+        // reranker returns FEWER than k, and on a full pool it never does.
+        let pool: Vec<(String, String)> = vec![
+            ("lex1".into(), "alpha beta gamma delta".into()),
+            ("lex2".into(), "alpha beta epsilon".into()),
+            ("lex3".into(), "alpha gamma zeta".into()),
+            // Shares NOT ONE term with the query — invisible to coverage rerank.
+            ("dense-only".into(), "an entirely different vocabulary here".into()),
+        ];
+        let query = "alpha beta gamma";
+
+        // Without a dense order this is the old behaviour: the paraphrase loses.
+        let lexical_only = select_top_k(query, pool.clone(), None, 3);
+        let ids: Vec<&str> = lexical_only.iter().map(|(i, _)| i.as_str()).collect();
+        assert!(
+            !ids.contains(&"dense-only"),
+            "baseline: a zero-overlap passage cannot win on coverage; got {ids:?}"
+        );
+
+        // With the dense ranking putting it first, it MUST reach the output.
+        let dense_order = vec!["dense-only".to_string()];
+        let fused = select_top_k(query, pool, Some(&dense_order), 3);
+        let ids: Vec<&str> = fused.iter().map(|(i, _)| i.as_str()).collect();
+        assert!(
+            ids.contains(&"dense-only"),
+            "a top-ranked dense hit must survive the lexical rerank; got {ids:?}"
+        );
+        // ...and the lexical side is not shut out either — both stages contribute.
+        assert!(
+            ids.iter().any(|i| i.starts_with("lex")),
+            "interleaving must keep lexical precision too; got {ids:?}"
+        );
     }
 
     #[test]
@@ -4367,7 +4660,7 @@ mod tests {
         store.add("cover", "rust ownership and memory safety in practice");
         // The coverage rerank promotes the passage that covers the whole query
         // into the single context slot, over the term-spamming one.
-        let out = rag_augment_with(Some(&store), "rust ownership memory", 1);
+        let out = rag_augment_with(Some(&store), None, "rust ownership memory", 1);
         assert!(out.contains("ownership and memory"), "{out}");
         assert!(!out.contains("rust rust rust"), "{out}");
     }

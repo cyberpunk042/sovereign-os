@@ -4947,6 +4947,7 @@ dependencies = [
  "sovereign-observability-events",
  "sovereign-pii-redact",
  "sovereign-quant-model",
+ "sovereign-rank-fusion",
  "sovereign-rate-limit",
  "sovereign-rerank",
  "sovereign-retrieval",

@@ -84,6 +84,7 @@ const SEARCH_K: usize = 3;
 pub fn builtin_registry(
     cortex: Option<Arc<Mutex<Cortex>>>,
     corpus: Option<Arc<sovereign_retrieval::HybridStore>>,
+    neural: Option<Arc<sovereign_gatewayd::neural_rag::NeuralIndex>>,
 ) -> ToolRegistry {
     let mut r = ToolRegistry::new();
     r.register("upper", |a| a.to_uppercase());
@@ -119,7 +120,18 @@ pub fn builtin_registry(
         // embedding, coverage-reranked) — the same passages that ground a prompt,
         // now callable as a tool so the agent can pull facts on demand.
         r.register("search", move |q| {
-            let hits = sovereign_gatewayd::corpus_retrieve(&corpus, q, SEARCH_K);
+            // The dense pass too, when it is ready: an agent asking `search` in
+            // its own words is exactly the paraphrase case the lexical retriever
+            // scored 0/6 on.
+            let hits: Vec<String> = sovereign_gatewayd::corpus_retrieve_ranked_with(
+                &corpus,
+                neural.as_deref(),
+                q,
+                SEARCH_K,
+            )
+            .into_iter()
+            .map(|(_, text)| text)
+            .collect();
             if hits.is_empty() {
                 "[no relevant passages in the corpus]".to_string()
             } else {
@@ -373,7 +385,7 @@ pub fn run_agent(
 ) -> String {
     let corpus = server.corpus_handle();
     let has_corpus = corpus.is_some();
-    let registry = builtin_registry(Some(server.cortex_handle()), corpus);
+    let registry = builtin_registry(Some(server.cortex_handle()), corpus, server.neural_handle());
     let specs = builtin_specs(true, has_corpus);
     let responder = GatewayResponder::new(server, model.map(str::to_string), max_new);
     run_loop(responder, registry, &specs, user, max_steps, seed)
@@ -386,7 +398,7 @@ mod tests {
 
     #[test]
     fn builtin_tools_are_pure_and_dispatch() {
-        let r = builtin_registry(None, None);
+        let r = builtin_registry(None, None, None);
         assert_eq!(r.call("upper", "hi").unwrap(), "HI");
         assert_eq!(r.call("reverse", "abc").unwrap(), "cba");
         assert_eq!(r.call("wordcount", "a b c").unwrap(), "3");
@@ -399,7 +411,7 @@ mod tests {
 
     #[test]
     fn calc_tool_evaluates_and_reports_errors() {
-        let r = builtin_registry(None, None);
+        let r = builtin_registry(None, None, None);
         assert_eq!(r.call("calc", "(2+3)*4").unwrap(), "20");
         assert_eq!(r.call("calc", "5/2").unwrap(), "2.5");
         assert!(r.call("calc", "2+").unwrap().contains("calc error"));
@@ -407,7 +419,7 @@ mod tests {
 
     #[test]
     fn time_tool_returns_unix_seconds() {
-        let r = builtin_registry(None, None);
+        let r = builtin_registry(None, None, None);
         let out = r.call("time", "").unwrap();
         assert!(out.contains("unix seconds"), "got {out}");
         // the numeric prefix parses as a plausible (post-2020) epoch
@@ -418,10 +430,10 @@ mod tests {
     #[test]
     fn recall_tool_present_only_with_a_cortex_and_queries_memory() {
         // No cortex → no recall tool.
-        assert!(builtin_registry(None, None).call("recall", "x").is_err());
+        assert!(builtin_registry(None, None, None).call("recall", "x").is_err());
         // With a cortex handle → recall queries it (empty store → the note).
         let cx = Arc::new(Mutex::new(Cortex::default()));
-        let r = builtin_registry(Some(cx), None);
+        let r = builtin_registry(Some(cx), None, None);
         assert_eq!(
             r.call("recall", "anything").unwrap(),
             "[no relevant memory]"
@@ -430,7 +442,7 @@ mod tests {
 
     #[test]
     fn builtin_specs_match_the_registry_names() {
-        let names: Vec<String> = builtin_registry(None, None).names();
+        let names: Vec<String> = builtin_registry(None, None, None).names();
         let spec_names: Vec<String> = builtin_specs(false, false)
             .into_iter()
             .map(|s| s.name)
@@ -445,7 +457,7 @@ mod tests {
         );
         // recall appears in both the with-cortex registry and specs(true).
         let cx = Arc::new(Mutex::new(Cortex::default()));
-        assert!(builtin_registry(Some(cx), None).has("recall"));
+        assert!(builtin_registry(Some(cx), None, None).has("recall"));
         assert!(
             builtin_specs(true, false)
                 .iter()
@@ -457,7 +469,7 @@ mod tests {
     fn search_tool_present_only_with_a_corpus_and_retrieves() {
         use sovereign_retrieval::HybridStore;
         // No corpus → no search tool (and it's absent from the specs).
-        assert!(builtin_registry(None, None).call("search", "x").is_err());
+        assert!(builtin_registry(None, None, None).call("search", "x").is_err());
         assert!(
             !builtin_specs(true, false)
                 .iter()
@@ -468,7 +480,7 @@ mod tests {
         store.add("a", "The capital of France is Paris.");
         store.add("b", "Mitochondria are the powerhouse of the cell.");
         let corpus = Arc::new(store);
-        let r = builtin_registry(None, Some(corpus));
+        let r = builtin_registry(None, Some(corpus), None);
         let out = r.call("search", "capital of France").unwrap();
         assert!(out.contains("Paris"), "got: {out}");
         // The relevant passage ranks first even if backfill (k > corpus size)
@@ -488,7 +500,7 @@ mod tests {
             ScriptedResponder::new(["I'll add them. [[tool:calc|2+3]]", "The sum is 5."]);
         let out = run_loop(
             responder,
-            builtin_registry(None, None),
+            builtin_registry(None, None, None),
             &builtin_specs(false, false),
             "add 2 and 3",
             DEFAULT_MAX_STEPS,
@@ -502,7 +514,7 @@ mod tests {
         let responder = ScriptedResponder::new(["Just an answer, no tools."]);
         let out = run_loop(
             responder,
-            builtin_registry(None, None),
+            builtin_registry(None, None, None),
             &builtin_specs(false, false),
             "hello",
             DEFAULT_MAX_STEPS,
@@ -522,7 +534,7 @@ mod tests {
         ]);
         let out = run_loop(
             responder,
-            builtin_registry(None, None),
+            builtin_registry(None, None, None),
             &builtin_specs(false, false),
             "loop",
             3,

@@ -417,6 +417,16 @@ impl HybridStore {
         self.texts.len()
     }
 
+    /// Every `(id, text)` pair, in insertion order.
+    ///
+    /// The store is built to be *queried*, so its contents were private. A dense
+    /// retriever has to embed each passage once at index time, which means
+    /// reading them all out — and doing that through repeated `retrieve` calls
+    /// would be both quadratic and wrong (retrieval ranks, it does not enumerate).
+    pub fn entries(&self) -> Vec<(String, String)> {
+        self.texts.clone()
+    }
+
     /// Whether the store is empty.
     pub fn is_empty(&self) -> bool {
         self.texts.is_empty()
