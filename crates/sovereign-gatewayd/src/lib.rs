@@ -2313,6 +2313,37 @@ impl GatewayServer {
         }
     }
 
+    /// The RAG context block for `query`, or `None` when nothing is retrieved.
+    ///
+    /// [`rag_augment`](Self::rag_augment) flattens a whole conversation into one
+    /// string and prepends the context — right for the local generator, which
+    /// consumes a flat prompt. A PROXY backend speaks the chat-messages shape,
+    /// and flattening a conversation to ground it would destroy the role
+    /// structure the upstream model was trained on. So the block is returned on
+    /// its own, for the caller to inject as a system message.
+    ///
+    /// This exists because the proxy relay forwarded requests verbatim and
+    /// therefore never grounded them. With `auto` resolving to a GPU tier, that
+    /// was every real request on this box: retrieval ran, improved, was measured
+    /// — and reached nothing that anyone actually asked.
+    #[must_use]
+    pub fn rag_context(&self, query: &str) -> Option<String> {
+        let neural = self.neural_handle();
+        let guard = self.corpus.read().ok()?;
+        let store = guard.as_deref()?;
+        let chosen = corpus_retrieve_ranked_with(store, neural.as_deref(), query, rag_top_k());
+        if chosen.is_empty() {
+            return None;
+        }
+        let mut out = String::from("Context:\n");
+        for (_, text) in &chosen {
+            out.push_str("- ");
+            out.push_str(text);
+            out.push('\n');
+        }
+        Some(out)
+    }
+
     /// A shared handle to the RAG corpus (for the agent's `search` tool), or
     /// `None` when no corpus is loaded. The clone is a snapshot — a later reload
     /// swaps the daemon's Arc but a tool already holding this handle keeps its own.

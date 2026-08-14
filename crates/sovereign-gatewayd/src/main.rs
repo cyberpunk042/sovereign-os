@@ -1294,14 +1294,65 @@ fn stream_proxy_message(
 /// upstream is an `openai`-dialect serve-process, so its SSE (`data: {chunk}` …
 /// `data: [DONE]`) is relayed to the client verbatim (dechunked). `anthropic`-dialect
 /// proxies are reached via `/v1/messages` instead.
+/// Prepend the RAG context to a request being relayed to a proxy backend.
+///
+/// # Why this was missing and why it mattered
+/// The relay forwarded the body verbatim — correct for messages, sampling
+/// parameters and everything else, and wrong for exactly one thing: grounding.
+/// `rag_augment` was applied on the LOCAL generate path and the agentic path,
+/// never on the proxy path. With `auto` designated to a GPU tier, that is every
+/// real request on a box like this one, so the corpus, the dense index and the
+/// whole retrieval pipeline reached nothing a user ever asked.
+///
+/// Caught end-to-end, not by reading code: asked which filesystem holds the OS
+/// datasets, the deployed gateway answered "ext4, standard Linux hierarchy" —
+/// generically wrong — while `/v1/corpus/search` returned the ZFS root-layout
+/// document at rank 2 for the same words.
+///
+/// The context goes in as a SYSTEM message rather than flattened into the user
+/// turn: a proxy backend speaks the chat-messages shape, and collapsing roles to
+/// ground it would discard the structure the upstream model was trained on.
+/// Retrieval uses the last user message as the query — the actual question,
+/// rather than the whole transcript, which on a long conversation would dilute
+/// the query into noise.
+fn ground_proxy_request(server: &GatewayServer, oai: &mut serde_json::Value) {
+    let Some(messages) = oai.get("messages").and_then(serde_json::Value::as_array) else {
+        return;
+    };
+    let query = messages
+        .iter()
+        .rev()
+        .find(|m| m.get("role").and_then(serde_json::Value::as_str) == Some("user"))
+        .and_then(|m| m.get("content").and_then(serde_json::Value::as_str))
+        .unwrap_or_default()
+        .to_string();
+    if query.trim().is_empty() {
+        return;
+    }
+    let Some(context) = server.rag_context(&query) else {
+        return; // no corpus, or nothing retrieved — forward unchanged
+    };
+    let mut grounded = vec![serde_json::json!({
+        "role": "system",
+        "content": format!(
+            "{context}\nAnswer using the context above when it is relevant. \
+             If it does not cover the question, say so rather than guessing."
+        ),
+    })];
+    grounded.extend(messages.iter().cloned());
+    oai["messages"] = serde_json::Value::Array(grounded);
+}
+
 fn stream_proxy_chat_completions(
     writer: &mut TcpStream,
+    server: &GatewayServer,
     endpoint: &str,
     req: &serde_json::Value,
     resolved_model: &str,
 ) -> std::io::Result<()> {
     let mut oai = req.clone();
     oai["stream"] = serde_json::Value::Bool(true);
+    ground_proxy_request(server, &mut oai);
     // Forward the RESOLVED model id, not the client's.
     //
     // The body is relayed verbatim, which is right for messages, sampling
@@ -1673,7 +1724,7 @@ fn stream_chat_completions(
                 ),
             );
         }
-        return stream_proxy_chat_completions(writer, &endpoint, &req, &model);
+        return stream_proxy_chat_completions(writer, server, &endpoint, &req, &model);
     }
     if !server.has_generator() {
         return write_http(

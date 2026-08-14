@@ -1523,6 +1523,64 @@ fn embeddings(server: &GatewayServer, body: &str) -> HttpReply {
     }
 }
 
+/// Prepend the RAG context to an Anthropic `/v1/messages` request bound for a
+/// proxy backend.
+///
+/// The Anthropic shape carries `system` as a TOP-LEVEL field rather than a
+/// message, so the context is prepended there — appended to an existing system
+/// prompt rather than replacing it, because a caller's system prompt is theirs
+/// and silently dropping it would be a worse bug than the one being fixed.
+///
+/// Same gap as the OpenAI shim: `rag_augment` runs on the local generate path
+/// only, so a proxy-backed model answered ungrounded. Returns the request
+/// unchanged when there is no corpus or nothing is retrieved.
+fn ground_anthropic_request(
+    server: &GatewayServer,
+    req: &serde_json::Value,
+) -> serde_json::Value {
+    let query = req
+        .get("messages")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|ms| {
+            ms.iter()
+                .rev()
+                .find(|m| m.get("role").and_then(serde_json::Value::as_str) == Some("user"))
+        })
+        .and_then(|m| m.get("content"))
+        .and_then(|c| {
+            // `content` is a string in the simple form, or a block array.
+            c.as_str().map(str::to_string).or_else(|| {
+                c.as_array().map(|blocks| {
+                    blocks
+                        .iter()
+                        .filter_map(|b| b.get("text").and_then(serde_json::Value::as_str))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+            })
+        })
+        .unwrap_or_default();
+    if query.trim().is_empty() {
+        return req.clone();
+    }
+    let Some(context) = server.rag_context(&query) else {
+        return req.clone();
+    };
+    let mut out = req.clone();
+    let instruction = format!(
+        "{context}\nAnswer using the context above when it is relevant. \
+         If it does not cover the question, say so rather than guessing."
+    );
+    let merged = match out.get("system").and_then(serde_json::Value::as_str) {
+        Some(existing) if !existing.trim().is_empty() => {
+            format!("{existing}\n\n{instruction}")
+        }
+        _ => instruction,
+    };
+    out["system"] = serde_json::Value::String(merged);
+    out
+}
+
 /// Forward an Anthropic `/v1/messages` request to a proxy backend, translating for
 /// its dialect. An `anthropic` backend is forwarded verbatim; an `openai` backend
 /// (llama-server / vLLM) has the request translated to `/v1/chat/completions` and
@@ -1756,8 +1814,15 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
                 ),
             );
         }
+        // Ground it before forwarding. The relay is verbatim, which is right for
+        // everything except this: rag_augment is applied further down, on the
+        // LOCAL generate path only, so a proxy-backed model — which on this box
+        // is every designated model — was answering ungrounded while a fully
+        // indexed corpus sat unused.
+        let grounded_req = ground_anthropic_request(server, &req);
+        let grounded_body = grounded_req.to_string();
         let t0 = std::time::Instant::now();
-        let mut reply = proxy_message(&endpoint, &dialect, &model, &req, body);
+        let mut reply = proxy_message(&endpoint, &dialect, &model, &grounded_req, &grounded_body);
         // Close the redaction bypass: proxy-relayed output never passes through
         // the local generate path's safety spine, so redact secrets/PII from the
         // relayed body here. No-op when the spine (or both passes) is off.
@@ -2018,6 +2083,40 @@ mod tests {
         assert_eq!(v["corpus_docs"], 0);
         // wrong verb on the resource is a clean 405, not a 404.
         assert_eq!(respond(&s, "GET", "/v1/corpus/reload", "").status, 405);
+    }
+
+    #[test]
+    fn grounding_a_proxied_anthropic_request_preserves_the_caller_system_prompt() {
+        // The relay forwarded verbatim, so a proxy-backed model answered
+        // UNGROUNDED while a fully indexed corpus sat unused — and on this box
+        // every designated model is proxy-backed, so that was every real request.
+        // Caught end-to-end: asked which filesystem holds the OS datasets, the
+        // gateway said "ext4, standard Linux hierarchy" while /v1/corpus/search
+        // returned the ZFS root-layout document for the same words.
+        let s = srv();
+        let req = serde_json::json!({
+            "model": "gpu-x",
+            "system": "You are terse.",
+            "messages": [{"role": "user", "content": "what holds the OS datasets"}],
+        });
+
+        // With no corpus there is nothing to add: the request must pass through
+        // byte-identical rather than gaining an empty context block.
+        let out = ground_anthropic_request(&s, &req);
+        assert_eq!(out, req, "no corpus ⇒ the request is forwarded unchanged");
+
+        // The caller's own system prompt is theirs. Whatever grounding does, it
+        // must not silently replace it — that would be a worse bug than the one
+        // being fixed.
+        let query_only = serde_json::json!({
+            "model": "gpu-x",
+            "messages": [{"role": "user", "content": "  "}],
+        });
+        assert_eq!(
+            ground_anthropic_request(&s, &query_only),
+            query_only,
+            "a blank query retrieves nothing and must not rewrite the request"
+        );
     }
 
     #[test]
