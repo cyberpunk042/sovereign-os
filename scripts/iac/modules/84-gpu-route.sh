@@ -103,16 +103,40 @@ ensure_dir /etc/sovereign-os 0755 root:root
 # the subshell, so the file would silently stop appearing in the summary.
 ensure_file /etc/sovereign-os/gpu-route.env 0644 root:root <<< "${_env_content}"
 
+# ─── the embeddings upstream ─────────────────────────────────────────────────
+# Module 78 SERVES the Router tier; this module is the single owner of gatewayd's
+# outbound configuration, so pointing the daemon at the embedder belongs here.
+# Splitting it would mean two modules writing Environment=SOVEREIGN_GATEWAY_
+# PROXY_ALLOW in separate drop-ins, and systemd does not merge those — the
+# alphabetically-later file wins outright and silently drops the other's
+# endpoints.
+#
+# Deliberately NOT a proxy registration: /v1/embeddings resolves this env var,
+# not resolve_proxy(), precisely so a pooling model can never become the target
+# of "auto" and be handed a chat completion it cannot answer.
+_embed_ep="127.0.0.1:${IAC_ROUTER_EMBED_PORT:-8084}"
+_embed_model="${IAC_ROUTER_EMBED_NAME:-gpu-embed}"
+
 # Narrow the SSRF allowlist to exactly the endpoints this box has.
 # proxy_endpoint_allowed() permits loopback and LAN by default and only NARROWS
 # when this is set, so registration works without it — but /v1/models/register
 # lets a caller point the daemon's outbound connections somewhere, and pinning it
 # costs two lines.
+#
+# The Router endpoints have to be in here too. The allowlist is checked for EVERY
+# outbound destination, including the embeddings relay — leaving it at the two
+# chat tiers would have made /v1/embeddings answer 403 against a backend that was
+# up and healthy.
 _allow="$(printf '%s' "${_TIERS}" | tr ',' '\n' | awk -F'@' 'NF{printf "%s%s", sep, $2; sep=","}')"
+_allow="${_allow},${_embed_ep},127.0.0.1:${IAC_ROUTER_RERANK_PORT:-8085}"
+_dropin=/etc/systemd/system/sovereign-gatewayd.service.d/30-proxy-allow.conf
+_dropin_before="$(cat "${_dropin}" 2>/dev/null | sha256sum)"
 ensure_dropin sovereign-gatewayd.service 30-proxy-allow <<EOF
 # Managed by scripts/iac — do not edit by hand.
 [Service]
 Environment=SOVEREIGN_GATEWAY_PROXY_ALLOW=${_allow}
+Environment=SOVEREIGN_GATEWAY_EMBED_ENDPOINT=${_embed_ep}
+Environment=SOVEREIGN_GATEWAY_EMBED_MODEL=${_embed_model}
 EOF
 
 # ─── the unit that makes routing survive a restart ────────────────────────────
@@ -162,6 +186,22 @@ iac_daemon_reload
 # With RemainAfterExit=yes the unit stays active once the applier has run, which
 # is what arms PartOf. Starting it does run the applier an extra time; it is
 # idempotent, and the direct run below then reports `ok` for every assertion.
+# A drop-in only reaches the process at its next start. Writing SOVEREIGN_GATEWAY_
+# EMBED_ENDPOINT and reporting `changed file ...` while the running daemon still
+# has none of it is the same failure this module was rewritten to end: correct on
+# disk, absent in the machine, green in the report. So a changed drop-in restarts
+# the daemon — and because gpu-route is PartOf gatewayd, routing is re-applied on
+# the way back up rather than being lost by the restart.
+_dropin_now="$(cat "${_dropin}" 2>/dev/null | sha256sum)"
+if [ "${_dropin_before}" != "${_dropin_now}" ] && [ "${IAC_DRY_RUN}" != 1 ]; then
+  systemctl reset-failed sovereign-gatewayd.service >/dev/null 2>&1 || true
+  if run "restart-gatewayd" systemctl restart sovereign-gatewayd.service; then
+    changed "restarted sovereign-gatewayd onto the new outbound configuration"
+  else
+    fail "gatewayd outbound configuration changed but the daemon would not restart"
+  fi
+fi
+
 ensure_unit_state "${_unit}" enabled started
 
 # On a dry run — and on the first real converge before the install above has

@@ -588,6 +588,109 @@ fn proxy_forwards_the_resolved_model_not_the_alias() {
     assert!(body.contains("got:gpu-x"), "sse:\n{body}");
 }
 
+/// A mock embeddings upstream. Answers the OpenAI embeddings shape and echoes
+/// the `model` it was sent back in the reply, so a test can assert what was
+/// FORWARDED rather than what the caller asked for.
+fn spawn_mock_embeddings_upstream() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap().to_string();
+    std::thread::spawn(move || {
+        for conn in listener.incoming() {
+            let Ok(mut sock) = conn else { break };
+            let mut buf = [0u8; 8192];
+            let n = sock.read(&mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]).to_string();
+            let got = req
+                .split("\"model\":\"")
+                .nth(1)
+                .and_then(|r| r.split('"').next())
+                .unwrap_or("<none>")
+                .to_string();
+            let body = serde_json::json!({
+                "object": "list",
+                "model": got,
+                "data": [{"object": "embedding", "index": 0, "embedding": [0.5, 0.25]}],
+                "usage": {"prompt_tokens": 3, "total_tokens": 3},
+            })
+            .to_string();
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\
+                 Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = sock.write_all(resp.as_bytes());
+        }
+    });
+    addr
+}
+
+#[test]
+fn embeddings_route_relays_and_asserts_the_upstream_model() {
+    // The route did not exist at all — `no route for POST /v1/embeddings` — while
+    // the M033/M034/M060 compatibility tests asserted the gateway exposed one.
+    // Those tests check the DECLARED surface, so nothing caught the gap.
+    let up = spawn_mock_embeddings_upstream();
+    let d = spawn_with_env(
+        "--http",
+        &[
+            ("SOVEREIGN_GATEWAY_EMBED_ENDPOINT", up.as_str()),
+            ("SOVEREIGN_GATEWAY_EMBED_MODEL", "gpu-embed"),
+        ],
+    );
+
+    // A caller sending a gateway-side alias must not have it relayed: the
+    // upstream serves exactly one model and would answer "The model 'auto' does
+    // not exist" — the same trap the chat relay documents.
+    for asked in ["auto", "gpu-embed", ""] {
+        let req = serde_json::json!({"model": asked, "input": "hello"}).to_string();
+        let (status, body) = http_request(&d.addr, "POST", "/v1/embeddings", &req);
+        assert!(
+            status.starts_with("HTTP/1.1 200"),
+            "model {asked:?}: {status} {body}"
+        );
+        assert!(
+            body.contains("\"model\":\"gpu-embed\""),
+            "model {asked:?} must be rewritten to the served id; body: {body}"
+        );
+        assert!(
+            body.contains("\"embedding\""),
+            "the upstream reply must be relayed intact; body: {body}"
+        );
+    }
+
+    // A body with no `input` is the gateway's own contract, answered here rather
+    // than relayed so the error names this API and not vLLM's validator.
+    let (status, _) = http_request(
+        &d.addr,
+        "POST",
+        "/v1/embeddings",
+        &serde_json::json!({"model": "auto"}).to_string(),
+    );
+    assert!(status.starts_with("HTTP/1.1 400"), "missing input: {status}");
+
+    // A known route with the wrong verb is 405, not 404.
+    let (status, _) = http_request(&d.addr, "GET", "/v1/embeddings", "");
+    assert!(status.starts_with("HTTP/1.1 405"), "GET: {status}");
+}
+
+#[test]
+fn embeddings_without_a_backend_is_503_not_404() {
+    // 404 would be indistinguishable from the missing-route state this endpoint
+    // was written to end: the route EXISTS, the box just has no embedder wired.
+    let d = spawn("--http");
+    let (status, body) = http_request(
+        &d.addr,
+        "POST",
+        "/v1/embeddings",
+        &serde_json::json!({"model": "auto", "input": "hi"}).to_string(),
+    );
+    assert!(status.starts_with("HTTP/1.1 503"), "{status} {body}");
+    assert!(
+        body.contains("SOVEREIGN_GATEWAY_EMBED_ENDPOINT"),
+        "the error must name the knob that fixes it; body: {body}"
+    );
+}
+
 /// A mock non-streaming OpenAI upstream that answers a ReAct turn: the FIRST
 /// request gets a `[[tool:calc|7*6]]` call, the second (which now carries the
 /// Observation) gets a final answer. Lets a test drive the whole loop against a

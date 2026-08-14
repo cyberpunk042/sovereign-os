@@ -195,6 +195,8 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
             }
         }
 
+        ("POST", "/v1/embeddings") => embeddings(server, body),
+
         ("POST", "/v1/simple") => match serde_json::from_str::<SimpleRequest>(body) {
             Ok(request) => {
                 let resp = server.handle(GatewayRequest::SimpleInfer { request });
@@ -269,6 +271,7 @@ pub fn respond(server: &GatewayServer, method: &str, path: &str, body: &str) -> 
         | (_, "/v1/models/register")
         | (_, "/v1/models/background")
         | (_, "/v1/models/default")
+        | (_, "/v1/embeddings")
         | (_, "/v1/corpus/reload")
         | (_, "/v1/cache/clear")
         | (_, "/v1/infer")
@@ -1280,11 +1283,7 @@ fn models_default(server: &GatewayServer, body: &str) -> HttpReply {
 /// cannot bridge the two. It is the same forward the streaming relay uses,
 /// reused so the ReAct loop can drive a proxy backend instead of being confined
 /// to the local generator.
-pub fn proxy_forward(
-    endpoint: &str,
-    path: &str,
-    body: &str,
-) -> Result<(u16, String), String> {
+pub fn proxy_forward(endpoint: &str, path: &str, body: &str) -> Result<(u16, String), String> {
     use std::io::{Read, Write};
     let mut stream =
         std::net::TcpStream::connect(endpoint).map_err(|e| format!("connect {endpoint}: {e}"))?;
@@ -1316,6 +1315,122 @@ pub fn proxy_forward(
         .unwrap_or("")
         .to_string();
     Ok((status, reply_body))
+}
+
+/// Relay `POST /v1/embeddings` to the Router-tier embedder.
+///
+/// # Why this route did not exist
+/// The M033 / M034 / M060 compatibility tests have always asserted that this
+/// gateway exposes `/v1/embeddings`; it answered `no route for POST
+/// /v1/embeddings`. The contract was written, the implementation never was, and
+/// nothing caught the gap because those tests check the DECLARED surface. So
+/// retrieval here stayed lexical — BM25 fused with char-n-gram embeddings — with
+/// no way to reach a real embedding model even once one was running.
+///
+/// # Why the embedder is not in the proxy registry
+/// `resolve_proxy` serves the CHAT registry, whose `auto` designation falls back
+/// to whichever tier registered last. Putting a pooling model in there would let
+/// a chat request with no stated preference land on a model that cannot generate
+/// a token. The embedding backend is therefore configured separately, by
+/// `SOVEREIGN_GATEWAY_EMBED_ENDPOINT` (`host:port`), and is reachable only here.
+///
+/// # The model field is rewritten, not relayed
+/// The same trap the chat relay documents: the body goes upstream verbatim, but
+/// a caller sending `auto` — or nothing, or any gateway-side alias — would reach
+/// a vLLM that has never heard the name and answer `The model 'auto' does not
+/// exist`. The upstream serves exactly one model, so its id is asserted here
+/// rather than negotiated.
+///
+/// # On the safety spine
+/// `redacts_output()` is deliberately not applied: an embeddings reply is float
+/// vectors, a model id and a token count, with no free text for a redactor to
+/// act on. The INPUT is not screened either — matching the chat relay, and for
+/// the same reason: the backend is a local process on this box, inside the same
+/// trust boundary as the in-process generator.
+fn embeddings(server: &GatewayServer, body: &str) -> HttpReply {
+    let endpoint = std::env::var("SOVEREIGN_GATEWAY_EMBED_ENDPOINT").unwrap_or_default();
+    let endpoint = endpoint.trim();
+    if endpoint.is_empty() {
+        // 503, not 404: the route exists and the box simply has no embedder
+        // wired up. A 404 here would be indistinguishable from the missing-route
+        // state this function was written to end.
+        return err(
+            503,
+            "no embeddings backend configured — set SOVEREIGN_GATEWAY_EMBED_ENDPOINT \
+             (scripts/iac module 84 writes it from the Router tier)"
+                .to_string(),
+        );
+    }
+    if let Err(e) = proxy_endpoint_allowed(endpoint) {
+        return err(403, e);
+    }
+
+    let mut req: serde_json::Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => return err(400, format!("invalid embeddings body: {e}")),
+    };
+    if !req.is_object() {
+        return err(400, "embeddings body must be a JSON object".to_string());
+    }
+    if req.get("input").is_none() {
+        // Caught here rather than relayed, so the error names the gateway's own
+        // contract instead of surfacing a vLLM validation message.
+        return err(400, "embeddings request needs an `input` field".to_string());
+    }
+
+    let upstream_model = std::env::var("SOVEREIGN_GATEWAY_EMBED_MODEL").unwrap_or_default();
+    let upstream_model = upstream_model.trim();
+    if !upstream_model.is_empty() {
+        req["model"] = serde_json::Value::String(upstream_model.to_string());
+    }
+
+    let t0 = std::time::Instant::now();
+    match proxy_forward(endpoint, "/v1/embeddings", &req.to_string()) {
+        Ok((status, resp)) => {
+            // Observability parity with the chat relay, so embedding traffic is
+            // visible on /v1/events instead of being an unmetered side channel.
+            //
+            // Token count from the upstream's own `usage`, NOT the chat relay's
+            // `len / 4` byte approximation. That heuristic is defensible for
+            // generated text; against an embeddings reply it counts the FLOAT
+            // VECTOR, and a three-sentence request was recorded as 16355 tokens.
+            // The real figure is right there in the response.
+            let tokens = serde_json::from_str::<serde_json::Value>(&resp)
+                .ok()
+                .and_then(|v| {
+                    v.get("usage")
+                        .and_then(|u| u.get("prompt_tokens"))
+                        .and_then(serde_json::Value::as_u64)
+                })
+                .unwrap_or((resp.len() / 4) as u64);
+            server.record_proxy_call(
+                if upstream_model.is_empty() {
+                    "embed"
+                } else {
+                    upstream_model
+                },
+                tokens,
+                t0.elapsed().as_millis() as u64,
+            );
+            if status == 200 {
+                HttpReply {
+                    status,
+                    content_type: "application/json",
+                    body: resp,
+                }
+            } else {
+                // Surface the upstream's own words. A bare 502 here is what made
+                // the served-model-name mismatch take so long to find the first
+                // time: the relay reported a generic failure while the backend
+                // had said exactly what was wrong.
+                err(
+                    502,
+                    format!("embeddings upstream {status}: {}", resp.trim()),
+                )
+            }
+        }
+        Err(e) => err(502, format!("embeddings proxy to {endpoint} failed: {e}")),
+    }
 }
 
 /// Forward an Anthropic `/v1/messages` request to a proxy backend, translating for

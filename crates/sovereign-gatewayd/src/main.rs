@@ -59,7 +59,8 @@ USAGE:
 MODES:
     (default)      bind TCP and speak NDJSON (one JSON request per line)
     --http         bind HTTP/1.1: GET /health /manifest /admin/ledger /metrics;
-                   POST /v1/messages /v1/infer /mcp /v1/simple /v1/explain /v1/deliberate /v1/coat
+                   POST /v1/messages /v1/chat/completions /v1/embeddings /v1/infer /mcp
+                        /v1/simple /v1/explain /v1/deliberate /v1/coat
     --stdio        read NDJSON requests on stdin, reply on stdout (MCP / claude-code)
     --selftest     run the built-in demo session, print, exit
     -h, --help     print this help and exit
@@ -543,7 +544,8 @@ fn run_http(server: &Arc<GatewayServer>, addr: &str) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     eprintln!(
         "sovereign-gatewayd: HTTP listening on {addr} \
-         (GET /health /manifest /admin/ledger /metrics; POST /v1/messages /v1/infer /mcp /v1/simple /v1/explain /v1/deliberate /v1/coat)"
+         (GET /health /manifest /admin/ledger /metrics; POST /v1/messages /v1/chat/completions \
+         /v1/embeddings /v1/infer /mcp /v1/simple /v1/explain /v1/deliberate /v1/coat)"
     );
     serve(listener, server, handle_http_conn, reject_http_overloaded)
 }
