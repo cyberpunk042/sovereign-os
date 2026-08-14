@@ -5,16 +5,15 @@
 > 24 layers × 2048, vocab 49152), served by `sovereign-gatewayd` on
 > `127.0.0.1:8787`. Every number is wall-clock over the real HTTP surface.
 >
-> Status: **MEASURED, and PARTLY INVALIDATED 2026-08-01 — do not cite the
-> template figure.** Every number here was taken while `HfBpeTokenizer::encode`
-> segmented added tokens into ordinary BPE pieces (fixed in ddc758e0): each
-> ChatML marker cost **7 tokens instead of 1**. So the per-token costs below
-> stand, but the prompt-length attribution does not — the template overhead was
-> several times what a correct tokenizer produces, and the marker-cost sentence
-> under "Conclusion" is wrong as written. The measurements also predate the
-> per-generation KV reset (f2fb8b4e); they ran against a cache that carried over
-> between requests, so prefill was operating on a dirtier and longer context than
-> a correct run would. Re-measure before using any absolute figure here.
+> Status: **SUPERSEDED 2026-08-14 — the numbers below are a historical record
+> of a broken tokenizer.** They were taken while `HfBpeTokenizer::encode`
+> segmented added tokens into ordinary BPE pieces (fixed in ddc758e0), so each
+> ChatML marker cost **7 tokens instead of 1**, and before the per-generation KV
+> reset (f2fb8b4e), so prefill ran against a cache carried over between requests.
+>
+> Both fixes are in and the re-measurement is at the bottom of this file. The
+> headline: the **18.2s intercept was almost entirely the broken tokenizer** and
+> is now **0.61s**. Cite the re-measurement, not the tables above.
 >
 > The structural finding is unaffected and still holds: prefill runs the decode
 > path one token at a time, so prompt tokens cost the same as generated ones.
@@ -187,3 +186,89 @@ done
 ```
 
 Vary the `content` string instead of `max_tokens` for measurement 2.
+
+
+---
+
+# Re-measurement — 2026-08-14
+
+Same two measurements, same box, after `ddc758e0` (atomic ChatML markers) and
+`f2fb8b4e` (per-generation KV reset). Run against a gateway with **no corpus**:
+RAG grounding now prepends passages, which would inflate every prompt and make
+these incomparable to the original.
+
+Reproduce: `python3 docs/evaluations/gatewayd-latency-bench.py <port>`
+
+## Measurement 1 — vary output length, prompt held at "Hi"
+
+| `max_tokens` | wall clock | completion tokens |
+|---|---|---|
+| 1 | 1.23s | 1 |
+| 2 | 1.85s | 2 |
+| 4 | 3.08s | 4 |
+| 8 | 5.57s | 8 |
+| 16 | 6.20s | 9 (eos) |
+
+Marginal cost per generated token **0.621s** · intercept **0.61s**.
+
+## Measurement 2 — vary prompt length, output held at 1 token
+
+| prompt words | wall clock |
+|---|---|
+| 1 | 1.24s |
+| 12 | 11.71s |
+| 36 | 25.75s |
+
+Slope **0.682s per word**.
+
+## What changed, and what did not
+
+| | 2026-07-31 | 2026-08-14 |
+|---|---|---|
+| per generated token | ~0.7s | **0.621s** |
+| intercept | **18.2s** | **0.61s** |
+| per prompt word | ~1.1s | **0.682s** |
+
+**The 18.2s "constant" was the broken tokenizer, as the 2026-08-01 correction
+predicted.** A 30× collapse in the intercept, from a fix to token segmentation —
+the ChatML frame was costing ~28 marker tokens where it should cost 4, and every
+one of those was a full forward pass.
+
+**The structural finding is unchanged and still the important one.** Prompt
+words cost 0.682s and generated tokens cost 0.621s: the same order. Prefill runs
+the decode path one token at a time, so a prompt token costs what a generated
+token costs, where a batched implementation would make it 10–100× cheaper. Total
+latency is still approximately `(prompt_tokens + generated_tokens) × ~0.65s`.
+
+## The GPU tiers, for scale
+
+Measured through the same harness on the same box:
+
+| path | per token | throughput |
+|---|---|---|
+| CPU local (SmolLM2-1.7B, this gateway) | 0.621s | **1.6 tok/s** |
+| GPU proxy (`gpu-logic`, Nemotron-30B NVFP4 on the RTX 5090) | 0.0057s | **177 tok/s** |
+| the same tier queried DIRECTLY on :8082 | — | **~250 tok/s** |
+
+That is the ~110× the Router/Logic tier work bought, and it is why "auto"
+resolving to the CPU primary was a serious defect rather than a preference.
+
+**The 177 vs 250 gap is NOT attributed.** The gateway figure counts SSE deltas;
+the direct figure is vLLM's own `completion_tokens` against wall clock. The
+difference is relay overhead, a counting difference between those two methods,
+or both. Measuring that properly needs the relay to report usage, which it does
+not — stated rather than guessed at.
+
+## Two flaws in the re-measurement harness, fixed before these numbers
+
+- **The first call is not like the others.** A cold request measured 7.06s for a
+  single token against 1.85s for two on the very next call — lazy init, page
+  cache, allocator. Including it made the fitted slope NEGATIVE. There is now a
+  discarded warm-up call.
+- **Endpoint slopes let one outlier decide the answer**, which is precisely how
+  that warm-up call produced −0.108s per token. Now least squares over all
+  points.
+- Counting only `content` deltas reported "1 token" for a 16-token GPU budget,
+  because a reasoning model spends a small budget entirely on chain-of-thought.
+  Reasoning tokens are generated tokens — same forward pass — and are now
+  counted.
