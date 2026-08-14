@@ -146,25 +146,46 @@ fi
 
 # ─── verify retrieval is actually ON ─────────────────────────────────────────
 # A corpus staged on disk and a daemon that never loaded it look identical from
-# the filesystem. The manifest reports what the RUNNING daemon indexed, so ask it
-# rather than infer from the files just written.
+# the filesystem, so ask the RUNNING daemon rather than infer from the files just
+# written.
+#
+# The count is on /health, under `health.rag_corpus_docs` — NOT on /manifest,
+# which lists bind paths and carries nothing about the corpus. The first version
+# of this check asked /manifest, got a perfectly good response with no such
+# field, and reported "gatewayd is not reporting a manifest" while the daemon was
+# up and had just logged "RAG corpus loaded — 3500 passage(s) from 297 file(s)".
+# A verification that is wrong about where to look is worse than none: it failed
+# a converge whose work had entirely succeeded.
 if [ "${IAC_DRY_RUN}" != 1 ]; then
   _gw="${IAC_GATEWAY_URL:-http://127.0.0.1:8787}"
   _docs=""
+  _reachable=0
   for _i in $(seq 1 "${IAC_RAG_WAIT_TRIES:-30}"); do
-    _docs="$(curl -fsS --max-time 5 "${_gw}/manifest" 2>/dev/null \
-      | python3 -c "
+    # Distinguish "cannot reach it" from "reached it, field missing" — the first
+    # version conflated the two and named the wrong cause.
+    if _body="$(curl -fsS --max-time 5 "${_gw}/health" 2>/dev/null)"; then
+      _reachable=1
+      _docs="$(printf '%s' "${_body}" | python3 -c "
 import sys, json
-try: print(json.load(sys.stdin).get('rag_corpus_docs', ''))
-except Exception: print('')
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print(''); raise SystemExit
+h = d.get('health') if isinstance(d.get('health'), dict) else d
+print(h.get('rag_corpus_docs', ''))
 " 2>/dev/null)"
-    [ -n "${_docs}" ] && break
+      [ -n "${_docs}" ] && break
+    fi
     [ "${_i}" = 1 ] && iac_info "waiting for gatewayd to come back and index the corpus"
     sleep 2
   done
-  case "${_docs}" in
-    "")  fail "gatewayd is not reporting a manifest — cannot confirm RAG is on" ;;
-    0)   fail "gatewayd indexed 0 documents from ${_corpus} — RAG is configured but empty" ;;
-    *)   ok "RAG on: gatewayd indexed ${_docs} passage(s) from ${_corpus}" ;;
-  esac
+  if [ "${_reachable}" != 1 ]; then
+    fail "gatewayd not reachable at ${_gw} after the restart — cannot confirm RAG is on"
+  else
+    case "${_docs}" in
+      "")  fail "gatewayd is up but /health carries no rag_corpus_docs — cannot confirm RAG is on" ;;
+      0)   fail "gatewayd indexed 0 passages from ${_corpus} — RAG is configured but empty" ;;
+      *)   ok "RAG on: ${_docs} passage(s) indexed from ${_corpus}" ;;
+    esac
+  fi
 fi
