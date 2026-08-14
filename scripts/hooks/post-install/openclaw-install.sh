@@ -2,7 +2,7 @@
 # scripts/hooks/post-install/openclaw-install.sh
 #
 # Provision the OpenClaw Node gateway daemon (SDD-705) at first boot and point it
-# at the LOCAL OpenAI-compatible endpoint (the vLLM router/Oracle from SDD-702), so
+# at the LOCAL Anthropic-Messages endpoint — the safety-spine gateway (SDD-707), NOT raw vLLM, so
 # on-box agents run against the sovereign model with no external provider. OpenClaw
 # needs Node (banded engines: >=22.22.3 <23 || >=24.15 <25 || >=25.9) + a global
 # `npm install -g openclaw` — neither reachable during the image build (no network at
@@ -49,7 +49,7 @@ node_major="$(profile_field provisioning.openclaw.node_major)"
 operator="$(profile_field provisioning.operator.username)"
 : "${backend:=local}"
 : "${endpoint:=http://127.0.0.1:8787}"            # SDD-707: LOCAL = the safety-spine gateway (Anthropic Messages), not raw vLLM
-: "${model_id:=local-oracle}"
+: "${model_id:=auto}"                          # "you choose" — the designated GPU tier, not the CPU primary
 : "${anthropic_endpoint:=https://api.anthropic.com}"
 : "${anthropic_model:=claude-sonnet-4-6}"
 : "${gw_port:=18789}"

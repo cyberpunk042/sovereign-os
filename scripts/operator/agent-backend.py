@@ -130,7 +130,7 @@ def render_openclaw(desc: dict[str, Any]) -> str:
     local = desc.get("local", {})
     anth = desc.get("anthropic", {})
     port = desc.get("gateway_port", 18789)
-    lm = local.get("model", "local-oracle")
+    lm = local.get("model", "auto")   # "you choose" — not the CPU primary
     am = anth.get("model", "claude-sonnet-4-6")
     primary = f"local/{lm}" if backend == "local" else f"anthropic/{am}"
     cfg = f"""{{
@@ -176,7 +176,7 @@ def render_open_computer(desc: dict[str, Any]) -> str:
         f"# the QEMU host gateway 10.0.2.2 for the guest.\n"
         f"HOME={OC_ROOT}\n"
         f"OPENAI_BASE_URL={sel.get('endpoint', 'http://127.0.0.1:8787/v1')}\n"
-        f"OPENAI_MODEL={sel.get('model', 'local-oracle')}\n"
+        f"OPENAI_MODEL={sel.get('model', 'auto')}\n"
         f"OPENAI_API_KEY={key}\n"
         f"PORT={port}\n"
         f"OPEN_COMPUTER_BASE_DIR={OC_ROOT}/base_image\n"

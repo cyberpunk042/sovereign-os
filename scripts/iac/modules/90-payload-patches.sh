@@ -116,6 +116,9 @@ scripts/inference/start-oracle-core.sh
 scripts/inference/model-health.py
 scripts/operator/lm-orchestration-api.py
 webapp/d-03-model-health/index.html
+scripts/operator/agent-backend.py
+scripts/hooks/post-install/openclaw-install.sh
+profiles/sain-01.yaml
 "
 
 _patched=0
@@ -273,6 +276,14 @@ _restart_for_script() {
     # answer differing by which port you asked.
     scripts/inference/model-health.py)       echo "sovereign-lm-orchestration-api.service sovereign-model-health-api.service sovereign-models-catalog-api.service sovereign-lm-status-operability-api.service" ;;
     scripts/operator/lm-orchestration-api.py) echo "sovereign-lm-orchestration-api.service" ;;
+    # The profile is read per-invocation by the hooks and per-request by the
+    # panel APIs, and the OpenClaw installer + agent-backend renderer are run on
+    # demand — nothing long-lived caches them. Module 30 re-asserts the GPU cap
+    # against this same file, and now agrees with it: the checkout said
+    # tdp_watts 350 for the 5090, which that SKU rejects outright, so 30 patched
+    # the deployed copy to 400 on EVERY converge. Shipping the checkout without
+    # correcting it would have made 90 and 30 flap against each other forever.
+    profiles/sain-01.yaml)                   echo "" ;;
     # Timer-driven oneshots re-exec from disk on their next fire, and the webapp
     # + catalog are read per request. Nothing long-lived to restart.
     *)                                       echo "" ;;

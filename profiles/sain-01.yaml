@@ -107,7 +107,7 @@ hardware:
       vram_gb: 32
       role: secondary   # new card; Blackwell 512-bit like the PRO 6000; internal x8
       driver: nvidia-570-open
-      tdp_watts: 350   # power-limited from the 575W stock TGP via `nvidia-smi -pl 350` (~61% of stock, near the efficiency knee)
+      tdp_watts: 400   # hardware floor: this TUF OC SKU reports min_limit=400W, default=600W. The old 350 assumed the 575W FE spec and is UNREACHABLE — nvidia-smi rejects it outright, so scripts/iac module 30 re-patched this file to 400 on every converge. Corrected at the source.
       link: pcie-5.0-x8   # internal, PCIEX16_2 — x8; shares lanes with M.2_2 (which MUST stay empty)
     - vendor: nvidia
       model: rtx-4090
@@ -458,7 +458,10 @@ provisioning:
   openclaw:
     backend: local                             # SDD-707: default backend; swap live with `sovereign-osctl openclaw backend {local|anthropic}`
     endpoint: http://127.0.0.1:8787            # LOCAL Anthropic-Messages endpoint = the on-box safety-spine gateway (sovereign-gatewayd --http)
-    model_id: local-oracle                     # local model id (served by the gateway over the direct stack)
+    model_id: auto                             # "you choose" — the gateway's designated tier (a GPU when one is up),
+                                               # falling back honestly to the primary when none is. Was `local-oracle`,
+                                               # which pins every OpenClaw request to the CPU primary at ~1.6 tok/s on a
+                                               # box whose GPU tiers serve ~250.
     anthropic_endpoint: https://api.anthropic.com   # hosted Claude — used when backend=anthropic (real ANTHROPIC_API_KEY, operator-supplied, never baked)
     anthropic_model: claude-sonnet-4-6         # Claude model on the anthropic backend (operator can set any current Claude model)
     gateway_port: 18789                        # OpenClaw gateway bind (loopback)
@@ -470,7 +473,8 @@ provisioning:
   open_computer:
     backend: local                             # SDD-707: default backend; swap live with `sovereign-osctl open-computer backend {local|anthropic}`
     endpoint: http://127.0.0.1:8787/v1         # LOCAL OpenAI-compat endpoint = the gateway shim (host side; 127.0.0.1 auto-rewritten to 10.0.2.2 in-guest)
-    model_id: local-oracle                     # OPENAI_MODEL advertised to open-computer (local)
+    model_id: auto                             # OPENAI_MODEL advertised to open-computer (local). `auto` for the same
+                                               # reason as openclaw above: local-oracle is the CPU primary.
     anthropic_endpoint: https://api.anthropic.com/v1/   # hosted Claude OpenAI-compat endpoint — used when backend=anthropic (real key, operator-supplied, never baked)
     anthropic_model: claude-sonnet-4-6         # Claude model on the anthropic backend (operator can set any current Claude model)
     web_port: 9800                             # open-computer agent UI/control base port (kiosk target)
