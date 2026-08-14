@@ -39,6 +39,19 @@ fi
 # "<prefix>:<relative-dir>" — prefix becomes the filename namespace.
 _SOURCES="${IAC_RAG_CORPUS_SOURCES:-src:docs/src sdd:docs/sdd}"
 
+# Navigational documents, excluded by STAGED NAME.
+#
+# WHY: an index is topically adjacent to everything and substantively answers
+# nothing, so it crowds the top of every semantic ranking. Measured on this
+# corpus, sdd__INDEX appeared in the dense top-5 of ALL FOUR failing paraphrase
+# queries while the documents that actually answered them sat at ranks 9, 11, 12
+# and 39 — retrieved, then pushed under the cutoff by a table of contents.
+#
+# The criterion is "lists pointers to other documents", not "is large" or "is
+# generated": src__model-catalog.md is 1663 lines of generated tables and STAYS,
+# because it carries real model data that a question can be answered from.
+_EXCLUDE="${IAC_RAG_CORPUS_EXCLUDE:-sdd__INDEX.md src__sdd-catalog.md}"
+
 ensure_dir "${_corpus}" 0755 root:root
 
 # ─── stage ────────────────────────────────────────────────────────────────────
@@ -66,6 +79,13 @@ for _entry in ${_SOURCES}; do
     # says where it came from.
     _relpath="${_f#"${_dir}"/}"
     _name="${_prefix}__${_relpath//\//__}"
+
+    # Excluded names are deliberately NOT added to the want-list, so the prune
+    # below removes them if a previous converge staged them.
+    case " ${_EXCLUDE} " in
+      *" ${_name} "*) continue ;;
+    esac
+
     _dst="${_corpus}/${_name}"
     printf '%s\n' "${_name}" >> "${_want_list}"
     if [ -f "${_dst}" ] && cmp -s "${_f}" "${_dst}"; then
