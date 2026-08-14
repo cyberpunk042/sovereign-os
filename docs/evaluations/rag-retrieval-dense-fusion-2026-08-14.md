@@ -43,15 +43,58 @@ only reached output slots 2 and 4, and one target sat at dense rank 3. Starting
 the interleave with the dense side — measured, not assumed — put `fused` above
 both components, which is what a fusion should do.
 
+## Follow-up: the remaining misses were not what I said they were
+
+The first version of this document listed the four remaining paraphrase misses
+as "chunk-level dilution and embedding quality". Both wrong. The documents that
+answer those queries **were** retrieved by the dense pass — at ranks 12, 39, 9
+and 11 — and pushed under the top-5 cutoff by the table of contents.
+`sdd__INDEX` appeared in the dense top-5 of all four.
+
+An index is topically adjacent to everything and substantively answers nothing,
+which is exactly the shape that wins a semantic ranking and loses a question.
+It was also 19% of the corpus by bytes: `sdd__INDEX.md` plus
+`src__sdd-catalog.md` came to 497 KB of dense tables naming every SDD.
+
+Removing them (scripts/iac module 88) lifted both component rankings — the
+fused number did not move, being already at what 14 queries can resolve:
+
+| stage | before | after |
+|---|---|---|
+| `hybrid` | 6/14 · 0.393 | **7/14 · 0.443** |
+| `dense` | 8/14 · 0.524 | **9/14 · 0.538** |
+| `fused` | 9/14 · 0.550 | 9/14 · 0.550 |
+
+## Follow-up: the grounding top-k default was the worst setting
+
+`DEFAULT_RAG_TOP_K` was 3, chosen before this box had ever run RAG:
+
+```text
+top-k    overall hit@k
+  3        8/14        <- the previous default
+  5        9/14
+  8        9/14
+ 10       10/14
+```
+
+Now 5 — the knee, taking the whole 3→5 gain where 5→8 buys nothing. Not 10
+despite the extra hit: this measures RETRIEVAL, and more context also means more
+irrelevant context. Taking the measured knee rather than the measured maximum is
+the conservative read of a number that does not cover the risk.
+
 ## Honest limits
 
 - **14 queries.** Small enough that the dense-first ordering is a provisional
   choice supported by a consistent direction (dense MRR > lexical MRR on every
   cut), not a tuned constant. It should be re-checked if the corpus changes.
-- **4 of 6 paraphrase queries still miss at every stage** — including `dense`.
-  Those are not fusion problems: the embedder does not surface the right passage
-  at all. Chunk-level dilution (3500 passages from 297 files) and embedding
-  quality are the next thing to look at, and neither is addressed here.
+- **The fused number has not moved since the dense-first fix**, through two
+  changes that both improved its inputs. 14 queries is not enough resolution to
+  tune fusion on, and further ratio tuning would be fitting the benchmark rather
+  than the corpus. Expanding the query set is the prerequisite for any more
+  fusion work.
+- **`dense` alone now beats `fused` on paraphrase** (3/6 · 0.256 vs 2/6 · 0.200)
+  while losing on literal. Interleaving halves each side's effective depth, so a
+  dense hit at rank 4-5 cannot reach a top-5 output. Known, not yet addressed.
 - **The first version of this benchmark had wrong ground truth.** It labelled one
   document per query from its filename, so "how are language models split across
   the graphics cards" counted `sdd__993-sain-gpu-topology` and

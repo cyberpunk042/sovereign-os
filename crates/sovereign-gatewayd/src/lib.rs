@@ -1836,8 +1836,29 @@ fn select_top_k(
     chosen
 }
 
-/// Default number of corpus documents prepended as RAG context per prompt.
-const DEFAULT_RAG_TOP_K: usize = 3;
+/// Default number of corpus passages prepended as RAG context per prompt.
+///
+/// Was 3, chosen before this box had ever run RAG. Measured on the real corpus,
+/// 3 is the worst point on the recall curve:
+///
+/// ```text
+/// top-k    overall hit@k
+///   3        8/14        <- the previous default
+///   5        9/14
+///   8        9/14
+///  10       10/14
+/// ```
+///
+/// 5 is the knee: it takes the whole 3→5 gain, and 5→8 buys nothing. A passage
+/// is ~900 chars (~225 tokens) and the served models carry 32k+ contexts, so the
+/// cost of two more is negligible.
+///
+/// Deliberately NOT 10, despite the extra hit. This benchmark measures whether
+/// the right passage is RETRIEVED, not whether the answer improved — and more
+/// context also means more irrelevant context, which can mislead a model as
+/// easily as help it. Taking the measured knee rather than the measured maximum
+/// is the conservative read of a number that does not cover the risk.
+const DEFAULT_RAG_TOP_K: usize = 5;
 
 /// Resolve the RAG top-k from `SOVEREIGN_GATEWAY_RAG_TOPK` (absent / invalid /
 /// `0` ⇒ [`DEFAULT_RAG_TOP_K`]).
