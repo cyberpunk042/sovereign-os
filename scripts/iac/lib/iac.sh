@@ -181,26 +181,37 @@ weights_complete() {
   [ -f "${dir}/config.json" ] || return 1
   python3 -c 'import json,os,sys,glob
 d = sys.argv[1]
-idx = os.path.join(d, "model.safetensors.index.json")
-if os.path.exists(idx):
-    try:
-        wm = json.load(open(idx)).get("weight_map", {})
-    except Exception:
-        print("index is unreadable", file=sys.stderr); sys.exit(1)
-    if not wm:
-        print("index has an empty weight_map", file=sys.stderr); sys.exit(1)
-    missing = sorted({f for f in set(wm.values())
-                      if not os.path.exists(os.path.join(d, f))})
-    if missing:
-        print("index names %d absent file(s), e.g. %s" % (len(missing), missing[0]),
+
+# Both checkpoint formats, because not every model ships safetensors. The
+# router-tier encoders do not: BAAI/bge-m3 is a single pytorch_model.bin, and a
+# safetensors-only check called that complete-looking directory INCOMPLETE and
+# refused to serve a model that was fully downloaded and works.
+for weights_ext, index_name in (("safetensors", "model.safetensors.index.json"),
+                                ("bin",         "pytorch_model.bin.index.json")):
+    idx = os.path.join(d, index_name)
+    if os.path.exists(idx):
+        try:
+            wm = json.load(open(idx)).get("weight_map", {})
+        except Exception:
+            print("index is unreadable", file=sys.stderr); sys.exit(1)
+        if not wm:
+            print("index has an empty weight_map", file=sys.stderr); sys.exit(1)
+        missing = sorted({f for f in set(wm.values())
+                          if not os.path.exists(os.path.join(d, f))})
+        if missing:
+            print("index names %d absent file(s), e.g. %s" % (len(missing), missing[0]),
+                  file=sys.stderr)
+            sys.exit(1)
+        sys.exit(0)
+    if glob.glob(os.path.join(d, "*-of-*." + weights_ext)):
+        print("sharded checkpoint with no %s - cannot verify" % index_name,
               file=sys.stderr)
         sys.exit(1)
+
+if glob.glob(os.path.join(d, "*.safetensors")) or glob.glob(os.path.join(d, "*.bin")):
     sys.exit(0)
-if glob.glob(os.path.join(d, "*-of-*.safetensors")):
-    print("sharded checkpoint with no model.safetensors.index.json - cannot verify",
-          file=sys.stderr)
-    sys.exit(1)
-sys.exit(0 if glob.glob(os.path.join(d, "*.safetensors")) else 1)' "${dir}"
+print("no *.safetensors and no *.bin weights present", file=sys.stderr)
+sys.exit(1)' "${dir}"
 }
 
 # ---- systemd convergence ----
