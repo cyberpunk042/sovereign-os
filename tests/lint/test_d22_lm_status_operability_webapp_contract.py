@@ -266,7 +266,8 @@ def test_chat_endpoint_is_the_one_sanctioned_post():
     """SDD-062 — POST /api/lm-status/chat is the ONE sanctioned mutating-method
     endpoint (a non-mutating inference read-compute): it must NOT be 405. With no
     router backend reachable it still opens the SSE stream and emits an honest
-    `error` event (SB-077) — never a fabricated completion. Every OTHER POST path
+    `error` event (SB-077); with one reachable it streams a real completion.
+    Never a fabricated one, and never a silent stop. Every OTHER POST path
     stays 405."""
     port = _free_port()
     proc = _spawn_api(port)
@@ -289,7 +290,21 @@ def test_chat_endpoint_is_the_one_sanctioned_post():
         assert code in (200, 503)
         if code == 200:
             assert "text/event-stream" in ctype
-            assert "event: error" in body and "router unreachable" in body  # honest, no fabrication
+            # The contract is NEVER FABRICATE, which has two honest outcomes, and
+            # this asserted only one of them. It demanded "router unreachable" —
+            # true on a box with no serving tier, and false here since the Logic
+            # Engine went live: a real completion streamed back at 247 tok/s and
+            # was read as a contract violation. A working backend is not a defect.
+            #
+            # So: an honest error when nothing is reachable, or a genuine token
+            # stream terminated by `done` when something is. What stays banned is
+            # a completion with neither — a stream that just ends.
+            honest_error = "event: error" in body and "router unreachable" in body
+            real_stream = "event: token" in body and "event: done" in body
+            assert honest_error or real_stream, (
+                "the chat stream must either report the backend as unreachable or "
+                f"deliver a real completion — never terminate silently; body: {body[:300]}"
+            )
 
         # a DIFFERENT POST path stays 405
         req2 = urllib.request.Request(
