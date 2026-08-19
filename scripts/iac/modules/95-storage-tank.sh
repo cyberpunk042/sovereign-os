@@ -156,6 +156,7 @@ fi
 # ---- datasets, per profiles.storage.datasets ----
 # tank/models  : 1M recordsize, lz4 — big sequential weight files
 # tank/context : 16k, zstd-9, copies=2, sync=always — the state fabric
+# tank/agents  : 128k, zstd-3 — runtime cache + sub-agent scratch
 #
 # The profile also asks for encryption=aes-256-gcm on tank/context. NOT applied
 # here: ZFS native encryption needs a key at import, so a passphrase blocks
@@ -248,6 +249,72 @@ if zpool list -H -o name 2>/dev/null | grep -qx "${_pool}" || [ "${IAC_DRY_RUN}"
     fi
   fi
 
+  # ---- tank/agents, optionally encrypted ----
+  # profiles.storage adds tank/agents (recordsize=128k, zstd-3, purpose:
+  # runtime cache + sub-agent scratch) with encryption=aes-256-gcm. It mirrors
+  # tank/context's scheme exactly: a per-dataset raw keyfile on the ROOT disk,
+  # same boundary and same caveats (see the context block above). Gated by
+  # IAC_TANK_ENCRYPT_AGENTS so the operator opts in explicitly. agents is
+  # scratch, so recreating it to enable encryption is cheap — but the >10MB
+  # data-loss guard still applies, so a populated cache is never silently wiped.
+  _agents_keyfile="${IAC_TANK_AGENTS_KEYFILE:-/etc/zfs/keys/tank-agents.key}"
+  _want_enc_agents="${IAC_TANK_ENCRYPT_AGENTS:-0}"
+  _enc_now_agents="$(zfs get -H -o value encryption "${_pool}/agents" 2>/dev/null)"
+
+  if [ "${_want_enc_agents}" != 1 ]; then
+    _mk_ds agents -o recordsize=128k -o compression=zstd-3
+    [ "${IAC_DRY_RUN}" = 1 ] || iac_info "encryption NOT enabled on ${_pool}/agents (IAC_TANK_ENCRYPT_AGENTS=0)"
+
+  elif [ "${_enc_now_agents}" = "aes-256-gcm" ]; then
+    ok "dataset ${_pool}/agents (encrypted, aes-256-gcm)"
+    _ks_agents="$(zfs get -H -o value keystatus "${_pool}/agents" 2>/dev/null)"
+    [ "${_ks_agents}" = available ] && ok "key loaded" || fail "key status: ${_ks_agents}"
+
+  elif [ "${IAC_DRY_RUN}" = 1 ]; then
+    changed "recreate ${_pool}/agents with aes-256-gcm (destroys it and its snapshots)"
+
+  else
+    # Encryption cannot be turned on in place — the dataset must be recreated.
+    # Refuse if it holds more than scratch (>10MB) rather than destroying data
+    # to satisfy a config flag.
+    _used_kb_agents="$(zfs get -Hp -o value used "${_pool}/agents" 2>/dev/null)"
+    _used_kb_agents=$(( ${_used_kb_agents:-0} / 1024 ))
+    _snaps_agents="$(zfs list -H -t snapshot -o name -r "${_pool}/agents" 2>/dev/null | wc -l)"
+    iac_info "${_pool}/agents currently: ${_used_kb_agents}KB used, ${_snaps_agents} snapshot(s)"
+    if [ "${_used_kb_agents}" -gt 10240 ] && [ "${IAC_TANK_ENCRYPT_CONFIRM:-}" != "destroy-agents" ]; then
+      fail "${_pool}/agents holds ${_used_kb_agents}KB — refusing to destroy it to enable encryption"
+      iac_info "encryption cannot be enabled in place; set IAC_TANK_ENCRYPT_CONFIRM=\"destroy-agents\" to accept the loss"
+    else
+      # Key first: 32 raw bytes, root-only, on the root disk.
+      if [ ! -s "${_agents_keyfile}" ]; then
+        install -d -m 0700 "$(dirname "${_agents_keyfile}")" 2>/dev/null || true
+        if dd if=/dev/urandom of="${_agents_keyfile}" bs=32 count=1 status=none 2>/dev/null \
+           && chmod 0400 "${_agents_keyfile}" 2>/dev/null; then
+          changed "generated key ${_agents_keyfile} (32 raw bytes, 0400 root)"
+          iac_info "BACK THIS UP. Lose it and ${_pool}/agents is unrecoverable."
+        else
+          fail "could not generate ${_agents_keyfile}"
+          return 0 2>/dev/null || exit 0
+        fi
+      else
+        ok "key ${_agents_keyfile} present"
+      fi
+
+      zfs destroy -r "${_pool}/agents" >/dev/null 2>&1 || true
+      if zfs create -o recordsize=128k -o compression=zstd-3 \
+           -o encryption=aes-256-gcm -o keyformat=raw \
+           -o keylocation="file://${_agents_keyfile}" "${_pool}/agents" 2>/dev/null; then
+        changed "recreated ${_pool}/agents with aes-256-gcm"
+        # Refresh the generator cache so a zfs-load-key@ unit is emitted for it.
+        zfs set canmount=on "${_pool}" >/dev/null 2>&1 || true
+        sleep 2
+        systemctl daemon-reload 2>/dev/null || true
+      else
+        fail "could not create encrypted ${_pool}/agents"
+      fi
+    fi
+  fi
+
   # ---- every dataset must actually be MOUNTED ----
   # (placed after the encryption branch so it covers every path through it)
   # `zfs create` leaves the dataset unmounted in some paths, and an unmounted
@@ -265,7 +332,7 @@ if zpool list -H -o name 2>/dev/null | grep -qx "${_pool}" || [ "${IAC_DRY_RUN}"
   # which is exactly what happened here — converge reported "mounted", the
   # dataset came back unmounted seconds later, and /mnt/vault/context reverted
   # to a plain directory on the UNENCRYPTED parent.
-  for _ds in models context; do
+  for _ds in models context agents; do
     [ "${IAC_DRY_RUN}" = 1 ] && continue
     zfs list -H -o name "${_pool}/${_ds}" >/dev/null 2>&1 || continue
     _mp="$(zfs get -H -o value mountpoint "${_pool}/${_ds}" 2>/dev/null)"
