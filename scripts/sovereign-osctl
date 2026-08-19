@@ -1576,14 +1576,21 @@ for ds in datasets:
         if expected is None:
             continue
         actual = props.get(prop, 'unknown')
-        if actual == expected or (prop == 'encryption' and expected == 'off' and actual == 'off'):
+        # ZFS reports size suffixes in canonical uppercase (e.g. 16K, 1M) regardless
+        # of how the profile spells them (16k). Compare size-valued props
+        # case-insensitively so a correctly-provisioned dataset isn't flagged.
+        if prop == 'recordsize':
+            actual_cmp, expected_cmp = actual.upper(), str(expected).upper()
+        else:
+            actual_cmp, expected_cmp = actual, expected
+        if actual_cmp == expected_cmp or (prop == 'encryption' and expected == 'off' and actual == 'off'):
             pass
         elif prop == 'encryption' and expected and actual == expected:
             print(f"    ✓ {name}: {prop}={actual}")
         elif prop == 'encryption' and expected and actual != expected:
             print(f"    ✗ {name}: {prop} mismatch: expected {expected}, got {actual}")
             os.environ['_DS_ISSUES'] = str(int(os.environ.get('_DS_ISSUES', 0)) + 1)
-        elif actual == expected:
+        elif actual_cmp == expected_cmp:
             print(f"    ✓ {name}: {prop}={actual}")
         else:
             print(f"    ✗ {name}: {prop} mismatch: expected {expected}, got {actual}")
