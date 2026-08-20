@@ -210,15 +210,24 @@ elif [ -d "${BITNET_MODEL_DIR}" ] && [ -n "$(ls -A "${BITNET_MODEL_DIR}" 2>/dev/
 else
   log_info "fetching model ${BITNET_MODEL_REPO} → ${BITNET_MODEL_DIR}"
   sudo mkdir -p "${BITNET_MODEL_DIR}"
-  if command -v huggingface-cli >/dev/null 2>&1; then
-    sudo huggingface-cli download "${BITNET_MODEL_REPO}" --local-dir "${BITNET_MODEL_DIR}" || {
-      log_error "huggingface-cli download failed"
+  # huggingface_hub 1.x renamed the CLI from `huggingface-cli` to `hf` (same
+  # `download <repo> --local-dir` syntax). Resolve whichever exists; check via
+  # sudo's PATH too since the download runs as root.
+  _hf=""
+  for _h in hf huggingface-cli; do
+    command -v "${_h}" >/dev/null 2>&1 && { _hf="${_h}"; break; }
+    sudo -n sh -c "command -v ${_h}" >/dev/null 2>&1 && { _hf="${_h}"; break; }
+  done
+  if [ -n "${_hf}" ]; then
+    log_info "  using ${_hf} to download"
+    sudo "${_hf}" download "${BITNET_MODEL_REPO}" --local-dir "${BITNET_MODEL_DIR}" || {
+      log_error "${_hf} download failed"
       log_error "  set HF_TOKEN if gated, or use 'sovereign-osctl models pull' alternative"
       emit_pulse_metric fail
       exit 1
     }
   else
-    log_warn "huggingface-cli not installed (pip install huggingface_hub)"
+    log_warn "no HF CLI (hf / huggingface-cli) found — apt install python3-huggingface-hub"
     log_warn "  alternative: sovereign-osctl models pull ${BITNET_MODEL_REPO}"
     log_warn "  skipping model fetch; bitnet-cli installed but no default model"
   fi
