@@ -113,6 +113,8 @@ scripts/operator/code-console-api.py
 webapp/code-console/index.html
 scripts/inference/start-logic-engine.sh
 scripts/inference/start-oracle-core.sh
+scripts/inference/start-pulse.sh
+scripts/inference/backends/bitnet.py
 scripts/inference/model-health.py
 scripts/operator/lm-orchestration-api.py
 webapp/d-03-model-health/index.html
@@ -258,6 +260,8 @@ _restart_for_script() {
   case "$1" in
     scripts/inference/start-logic-engine.sh) echo "sovereign-logic-engine.service" ;;
     scripts/inference/start-oracle-core.sh)  echo "sovereign-oracle-core.service" ;;
+    scripts/inference/start-pulse.sh)        echo "sovereign-pulse.service" ;;
+    scripts/inference/backends/bitnet.py)    echo "sovereign-pulse.service" ;;
     scripts/operator/build-configurator-api.py) echo "sovereign-dashboards.service" ;;
     scripts/operator/code-console-api.py)    echo "sovereign-code-console-api.service" ;;
     # control-exec-api imports tools.notifykit ONCE at module load and caches the
