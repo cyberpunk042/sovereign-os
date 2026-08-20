@@ -154,11 +154,18 @@ else
   export GGML_AVX512_VBMI=1
   export GGML_AVX512_VNNI=1
 
-  # Build per BitNet upstream README (cmake-based as of 2026 era)
+  # Build per BitNet upstream README (cmake-based as of 2026 era). llama.cpp's
+  # TOOLS/COMMON/SERVER options default OFF when it's a subdirectory
+  # (${LLAMA_STANDALONE}), so a bare configure builds only the libs and NO
+  # llama-cli (BitNet's inference binary, per its run_inference.py). Enable them
+  # explicitly. BUILD_SHARED_LIBS=OFF static-links ggml/llama into the CLI so the
+  # installed binary is self-contained (no build-dir .so dependency at runtime).
   sudo -E mkdir -p build
   sudo -E cmake -B build -DCMAKE_BUILD_TYPE=Release \
        -DCMAKE_C_FLAGS_RELEASE="${CFLAGS}" \
-       -DCMAKE_CXX_FLAGS_RELEASE="${CXXFLAGS}" || {
+       -DCMAKE_CXX_FLAGS_RELEASE="${CXXFLAGS}" \
+       -DLLAMA_BUILD_COMMON=ON -DLLAMA_BUILD_TOOLS=ON -DLLAMA_BUILD_SERVER=ON \
+       -DBUILD_SHARED_LIBS=OFF || {
     log_error "cmake configure failed"
     emit_pulse_metric fail
     exit 1
@@ -172,14 +179,23 @@ else
   }
 
   # ---- install ----
+  # BitNet builds llama.cpp's tools; the inference binary is build/bin/llama-cli
+  # (BitNet's run_inference.py invokes exactly that). Install it under the
+  # operator-named bitnet-cli. Also install llama-server (Pulse's HTTP endpoint)
+  # and llama-quantize (I2_S model prep) when present.
   log_info "installing bitnet-cli → ${BITNET_INSTALL_DIR}/bin/"
-  if [ -x build/bin/bitnet-cli ]; then
-    sudo install -m 0755 build/bin/bitnet-cli "${BITNET_INSTALL_DIR}/bin/"
-  elif [ -x build/bitnet-cli ]; then
-    sudo install -m 0755 build/bitnet-cli "${BITNET_INSTALL_DIR}/bin/"
+  _cli=""
+  for _c in build/bin/llama-cli build/bin/bitnet-cli build/bitnet-cli; do
+    [ -x "${_c}" ] && { _cli="${_c}"; break; }
+  done
+  if [ -n "${_cli}" ]; then
+    sudo install -m 0755 "${_cli}" "${BITNET_INSTALL_DIR}/bin/bitnet-cli"
+    for _extra in llama-server llama-quantize; do
+      [ -x "build/bin/${_extra}" ] && sudo install -m 0755 "build/bin/${_extra}" "${BITNET_INSTALL_DIR}/bin/" || true
+    done
   else
-    log_error "bitnet-cli binary not found after build"
-    log_error "  searched: build/bin/bitnet-cli, build/bitnet-cli"
+    log_error "inference binary not found after build"
+    log_error "  searched: build/bin/llama-cli, build/bin/bitnet-cli, build/bitnet-cli"
     emit_pulse_metric fail
     exit 1
   fi
