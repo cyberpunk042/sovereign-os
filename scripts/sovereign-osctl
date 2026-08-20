@@ -5081,7 +5081,8 @@ _trinity_auditor_brief() {
   }
   echo "    guardian-core:      ${guardian_state}"
   local policy="absent"
-  [ -f /etc/tetragon/sovereign-perimeter.yaml ] && policy="loaded (sovereign-kernel-fence)"
+  local _fence_policy="${SOVEREIGN_OS_TETRAGON_POLICY_DIR:-/etc/tetragon/tracing-policies}/sovereign-kernel-fence.yaml"
+  [ -f "${_fence_policy}" ] && policy="loaded (sovereign-kernel-fence)"
   echo "    tetragon policy:    ${policy}"
 }
 
@@ -5098,8 +5099,9 @@ _trinity_auditor_full() {
   fi
   echo
   echo "  POLICY (master spec § 6 — sovereign-kernel-fence):"
-  if [ -f /etc/tetragon/sovereign-perimeter.yaml ]; then
-    echo "    ✓ /etc/tetragon/sovereign-perimeter.yaml present"
+  local _fence_policy="${SOVEREIGN_OS_TETRAGON_POLICY_DIR:-/etc/tetragon/tracing-policies}/sovereign-kernel-fence.yaml"
+  if [ -f "${_fence_policy}" ]; then
+    echo "    ✓ ${_fence_policy} present"
   else
     echo "    ✗ policy file absent"
     echo "      apply via: scripts/hooks/post-install/tetragon-policy-load.sh"
