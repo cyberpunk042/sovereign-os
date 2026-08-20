@@ -5,6 +5,8 @@
 **Audit provenance**: closes the 2026-06 catalog audit gap #3 — "OPNsense / SD-WAN boundary contract — the VLAN concept is catalogued (M003) but the firewall interface + Tetragon-socket-dropout gotcha isn't."
 **Shipped already**: the dropout prevention is implemented in commit `47632d0` (`BindsTo=tetragon.service` on the guardian unit + EOF fall-through exits nonzero instead of silently returning 0).
 
+**Superseded (2026-08-20 — file-export reality)**: E0815 / R14111-R14113's literal *socket*-EOF-restart mechanism is superseded for the actual `--export-filename` path. Live bring-up showed the export is a regular FILE (not the UNIX socket dump 765 assumed), so exit-on-EOF crash-looped the daemon. Guardian now **tail-follows** the file (seek-to-end + poll + re-open on rotation); `BindsTo=tetragon.service` retained; the never-go-blind intent is preserved. The E0814 binding-control half is unaffected. See [backlog note](../notes/2026-08-20-guardian-file-export-tail-follow.md).
+
 ## Doctrinal anchors
 
 > "Network Infrastructure & Perimeter Segregation (Interfacing the ProArt dual NICs with your OPNsense/SD-WAN firewall topology)." (dump 422)

@@ -117,37 +117,47 @@ grep -q "^badjson False 0" <<< "${out}" && ok "parse: bad JSON returns (False, {
 # ---------- end-to-end loop via FIFO + fake podman binary ----------
 TMPDIR_TEST="$(mktemp -d)"
 trap 'rm -rf "${TMPDIR_TEST}"' EXIT
-FIFO="${TMPDIR_TEST}/events"
-mkfifo "${FIFO}"
-(
-  echo '{"action":"SIGKILL","process":{"docker":"cAAA","binary":"/bin/evil"},"syscall":{"name":"sys_execve"}}'
-  echo '{"action":"LOG","process":{"docker":"cBBB"}}'
-) > "${FIFO}" &
-WRITER=$!
+# Tetragon --export-filename writes a regular FILE (not the socket/FIFO the
+# original M084 contract assumed). Model that reality — EOF on a file is the
+# normal caught-up state, so guardian must tail past it, not exit.
+EVENTS="${TMPDIR_TEST}/events"
+: > "${EVENTS}"
 
 set +e
-GUARDIAN_SOCKET_PATH="${FIFO}" \
+GUARDIAN_SOCKET_PATH="${EVENTS}" \
 GUARDIAN_AUDIT_LOG="${TMPDIR_TEST}/audit.log" \
 GUARDIAN_PODMAN_BIN=/bin/true \
+GUARDIAN_POLL_INTERVAL_SEC=0.1 \
 SOVEREIGN_OS_METRICS_DIR="${TMPDIR_TEST}/metrics" \
-  timeout 5 python3 "${SCRIPT}" > "${TMPDIR_TEST}/stdout" 2>&1
-rc=$?
+  timeout 6 python3 "${SCRIPT}" > "${TMPDIR_TEST}/stdout" 2>&1 &
+GPID=$!
 set -e
-wait $WRITER 2>/dev/null || true
+# Guardian seeks to END on open, so events must be APPENDED after it starts —
+# a restart must never replay (or re-kill on) historical events.
+sleep 1
+{
+  echo '{"action":"SIGKILL","process":{"docker":"cAAA","binary":"/bin/evil"},"syscall":{"name":"sys_execve"}}'
+  echo '{"action":"LOG","process":{"docker":"cBBB"}}'
+} >> "${EVENTS}"
+sleep 1.5
 
-# Expected exit-code: the event stream reaching EOF means the Tetragon
-# producer went away — the M084 dropout contract (transposition dump 765
-# verbatim: "instantly restart the security loop if the local UNIX socket
-# encounters an end-of-file (EOF) exception"). guardian-core.py logs
-# [EOF]/perimeter-blind and exits NONZERO so the systemd Restart=always
-# recovery is recorded as a failure-restart. rc==1 + the [EOF] evidence is
-# the pass condition (was rc==0 pre-M084; changed deliberately, locked by
-# tests/lint/test_guardian_core_service_bidir.py::test_script_eof_exits_nonzero).
-if [ "${rc}" -eq 1 ] && grep -q "\[EOF\]" "${TMPDIR_TEST}/stdout"; then
-  ok "guardian exits nonzero + logs [EOF] on stream dropout (M084)"
+# New contract (supersedes M084/E0815's socket-EOF-restart mechanism; see
+# backlog note 2026-08-20-guardian-file-export-tail-follow): the export is a
+# regular FILE where EOF is normal, so guardian MUST keep tailing rather than
+# exit. Proven by it still running here + no perimeter-blind log. Locked by
+# tests/lint/test_guardian_core_service_bidir.py::test_script_follows_export_file_past_eof.
+if kill -0 "${GPID}" 2>/dev/null; then
+  ok "guardian keeps tailing past EOF (file export, no exit-on-EOF crash-loop)"
 else
-  ko "guardian rc=${rc} (expected 1 + [EOF] evidence per M084 dropout contract)"
+  ko "guardian exited on EOF (regression: crash-loops against Tetragon file export)"
 fi
+if ! grep -q "perimeter blind" "${TMPDIR_TEST}/stdout"; then
+  ok "no perimeter-blind exit (tail-follow honored)"
+else
+  ko "guardian logged perimeter-blind exit (regressed to socket-EOF behavior)"
+fi
+kill "${GPID}" 2>/dev/null || true
+wait "${GPID}" 2>/dev/null || true
 
 # audit log got exactly one VIOLATION line
 if [ -f "${TMPDIR_TEST}/audit.log" ] && grep -q "Neutralized /bin/evil (cAAA)" "${TMPDIR_TEST}/audit.log"; then
