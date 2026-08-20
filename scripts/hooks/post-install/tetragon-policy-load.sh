@@ -160,6 +160,34 @@ else
   log_info "policy already present at ${policy_file}"
 fi
 
+# ---- install the fence where THIS tetragon actually auto-loads from ----
+# ${policy_file} above is the operator-named canonical path (and what verify.sh
+# checks), but Cilium's Tetragon reads policies from its configured
+# tracing-policy-dir (package default /etc/tetragon/tetragon.tp.d) — a DIFFERENT
+# directory. Writing only to the operator-named path leaves the fence UNLOADED:
+# the daemon never sees it, yet every file-presence check reports green (the
+# "green but blind" failure found 2026-08-20 — file present, `tetra
+# tracingpolicy list` empty, canary walked through). Detect the daemon's
+# effective dir and install a copy there so it actually auto-loads on boot.
+_tp_dir="${SOVEREIGN_OS_TETRAGON_TP_DIR:-}"
+if [ -z "${_tp_dir}" ]; then
+  for _base in /usr/lib/tetragon /usr/local/lib/tetragon /etc/tetragon; do
+    [ -f "${_base}/tetragon.conf.d/tracing-policy-dir" ] && \
+      _tp_dir="$(tr -d '[:space:]' < "${_base}/tetragon.conf.d/tracing-policy-dir")"
+  done
+  : "${_tp_dir:=/etc/tetragon/tetragon.tp.d}"
+fi
+if [ "${_tp_dir}" != "${SOVEREIGN_OS_TETRAGON_POLICY_DIR}" ]; then
+  mkdir -p "${_tp_dir}"
+  if cp -f "${policy_file}" "${_tp_dir}/sovereign-kernel-fence.yaml"; then
+    log_info "installed fence into tetragon auto-load dir → ${_tp_dir}/sovereign-kernel-fence.yaml"
+  else
+    log_error "could not install fence into ${_tp_dir} — daemon will NOT auto-load it"
+    emit_tetragon_metric fail
+    exit 1
+  fi
+fi
+
 # ---- wire the JSON event export the Auditor circuit-breaker consumes ----
 # Cilium's vendor install.sh ships export-filename=/var/run/tetragon/tetragon.log
 # under /usr/local/lib/tetragon/tetragon.conf.d. The Auditor chain expects
@@ -188,12 +216,29 @@ if command -v systemctl >/dev/null 2>&1; then
   }
   # Verify active
   if systemctl is-active --quiet tetragon; then
-    log_info "tetragon active; policy loaded"
+    log_info "tetragon active"
   else
     log_error "tetragon not active after restart"
     emit_tetragon_metric fail
     exit 1
   fi
+fi
+
+# ---- verify the fence actually LOADED into the running daemon ----
+# File-present != loaded. A policy in a dir the daemon does not read loads
+# nothing while every file check still reports green (the "green but blind"
+# failure, 2026-08-20). Assert the daemon itself sees it. Requires root + the
+# tetra CLI + a reachable daemon socket; degrade honestly when we cannot query.
+if command -v tetra >/dev/null 2>&1 && tetra tracingpolicy list >/dev/null 2>&1; then
+  if tetra tracingpolicy list 2>/dev/null | grep -q 'sovereign-kernel-fence'; then
+    log_info "verified: sovereign-kernel-fence loaded in the running daemon"
+  else
+    log_error "sovereign-kernel-fence is NOT loaded (tetra tracingpolicy list) — perimeter BLIND"
+    emit_tetragon_metric fail
+    exit 1
+  fi
+else
+  log_warn "cannot query the daemon (need root + tetra + live socket) — fence load UNVERIFIED"
 fi
 
 emit_tetragon_metric loaded

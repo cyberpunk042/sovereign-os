@@ -5080,9 +5080,16 @@ _trinity_auditor_brief() {
     fi
   }
   echo "    guardian-core:      ${guardian_state}"
+  # LOADED != file-present (the "green but blind" failure, 2026-08-20): ask the
+  # daemon via `tetra tracingpolicy list` before claiming loaded.
   local policy="absent"
   local _fence_policy="${SOVEREIGN_OS_TETRAGON_POLICY_DIR:-/etc/tetragon/tracing-policies}/sovereign-kernel-fence.yaml"
-  [ -f "${_fence_policy}" ] && policy="loaded (sovereign-kernel-fence)"
+  if command -v tetra >/dev/null 2>&1 && tetra tracingpolicy list >/dev/null 2>&1; then
+    tetra tracingpolicy list 2>/dev/null | grep -q 'sovereign-kernel-fence' \
+      && policy="loaded (sovereign-kernel-fence)" || policy="NOT loaded (perimeter blind)"
+  elif [ -f "${_fence_policy}" ]; then
+    policy="file present, load UNVERIFIED"
+  fi
   echo "    tetragon policy:    ${policy}"
 }
 
@@ -5100,11 +5107,30 @@ _trinity_auditor_full() {
   echo
   echo "  POLICY (master spec § 6 — sovereign-kernel-fence):"
   local _fence_policy="${SOVEREIGN_OS_TETRAGON_POLICY_DIR:-/etc/tetragon/tracing-policies}/sovereign-kernel-fence.yaml"
-  if [ -f "${_fence_policy}" ]; then
-    echo "    ✓ ${_fence_policy} present"
+  # LOADED != present. A policy file in a dir the daemon does not read is inert,
+  # yet file-presence reports green (the "green but blind" failure, 2026-08-20).
+  # Ask the daemon itself via `tetra tracingpolicy list`; degrade honestly when
+  # we cannot query (needs root + live socket).
+  if command -v tetra >/dev/null 2>&1 && tetra tracingpolicy list >/dev/null 2>&1; then
+    if tetra tracingpolicy list 2>/dev/null | grep -q 'sovereign-kernel-fence'; then
+      local _st; _st="$(tetra tracingpolicy list 2>/dev/null | awk '/sovereign-kernel-fence/{print $3" "$8}')"
+      echo "    ✓ sovereign-kernel-fence LOADED in daemon (${_st:-enabled})"
+    elif [ -f "${_fence_policy}" ]; then
+      echo "    ✗ policy file present but NOT loaded in the daemon — perimeter BLIND"
+      echo "      the daemon reads its tracing-policy-dir, not ${_fence_policy%/*};"
+      echo "      reload via: scripts/hooks/post-install/tetragon-policy-load.sh"
+    else
+      echo "    ✗ policy absent and not loaded"
+      echo "      apply via: scripts/hooks/post-install/tetragon-policy-load.sh"
+    fi
   else
-    echo "    ✗ policy file absent"
-    echo "      apply via: scripts/hooks/post-install/tetragon-policy-load.sh"
+    # cannot query the daemon — report file presence but do NOT claim "loaded"
+    if [ -f "${_fence_policy}" ]; then
+      echo "    ~ policy file present; load state UNVERIFIED (need root + tetra + live daemon)"
+    else
+      echo "    ✗ policy file absent"
+      echo "      apply via: scripts/hooks/post-install/tetragon-policy-load.sh"
+    fi
   fi
   echo
   echo "  GUARDIAN DAEMON (master spec § 10 — R155):"
