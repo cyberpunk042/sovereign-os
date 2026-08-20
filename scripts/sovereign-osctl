@@ -4969,6 +4969,11 @@ _trinity_pulse_full() {
   for flag in avx512f avx512dq avx512bw avx512vl avx512_bf16 avx512_fp16 avx512_vnni; do
     if grep -qw "${flag}" /proc/cpuinfo 2>/dev/null; then
       echo "    ✓ ${flag}"
+    elif [ "${flag}" = avx512_fp16 ]; then
+      # fp16 was removed from sain-01 requirements 2026-06-10: Zen 5 lacks
+      # AVX512-FP16 (Intel-only) and -mavx512fp16 would SIGILL. Absence is
+      # expected on this hardware, NOT a degradation — see profiles/sain-01.yaml.
+      echo "    – ${flag} (not required — Zen 5 lacks AVX512-FP16; dropped from spec)"
     else
       echo "    ✗ ${flag} (master spec demands this; pulse will be degraded)"
     fi
