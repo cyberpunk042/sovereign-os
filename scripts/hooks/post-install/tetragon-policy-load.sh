@@ -12,11 +12,13 @@
 #
 #   SOVEREIGN_OS_TETRAGON_SCOPE   host (default) | container
 #     host      — the shipped behavior: host-wide minus PID 1.
-#     container — ALSO require the process be in a non-host mount
-#                 namespace (matchNamespaces Mnt NotIn host_ns), i.e.
-#                 the fence enforces only inside containers. This
+#     container — ALSO require the process's cgroup leaf name == "container"
+#                 (podman container workload), via a matchData cgroup resolve.
+#                 The fence then enforces only inside container cgroups. This
 #                 NARROWS coverage; opt-in for hosts that run agents
-#                 exclusively in podman.
+#                 exclusively in podman. (Superseded matchNamespaces 2026-08-20
+#                 — that matched every sandboxed host service, missed the
+#                 container entrypoint, and was a danger to host processes.)
 #   provisioning.tetragon.extra_allowed_binaries  (profile) OR
 #   SOVEREIGN_OS_TETRAGON_EXTRA_BINS (colon-separated env)
 #     — extra ABSOLUTE binary paths appended to the base 4-binary
@@ -125,13 +127,24 @@ if [ -n "${SOVEREIGN_OS_TETRAGON_EXTRA_BINS:-}" ]; then
   for _b in "${_envbins[@]}"; do _add_extra_bin "${_b}"; done
 fi
 
-# container scope adds a matchNamespaces clause AND-ed into the selector
-# (Tetragon ANDs match* clauses within one selector) — enforce only for
-# processes whose mount namespace is NOT the host's.
-ns_block=""
+# container scope: enforce ONLY inside podman container cgroups. Superseded
+# 2026-08-20 from matchNamespaces(Mnt NotIn host_ns) — that clause matched every
+# sandboxed HOST service (systemd/NetworkManager/python services run in private
+# mount namespaces), so it was both ineffective (missed the container entrypoint)
+# and a danger to host processes. The precise discriminator is the CGROUP: podman
+# gives a container's workload a leaf cgroup literally named "container"
+# (.../libpod-<id>.scope/container); host services carry their *.service name.
+# So we resolve the current task's cgroup leaf name via matchData and require it
+# to equal "container" — validated in monitor to match ONLY container execs and
+# NO host binaries. See backlog/notes/2026-08-20-tetragon-fence-not-enforcing.
+# ${data_block} adds the resolve at the kprobe level; ${cgroup_match} ANDs the
+# matchData clause into the selector. Both empty for host scope.
+data_block=""
+cgroup_match=""
 if [ "${SOVEREIGN_OS_TETRAGON_SCOPE}" = "container" ]; then
-  ns_block=$'      matchNamespaces:\n      - namespace: Mnt\n        operator: "NotIn"\n        values:\n        - "host_ns"\n'
-  log_info "tetragon scope=container — fence enforces inside non-host mount namespaces only"
+  data_block=$'    data:\n    - index: 0\n      type: "string"\n      source: "current_task"\n      resolve: "cgroups.dfl_cgrp.kn.name"\n'
+  cgroup_match=$'      matchData:\n      - index: 0\n        operator: "Equal"\n        values:\n        - "container"\n'
+  log_info "tetragon scope=container — fence enforces only inside podman container cgroups (leaf 'container')"
 elif [ "${SOVEREIGN_OS_TETRAGON_SCOPE}" != "host" ]; then
   log_warn "unknown SOVEREIGN_OS_TETRAGON_SCOPE='${SOVEREIGN_OS_TETRAGON_SCOPE}' — using host scope"
   SOVEREIGN_OS_TETRAGON_SCOPE="host"
@@ -148,9 +161,10 @@ if [ ! -f "${policy_file}" ]; then
 # Sovereign-os kernel-fence Tetragon TracingPolicy.
 # Allowlists execve binaries; SIGKILL on any other execve attempt.
 # Base scope: HOST-WIDE minus PID 1 (matchPIDs NotIn [1]); with
-# SOVEREIGN_OS_TETRAGON_SCOPE=container it ALSO requires a non-host
-# mount namespace. Base allowlist is the pinned 4; operator extras
-# (validated absolute paths) append. Per SAIN-01 milestone E104.
+# SOVEREIGN_OS_TETRAGON_SCOPE=container it ALSO requires the task's
+# cgroup leaf name == "container" (podman container workload). Base
+# allowlist is the pinned 4; operator extras (validated absolute paths)
+# append. Per SAIN-01 milestone E104.
 
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicy
@@ -165,13 +179,13 @@ spec:
       type: "string"
     - index: 1
       type: "string"
-    selectors:
+${data_block}    selectors:
     - matchPIDs:
       - operator: "NotIn"
         followForks: true
         isNamespacePID: false
         values: [1]
-${ns_block}      matchBinaries:
+${cgroup_match}      matchBinaries:
       - operator: "NotIn"
         values:
         - "/usr/bin/python3"

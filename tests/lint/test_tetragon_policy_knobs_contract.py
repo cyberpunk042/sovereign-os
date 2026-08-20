@@ -5,8 +5,10 @@ The kernel-fence policy-load hook grew two operator knobs that turn the
 pinned base (4-binary allowlist + Sigkill + PID-1 exclusion + followForks):
 
   * SOVEREIGN_OS_TETRAGON_SCOPE = host (default) | container
-    container ANDs a `matchNamespaces: Mnt NotIn host_ns` clause into the
-    selector so the fence enforces only inside non-host mount namespaces.
+    container ANDs a cgroup `matchData` clause (leaf cgroup name == "container")
+    into the selector so the fence enforces only inside podman container
+    workloads. Superseded matchNamespaces 2026-08-20 (that matched every
+    sandboxed host service and missed the container entrypoint).
   * extra_allowed_binaries (profile) / SOVEREIGN_OS_TETRAGON_EXTRA_BINS
     (env) append operator ABSOLUTE binary paths to the base allowlist;
     non-absolute entries are refused (never widen the fence on a typo).
@@ -40,8 +42,27 @@ def _hook() -> str:
     return HOOK.read_text(encoding="utf-8")
 
 
-def _render(ns_block: str, extra_bins_yaml: str) -> dict:
-    """Reproduce the hook's `cat > policy <<EOF ... EOF` body with the two
+# Container-scope interpolations (2026-08-20, superseding matchNamespaces):
+# a kprobe-level `data` block resolving the cgroup leaf name + a `matchData`
+# selector clause requiring it to equal "container" (podman container workload).
+CONTAINER_DATA = (
+    '    data:\n'
+    '    - index: 0\n'
+    '      type: "string"\n'
+    '      source: "current_task"\n'
+    '      resolve: "cgroups.dfl_cgrp.kn.name"\n'
+)
+CONTAINER_MATCH = (
+    '      matchData:\n'
+    '      - index: 0\n'
+    '        operator: "Equal"\n'
+    '        values:\n'
+    '        - "container"\n'
+)
+
+
+def _render(data_block: str, cgroup_match: str, extra_bins_yaml: str) -> dict:
+    """Reproduce the hook's `cat > policy <<EOF ... EOF` body with the three
     interpolation points filled, then parse it — so the test exercises the
     actual emitted YAML shape, not a hand-copy."""
     body = (
@@ -53,13 +74,19 @@ def _render(ns_block: str, extra_bins_yaml: str) -> dict:
         '  kprobes:\n'
         '  - call: "__x64_sys_execve"\n'
         '    syscall: true\n'
+        '    args:\n'
+        '    - index: 0\n'
+        '      type: "string"\n'
+        '    - index: 1\n'
+        '      type: "string"\n'
+        f'{data_block}'
         '    selectors:\n'
         '    - matchPIDs:\n'
         '      - operator: "NotIn"\n'
         '        followForks: true\n'
         '        isNamespacePID: false\n'
         '        values: [1]\n'
-        f'{ns_block}'
+        f'{cgroup_match}'
         '      matchBinaries:\n'
         '      - operator: "NotIn"\n'
         '        values:\n'
@@ -93,31 +120,51 @@ def test_extras_validated_absolute():
     assert "non-absolute" in body, "missing non-absolute refusal warning"
 
 
-def test_container_scope_uses_matchnamespaces_notin_host_ns():
+def test_container_scope_uses_cgroup_matchdata():
+    """Supersedes matchNamespaces (2026-08-20): container scope is the CGROUP.
+    matchNamespaces(Mnt NotIn host_ns) matched every sandboxed host service and
+    missed the container entrypoint; the leaf cgroup name "container" is the
+    precise podman-container discriminator (validated in monitor)."""
     body = _hook()
-    assert "matchNamespaces" in body and "host_ns" in body, (
-        "container scope must add matchNamespaces Mnt NotIn host_ns"
+    assert "matchNamespaces:" not in body, (
+        "container scope must NOT emit a matchNamespaces clause — it "
+        "false-matches host services (superseded by cgroup matchData 2026-08-20)"
+    )
+    assert 'resolve: "cgroups.dfl_cgrp.kn.name"' in body, (
+        "container scope must resolve the cgroup leaf name via matchData"
+    )
+    assert "matchData" in body and '- "container"' in body, (
+        "container scope must require cgroup leaf name == \"container\""
     )
 
 
 def test_host_render_is_base4_only_and_valid():
-    doc = _render("", "")
-    sel = doc["spec"]["kprobes"][0]["selectors"][0]
-    assert "matchNamespaces" not in sel, "host scope must NOT scope by namespace"
+    doc = _render("", "", "")
+    kp = doc["spec"]["kprobes"][0]
+    sel = kp["selectors"][0]
+    assert "data" not in kp, "host scope must NOT add a cgroup data block"
+    assert "matchData" not in sel and "matchNamespaces" not in sel, (
+        "host scope must NOT scope by cgroup or namespace"
+    )
     assert sel["matchBinaries"][0]["values"] == BASE4
     assert sel["matchActions"][0]["action"] == "Sigkill"
     assert sel["matchPIDs"][0]["values"] == [1]
 
 
-def test_container_render_ands_namespace_and_keeps_base4():
-    ns = ('      matchNamespaces:\n      - namespace: Mnt\n'
-          '        operator: "NotIn"\n        values:\n        - "host_ns"\n')
-    doc = _render(ns, '        - "/usr/local/bin/ollama"\n')
-    sel = doc["spec"]["kprobes"][0]["selectors"][0]
-    assert sel["matchNamespaces"] == [
-        {"namespace": "Mnt", "operator": "NotIn", "values": ["host_ns"]}
+def test_container_render_ands_cgroup_matchdata_and_keeps_base4():
+    doc = _render(CONTAINER_DATA, CONTAINER_MATCH, '        - "/usr/local/bin/ollama"\n')
+    kp = doc["spec"]["kprobes"][0]
+    sel = kp["selectors"][0]
+    # kprobe-level data block resolves the cgroup leaf name
+    assert kp["data"] == [{
+        "index": 0, "type": "string",
+        "source": "current_task", "resolve": "cgroups.dfl_cgrp.kn.name",
+    }]
+    # selector requires the leaf cgroup name == "container"
+    assert sel["matchData"] == [
+        {"index": 0, "operator": "Equal", "values": ["container"]}
     ]
-    # base 4 preserved, operator extra appended
+    # base 4 preserved, operator extra appended, Sigkill intact
     assert sel["matchBinaries"][0]["values"] == BASE4 + ["/usr/local/bin/ollama"]
     assert sel["matchActions"][0]["action"] == "Sigkill"
 
@@ -130,5 +177,5 @@ def test_hook_declares_armed_knob():
     assert "SOVEREIGN_OS_TETRAGON_ARMED" in body, "missing env arming knob"
     assert "provisioning.tetragon.armed" in body, "missing profile arming knob"
     # arming gates LOADING only — the rendered action must remain Sigkill
-    doc = _render("", "")
+    doc = _render("", "", "")
     assert doc["spec"]["kprobes"][0]["selectors"][0]["matchActions"][0]["action"] == "Sigkill"
