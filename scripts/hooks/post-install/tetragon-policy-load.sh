@@ -263,6 +263,16 @@ if command -v systemctl >/dev/null 2>&1; then
     emit_tetragon_metric fail
     exit 1
   fi
+  # The gRPC socket lags the service by up to a few seconds after restart, so a
+  # verification query fired immediately gets refused — which previously made the
+  # load-state check degrade to UNVERIFIED even as root. Wait (bounded) for the
+  # daemon to answer before verifying.
+  if [ -n "${_TETRA}" ]; then
+    for _i in $(seq 1 20); do
+      "${_TETRA}" tracingpolicy list >/dev/null 2>&1 && break
+      sleep 0.5
+    done
+  fi
 fi
 
 # ---- verify the fence load state matches the arming intent ----
