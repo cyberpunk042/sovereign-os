@@ -56,6 +56,8 @@ AUDIT_LOG = os.environ.get(
 )
 PODMAN_BIN = os.environ.get("GUARDIAN_PODMAN_BIN", "podman")
 DRY_RUN = bool(os.environ.get("GUARDIAN_DRY_RUN"))
+# Poll cadence for tailing the export FILE past EOF (see _follow_stream).
+POLL_INTERVAL = float(os.environ.get("GUARDIAN_POLL_INTERVAL_SEC", "0.5"))
 
 METRICS_DIR = os.environ.get(
     "SOVEREIGN_OS_METRICS_DIR",
@@ -175,6 +177,54 @@ def neutralize_from_event(event: dict) -> None:
     alert_and_neutralize(container_id, process_name, violated_syscall)
 
 
+def _follow_stream(path: str):
+    """Tail Tetragon's JSON export FILE (master spec §10.1 path
+    /var/run/tetragon/tetragon.events), yielding complete lines forever.
+
+    Tetragon's --export-filename writes a regular, rotated file — NOT the UNIX
+    socket the original §10 dropout-prevention assumed. Reaching end-of-file is
+    therefore the normal caught-up state, so we poll past it instead of exiting.
+    (The pre-2026-08 loop exited nonzero on EOF, which against a file is a
+    permanent crash-loop: drain → exit → systemd restart → drain → exit …)
+
+    - Seek to the END on the FIRST open so a restart never re-processes — or
+      re-kills on — historical events.
+    - Re-open on genuine rotation/truncation (Tetragon rolls the export),
+      reading the fresh file from its start so no post-rotation event is missed.
+    - A real tetragon stop is handled by the unit's BindsTo=tetragon.service.
+
+    See backlog note 2026-08-20-guardian-file-export-tail-follow.
+    """
+    first = True
+    while True:
+        stream = open(path, "r")
+        try:
+            st = os.fstat(stream.fileno())
+            ino, dev = st.st_ino, st.st_dev
+            if first:
+                stream.seek(0, os.SEEK_END)
+                first = False
+            while True:
+                pos = stream.tell()
+                line = stream.readline()
+                if line.endswith("\n"):
+                    yield line
+                    continue
+                # No complete line: rewind over any partial write, then wait.
+                # On EOF also detect rotation/truncation and re-open if so.
+                stream.seek(pos)
+                time.sleep(POLL_INTERVAL)
+                try:
+                    dst = os.stat(path)
+                except FileNotFoundError:
+                    break  # rotated away — re-open
+                if (dst.st_ino, dst.st_dev) != (ino, dev) or dst.st_size < pos:
+                    _emit_metric("sovereign_os_auditor_stream_eof_total", 1)
+                    break  # rotated/truncated — re-open from the fresh file
+        finally:
+            stream.close()
+
+
 def main() -> int:
     print("[*] Guardian Native Event Loop Active. "
           "Monitoring Sovereign Perimeter...", flush=True)
@@ -195,29 +245,28 @@ def main() -> int:
         return 1
 
     try:
-        with open(SOCKET_PATH, "r") as stream:
-            for line in stream:
-                line = line.strip()
-                if not line:
-                    continue
-                is_trigger, event = parse_event(line)
-                if not event:
-                    _emit_metric(
-                        "sovereign_os_auditor_event_parse_total", 1,
-                        'outcome="bad-json"',
-                    )
-                    continue
-                if is_trigger:
-                    _emit_metric(
-                        "sovereign_os_auditor_event_parse_total", 1,
-                        'outcome="trigger"',
-                    )
-                    neutralize_from_event(event)
-                else:
-                    _emit_metric(
-                        "sovereign_os_auditor_event_parse_total", 1,
-                        'outcome="benign"',
-                    )
+        for line in _follow_stream(SOCKET_PATH):
+            line = line.strip()
+            if not line:
+                continue
+            is_trigger, event = parse_event(line)
+            if not event:
+                _emit_metric(
+                    "sovereign_os_auditor_event_parse_total", 1,
+                    'outcome="bad-json"',
+                )
+                continue
+            if is_trigger:
+                _emit_metric(
+                    "sovereign_os_auditor_event_parse_total", 1,
+                    'outcome="trigger"',
+                )
+                neutralize_from_event(event)
+            else:
+                _emit_metric(
+                    "sovereign_os_auditor_event_parse_total", 1,
+                    'outcome="benign"',
+                )
     except KeyboardInterrupt:
         print("\n[*] Guardian shutdown requested.", flush=True)
         return 0
@@ -225,18 +274,14 @@ def main() -> int:
         sys.stderr.write(f"[FATAL STRUCTURAL FRICTION] {e}\n")
         return 1
 
-    # The read loop only falls through on end-of-file — Tetragon dropped
-    # the stream (e.g. an OPNsense/SD-WAN interface re-shuffle bouncing
-    # the management path). Exiting 0 here would hide the blinding of the
-    # containment loop; exit nonzero so the systemd restart is recorded
-    # as a failure-recovery, per the dump's dropout-prevention verbatim
-    # ("instantly restart the security loop if the local UNIX socket
-    # encounters an end-of-file (EOF) exception").
-    sys.stderr.write(
-        f"[EOF] tetragon event stream at {SOCKET_PATH} closed — "
-        f"perimeter blind; exiting for systemd restart\n"
-    )
-    _emit_metric("sovereign_os_auditor_stream_eof_total", 1)
+    # _follow_stream tails forever and only stops on KeyboardInterrupt or an
+    # unrecoverable OSError (both handled above) — it never returns on plain EOF,
+    # because Tetragon's --export-filename is a regular FILE and reaching its end
+    # is the normal caught-up state, not a dropped stream. This supersedes
+    # M084/E0815's literal socket-EOF-restart mechanism (premised on a UNIX
+    # socket that the file export never provides) while preserving its
+    # never-go-blind INTENT via tail-follow + BindsTo=tetragon.service.
+    # See backlog note 2026-08-20-guardian-file-export-tail-follow.
     return 1
 
 

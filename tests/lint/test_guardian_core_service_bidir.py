@@ -119,21 +119,31 @@ def test_service_binds_to_tetragon():
     )
 
 
-def test_script_eof_exits_nonzero():
-    """The dropout prevention's second half (dump 765: 'instantly
-    restart the security loop if the local UNIX socket encounters an
-    end-of-file (EOF) exception'). The read loop's EOF fall-through
-    MUST NOT return 0 — a clean exit hides the perimeter going blind.
-    M084 R14111-R14113."""
+def test_script_follows_export_file_past_eof():
+    """Supersedes M084/E0815 R14111-R14113. Dump 765 specified restarting the
+    loop on a UNIX-socket EOF, but the implementation consumes Tetragon's
+    --export-filename — a regular, rotated FILE, where EOF is the normal
+    caught-up state, not a dropped stream. Exit-on-EOF therefore crash-loops
+    against the file and blinds the perimeter far worse than a stall. The daemon
+    MUST tail past EOF (seek-to-end + poll, re-open on rotation) instead; the
+    never-go-blind INTENT is preserved via tail-follow + the unit's
+    BindsTo=tetragon.service. See backlog note
+    2026-08-20-guardian-file-export-tail-follow.md."""
     body = _read(GUARDIAN_SCRIPT)
-    assert "perimeter blind" in body and "[EOF]" in body, (
-        "guardian-core.py EOF fall-through must log the [EOF]/perimeter-"
-        "blind evidence before exiting (dump 765 prevention)"
+    # Must tail the file past EOF (seek-to-end + poll), not exit on it.
+    assert "_follow_stream" in body and "SEEK_END" in body, (
+        "guardian-core.py must tail the export file past EOF (seek-to-end + "
+        "poll via _follow_stream) — Tetragon's export is a file, not a socket"
     )
-    tail = body.split("[EOF]", 1)[1]
-    assert "return 1" in tail, (
-        "guardian-core.py must exit nonzero after the EOF log so the "
-        "systemd restart is recorded as a failure-recovery"
+    # Must NOT reintroduce the exit-on-EOF blind path (the file crash-loop).
+    assert "perimeter blind" not in body, (
+        "guardian-core.py must not exit-on-EOF; that crash-loops against "
+        "Tetragon's file export (see the tail-follow supersession note)"
+    )
+    # Genuine unrecoverable errors still exit nonzero for systemd recovery.
+    assert "FATAL STRUCTURAL FRICTION" in body, (
+        "guardian-core.py must still exit nonzero on unrecoverable OSError so "
+        "systemd records a failure-recovery"
     )
 
 
