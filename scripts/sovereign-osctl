@@ -4961,7 +4961,12 @@ _trinity_pulse_full() {
   grep -E "model name|cpu cores|cache size" /proc/cpuinfo 2>/dev/null | head -3 | sed 's/^/    /'
   echo
   echo "  AVX-512 instruction set markers:"
-  for flag in avx512f avx512dq avx512bw avx512vl avx512bf16 avx512fp16 avx512_vnni; do
+  # /proc/cpuinfo names the BF16/FP16/VNNI extensions WITH an underscore
+  # (avx512_bf16, avx512_fp16, avx512_vnni) — unlike the base F/DQ/BW/VL flags
+  # and unlike LLVM target-feature names (avx512bf16). Using the no-underscore
+  # form here false-flagged avx512_bf16 as ABSENT on a CPU that has it, wrongly
+  # warning "pulse will be degraded" (Zen 5 has bf16; it genuinely lacks fp16).
+  for flag in avx512f avx512dq avx512bw avx512vl avx512_bf16 avx512_fp16 avx512_vnni; do
     if grep -qw "${flag}" /proc/cpuinfo 2>/dev/null; then
       echo "    ✓ ${flag}"
     else
