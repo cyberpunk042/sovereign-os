@@ -152,28 +152,42 @@ def alert_and_neutralize(
     )
 
 
+def _inner(event: dict) -> dict:
+    """The type-wrapped payload of a real Tetragon event. Real export nests
+    policy hits under process_kprobe / process_tracepoint; the flat spec/test
+    shape has no wrapper, so fall back to the event itself."""
+    return event.get("process_kprobe") or event.get("process_tracepoint") or event
+
+
 def parse_event(line: str) -> tuple[bool, dict]:
     """Returns (is_trigger, parsed_event). False + {} on bad JSON.
 
-    Master spec § 10.1 verbatim trigger predicate:
-      event.get('action') == 'SIGKILL' or 'process' in
-      event.get('action', '').lower()
+    Master spec § 10.1 trigger predicate: a kprobe policy action of SIGKILL.
+    Real Tetragon export nests it as action="KPROBE_ACTION_SIGKILL" under
+    process_kprobe (captured 2026-08-20); the flat {"action":"SIGKILL", ...}
+    shape (spec/tests) is also accepted. KPROBE_ACTION_POST/monitor is benign.
     """
     try:
         event = json.loads(line)
     except json.JSONDecodeError:
         return False, {}
-    action = event.get("action", "")
-    if action == "SIGKILL" or "process" in action.lower():
+    action = str(_inner(event).get("action") or event.get("action", ""))
+    if "SIGKILL" in action.upper():
         return True, event
     return False, event
 
 
 def neutralize_from_event(event: dict) -> None:
-    """Master spec § 10.1 verbatim field extraction."""
-    container_id = event.get("process", {}).get("docker", "")
-    process_name = event.get("process", {}).get("binary", "")
-    violated_syscall = event.get("syscall", {}).get("name", "sys_execve")
+    """§ 10.1 field extraction — handles the real nested Tetragon shape
+    (process_kprobe.process.{binary,docker}) and the flat spec/test shape."""
+    inner = _inner(event)
+    proc = inner.get("process") or event.get("process", {}) or {}
+    container_id = proc.get("docker", "") or proc.get("cid", "")
+    process_name = proc.get("binary", "")
+    violated_syscall = (
+        inner.get("function_name")
+        or (event.get("syscall", {}) or {}).get("name", "sys_execve")
+    )
     alert_and_neutralize(container_id, process_name, violated_syscall)
 
 
