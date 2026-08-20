@@ -16,9 +16,19 @@ RequiresMountsFor=/mnt/vault/context
 # if tetragon stops during a network reconfiguration event, stop with it
 # rather than tailing a dead stream — restart re-binds when tetragon returns.
 BindsTo=tetragon.service
+# Tetragon's JSON export file appears a few seconds AFTER tetragon.service goes
+# active, and BindsTo/After gate on the service, not the stream. The default
+# start-limit (5 starts / 10s) would latch this unit into `failed` before the
+# stream exists — which is exactly what happens on first boot. Disable the limit
+# so Restart=always genuinely retries until the Auditor stream is live; the
+# ExecStartPre below makes that wait clean instead of a crash-loop.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
+# Wait (bounded) for Tetragon's export stream before tailing it, so a slightly
+# late file doesn't turn into a crash-loop. Reads /var/run/tetragon (ReadOnlyPaths).
+ExecStartPre=/bin/sh -c 'for _ in $(seq 1 60); do [ -e /var/run/tetragon/tetragon.events ] && exit 0; sleep 1; done; echo "guardian: /var/run/tetragon/tetragon.events absent after 60s" >&2; exit 1'
 # Master spec § 10.2 verbatim ExecStart:
 ExecStart=/usr/local/bin/guardian-core
 Restart=always

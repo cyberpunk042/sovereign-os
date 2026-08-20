@@ -160,6 +160,24 @@ else
   log_info "policy already present at ${policy_file}"
 fi
 
+# ---- wire the JSON event export the Auditor circuit-breaker consumes ----
+# Cilium's vendor install.sh ships export-filename=/var/run/tetragon/tetragon.log
+# under /usr/local/lib/tetragon/tetragon.conf.d. The Auditor chain expects
+# /var/run/tetragon/tetragon.events — guardian-core tails it (master spec § 10),
+# and bootstrap verify-grid check 05 asserts it present. Without this drop-in the
+# stream lands at tetragon.log and the Guardian starves. An /etc drop-in wins over
+# the vendor default; the restart below activates it. Idempotent (rewrites on drift
+# only), env-overridable per the IaC bar.
+_export_conf_dir="${SOVEREIGN_OS_TETRAGON_CONF_DIR:-/etc/tetragon/tetragon.conf.d}"
+_export_target="${SOVEREIGN_OS_TETRAGON_EXPORT_FILE:-/var/run/tetragon/tetragon.events}"
+mkdir -p "${_export_conf_dir}"
+if [ "$(cat "${_export_conf_dir}/export-filename" 2>/dev/null)" = "${_export_target}" ]; then
+  log_info "Tetragon export-filename already → ${_export_target}"
+else
+  printf '%s\n' "${_export_target}" > "${_export_conf_dir}/export-filename"
+  log_info "set Tetragon export-filename → ${_export_target}"
+fi
+
 # Start / restart tetragon
 if command -v systemctl >/dev/null 2>&1; then
   systemctl enable tetragon 2>&1 | sed 's/^/  /' || true
