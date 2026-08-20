@@ -174,11 +174,6 @@ spec:
   kprobes:
   - call: "__x64_sys_execve"
     syscall: true
-    args:
-    - index: 0
-      type: "string"
-    - index: 1
-      type: "string"
 ${data_block}    selectors:
     - matchPIDs:
       - operator: "NotIn"
