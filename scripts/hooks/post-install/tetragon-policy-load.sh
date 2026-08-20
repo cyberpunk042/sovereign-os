@@ -87,6 +87,17 @@ case "${SOVEREIGN_OS_TETRAGON_ARMED:-}" in
   *)                       SOVEREIGN_OS_TETRAGON_ARMED=1 ;;
 esac
 
+# Resolve the tetra CLI robustly: under `sudo env … bash` the restricted PATH
+# may not include /usr/local/bin, which made load-verification degrade to
+# UNVERIFIED even as root. Fall back to well-known install paths so the
+# never-blind verification can actually run.
+_TETRA="$(command -v tetra 2>/dev/null || true)"
+if [ -z "${_TETRA}" ]; then
+  for _t in /usr/local/bin/tetra /usr/bin/tetra /opt/tetragon/tetra; do
+    [ -x "${_t}" ] && { _TETRA="${_t}"; break; }
+  done
+fi
+
 # Collect operator-declared extra allowed binaries from BOTH sources:
 # profile provisioning.tetragon.extra_allowed_binaries (JSON list) +
 # SOVEREIGN_OS_TETRAGON_EXTRA_BINS (colon-separated). Validated to
@@ -206,7 +217,7 @@ else
   # Disarmed: keep the operator-named policy file, but ensure it is NOT loaded.
   log_warn "DISARMED (SOVEREIGN_OS_TETRAGON_ARMED=0) — Sigkill fence written to ${policy_file} but NOT loaded into the daemon (observe posture)"
   rm -f "${_tp_dir}/sovereign-kernel-fence.yaml" 2>/dev/null || true
-  command -v tetra >/dev/null 2>&1 && tetra tracingpolicy delete sovereign-kernel-fence >/dev/null 2>&1 || true
+  [ -n "${_TETRA}" ] && "${_TETRA}" tracingpolicy delete sovereign-kernel-fence >/dev/null 2>&1 || true
 fi
 
 # ---- wire the JSON event export the Auditor circuit-breaker consumes ----
@@ -250,13 +261,13 @@ fi
 # nothing while every file check still reports green (the "green but blind"
 # failure, 2026-08-20). Assert the daemon's actual state matches ARMED. Requires
 # root + the tetra CLI + a reachable socket; degrade honestly when we cannot query.
-if command -v tetra >/dev/null 2>&1 && tetra tracingpolicy list >/dev/null 2>&1; then
-  if tetra tracingpolicy list 2>/dev/null | grep -q 'sovereign-kernel-fence'; then
+if [ -n "${_TETRA}" ] && "${_TETRA}" tracingpolicy list >/dev/null 2>&1; then
+  if "${_TETRA}" tracingpolicy list 2>/dev/null | grep -q 'sovereign-kernel-fence'; then
     if [ "${SOVEREIGN_OS_TETRAGON_ARMED}" = 1 ]; then
       log_info "verified: sovereign-kernel-fence ARMED (loaded in the running daemon)"
     else
       log_error "disarm requested but sovereign-kernel-fence is still loaded — removing"
-      tetra tracingpolicy delete sovereign-kernel-fence >/dev/null 2>&1 || true
+      "${_TETRA}" tracingpolicy delete sovereign-kernel-fence >/dev/null 2>&1 || true
     fi
   else
     if [ "${SOVEREIGN_OS_TETRAGON_ARMED}" = 1 ]; then
