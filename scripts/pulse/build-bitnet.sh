@@ -45,8 +45,12 @@ type emit_metric >/dev/null 2>&1 || emit_metric() { :; }
 : "${BITNET_TAG:=main}"
 : "${BITNET_BUILD_DIR:=/var/lib/sovereign-os/pulse-build}"
 : "${BITNET_INSTALL_DIR:=/usr/local}"
-: "${BITNET_MODEL_REPO:=microsoft/bitnet-b1.58-2B-4T}"
-: "${BITNET_MODEL_DIR:=/mnt/vault/models/microsoft__bitnet-b1.58-2B-4T}"
+# The base repo (microsoft/bitnet-b1.58-2B-4T) ships only safetensors — for
+# training/fine-tuning, NOT loadable by llama-server. The -gguf variant ships
+# the ready I2_S GGUF "compatible with bitnet.cpp for CPU inference" (per its HF
+# card). Use it so Pulse can serve without a torch-based conversion.
+: "${BITNET_MODEL_REPO:=microsoft/bitnet-b1.58-2B-4T-gguf}"
+: "${BITNET_MODEL_DIR:=/mnt/vault/models/microsoft__bitnet-b1.58-2B-4T-gguf}"
 
 log_info "==== sovereign-os Pulse runtime build (bitnet.cpp) ===="
 log_info "  master spec § 15-16 (1-Bit Paradigm + 512-bit AVX-512 Fusion)"
