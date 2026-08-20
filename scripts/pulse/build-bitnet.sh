@@ -98,11 +98,21 @@ else
   # ---- clone ----
   sudo mkdir -p "${BITNET_BUILD_DIR}"
   if [ ! -d "${BITNET_BUILD_DIR}/BitNet/.git" ]; then
-    log_info "cloning ${BITNET_REPO}#${BITNET_TAG}..."
-    sudo git clone --depth 1 --branch "${BITNET_TAG}" "${BITNET_REPO}" "${BITNET_BUILD_DIR}/BitNet"
+    log_info "cloning ${BITNET_REPO}#${BITNET_TAG} (with submodules)..."
+    sudo git clone --depth 1 --branch "${BITNET_TAG}" --recursive --shallow-submodules \
+      "${BITNET_REPO}" "${BITNET_BUILD_DIR}/BitNet"
   else
     log_info "BitNet source already cloned at ${BITNET_BUILD_DIR}/BitNet"
     log_info "  (operator can rm -rf and re-run to refresh)"
+  fi
+  # BitNet vendors llama.cpp/ggml as git submodules; without them cmake configure
+  # fails ("3rdparty/llama.cpp does not contain a CMakeLists.txt"). Init
+  # idempotently so a clone made without --recursive (or a partial tree)
+  # self-heals on re-run instead of failing every build.
+  if [ -d "${BITNET_BUILD_DIR}/BitNet/.git" ] && \
+     [ ! -f "${BITNET_BUILD_DIR}/BitNet/3rdparty/llama.cpp/CMakeLists.txt" ]; then
+    log_info "initializing BitNet submodules (3rdparty/llama.cpp)..."
+    sudo git -C "${BITNET_BUILD_DIR}/BitNet" submodule update --init --recursive --depth 1
   fi
 
   # ---- configure with znver5 + AVX-512 flags (master spec § 16) ----
