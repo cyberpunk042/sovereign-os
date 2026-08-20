@@ -73,6 +73,20 @@ policy_file="${SOVEREIGN_OS_TETRAGON_POLICY_DIR}/sovereign-kernel-fence.yaml"
 : "${SOVEREIGN_OS_TETRAGON_SCOPE:=$(profile_field provisioning.tetragon.scope)}"
 : "${SOVEREIGN_OS_TETRAGON_SCOPE:=host}"
 
+# --- arming knob (observe posture WITHOUT violating the Sigkill verbatim) ---
+# The fence ACTION is always Sigkill (operator-verbatim §4.1 — never log-only);
+# this knob controls only whether the Sigkill fence is LOADED into the running
+# daemon. Default: armed (the appliance posture). Disarmed writes the policy
+# file (verify.sh + operator-named path preserved) but does NOT load it — the
+# container-scope selector is unsound on a systemd DESKTOP (it false-matches
+# host services), so arming Sigkill there is unsafe until the scoping is
+# redesigned. See backlog/notes/2026-08-20-tetragon-fence-not-enforcing-findings.
+: "${SOVEREIGN_OS_TETRAGON_ARMED:=$(profile_field provisioning.tetragon.armed)}"
+case "${SOVEREIGN_OS_TETRAGON_ARMED:-}" in
+  0|false|no|off|disarmed) SOVEREIGN_OS_TETRAGON_ARMED=0 ;;
+  *)                       SOVEREIGN_OS_TETRAGON_ARMED=1 ;;
+esac
+
 # Collect operator-declared extra allowed binaries from BOTH sources:
 # profile provisioning.tetragon.extra_allowed_binaries (JSON list) +
 # SOVEREIGN_OS_TETRAGON_EXTRA_BINS (colon-separated). Validated to
@@ -177,15 +191,22 @@ if [ -z "${_tp_dir}" ]; then
   done
   : "${_tp_dir:=/etc/tetragon/tetragon.tp.d}"
 fi
-if [ "${_tp_dir}" != "${SOVEREIGN_OS_TETRAGON_POLICY_DIR}" ]; then
-  mkdir -p "${_tp_dir}"
-  if cp -f "${policy_file}" "${_tp_dir}/sovereign-kernel-fence.yaml"; then
-    log_info "installed fence into tetragon auto-load dir → ${_tp_dir}/sovereign-kernel-fence.yaml"
-  else
-    log_error "could not install fence into ${_tp_dir} — daemon will NOT auto-load it"
-    emit_tetragon_metric fail
-    exit 1
+if [ "${SOVEREIGN_OS_TETRAGON_ARMED}" = 1 ]; then
+  if [ "${_tp_dir}" != "${SOVEREIGN_OS_TETRAGON_POLICY_DIR}" ]; then
+    mkdir -p "${_tp_dir}"
+    if cp -f "${policy_file}" "${_tp_dir}/sovereign-kernel-fence.yaml"; then
+      log_info "ARMED — installed fence into tetragon auto-load dir → ${_tp_dir}/sovereign-kernel-fence.yaml"
+    else
+      log_error "could not install fence into ${_tp_dir} — daemon will NOT auto-load it"
+      emit_tetragon_metric fail
+      exit 1
+    fi
   fi
+else
+  # Disarmed: keep the operator-named policy file, but ensure it is NOT loaded.
+  log_warn "DISARMED (SOVEREIGN_OS_TETRAGON_ARMED=0) — Sigkill fence written to ${policy_file} but NOT loaded into the daemon (observe posture)"
+  rm -f "${_tp_dir}/sovereign-kernel-fence.yaml" 2>/dev/null || true
+  command -v tetra >/dev/null 2>&1 && tetra tracingpolicy delete sovereign-kernel-fence >/dev/null 2>&1 || true
 fi
 
 # ---- wire the JSON event export the Auditor circuit-breaker consumes ----
@@ -224,22 +245,31 @@ if command -v systemctl >/dev/null 2>&1; then
   fi
 fi
 
-# ---- verify the fence actually LOADED into the running daemon ----
+# ---- verify the fence load state matches the arming intent ----
 # File-present != loaded. A policy in a dir the daemon does not read loads
 # nothing while every file check still reports green (the "green but blind"
-# failure, 2026-08-20). Assert the daemon itself sees it. Requires root + the
-# tetra CLI + a reachable daemon socket; degrade honestly when we cannot query.
+# failure, 2026-08-20). Assert the daemon's actual state matches ARMED. Requires
+# root + the tetra CLI + a reachable socket; degrade honestly when we cannot query.
 if command -v tetra >/dev/null 2>&1 && tetra tracingpolicy list >/dev/null 2>&1; then
   if tetra tracingpolicy list 2>/dev/null | grep -q 'sovereign-kernel-fence'; then
-    log_info "verified: sovereign-kernel-fence loaded in the running daemon"
+    if [ "${SOVEREIGN_OS_TETRAGON_ARMED}" = 1 ]; then
+      log_info "verified: sovereign-kernel-fence ARMED (loaded in the running daemon)"
+    else
+      log_error "disarm requested but sovereign-kernel-fence is still loaded — removing"
+      tetra tracingpolicy delete sovereign-kernel-fence >/dev/null 2>&1 || true
+    fi
   else
-    log_error "sovereign-kernel-fence is NOT loaded (tetra tracingpolicy list) — perimeter BLIND"
-    emit_tetragon_metric fail
-    exit 1
+    if [ "${SOVEREIGN_OS_TETRAGON_ARMED}" = 1 ]; then
+      log_error "sovereign-kernel-fence is NOT loaded (tetra tracingpolicy list) — perimeter BLIND"
+      emit_tetragon_metric fail
+      exit 1
+    else
+      log_info "verified: sovereign-kernel-fence DISARMED (not loaded — observe posture)"
+    fi
   fi
 else
-  log_warn "cannot query the daemon (need root + tetra + live socket) — fence load UNVERIFIED"
+  log_warn "cannot query the daemon (need root + tetra + live socket) — fence load state UNVERIFIED"
 fi
 
-emit_tetragon_metric loaded
-log_info "${STEP_ID} complete"
+emit_tetragon_metric "$([ "${SOVEREIGN_OS_TETRAGON_ARMED}" = 1 ] && echo loaded || echo disarmed)"
+log_info "${STEP_ID} complete (armed=${SOVEREIGN_OS_TETRAGON_ARMED})"
