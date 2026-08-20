@@ -31,8 +31,12 @@ from pathlib import Path
 CPUINFO = Path("/proc/cpuinfo")
 
 AVX512_FLAGS = (
+    # /proc/cpuinfo names BF16/FP16/VNNI WITH an underscore (unlike the base
+    # F/DQ/BW/VL flags). Matching the no-underscore form here false-flagged
+    # avx512_bf16 as absent on a CPU that has it (same bug fixed in osctl
+    # trinity-pulse, 2026-08-20). fp16 stays absent — Zen 5 lacks it.
     "avx512f", "avx512dq", "avx512bw", "avx512vl",
-    "avx512bf16", "avx512fp16", "avx512_vnni",
+    "avx512_bf16", "avx512_fp16", "avx512_vnni",
 )
 
 
