@@ -46,7 +46,14 @@ TIER="pulse"
 runtime_profile_override PULSE_AFFINITY pulse core_mask
 runtime_profile_override PULSE_MODEL    pulse model
 
-: "${PULSE_MODEL:=/mnt/vault/models/microsoft__bitnet-b1.58-2B-4T}"
+: "${PULSE_MODEL:=/mnt/vault/models/microsoft__bitnet-b1.58-2B-4T-gguf}"
+# llama-server -m needs a .gguf FILE, not a directory (the HF -gguf download
+# lands the .gguf inside a dir). If PULSE_MODEL is a directory, resolve the
+# ternary GGUF — prefer an i2_s variant, else the first .gguf present.
+if [ -d "${PULSE_MODEL}" ]; then
+  _gguf="$(ls "${PULSE_MODEL}"/*i2_s*.gguf "${PULSE_MODEL}"/*.gguf 2>/dev/null | head -1)"
+  [ -n "${_gguf}" ] && PULSE_MODEL="${_gguf}"
+fi
 : "${PULSE_HOST:=127.0.0.1}"
 : "${PULSE_PORT:=8081}"
 : "${PULSE_AFFINITY:=0-5}"
