@@ -31,22 +31,19 @@ class BitnetBackend(Backend):
         affinity = self.config.cpu_affinity or "0-5"
         argv += ["taskset", "-c", affinity]
 
-        # bitnet.cpp ships a `llama-cli`-style binary; convention name:
-        # `bitnet-cli` (operator may symlink or set BITNET_BIN env)
-        bitnet_bin = self.config.env.get("BITNET_BIN", "bitnet-cli")
-        argv += [bitnet_bin]
+        # sovereign-os builds llama.cpp (build-bitnet.sh), NOT Microsoft's
+        # combined bitnet.cpp, so the HTTP endpoint is `llama-server` — which is
+        # inherently a server (no --server flag) and selects the i2_s ternary
+        # kernel automatically from the GGUF type (no --kernel flag; those args
+        # made llama-server exit "invalid argument"). Operator override via
+        # BITNET_BIN must be a llama-server-compatible binary.
+        server_bin = self.config.env.get("BITNET_BIN", "llama-server")
+        argv += [server_bin]
 
-        # Model + server flags
+        # Model (an I2_S GGUF file) + server bind
         argv += ["-m", self.config.model_path]
         argv += ["--host", self.config.host, "--port", str(self.config.port)]
         argv += ["-t", str(self.DEFAULT_THREADS)]
-
-        # Kernel choice (TL2 for x86; I2_S for lossless)
-        kernel = self.config.env.get("BITNET_KERNEL", self.DEFAULT_KERNEL)
-        argv += ["--kernel", kernel]
-
-        # Server mode (OpenAI-compatible if bitnet.cpp build supports)
-        argv += ["--server"]
 
         argv += self.config.extra_args
         return argv

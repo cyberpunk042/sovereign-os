@@ -52,7 +52,10 @@ runtime_profile_override PULSE_MODEL    pulse model
 : "${PULSE_AFFINITY:=0-5}"
 : "${PULSE_THREADS:=6}"
 : "${PULSE_CTX:=4096}"
-: "${BITNET_BIN:=bitnet-cli}"
+# The Pulse HTTP endpoint is llama.cpp's llama-server (build-bitnet.sh installs
+# it). bitnet-cli (=llama-cli) is CLI-only and rejects --host/--port. Override
+# via BITNET_BIN for a Microsoft-bitnet.cpp combined binary if ever used.
+: "${BITNET_BIN:=llama-server}"
 
 # Export so the inline python3 (subshell) sees them via os.environ.
 export PULSE_MODEL PULSE_HOST PULSE_PORT PULSE_AFFINITY PULSE_THREADS PULSE_CTX BITNET_BIN
