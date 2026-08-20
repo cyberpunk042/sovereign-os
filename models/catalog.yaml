@@ -58,7 +58,7 @@ catalog:
       purpose: [chat, agent]
       status: verified-real
       license: mit
-      hf_repo_id: microsoft/bitnet-b1.58-2B-4T
+      hf_repo_id: microsoft/bitnet-b1.58-2B-4T-gguf
       parameters_millions: 849.8
       vram_gib_min: 1.5
       context_window_tokens: 4096

@@ -19,7 +19,7 @@ class BitnetBackend(Backend):
     name = "bitnet"
     tier = "pulse"
 
-    DEFAULT_MODEL = "microsoft/bitnet-b1.58-2B-4T"
+    DEFAULT_MODEL = "microsoft/bitnet-b1.58-2B-4T-gguf"
     DEFAULT_THREADS = 12  # 6 cores * 2 SMT on CCD 0
     DEFAULT_KERNEL = "TL2"  # x86 default; alternatives: I2_S
 
