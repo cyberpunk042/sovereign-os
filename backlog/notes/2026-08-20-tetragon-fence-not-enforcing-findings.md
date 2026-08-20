@@ -29,6 +29,10 @@ This box is a **desktop workstation**, not the minimal SAIN-01 **appliance** the
 
 Recommendation: pick A or B deliberately; do NOT ship the current `NotIn host_ns` enforce policy on a desktop — it is both ineffective and a latent danger to host services.
 
+### Resolution (2026-08-20): A′ shipped — arming knob
+
+Option A as literal "monitor/Post mode" was rejected: it violates the §4.1 operator-verbatim (`action: Sigkill`, NOT log-only; lint `test_load_hook_action_is_sigkill`). Instead shipped **A′**: `SOVEREIGN_OS_TETRAGON_ARMED` / `provisioning.tetragon.armed` (default **armed** = appliance posture). The action stays `Sigkill` (verbatim intact); the knob controls only whether the fence is **loaded** into the daemon. Disarmed = the policy file is written (verify.sh path preserved) but not loaded, and any loaded instance is removed → the desktop can never SIGKILL host services. Disarm this box: `sudo env SOVEREIGN_OS_TETRAGON_ARMED=0 bash scripts/hooks/post-install/tetragon-policy-load.sh`. **B (real container-ID) remains the open item** for when this profile needs actual container enforcement; the capstone is its acceptance gate. (Minor follow-up: `auditor full` reports a disarmed fence as "NOT loaded (perimeter blind)" — technically true but should distinguish intentional disarm from accidental blind.)
+
 ## Acceptance test (already written)
 
 `~/.openclaw/workspace/perimeter-capstone.sh` (+ `tetragon-fence-diagnose{,2,3}.sh`) — the canary must die (rc≠0) and a `security_audit.log` line must appear. Wire an equivalent into `bootstrap verify` so "fence enforces" is checked, not just "fence file present."

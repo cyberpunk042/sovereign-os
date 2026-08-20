@@ -120,3 +120,15 @@ def test_container_render_ands_namespace_and_keeps_base4():
     # base 4 preserved, operator extra appended
     assert sel["matchBinaries"][0]["values"] == BASE4 + ["/usr/local/bin/ollama"]
     assert sel["matchActions"][0]["action"] == "Sigkill"
+
+
+def test_hook_declares_armed_knob():
+    """A' arming knob (2026-08-20): controls whether the Sigkill fence is LOADED,
+    without touching the action (which stays Sigkill per the §4.1 verbatim).
+    Default is armed (appliance); a desktop opts out via profile/env."""
+    body = _hook()
+    assert "SOVEREIGN_OS_TETRAGON_ARMED" in body, "missing env arming knob"
+    assert "provisioning.tetragon.armed" in body, "missing profile arming knob"
+    # arming gates LOADING only — the rendered action must remain Sigkill
+    doc = _render("", "")
+    assert doc["spec"]["kprobes"][0]["selectors"][0]["matchActions"][0]["action"] == "Sigkill"
