@@ -5113,8 +5113,13 @@ _trinity_auditor_full() {
   # we cannot query (needs root + live socket).
   if command -v tetra >/dev/null 2>&1 && tetra tracingpolicy list >/dev/null 2>&1; then
     if tetra tracingpolicy list 2>/dev/null | grep -q 'sovereign-kernel-fence'; then
-      local _st; _st="$(tetra tracingpolicy list 2>/dev/null | awk '/sovereign-kernel-fence/{print $3" "$8}')"
-      echo "    ✓ sovereign-kernel-fence LOADED in daemon (${_st:-enabled})"
+      # STATE is a fixed column ($3); MODE (enforce|monitor) is not — the
+      # KERNELMEMORY column ("2.21 MB") contains a space, so match by value.
+      local _row _st _mode
+      _row="$(tetra tracingpolicy list 2>/dev/null | grep 'sovereign-kernel-fence')"
+      _st="$(printf '%s' "${_row}" | awk '{print $3}')"
+      _mode="$(printf '%s' "${_row}" | grep -oE 'enforce|monitor' | head -1)"
+      echo "    ✓ sovereign-kernel-fence LOADED in daemon (${_st:-enabled}${_mode:+ ${_mode}})"
     elif [ -f "${_fence_policy}" ]; then
       echo "    ✗ policy file present but NOT loaded in the daemon — perimeter BLIND"
       echo "      the daemon reads its tracing-policy-dir, not ${_fence_policy%/*};"
