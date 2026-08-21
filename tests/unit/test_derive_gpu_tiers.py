@@ -109,3 +109,23 @@ def test_validate_clean_dense_profile_ok():
     # dense-4090 within a real 24 GiB 4090 (2 x 4 GiB caps fit)
     errs = m.validate(_dense(), card_vram_bytes={"cuda:2": 24 * 1024 ** 3})
     assert errs == []
+
+
+def test_emit_shell_dense_4090():
+    """The shell-emit that 84-gpu-route captures (SDD-903 Phase 1b wiring)."""
+    m = _mod()
+    out = m.emit_shell(_dense())
+    assert ("GPU_ROUTE_TIERS='gpu-logic@127.0.0.1:8082@logic@32,"
+            "gpu-oracle@127.0.0.1:8083@oracle@96'") in out
+    assert "GPU_ROUTE_EMBED_EP='127.0.0.1:8084'" in out
+    assert "GPU_ROUTE_RERANK_EP='127.0.0.1:8085'" in out
+
+
+def test_emit_shell_omits_empty_for_cpu_only():
+    """A CPU-only profile derives no GPU routes → empty emit, so the bash side
+    falls back to its hardcoded defaults instead of blanking the tiers."""
+    m = _mod()
+    prof = {"orchestration_profile": {"allocations": [
+        {"agent_id": "p", "tier": "pulse", "target_hardware": "cpu",
+         "engine": "bitnet.cpp", "model": "Z", "active": True}]}}
+    assert m.emit_shell(prof) == ""

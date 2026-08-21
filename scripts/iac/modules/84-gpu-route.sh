@@ -64,6 +64,42 @@ _reconcile_timer=sovereign-gpu-route-reconcile.timer
 _TIERS="${IAC_GPU_PROXY_ID:-gpu-logic}@${IAC_GPU_TIER_ENDPOINT:-127.0.0.1:8082}@${IAC_GPU_PROXY_DEVICE:-logic}@${IAC_GPU_PROXY_VRAM:-32}"
 _TIERS="${_TIERS},${IAC_ORACLE_PROXY_ID:-gpu-oracle}@127.0.0.1:${IAC_ORACLE_PORT:-8083}@oracle@${IAC_ORACLE_PROXY_VRAM:-96}"
 
+# ─── OPT-IN (SDD-903 Phase 1b): derive tiers from the active profile ───────────
+# DEFAULT OFF. With IAC_GPU_ROUTE_FROM_PROFILE unset/0 the hardcoded defaults
+# above are used verbatim, so this box — and any box without an active runtime
+# profile — is byte-for-byte unchanged. When the knob is 1 AND an active profile
+# resolves AND the PURE, unit-tested derivation (scripts/inference/
+# derive-gpu-tiers.py) yields a NON-EMPTY tier set, that output replaces _TIERS
+# (+ the embed endpoint). ANY failure — no marker, no file, empty derivation,
+# python error — falls through to the hardcoded defaults: a routing module must
+# NEVER end up with empty tiers (that is the 256-wedge silent 1-tok/s fallback).
+# Enabling this on a real box is integration-gated (nspawn/qemu + a live apply).
+_DERIVED_EMBED_EP=""
+if [ "${IAC_GPU_ROUTE_FROM_PROFILE:-0}" = 1 ]; then
+  _active_id="$(cat /etc/sovereign-os/active-runtime-profile 2>/dev/null || true)"
+  _prof_root="${IAC_SOURCE_RESOLVED_DIR:-${IAC_SOURCE_DIR:-}}"
+  [ -n "${_prof_root}" ] || _prof_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+  _prof_file=""
+  for _d in orchestration runtime; do
+    if [ -n "${_active_id}" ] && [ -f "${_prof_root}/profiles/${_d}/${_active_id}.yaml" ]; then
+      _prof_file="${_prof_root}/profiles/${_d}/${_active_id}.yaml"; break
+    fi
+  done
+  if [ -n "${_prof_file}" ]; then
+    _derived="$("${PYTHON3:-python3}" "${_prof_root}/scripts/inference/derive-gpu-tiers.py" --emit-shell "${_prof_file}" 2>/dev/null || true)"
+    _dt="$(printf '%s\n' "${_derived}" | sed -n "s/^GPU_ROUTE_TIERS='\(.*\)'\$/\1/p")"
+    if [ -n "${_dt}" ]; then
+      _TIERS="${_dt}"
+      _DERIVED_EMBED_EP="$(printf '%s\n' "${_derived}" | sed -n "s/^GPU_ROUTE_EMBED_EP='\(.*\)'\$/\1/p")"
+      iac_info "gpu-route: tiers derived from active profile '${_active_id}' (SDD-903 Phase 1b)"
+    else
+      iac_info "gpu-route: active profile '${_active_id}' derived no tiers — keeping hardcoded defaults"
+    fi
+  else
+    iac_info "gpu-route: IAC_GPU_ROUTE_FROM_PROFILE=1 but no active profile resolved — keeping hardcoded defaults"
+  fi
+fi
+
 # ─── the applier ──────────────────────────────────────────────────────────────
 # Installed from the repo checkout module 15 maintains, NOT from /opt: the
 # payload tree is dpkg-owned and only module 90 writes into it — and 90 runs
@@ -123,7 +159,7 @@ ensure_file /etc/sovereign-os/gpu-route.env 0644 root:root <<< "${_env_content}"
 # Deliberately NOT a proxy registration: /v1/embeddings resolves this env var,
 # not resolve_proxy(), precisely so a pooling model can never become the target
 # of "auto" and be handed a chat completion it cannot answer.
-_embed_ep="127.0.0.1:${IAC_ROUTER_EMBED_PORT:-8084}"
+_embed_ep="${_DERIVED_EMBED_EP:-127.0.0.1:${IAC_ROUTER_EMBED_PORT:-8084}}"
 _embed_model="${IAC_ROUTER_EMBED_NAME:-gpu-embed}"
 
 # Narrow the SSRF allowlist to exactly the endpoints this box has.

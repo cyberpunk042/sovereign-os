@@ -137,13 +137,36 @@ def validate(profile: dict, card_vram_bytes: dict | None = None) -> list[str]:
     return errors
 
 
-if __name__ == "__main__":  # tiny CLI preview — read-only, no side effects
+def emit_shell(profile: dict) -> str:
+    """Shell-consumable single-quoted assignments for 84-gpu-route to capture.
+    Empty values are omitted so the bash side can fall back to its defaults."""
+    r = derive_routing(profile)
+    out: list[str] = []
+    tiers = tiers_string(r["proxy_tiers"])
+    if tiers:
+        out.append(f"GPU_ROUTE_TIERS='{tiers}'")
+    if r["embed"]:
+        out.append(f"GPU_ROUTE_EMBED_EP='{r['embed']['endpoint']}'")
+        out.append(f"GPU_ROUTE_EMBED_MODEL='{r['embed']['model']}'")
+    if r["rerank"]:
+        out.append(f"GPU_ROUTE_RERANK_EP='{r['rerank']['endpoint']}'")
+    if r["allow"]:
+        out.append(f"GPU_ROUTE_ALLOW='{','.join(r['allow'])}'")
+    return "\n".join(out)
+
+
+if __name__ == "__main__":  # read-only, no side effects
     import sys, yaml  # noqa: E401
-    prof = yaml.safe_load(open(sys.argv[1]))
-    r = derive_routing(prof)
-    print("GPU_ROUTE_TIERS =", tiers_string(r["proxy_tiers"]))
-    print("embed  =", r["embed"])
-    print("rerank =", r["rerank"])
-    print("allow  =", ",".join(r["allow"]))
-    errs = validate(prof)
-    print("validate:", errs or "OK")
+    args = sys.argv[1:]
+    emit = "--emit-shell" in args
+    path = [a for a in args if not a.startswith("-")][0]
+    prof = yaml.safe_load(open(path))
+    if emit:
+        print(emit_shell(prof))
+    else:
+        r = derive_routing(prof)
+        print("GPU_ROUTE_TIERS =", tiers_string(r["proxy_tiers"]))
+        print("embed  =", r["embed"])
+        print("rerank =", r["rerank"])
+        print("allow  =", ",".join(r["allow"]))
+        print("validate:", validate(prof) or "OK")
