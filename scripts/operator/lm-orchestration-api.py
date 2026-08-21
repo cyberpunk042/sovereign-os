@@ -238,6 +238,20 @@ def _active_profile_id() -> str | None:
     return None
 
 
+def _active_os_profile() -> str | None:
+    """This box's active OS/hardware build profile id (for filtering the
+    generated combos to relevant hardware). SOVEREIGN_OS_PROFILE env override,
+    else the /etc/sovereign-os/active-profile marker. Read-only; None if unknown."""
+    env = os.environ.get("SOVEREIGN_OS_PROFILE")
+    if env and env.strip():
+        return env.strip()
+    try:
+        txt = Path("/etc/sovereign-os/active-profile").read_text().strip()
+        return txt or None
+    except OSError:
+        return None
+
+
 def by_base_view() -> dict[str, Any]:
     """The catalog grouped by BASE model, each group carrying its quantization
     variants — the shape the shared load-time quantization picker consumes.
@@ -326,9 +340,15 @@ def _generated_profiles() -> list[dict[str, Any]]:
     if _gen is None:
         return []
     try:
-        os_profiles = sorted(p.stem for p in _OS_PROFILES_DIR.glob("*.yaml"))
+        all_os = sorted(p.stem for p in _OS_PROFILES_DIR.glob("*.yaml"))
     except OSError:
         return []
+    # Only surface combos for THIS box's hardware profile. Iterating every OS
+    # build profile (developer / headless / minimal / old-workstation) floods the
+    # panel with [no GPU] combos that cannot run on the running machine. Fall back
+    # to all if no active marker (a generic/dev checkout still shows something).
+    _active_os = _active_os_profile()
+    os_profiles = [_active_os] if _active_os in all_os else all_os
     out: list[dict[str, Any]] = []
     for osp in os_profiles:
         for strat in _GEN_STRATEGIES:

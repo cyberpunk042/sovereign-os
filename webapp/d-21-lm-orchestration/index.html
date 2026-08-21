@@ -2399,6 +2399,9 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         const on = id === selectedProfile ? ' on' : '';
         const act = p.active ? ' active' : '';
         const isGen = fam === 'generated';
+        // Truncate at a WORD boundary + ellipsis (was a hard mid-word slice(0,140)).
+        const desc0 = (p.description || '').split('\n')[0];
+        const descT = desc0.length > 160 ? desc0.slice(0, 160).replace(/\s+\S*$/, '') + '…' : desc0;
         // Generated combos aren't on disk → materialize (Generate) before apply;
         // every other family applies for real through the exec rail.
         const applyBtn = isGen
@@ -2406,7 +2409,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
           : `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail (dry-run → type-to-confirm)">Apply</button>`;
         return `<div class="profile${on}${act}" data-id="${esc(id)}">
           <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span>${p.active ? '<span class="p-active" title="This profile is currently active (active-runtime-profile marker)">● active</span>' : ''}</div>
-          <div class="desc">${esc((p.description || '').split('\n')[0].slice(0,140))}</div>
+          <div class="desc">${esc(descT)}</div>
           <div class="p-apply-row">${applyBtn}<span class="p-result muted"></span></div>
         </div>`;
       }).join('');
