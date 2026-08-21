@@ -217,6 +217,40 @@ _USER_PROFILES_DIR = Path(os.environ.get(
     "LM_ORCH_USER_PROFILES_DIR",
     str(Path.home() / ".sovereign-os" / "profiles" / "orchestration")))
 
+
+def _active_profile_id() -> str | None:
+    """The currently-active runtime/orchestration profile id, or None. Mirrors
+    scripts/build/lib/runtime-profile.sh resolution: the SOVEREIGN_OS_RUNTIME_PROFILE
+    env override, else the active-runtime-profile marker under /etc/sovereign-os
+    (system) or ~/.sovereign-os (per-operator). Read-only; any error → None (the
+    panel simply shows no active highlight)."""
+    env = os.environ.get("SOVEREIGN_OS_RUNTIME_PROFILE")
+    if env and env.strip():
+        return env.strip()
+    for cand in ("/etc/sovereign-os/active-runtime-profile",
+                 str(Path.home() / ".sovereign-os" / "active-runtime-profile")):
+        try:
+            txt = Path(cand).read_text().strip()
+            if txt:
+                return txt
+        except OSError:
+            continue
+    return None
+
+
+def by_base_view() -> dict[str, Any]:
+    """The catalog grouped by BASE model, each group carrying its quantization
+    variants — the shape the shared load-time quantization picker consumes.
+    Reuses model-health.group_by_base (no drift). Read-only; the actual load
+    stays the signed `sovereign-osctl models load <id>` control (R10212)."""
+    bases = _core.group_by_base()
+    return {
+        "total_bases": len(bases),
+        "multi_quant_bases": sum(1 for b in bases if b.get("variant_count", 0) > 1),
+        "bases": bases,
+        "catalog_path": str(_core.CATALOG_PATH),
+    }
+
 # The runtime-combo generator (SDD-043) — the "20+ combos" source. Optional:
 # a missing/broken generator or absent yaml degrades the Generated family to
 # empty rather than killing the daemon (the other families stay functional).
@@ -345,8 +379,12 @@ def profiles_view() -> dict[str, Any]:
     for p in user:
         p["apply_cmd"] = f"sovereign-osctl trinity profile switch {p['id']}"
     profiles = runtime + orchestration + generated + user
+    active_id = _active_profile_id()
+    for p in profiles:
+        p["active"] = bool(active_id) and p.get("id") == active_id
     return {
         "profiles": profiles,
+        "active_id": active_id,
         "count": len(profiles),
         "runtime_count": len(runtime),
         "orchestration_count": len(orchestration),
@@ -593,6 +631,14 @@ class LmOrchAPIHandler(BaseHTTPRequestHandler):
             if path == "/api/lm-orchestration/models":
                 self._send_json(200, models_view())
                 _emit_metric("models", "ok")
+                return
+            if path == "/api/models-catalog/by-base":
+                # The shared load-time quantization picker (D-03/D-21, pinned by
+                # test_quant_picker_contract.py) fetches this SAME-ORIGIN. Serve it
+                # here too so the D-21 panel's Load-Model control isn't "catalog
+                # unavailable" when this daemon hosts the page standalone.
+                self._send_json(200, by_base_view())
+                _emit_metric("by-base", "ok")
                 return
         except Exception as e:  # noqa: BLE001
             self._send_json(500, {"error": str(e)})

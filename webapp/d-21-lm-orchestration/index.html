@@ -35,6 +35,11 @@
   }
   html[data-theme="light"] {
     --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
+    /* The default accent (#9bd1ff) is tuned for the dark theme and is nearly
+       illegible on white (~1.6:1). Force a readable darker blue on the light
+       theme (~5.8:1). !important so it wins over the app-shell's inline --accent
+       (an inline normal value that a stylesheet !important overrides). */
+    --accent:#1668b0 !important;
   }
   * { box-sizing:border-box; }
   body {
@@ -57,6 +62,11 @@
     padding:.5rem .75rem; cursor:pointer; min-width:200px; flex:1;
   }
   .profile.on { border-color:var(--accent); }
+  /* D21: the CURRENTLY-ACTIVE profile (active-runtime-profile marker) — a green
+     left rail + badge, distinct from the accent-blue "selected/preview" state. */
+  .profile.active { border-left:3px solid var(--good); }
+  .profile .p-active { display:inline-block; margin-left:.4rem; color:var(--good);
+    font-size:.6rem; font-weight:600; letter-spacing:.02em; vertical-align:middle; }
   .profile .name { color:var(--accent); font-weight:600; }
   .profile .desc { color:var(--muted); font-size:.76rem; margin-top:.2rem; }
   /* family grouping (D21-1: runtime / orchestration / generated / user) */
@@ -2387,14 +2397,15 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       html += list.map(p => {
         const id = p.id || p.mode_id;
         const on = id === selectedProfile ? ' on' : '';
+        const act = p.active ? ' active' : '';
         const isGen = fam === 'generated';
         // Generated combos aren't on disk → materialize (Generate) before apply;
         // every other family applies for real through the exec rail.
         const applyBtn = isGen
           ? `<button class="p-apply gen" data-act="gen" data-id="${esc(id)}" data-gen="${esc(p.generate_cmd || '')}" title="Materialize this combo to profiles/runtime/, then it becomes applyable">Generate…</button>`
           : `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail (dry-run → type-to-confirm)">Apply</button>`;
-        return `<div class="profile${on}" data-id="${esc(id)}">
-          <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span></div>
+        return `<div class="profile${on}${act}" data-id="${esc(id)}">
+          <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span>${p.active ? '<span class="p-active" title="This profile is currently active (active-runtime-profile marker)">● active</span>' : ''}</div>
           <div class="desc">${esc((p.description || '').split('\n')[0].slice(0,140))}</div>
           <div class="p-apply-row">${applyBtn}<span class="p-result muted"></span></div>
         </div>`;
