@@ -207,6 +207,7 @@ done <<< "${_files}"
 #   known-needed files instead of a directory sync.
 _add_files="
 models/catalog.yaml
+config/inference/bitnet-chat-template.jinja
 tools/__init__.py
 tools/notifykit/__init__.py
 tools/notifykit/cli.py

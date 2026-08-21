@@ -45,6 +45,18 @@ class BitnetBackend(Backend):
         argv += ["--host", self.config.host, "--port", str(self.config.port)]
         argv += ["-t", str(self.DEFAULT_THREADS)]
 
+        # The BitNet GGUF embeds NO chat template, so llama-server falls back to a
+        # generic one and generates garbage. Point it at BitNet's real template
+        # (User:/Assistant: + <|eot_id|>, extracted from the base repo's
+        # tokenizer_config). Resolved relative to the repo root so it works from
+        # /opt too; override via BITNET_CHAT_TEMPLATE.
+        tmpl = self.config.env.get("BITNET_CHAT_TEMPLATE") or str(
+            Path(__file__).resolve().parents[3]
+            / "config" / "inference" / "bitnet-chat-template.jinja"
+        )
+        if Path(tmpl).is_file():
+            argv += ["--jinja", "--chat-template-file", tmpl]
+
         argv += self.config.extra_args
         return argv
 
