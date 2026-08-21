@@ -252,7 +252,11 @@ def _parse_orch_yaml(path: Path, family: str) -> dict[str, Any] | None:
                     rec[key] = val
         if s.startswith("description:"):
             val = s.split(":", 1)[1].strip()
-            if val in ("|", ">"):
+            # A block scalar starts with | or > optionally followed by a
+            # chomping/indent indicator (-, +, digits): |, >, |-, >-, >+ …
+            # Detect the leading char, not the exact "|"/">" — else a folded
+            # ">-" description leaks the marker itself into the summary.
+            if val and val[0] in ("|", ">"):
                 in_block = len(raw) - len(raw.lstrip())
             elif val:
                 rec["description"] = val.strip('"\'')

@@ -1,0 +1,58 @@
+schema_version: "1.0.0"
+
+# What the SAIN-01 box is ACTUALLY running right now (2026-08-21) — the missing
+# "reality" profile. The other orchestration profiles describe DeepSeek/Qwen
+# placements that don't match the live tiers; this one does, so the D-21 cockpit
+# has a profile that reflects the machine as it stands. gpt-oss on the Oracle
+# needs the harmony tool-call parser (module 76, 2026-08-21) to be agentic.
+orchestration_profile:
+  id: as-deployed
+  name: As Deployed (live tiers, 2026-08-21)
+  description: >-
+    Mirrors the currently-serving SAIN-01 inference tiers — BitNet on CPU,
+    Nemotron-Nano on the 5090, gpt-oss-120b on the PRO 6000, and the BGE
+    embed+reranker co-resident on the 4090 eGPU. The ground-truth baseline.
+  intent: custom
+  hardware_profile_compat:
+    - sain-01
+  allocations:
+    - agent_id: pulse_bitnet
+      tier: pulse
+      role: conductor
+      target_hardware: cpu
+      core_mask: "0-7"
+      engine: bitnet.cpp
+      model: BitNet-b1.58-3B
+      active: true
+    - agent_id: logic_nemotron
+      tier: logic
+      role: logic
+      target_hardware: "cuda:0"
+      engine: vllm
+      model: Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4
+      active: true
+    - agent_id: oracle_gptoss
+      tier: oracle
+      role: oracle
+      target_hardware: "cuda:1"
+      engine: vllm
+      model: gpt-oss-120b
+      active: true
+    - agent_id: embed_bge
+      tier: embed
+      role: embed
+      target_hardware: "cuda:2"
+      engine: vllm
+      model: BAAI-bge-m3
+      port: 8084
+      vram_limit_bytes: 4000000000
+      active: true
+    - agent_id: rerank_bge
+      tier: rerank
+      role: rerank
+      target_hardware: "cuda:2"
+      engine: vllm
+      model: BAAI-bge-reranker-v2-m3
+      port: 8085
+      vram_limit_bytes: 4000000000
+      active: true

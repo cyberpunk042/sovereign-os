@@ -1,0 +1,20 @@
+schema_version: "1.0.0"
+
+# Oracle-model experiment (2026-08-21): identical to as-deployed but swaps the
+# Oracle tier off gpt-oss to DeepSeek-V3 (quantized MoE). NOTE: a LIVE switch also needs the tier's
+# reasoning/tool parsers changed in the serving module (currently pinned to
+# gpt-oss: openai_gptoss + openai) — profile switch alone changes the model, not
+# the parsers (SDD-903 reconciler gap). Useful as a target + to A/B the Oracle pick.
+orchestration_profile:
+  id: oracle-deepseek
+  name: Oracle = DeepSeek-V3 (quantized MoE)
+  description: Same live layout as as-deployed, but the Oracle tier runs DeepSeek-V3-Quant instead of gpt-oss-120b. Oracle-model A/B experiment (live switch needs matching serving parsers).
+  intent: custom
+  hardware_profile_compat:
+    - sain-01
+  allocations:
+    - {agent_id: pulse_bitnet,   tier: pulse,  role: conductor, target_hardware: cpu,      core_mask: "0-7", engine: bitnet.cpp, model: BitNet-b1.58-3B, active: true}
+    - {agent_id: logic_nemotron, tier: logic,  role: logic,     target_hardware: "cuda:0", engine: vllm, model: Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4, active: true}
+    - {agent_id: oracle_alt,     tier: oracle, role: oracle,    target_hardware: "cuda:1", engine: vllm, model: DeepSeek-V3-Quant, active: true}
+    - {agent_id: embed_bge,  tier: embed,  role: embed,  target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4000000000, active: true}
+    - {agent_id: rerank_bge, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4000000000, active: true}
