@@ -31,7 +31,7 @@ EXPECTED_PROFILES = [
     "hybrid-coding-thinking",
     "full-hybrid",
 ]
-KNOWN_TIERS = {"pulse", "logic", "oracle", "router"}
+KNOWN_TIERS = {"pulse", "logic", "oracle", "router", "embed", "rerank"}
 KNOWN_ENGINES = {"bitnet.cpp", "vllm", "vllm-vulkan", "llama.cpp"}
 # The 5 named seed intents + `custom` (operator-composed profiles, D-21 composer).
 KNOWN_INTENTS = {"full-orchestration", "coding", "thinking", "hybrid", "full-hybrid", "custom"}
@@ -102,6 +102,51 @@ def test_each_profile_conforms():
             assert a.get("model") in catalog, (
                 f"{pid}: model {a.get('model')!r} not in models/catalog.yaml"
             )
+
+
+def test_ports_unique_per_card():
+    """SDD-903 Phase 1a (N-per-card): two model instances sharing a
+    target_hardware MUST declare distinct serving ports — otherwise the second
+    can't bind and the gatewayd tier registration collides. Validated for every
+    profile on disk. Allocations without an explicit `port` (single-model tiers)
+    are unaffected."""
+    for pid in _all_stems():
+        d = _load(pid)
+        seen: dict[tuple[str, int], str] = {}
+        for a in d["orchestration_profile"].get("allocations", []):
+            port = a.get("port")
+            if port is None:
+                continue
+            key = (a.get("target_hardware", "?"), port)
+            prev = seen.get(key)
+            assert prev is None, (
+                f"{pid}: port {port} reused on {key[0]} by {a.get('agent_id')!r} "
+                f"and {prev!r} — models co-resident on a card need distinct ports "
+                f"(SDD-903 Phase 1a)"
+            )
+            seen[key] = a.get("agent_id")
+
+
+def test_multiple_models_per_card_is_expressible():
+    """SDD-903 Phase 1a acceptance: the schema+lint can express N models on one
+    card. At least one on-disk profile must place >1 active allocation on the
+    same cuda device, each with its own port — proving the feature is writable
+    (dense-4090 is the seed example, mirroring the live 4090 embed+rerank)."""
+    found = False
+    for pid in _all_stems():
+        d = _load(pid)
+        by_card: dict[str, int] = {}
+        for a in d["orchestration_profile"].get("allocations", []):
+            hw = a.get("target_hardware", "")
+            if hw.startswith("cuda:") and a.get("port") is not None:
+                by_card[hw] = by_card.get(hw, 0) + 1
+        if any(n >= 2 for n in by_card.values()):
+            found = True
+            break
+    assert found, (
+        "no orchestration profile places >1 ported model on one card — the "
+        "N-per-card schema (SDD-903 Phase 1a) has no exercising example"
+    )
 
 
 def test_runtime_profile_family_untouched():

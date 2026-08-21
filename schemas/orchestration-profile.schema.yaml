@@ -72,11 +72,11 @@ properties:
               pattern: '^[a-z][a-z0-9_-]*$'
             tier:
               type: string
-              enum: [pulse, logic, oracle, router]
+              enum: [pulse, logic, oracle, router, embed, rerank]
             role:
-              description: SRP role label (Conductor / Logic / Oracle).
+              description: SRP role label (Conductor / Logic / Oracle / Embed / Rerank).
               type: string
-              enum: [conductor, logic, oracle]
+              enum: [conductor, logic, oracle, embed, rerank]
             target_hardware:
               type: string
               pattern: '^(cpu|cuda:[0-9](,cuda:[0-9])*)$'
@@ -90,6 +90,22 @@ properties:
             active:
               description: Whether this allocation is active in the intent (idle tiers set false).
               type: boolean
+            port:
+              description: >-
+                Serving TCP port on target_hardware. Required to place MORE THAN
+                ONE model on a single card (SDD-903 N-per-card): the ports let the
+                reconciler + gatewayd tier registration distinguish co-resident
+                instances. Must be unique among allocations sharing a card.
+              type: integer
+              minimum: 1024
+              maximum: 65535
+            vram_limit_bytes:
+              description: >-
+                VRAM cap for this model instance. Lets the reconciler validate
+                that co-resident models on a card fit its VRAM before it applies
+                the layout (SDD-903).
+              type: integer
+              minimum: 1
 
       observability:
         type: object

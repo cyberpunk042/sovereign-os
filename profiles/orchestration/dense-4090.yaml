@@ -1,0 +1,61 @@
+schema_version: "1.0.0"
+
+# SDD-903 Phase 1a seed example — proves the orchestration schema can express
+# MULTIPLE MODELS PER CARD. It mirrors what the SAIN-01 box already runs today:
+# the RTX 4090 (cuda:2, OcuLink eGPU) hosts BOTH the BGE-M3 embedder (:8084) and
+# the BGE reranker (:8085), while the big generative tiers stay one-per-card on
+# the PRO 6000 (cuda:1 oracle) and 5090 (cuda:0 logic) and Pulse stays on CPU.
+# The two cuda:2 allocations carry distinct `port`s + `vram_limit_bytes` — the
+# new fields that make N-per-card writable (and, in Phase 1b, applyable).
+orchestration_profile:
+  id: dense-4090
+  name: Dense 4090 (embed + rerank co-resident)
+  description: >-
+    Operator-composed layout that packs the retrieval stack (embeddings +
+    reranker) onto the single RTX 4090 eGPU while the generative tiers keep the
+    two internal cards to themselves. Seed example for SDD-903 N-per-card.
+  intent: custom
+  hardware_profile_compat:
+    - sain-01
+  allocations:
+    - agent_id: conductor_01
+      tier: pulse
+      role: conductor
+      target_hardware: cpu
+      core_mask: "0-7"
+      engine: bitnet.cpp
+      model: BitNet-b1.58-3B
+      active: true
+    - agent_id: logic_coder
+      tier: logic
+      role: logic
+      target_hardware: "cuda:0"
+      engine: vllm
+      model: Qwen3-Coder-32B-Instruct
+      active: true
+    - agent_id: oracle_core
+      tier: oracle
+      role: oracle
+      target_hardware: "cuda:1"
+      engine: vllm
+      model: DeepSeek-V3-Quant
+      active: true
+    # --- two models co-resident on the RTX 4090 (cuda:2) ---
+    - agent_id: embed_4090
+      tier: embed
+      role: embed
+      target_hardware: "cuda:2"
+      engine: vllm
+      model: BAAI-bge-m3
+      port: 8084
+      vram_limit_bytes: 4000000000
+      active: true
+    - agent_id: rerank_4090
+      tier: rerank
+      role: rerank
+      target_hardware: "cuda:2"
+      engine: vllm
+      model: BAAI-bge-reranker-v2-m3
+      port: 8085
+      vram_limit_bytes: 4000000000
+      active: true
