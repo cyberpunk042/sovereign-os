@@ -41,6 +41,15 @@
        (an inline normal value that a stylesheet !important overrides). */
     --accent:#1668b0 !important;
   }
+  /* D21: in-panel section jump-nav, sticky under the app-shell header — a
+     dev-experience aid for the long single-scroll panel. */
+  .sec-nav { position:sticky; top:var(--so-header-h,48px); z-index:5; display:flex;
+    gap:.15rem; flex-wrap:wrap; align-items:center; margin:.2rem 0 .4rem;
+    padding:.3rem .1rem; background:var(--bg); border-bottom:1px solid var(--border); }
+  .sec-nav a { font-size:.72rem; color:var(--muted); text-decoration:none;
+    padding:.18rem .55rem; border-radius:3px; border:1px solid transparent; scroll-margin-top:5rem; }
+  .sec-nav a:hover { color:var(--accent); border-color:var(--border); background:var(--panel); }
+  h2[id] { scroll-margin-top:6rem; }
   * { box-sizing:border-box; }
   body {
     margin:0; background:var(--bg); color:var(--fg);
@@ -2131,11 +2140,19 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <main>
   <div class="banner" id="data-source-banner">connecting to <code>/api/lm-orchestration/grid</code>…</div>
 
-  <h2>Profiles · Language Model</h2>
+  <nav class="sec-nav" aria-label="jump to section">
+    <a href="#s-profiles">Profiles</a>
+    <a href="#s-grid">Assignment grid</a>
+    <a href="#s-load">Load model</a>
+    <a href="#s-caps">Capabilities</a>
+    <a href="#s-controls">Controls</a>
+  </nav>
+
+  <h2 id="s-profiles">Profiles · Language Model</h2>
   <div class="banner muted" id="profiles-note"></div>
   <div class="profiles" id="profiles"></div>
 
-  <h2>Model → hardware assignment <button id="edit-models-btn" class="edit-toggle" title="Load a specific model onto a device through the signed rail">✎ Edit models</button></h2>
+  <h2 id="s-grid">Model → hardware assignment<button id="edit-models-btn" class="edit-toggle" title="Load a specific model onto a device through the signed rail">✎ Edit models</button></h2>
   <p class="banner muted" id="grid-note">The grid previews the <em>selected</em> profile's model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.</p>
   <div class="grid" id="grid"></div>
   <div id="compose-bar" class="compose-bar" hidden>
@@ -2160,7 +2177,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
      webapp/_shared/quant-picker.{css,js}; lockstep-linted). Groups the catalog
      by base model + fills the signed model-load control. Read-only (R10212). -->
 <section id="quant-picker" class="qp">
-  <h2>load a model — choose quantization</h2>
+  <h2 id="s-load">load a model — choose quantization</h2>
   <p class="qp-sub">Pick a model, then its quantization. A lighter quant uses less
      VRAM at some quality cost. Your choice fills the <b>Load Model</b> control
      below — press <b>Execute</b> there to apply (dry-run first, key + type-to-confirm gated).</p>
@@ -2281,7 +2298,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 })();
 </script>
 
-  <h2>Capabilities</h2>
+  <h2 id="s-caps">Capabilities</h2>
   <div class="features">
     <div class="fcol"><h3>Features CPU (AVX-512)</h3><div id="features-cpu"></div></div>
     <div class="fcol"><h3>Features GPUs</h3><div id="features-gpu"></div></div>
@@ -2892,7 +2909,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 </script>
 
 <!-- SDD-045 shared control-surface (inlined verbatim from webapp/_shared/control-surface.{css,js}; lockstep-linted). -->
-<section style="max-width:1200px;padding:0 1.25rem 1rem"><h2>Controls · features &amp; profiles</h2>
+<section style="max-width:1200px;padding:0 1.25rem 1rem"><h2 id="s-controls">Controls · features &amp; profiles</h2>
 <div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
 <style>
 /* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
