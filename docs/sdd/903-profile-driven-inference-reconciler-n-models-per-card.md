@@ -51,10 +51,30 @@ The profile's `allocations[]` (agent_id, tier, target_hardware, engine, model, `
 - **F3 — env ownership.** Migrate `inference-*.env` to be reconciler-owned (single writer) **vs** keep modules 72/76/84 as writer and feed them from the profile (two writers → drift risk). *Lean: single writer.*
 - **F4 — VRAM authority.** SDD-207 live shared-VRAM plane **vs** `generate-runtime` static sizing. *Lean: the live plane* (consistent with SDD-902/207).
 
+## Prerequisite — the profile schema can't express the goal yet (blocks Phase 1)
+
+Traced 2026-08-21: a runtime/orchestration allocation is `{agent_id, tier, role, target_hardware, core_mask, engine, model, active}` (e.g. `profiles/orchestration/coding-focus.yaml`). Two hard gaps make N-per-card *inexpressible* today, so no reconciler can act on it until the schema grows:
+
+- **No serving endpoint/port.** `84-gpu-route`'s tier record is `<proxy-id>@<endpoint>@<device>@<vram_gb>`; the endpoint exists only as the module's hardcoded per-tier port (logic→8082, oracle→8083). An allocation carries no endpoint, so tiers **cannot** be enumerated from allocations without one. → add `endpoint`/`port` (or a deterministic port-allocation convention keyed by tier-instance).
+- **`tier` is a fixed set `{pulse, logic, oracle, router}`** (pinned by `test_runtime_profiles_verbatim.py` + `test_orchestration_profiles.py`), one model per tier. There is no way to declare a second model on a card or a new tier. → relax to allow ≥2 allocations sharing a `target_hardware`, each with its own endpoint + `vram_limit_bytes`, and give instances stable ids.
+
+This is a coordinated **schema + verbatim-lint** change (the profile schema is lint-pinned), and it is **F5** below — the foundational decision the rest depends on. It also means **Phase 1 splits**: a schema step (1a) precedes the `84-gpu-route` enumeration (1b).
+
+> **Verification constraint.** `84-gpu-route` is the module whose tier misregistration caused the week-long 256-wedge total-inference outage (its own header documents it). Changes here **must** be validated on the nspawn/qemu integration harness and a live gatewayd apply — not by unit tests alone. Treat any change to it as integration-gated.
+
+## Open decisions (forks for the review)
+
+- **F1 — tier units.** Dynamic templated instanced units (`sovereign-tier@.service`, flexible, more moving parts) **vs** a fixed max-N tier pool (pre-created units toggled, simpler, capped). *Lean: templated* — it's the only shape that honestly supports arbitrary N-per-card.
+- **F2 — engine.** Fold runtime-apply into `converge --only inference` (one reconcile engine, heavier) **vs** keep `trinity profile switch` as a fast dedicated path sharing the validate/register libraries. *Lean: shared libraries, fast path stays.*
+- **F3 — env ownership.** Migrate `inference-*.env` to be reconciler-owned (single writer) **vs** keep modules 72/76/84 as writer and feed them from the profile (two writers → drift risk). *Lean: single writer.*
+- **F4 — VRAM authority.** SDD-207 live shared-VRAM plane **vs** `generate-runtime` static sizing. *Lean: the live plane* (consistent with SDD-902/207).
+- **F5 — allocation schema (the prerequisite above).** Add `endpoint`/`port` + allow ≥2 allocations per `target_hardware` with instance ids **vs** keep the fixed 4-tier / one-model-per-tier schema and cap the feature at model-swap only. *Lean: extend the schema* — without it, "multiple models per card" cannot even be written down.
+
 ## Migration (incremental, each shippable)
 
-- **Phase 0 — remove the dead env + make the switch honest (smallest fix).** Delete the unconsumed `active-runtime-profile-env.sh` generation (the real path is `runtime_profile_override`), and make `trinity profile switch` state plainly what it DOES apply (per-tier model swap on restart) vs. what it does NOT yet (N-per-card / new tiers). Add a no-dead-env lint. Removes the misleading path immediately.
-- **Phase 1** — reconciler renders `inference-*.env` from `allocations[]`; `84-gpu-route` enumerates allocations for gatewayd.
+- **Phase 0 — remove the dead env + make the switch honest (smallest fix). ✅ landed.** The `trinity profile switch` env generator no longer emits the dead per-tier exports (only the consumed GPU power-state ones; allocations→comments); honest messaging; `test_runtime_profile_env_no_dead_exports.py` guards it.
+- **Phase 1a — schema (F5).** Extend the allocation schema (endpoint/port + ≥2-per-card instance ids) + its verbatim lints. Pure config/lint; no live infra. **This is the real start of N-per-card and must precede 1b.**
+- **Phase 1b — reconciler renders `inference-*.env` from `allocations[]`; `84-gpu-route` enumerates allocations for gatewayd.** Integration-gated (see the verification constraint).
 - **Phase 2** — hardened `sovereign-tier@.service` template; N-per-card via MPS + `vram_limit_bytes`.
 - **Phase 3** — `trinity profile switch` → validate → reconcile → verify.
 
@@ -74,6 +94,7 @@ A capstone (mirrors `perimeter-capstone.sh` discipline): `trinity profile switch
 
 - [ ] Review + pick F1–F4.
 - [x] Phase 0 — removed the dead per-tier env exports from `trinity profile switch` (kept the consumed GPU power-state exports; allocations now comments), honest switch messaging (applies per-tier swap; NOT N-per-card/new-tiers), + `test_runtime_profile_env_no_dead_exports.py` regression lint. Landed 2026-08-21.
-- [ ] Phase 1 — profile-derived `inference-*.env` + gatewayd tier enumeration.
+- [ ] Phase 1a — allocation schema (F5): endpoint/port + ≥2-per-card instance ids + verbatim lints. Prerequisite for everything below; pure config/lint, no live infra.
+- [ ] Phase 1b — profile-derived `inference-*.env` + `84-gpu-route` tier enumeration. **Integration-gated** (nspawn/qemu + live gatewayd apply — the 256-wedge module).
 - [ ] Phase 2 — `sovereign-tier@.service` template + MPS N-per-card.
 - [ ] Phase 3 — switch → validate → reconcile → verify + acceptance capstone.
