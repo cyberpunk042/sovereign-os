@@ -53,6 +53,8 @@ _gw="${IAC_GATEWAY_URL:-http://127.0.0.1:8787}"
 _libdir="${IAC_GPU_ROUTE_LIBDIR:-/usr/local/lib/sovereign-os}"
 _applier="${_libdir}/gpu-route-apply.sh"
 _unit=sovereign-gpu-route.service
+_reconcile_unit=sovereign-gpu-route-reconcile.service
+_reconcile_timer=sovereign-gpu-route-reconcile.timer
 
 # One COMMA-separated record per GPU tier: "<proxy-id>@<endpoint>@<device>@<vram_gb>".
 # The proxy id must equal what the tier serves under (--served-model-name),
@@ -172,6 +174,62 @@ Environment=GPU_ROUTE_TIER_TRIES=${IAC_GPU_ROUTE_BOOT_TIER_TRIES:-150}
 [Install]
 WantedBy=multi-user.target
 EOF
+
+# ─── level trigger: close the gap the three edge-triggers cannot ──────────────
+# The unit above re-registers on three EDGE triggers — boot, a gatewayd restart
+# (PartOf=), and converge. None of them fire in the case that actually stranded
+# this box: gatewayd stays UP the whole time while its in-memory registry drifts
+# away from converged state — a tier that finished loading its 58 GiB checkpoint
+# after the boot window closed, a tier that OOM'd and came back, a gatewayd
+# auto-restart (Restart=on-failure) that does NOT propagate PartOf the way a
+# `systemctl restart` does, or the registry going unreachable while the daemon
+# itself never restarts. In every one the tiers serve and nothing routes to them:
+# the exact silent 1-tok/s fallback this module exists to end, reached by a path
+# the edge triggers miss. A periodic re-assertion is the level-triggered
+# complement — the applier is idempotent (an already-routed tier is an OK, not a
+# CHANGED and no POST), so a healthy box just re-reads and logs OKs, and a
+# diverged one is repaired within one interval instead of waiting for a restart
+# that may be days away.
+#
+# A SEPARATE oneshot, not the guard unit above: that one is RemainAfterExit=yes
+# so PartOf can see it as active, and systemd will NOT re-run an already-active
+# oneshot's ExecStart — a timer pointed at it would fire and do nothing. This
+# unit omits RemainAfterExit so every timer fire genuinely re-runs the applier.
+ensure_file "/etc/systemd/system/${_reconcile_unit}" 0644 root:root <<EOF
+# Managed by scripts/iac — do not edit by hand.
+[Unit]
+Description=sovereign-os — reconcile GPU tier routing with sovereign-gatewayd
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/iac/modules/84-gpu-route.sh
+After=sovereign-gatewayd.service
+Wants=sovereign-gatewayd.service
+
+[Service]
+Type=oneshot
+ExecStart=${_applier}
+# Reads the same /etc/sovereign-os/gpu-route.env as the guard unit, so a
+# reconcile blocks at most the applier's own bounded waits when a tier or the
+# gateway is down. Larger than those so a slow-but-present tier is not cut off.
+TimeoutStartSec=${IAC_GPU_ROUTE_RECONCILE_TIMEOUT:-300}
+EOF
+
+ensure_file "/etc/systemd/system/${_reconcile_timer}" 0644 root:root <<EOF
+# Managed by scripts/iac — do not edit by hand.
+[Unit]
+Description=sovereign-os — periodically reconcile GPU tier routing
+
+[Timer]
+# OnBootSec sits AFTER the guard unit's boot window so the first reconcile checks
+# a settled machine rather than racing the checkpoint loads; then on a cadence.
+# Persistent=false: a missed run is worthless — this asserts CURRENT routing, and
+# replaying a stale run would re-assert a registry state that has already moved on.
+OnBootSec=${IAC_GPU_ROUTE_RECONCILE_BOOT_SEC:-120}
+OnUnitActiveSec=${IAC_GPU_ROUTE_RECONCILE_INTERVAL:-180}
+AccuracySec=${IAC_GPU_ROUTE_RECONCILE_ACCURACY:-15}
+Persistent=false
+
+[Install]
+WantedBy=timers.target
+EOF
 iac_daemon_reload
 
 # ─── apply now, and report what the applier did ───────────────────────────────
@@ -203,6 +261,18 @@ if [ "${_dropin_before}" != "${_dropin_now}" ] && [ "${IAC_DRY_RUN}" != 1 ]; the
 fi
 
 ensure_unit_state "${_unit}" enabled started
+
+# Arm the level-triggered reconcile (see the unit comments above). Gated so a
+# deployment that wants only the three edge triggers can turn it off, but on by
+# default: this timer is the one guard against the in-memory registry drifting
+# while gatewayd stays up — the failure mode that put every caller back on the
+# 1.7B CPU model for a week with every unit green.
+if [ "${IAC_GPU_ROUTE_RECONCILE_ENABLE:-1}" = 1 ]; then
+  ensure_unit_state "${_reconcile_timer}" enabled started
+else
+  ensure_unit_state "${_reconcile_timer}" disabled stopped
+  skip "gpu-route reconcile timer left disabled (IAC_GPU_ROUTE_RECONCILE_ENABLE=0)"
+fi
 
 # On a dry run — and on the first real converge before the install above has
 # actually written anything — the installed copy does not exist yet. Fall back to
