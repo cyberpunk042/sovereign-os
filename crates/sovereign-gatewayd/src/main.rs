@@ -33,7 +33,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use sovereign_cortex::demo_requests;
 use sovereign_gatewayd::GatewayServer;
@@ -69,6 +69,9 @@ ENVIRONMENT:
     SOVEREIGN_GATEWAY_ADDR         bind address (default 127.0.0.1:8787)
     SOVEREIGN_GATEWAY_MAX_CONN     max concurrent connections (default 256)
     SOVEREIGN_GATEWAY_TIMEOUT_SECS per-connection read/write deadline (default 30; 0 disables)
+    SOVEREIGN_GATEWAY_GEN_TIMEOUT_SECS  wall-clock budget for a single in-process (local) generation
+                                   (default 300; 0 disables). Bounds slow CPU decodes so they cannot pin
+                                   handler threads and, at MAX_CONN, 503 every route. Proxy/GPU path unaffected.
     SOVEREIGN_GATEWAY_TOKEN        shared bearer secret. HTTP clients send `Authorization: Bearer <token>`;
                                    NDJSON clients send `{\"op\":\"auth\",\"token\":\"<token>\"}` as their first frame.
                                    REQUIRED to bind a non-loopback address (0.0.0.0/LAN); unset = keyless loopback-only.
@@ -390,6 +393,13 @@ fn serve(
     let max = max_connections();
     let timeout = conn_timeout();
     let active = Arc::new(AtomicUsize::new(0));
+    // Saturation visibility: the pool filling toward `max` is the precursor to
+    // 503-ing every route (incl. /health). Warn ONCE when it crosses 90%, and
+    // re-arm only after it recovers below 75% — so a healthy box stays silent
+    // but a creeping leak of stuck handlers is loud BEFORE the cap, not after.
+    let high_water = max.saturating_mul(9) / 10;
+    let low_water = max.saturating_mul(3) / 4;
+    let saturating = Arc::new(AtomicBool::new(false));
     for stream in listener.incoming() {
         let stream = match stream {
             Ok(s) => s,
@@ -405,12 +415,24 @@ fn serve(
             let _ = stream.set_read_timeout(Some(t));
             let _ = stream.set_write_timeout(Some(t));
         }
-        if active.load(Ordering::Relaxed) >= max {
+        let cur = active.load(Ordering::Relaxed);
+        if cur >= max {
             // At capacity — send a protocol-appropriate rejection (HTTP 503 +
             // Retry-After / an NDJSON error line) so the client sees a
             // retryable status instead of a bare connection reset, then close.
             reject(stream);
             continue;
+        }
+        // Edge-triggered saturation warning (see high_water above).
+        if cur >= high_water {
+            if !saturating.swap(true, Ordering::Relaxed) {
+                eprintln!(
+                    "sovereign-gatewayd: WARNING connection pool at {cur}/{max} (\u{2265}90%); \
+                     at the cap every route returns 503 — check for stuck (slow-decode) handlers"
+                );
+            }
+        } else if cur < low_water {
+            saturating.store(false, Ordering::Relaxed);
         }
         active.fetch_add(1, Ordering::Relaxed);
         let guard = ConnGuard(Arc::clone(&active));

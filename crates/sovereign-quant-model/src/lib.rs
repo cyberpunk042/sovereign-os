@@ -165,6 +165,14 @@ pub struct QuantModel {
     /// The attached GPU fold backend, if any (SDD-401). `None` by default; a
     /// linked ChromoFold engine registers one in later gated phases.
     fold_backend: Option<Box<dyn FoldBackend>>,
+    /// Optional wall-clock deadline for a SINGLE generation. Checked at the top
+    /// of each decode step in the `*_until_with` loops: once passed, the loop
+    /// stops and returns the tokens produced so far — identical in effect to
+    /// hitting a stop id, so `generated` and the KV-cache / prefix bookkeeping
+    /// stay consistent. `None` (the default) is unbounded, byte-identical to the
+    /// prior behaviour. gatewayd sets this per request so a slow (CPU) decode
+    /// cannot pin a handler thread and, at the connection cap, wedge the daemon.
+    gen_deadline: Option<std::time::Instant>,
 }
 
 impl QuantModel {
@@ -208,6 +216,7 @@ impl QuantModel {
             prefilled: 0,
             exec_mode: ExecMode::Cpu,
             fold_backend: None,
+            gen_deadline: None,
         })
     }
 
@@ -246,12 +255,28 @@ impl QuantModel {
             prefilled: 0,
             exec_mode: ExecMode::Cpu,
             fold_backend: None,
+            gen_deadline: None,
         })
     }
 
     /// Whether the output head is tied to the embedding table.
     pub fn is_tied(&self) -> bool {
         self.tied
+    }
+
+    /// Set (or clear) the wall-clock deadline for the NEXT generation call. See
+    /// the `gen_deadline` field. A plain setter, not a `with_` builder, because
+    /// the caller (gatewayd) holds a long-lived pooled model and re-sets this per
+    /// request. `None` restores the unbounded default.
+    pub fn set_gen_deadline(&mut self, deadline: Option<std::time::Instant>) {
+        self.gen_deadline = deadline;
+    }
+
+    /// Whether `gen_deadline` is set and already in the past — the decode loops'
+    /// stop condition, factored out so both `*_until_with` loops read identically.
+    fn gen_budget_spent(&self) -> bool {
+        self.gen_deadline
+            .is_some_and(|d| std::time::Instant::now() >= d)
     }
 
     /// Enable Gemma-2-style final-logit soft-capping at `cap`: every output
@@ -608,6 +633,13 @@ impl QuantModel {
         let mut logits = self.prefill_reusing_prefix(prompt)?;
         let mut generated = Vec::with_capacity(max_new);
         for _ in 0..max_new {
+            // Wall-clock budget: stop early once this generation outruns its
+            // deadline. Breaking here is exactly a stop-id hit — `generated` and
+            // the KV/prefix bookkeeping stay consistent. `None` deadline ⇒ never
+            // spent ⇒ unbounded, unchanged.
+            if self.gen_budget_spent() {
+                break;
+            }
             mask.apply(&mut logits);
             let pos = self.position() as u64;
             let start = self.recent.len().saturating_sub(self.recent_window);
@@ -668,6 +700,11 @@ impl QuantModel {
         let mut logits = self.prefill_reusing_prefix(prompt)?;
         let mut generated = Vec::with_capacity(max_new);
         for _ in 0..max_new {
+            // Same wall-clock budget as generate_masked_until_with: stop early
+            // when the deadline passes, consistent with a clean stop.
+            if self.gen_budget_spent() {
+                break;
+            }
             let Some(allow) = law_fn(&generated) else {
                 break;
             };
@@ -1043,6 +1080,72 @@ mod tests {
             .generate_masked_until_with(&[1, 2, 3], 5, 11, &mask, &[], |_| {})
             .unwrap();
         assert_eq!(a, b, "no stop ids ⇒ identical to the original loop");
+    }
+
+    #[test]
+    fn a_past_gen_deadline_stops_the_masked_loop_before_max_new() {
+        // The wedge fix: a slow generation must be bounded. With the deadline
+        // already in the past, the loop breaks on its first iteration and returns
+        // the tokens decoded so far — zero here — instead of running to max_new.
+        let mask = LogitMask::new();
+        let mut m = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        m.set_gen_deadline(Some(
+            std::time::Instant::now() - std::time::Duration::from_secs(1),
+        ));
+        let out = m
+            .generate_masked_until_with(&[1, 2, 3], 100, 0, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(
+            out.len(),
+            0,
+            "a spent deadline stops before the first token"
+        );
+    }
+
+    #[test]
+    fn no_gen_deadline_is_unbounded_and_reaches_max_new() {
+        // Default (None) must be byte-identical to the prior unbounded behaviour:
+        // a generation with no stop id and no deadline runs the full max_new.
+        let mask = LogitMask::new();
+        let mut m = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        assert!(m.gen_deadline.is_none(), "default deadline is None");
+        let out = m
+            .generate_masked_until_with(&[1, 2, 3], 5, 11, &mask, &[], |_| {})
+            .unwrap();
+        assert_eq!(out.len(), 5, "no deadline ⇒ runs to max_new");
+    }
+
+    #[test]
+    fn a_past_gen_deadline_stops_the_token_law_loop_too() {
+        // The constrained decode path honours the same budget: law_fn is never
+        // even consulted once the deadline is spent (the check precedes it).
+        let mut m = mixed_model(8, Sampler::new(SamplerConfig::default()));
+        m.set_gen_deadline(Some(
+            std::time::Instant::now() - std::time::Duration::from_secs(1),
+        ));
+        let allow_all: Vec<u64> = vec![u64::MAX; 8usize.div_ceil(64)];
+        let mut consulted = false;
+        let out = m
+            .generate_dynamic_token_law_until_with(
+                &[1, 2, 3],
+                100,
+                0,
+                |_g| {
+                    consulted = true;
+                    Some(allow_all.clone())
+                },
+                |_| {},
+            )
+            .unwrap();
+        assert_eq!(
+            out.len(),
+            0,
+            "a spent deadline stops before the first token"
+        );
+        assert!(
+            !consulted,
+            "law_fn must not be consulted once the budget is spent"
+        );
     }
 
     #[test]

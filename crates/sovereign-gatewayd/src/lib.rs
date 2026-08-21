@@ -1114,6 +1114,21 @@ fn env_bool(name: &str, default: bool) -> bool {
     parse_bool(std::env::var(name).ok().as_deref(), default)
 }
 
+/// Per-request wall-clock generation budget in seconds from
+/// `SOVEREIGN_GATEWAY_GEN_TIMEOUT_SECS` (default 300). `0` disables the bound
+/// (unbounded, legacy). This bounds only the IN-PROCESS local decode: a slow
+/// (CPU) generation must not pin its handler thread indefinitely and, at the
+/// `SOVEREIGN_GATEWAY_MAX_CONN` cap, wedge the daemon into 503-ing every route
+/// including `/health`. The proxy/GPU path is already bounded by `proxy_forward`.
+/// Returns the deadline `Instant`, or `None` when disabled.
+fn gen_deadline_from_env() -> Option<std::time::Instant> {
+    let secs = std::env::var("SOVEREIGN_GATEWAY_GEN_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(300);
+    (secs > 0).then(|| std::time::Instant::now() + std::time::Duration::from_secs(secs))
+}
+
 impl GuardConfig {
     /// Resolve the safety-spine policy from the environment.
     pub fn from_env() -> Self {
@@ -3227,6 +3242,13 @@ impl GatewayServer {
         // none, which reproduces the previous max_tokens-only behaviour exactly.
         let stop_ids: Vec<usize> = eos_id.map(|e| vec![e as usize]).unwrap_or_default();
         model.set_sampler(sovereign_safetensors_loader::Sampler::new(sampler_config));
+        // Bound this single in-process decode by wall clock: without it a slow
+        // (CPU) generation runs to max_new no matter how long that takes, pinning
+        // this handler thread — and enough pinned threads hit SOVEREIGN_GATEWAY_
+        // MAX_CONN and 503 every route (the local-oracle wedge). The loops treat a
+        // spent deadline exactly like a stop id, so state stays consistent; None
+        // (SOVEREIGN_GATEWAY_GEN_TIMEOUT_SECS=0) restores the unbounded path.
+        model.set_gen_deadline(gen_deadline_from_env());
 
         let mut ids: Vec<usize> = Vec::new();
         if let Some(bos) = tokenizer.bos_id() {
@@ -4650,6 +4672,22 @@ mod tests {
         assert!(parse_bool(Some("On"), false));
         assert!(parse_bool(Some("garbage"), true), "unknown ⇒ default");
         assert!(!parse_bool(None, false), "unset ⇒ default");
+    }
+
+    #[test]
+    fn gen_deadline_defaults_to_a_bounded_future_instant() {
+        // Env is process-global; assert only the unset default (mirrors
+        // conn_timeout's test). Unset ⇒ Some, ~300s ahead — a finite budget, not
+        // None (which would restore the unbounded local-decode path).
+        if std::env::var_os("SOVEREIGN_GATEWAY_GEN_TIMEOUT_SECS").is_none() {
+            let d = gen_deadline_from_env().expect("default budget is a finite deadline");
+            let remaining = d.saturating_duration_since(std::time::Instant::now());
+            assert!(
+                remaining > std::time::Duration::from_secs(290)
+                    && remaining <= std::time::Duration::from_secs(300),
+                "default ≈300s ahead, got {remaining:?}"
+            );
+        }
     }
 
     #[test]
