@@ -418,12 +418,31 @@ provisioning:
   firstboot: true                  # install + enable sovereign-firstboot.target + hardware hooks
   posture: installed-off           # selfdef + ghostproxy installed but NOT started on boot
   # Tetragon kernel-fence tuning (tetragon-policy-load.sh, Stage-2 depth).
-  # Both keys are OPTIONAL and default to the shipped host-wide policy;
-  # shown here as the documented tuning surface (commented = shipped default).
-  # tetragon:
-  #   scope: host                  # host (default) | container (enforce only in non-host mount namespaces)
-  #   extra_allowed_binaries:      # ABSOLUTE paths appended to the base 4-binary allowlist
-  #     - /usr/local/bin/ollama
+  # This box is the operator DESKTOP, not the minimal SAIN-01 appliance the
+  # host-wide fence was designed for: host scope (the shipped default) would
+  # SIGKILL-brick a ~561-executable desktop. So we pin the validated CONTAINER
+  # scope and leave the fence DISARMED here (observe posture) — declaring both
+  # so a plain hook re-run can never fall back to the host-wide brick config.
+  # Root-cause + validation: backlog/notes/2026-08-20-tetragon-fence-not-enforcing-findings.md
+  tetragon:
+    scope: container               # host (default) | container. container ANDs a cgroup
+                                   # matchData clause (leaf cgroup name == "container", the
+                                   # podman-workload discriminator) into the selector so the
+                                   # fence enforces ONLY inside container cgroups — validated
+                                   # end-to-end 2026-08-20 (canary killed, host untouched).
+                                   # Superseded matchNamespaces(Mnt NotIn host_ns), which
+                                   # false-matched sandboxed host services + missed the entrypoint.
+    armed: 0                       # 0 = policy file written + verify path preserved but NOT
+                                   # loaded into the daemon (this desktop's safe posture; can
+                                   # never SIGKILL host services). 1 = load the Sigkill fence.
+                                   # The action is ALWAYS Sigkill (§4.1 verbatim); this knob
+                                   # gates LOADING only. Keep it an INTEGER (0/1): the hook reads
+                                   # it via profile_field, and YAML `false` serializes to "False"
+                                   # which the hook's lowercase case would miss → armed. Flip to
+                                   # 1 to enforce (container scope makes that safe here; the
+                                   # in-container allowlist is the base 4 + extra_allowed_binaries).
+    # extra_allowed_binaries:      # ABSOLUTE paths appended to the base 4-binary allowlist
+    #   - /usr/local/bin/ollama
   # Swappable boot frontend (SDD-704). The box boots to KDE Plasma by default — the
   # Blackwell GPU switch: GNOME had display issues on the card, so KDE Plasma (sddm)
   # is the default desktop, paired with the `nomodeset` boot fallback above. GNOME is

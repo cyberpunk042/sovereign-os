@@ -5117,6 +5117,17 @@ _trinity_auditor_full() {
   echo
   echo "  POLICY (master spec § 6 — sovereign-kernel-fence):"
   local _fence_policy="${SOVEREIGN_OS_TETRAGON_POLICY_DIR:-/etc/tetragon/tracing-policies}/sovereign-kernel-fence.yaml"
+  # Intended arming posture (mirrors tetragon-policy-load.sh + the recurrent
+  # verifier). A DISARMED host (e.g. the operator desktop) intentionally keeps
+  # the policy file present but NOT loaded, so "not loaded" there is the healthy
+  # observe posture — not a blind perimeter. Resolve intent so we report the two
+  # apart. Read the field inline (no load_profile side effects); fail safe toward
+  # armed if it can't be read.
+  local _armed _fence_prof="${SOVEREIGN_OS_PROFILES_DIR:-${__REPO_ROOT}/profiles}/${SOVEREIGN_OS_PROFILE}.yaml"
+  case "${SOVEREIGN_OS_TETRAGON_ARMED:-$( [ -f "${_fence_prof}" ] && SOVEREIGN_OS_PROFILE_FILE="${_fence_prof}" profile_field provisioning.tetragon.armed 2>/dev/null)}" in
+    0|false|no|off|disarmed) _armed=0 ;;
+    *)                       _armed=1 ;;
+  esac
   # LOADED != present. A policy file in a dir the daemon does not read is inert,
   # yet file-presence reports green (the "green but blind" failure, 2026-08-20).
   # Ask the daemon itself via `tetra tracingpolicy list`; degrade honestly when
@@ -5129,7 +5140,15 @@ _trinity_auditor_full() {
       _row="$(tetra tracingpolicy list 2>/dev/null | grep 'sovereign-kernel-fence')"
       _st="$(printf '%s' "${_row}" | awk '{print $3}')"
       _mode="$(printf '%s' "${_row}" | grep -oE 'enforce|monitor' | head -1)"
-      echo "    ✓ sovereign-kernel-fence LOADED in daemon (${_st:-enabled}${_mode:+ ${_mode}})"
+      if [ "${_armed}" = 0 ]; then
+        echo "    ⚠ sovereign-kernel-fence LOADED in daemon (${_st:-enabled}${_mode:+ ${_mode}}) — but posture is DISARMED (armed=0): drift"
+        echo "      remove via: scripts/hooks/post-install/tetragon-policy-load.sh (armed=0 unloads it)"
+      else
+        echo "    ✓ sovereign-kernel-fence LOADED in daemon (${_st:-enabled}${_mode:+ ${_mode}})"
+      fi
+    elif [ -f "${_fence_policy}" ] && [ "${_armed}" = 0 ]; then
+      echo "    ✓ policy file present; fence DISARMED by policy (armed=0) — intentionally not loaded (observe posture)"
+      echo "      arm via: profile provisioning.tetragon.armed=1 (or SOVEREIGN_OS_TETRAGON_ARMED=1) + tetragon-policy-load.sh"
     elif [ -f "${_fence_policy}" ]; then
       echo "    ✗ policy file present but NOT loaded in the daemon — perimeter BLIND"
       echo "      the daemon reads its tracing-policy-dir, not ${_fence_policy%/*};"
@@ -5142,6 +5161,7 @@ _trinity_auditor_full() {
     # cannot query the daemon — report file presence but do NOT claim "loaded"
     if [ -f "${_fence_policy}" ]; then
       echo "    ~ policy file present; load state UNVERIFIED (need root + tetra + live daemon)"
+      echo "      intended posture: $([ "${_armed}" = 0 ] && echo 'DISARMED (armed=0) — not-loaded is expected here' || echo 'ARMED (armed=1) — should be loaded')"
     else
       echo "    ✗ policy file absent"
       echo "      apply via: scripts/hooks/post-install/tetragon-policy-load.sh"
@@ -5171,7 +5191,7 @@ _trinity_auditor_full() {
   fi
   echo
   echo "  LAYER B METRICS:"
-  echo "    sovereign_os_perimeter_status (1=active, 0=inactive)"
+  echo "    sovereign_os_perimeter_status (1=matches armed intent, 0=drift/down/missing)"
   echo "    sovereign_os_perimeter_verify_last_run_timestamp"
 }
 
