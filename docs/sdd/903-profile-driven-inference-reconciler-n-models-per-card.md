@@ -73,7 +73,7 @@ A capstone (mirrors `perimeter-capstone.sh` discipline): `trinity profile switch
 ## Status / roadmap
 
 - [ ] Review + pick F1–F4.
-- [ ] Phase 0 — stop the facade (dead-env fix + honest messaging) + no-dead-env lint.
+- [x] Phase 0 — removed the dead per-tier env exports from `trinity profile switch` (kept the consumed GPU power-state exports; allocations now comments), honest switch messaging (applies per-tier swap; NOT N-per-card/new-tiers), + `test_runtime_profile_env_no_dead_exports.py` regression lint. Landed 2026-08-21.
 - [ ] Phase 1 — profile-derived `inference-*.env` + gatewayd tier enumeration.
 - [ ] Phase 2 — `sovereign-tier@.service` template + MPS N-per-card.
 - [ ] Phase 3 — switch → validate → reconcile → verify + acceptance capstone.
