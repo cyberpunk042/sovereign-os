@@ -96,8 +96,15 @@ GPU_ROUTE_DEFAULT=${IAC_GPU_DEFAULT_ID:-gpu-logic}
 GPU_ROUTE_BACKGROUND=${IAC_GPU_BACKGROUND_ID:-gpu-oracle}
 GPU_ROUTE_SET_DEFAULT=${IAC_GPU_SET_DEFAULT:-1}
 GPU_ROUTE_SET_BACKGROUND=${IAC_GPU_SET_BACKGROUND:-1}
-GPU_ROUTE_GATEWAY_TRIES=${IAC_GATEWAY_WAIT_TRIES:-30}
-GPU_ROUTE_TIER_TRIES=${IAC_TIER_WAIT_TRIES:-45}"
+# Wait budgets use := (not =) so a unit's Environment= WINS over this default
+# instead of being clobbered. The applier SOURCES this file AFTER systemd has set
+# the process env, so a plain assignment would overwrite the guard unit's
+# Environment=GPU_ROUTE_TIER_TRIES=150 with 45 — silently capping the intended
+# 300s cold-checkpoint wait (see the unit's TimeoutStartSec comment) at 90s. With
+# :=, the file supplies the default only when nothing already set it (a converge
+# direct run, or the reconcile timer, both of which want the shorter budget).
+: \"\${GPU_ROUTE_GATEWAY_TRIES:=${IAC_GATEWAY_WAIT_TRIES:-30}}\"
+: \"\${GPU_ROUTE_TIER_TRIES:=${IAC_TIER_WAIT_TRIES:-45}}\""
 
 ensure_dir /etc/sovereign-os 0755 root:root
 # Here-string, NOT a pipe: `printf ... | ensure_file ...` would run ensure_file in
