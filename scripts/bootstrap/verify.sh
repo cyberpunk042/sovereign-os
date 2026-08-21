@@ -179,18 +179,57 @@ check_04() {
   esac
 }
 
-# 05 — Security core: Tetragon event stream
+# 05 — Security core: Tetragon event stream + kernel-fence arm posture.
+# Upgraded from "event stream file present" to "the perimeter matches its
+# intended arming posture" (2026-08-20 findings — the acceptance gate the
+# capstone chased): a stream file with NO fence loaded is the "green but blind"
+# trap. Posture-aware — a host that declared armed=0 (e.g. the operator desktop)
+# intentionally runs the fence UNLOADED, so not-loaded is healthy there, not
+# blind. tetra needs root + a live socket; when it can't be queried we degrade
+# to UNVERIFIED rather than emit a false blind/pass.
 check_05() {
-  if [ -S /var/run/tetragon/tetragon.events ] || \
-     [ -p /var/run/tetragon/tetragon.events ] || \
-     [ -f /var/run/tetragon/tetragon.events ]; then
-    RESULTS[05]="PASS"; DETAILS[05]="/var/run/tetragon/tetragon.events present"
-  else
-    if [ ! -d /var/run/tetragon ]; then
-      RESULTS[05]="SKIP"; DETAILS[05]="tetragon not installed (no /var/run/tetragon)"
+  local stream=/var/run/tetragon/tetragon.events
+  if [ ! -d /var/run/tetragon ]; then
+    RESULTS[05]="SKIP"; DETAILS[05]="tetragon not installed (no /var/run/tetragon)"; return
+  fi
+  if ! { [ -S "${stream}" ] || [ -p "${stream}" ] || [ -f "${stream}" ]; }; then
+    RESULTS[05]="FAIL"; DETAILS[05]="tetragon dir exists but event stream missing (${stream})"; return
+  fi
+
+  # Stream present. Resolve the INTENDED arm posture (fail-safe toward armed if
+  # unreadable; profile_field comes from common.sh, absent if it failed to source).
+  local armed prof="${SOVEREIGN_OS_PROFILES_DIR:-${__REPO_ROOT:-.}/profiles}/${SOVEREIGN_OS_PROFILE:-sain-01}.yaml"
+  local _raw=""
+  if command -v profile_field >/dev/null 2>&1 && [ -f "${prof}" ]; then
+    _raw="$(SOVEREIGN_OS_PROFILE_FILE="${prof}" profile_field provisioning.tetragon.armed 2>/dev/null || true)"
+  fi
+  case "${SOVEREIGN_OS_TETRAGON_ARMED:-${_raw}}" in
+    0|false|no|off|disarmed) armed=0 ;;
+    *)                       armed=1 ;;
+  esac
+
+  # Is sovereign-kernel-fence actually loaded in the daemon? (authoritative);
+  # unverifiable without root + live socket.
+  local loaded="unverified"
+  if command -v tetra >/dev/null 2>&1 && tetra tracingpolicy list >/dev/null 2>&1; then
+    if tetra tracingpolicy list 2>/dev/null | grep -q 'sovereign-kernel-fence'; then
+      loaded="yes"
     else
-      RESULTS[05]="FAIL"; DETAILS[05]="tetragon dir exists but event stream missing"
+      loaded="no"
     fi
+  fi
+
+  if [ "${armed}" = 1 ]; then
+    case "${loaded}" in
+      yes) RESULTS[05]="PASS"; DETAILS[05]="event stream present + sovereign-kernel-fence LOADED (armed)" ;;
+      no)  RESULTS[05]="FAIL"; DETAILS[05]="event stream present but sovereign-kernel-fence NOT loaded — perimeter BLIND (armed)" ;;
+      *)   RESULTS[05]="PASS"; DETAILS[05]="event stream present; fence load UNVERIFIED (need root + tetra), intended posture armed" ;;
+    esac
+  else
+    case "${loaded}" in
+      yes) RESULTS[05]="FAIL"; DETAILS[05]="sovereign-kernel-fence LOADED but posture DISARMED (armed=0) — drift" ;;
+      *)   RESULTS[05]="PASS"; DETAILS[05]="event stream present; fence DISARMED by policy (armed=0, observe posture)" ;;
+    esac
   fi
 }
 

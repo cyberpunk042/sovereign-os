@@ -48,7 +48,7 @@ This doc is regenerated from `config/bootstrap/verify-grid.yaml` on every invoca
 ## Check 05 — Security Core (Tetragon)
 
 - **Master spec:** § 22.5 + § 5
-- **Checks:** /var/run/tetragon/tetragon.events present (socket / pipe / file)
+- **Checks:** event stream /var/run/tetragon/tetragon.events present AND sovereign-kernel-fence matches its intended arm posture (loaded when armed; intentionally unloaded when armed=0). Fence load state is UNVERIFIED without root + tetra
 - **Skip condition:** tetragon dir (/var/run/tetragon) doesn't exist
 - **Tools required:** *(none — uses /proc or filesystem reads)*
 

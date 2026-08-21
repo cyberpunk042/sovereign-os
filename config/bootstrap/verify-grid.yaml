@@ -55,9 +55,9 @@ verify_grid:
     - id: "05"
       name: Security Core (Tetragon)
       master_spec_section: "§ 22.5 + § 5"
-      checks_what: /var/run/tetragon/tetragon.events present (socket / pipe / file)
+      checks_what: event stream /var/run/tetragon/tetragon.events present AND sovereign-kernel-fence matches its intended arm posture (loaded when armed; intentionally unloaded when armed=0). Fence load state is UNVERIFIED without root + tetra
       skip_when: tetragon dir (/var/run/tetragon) doesn't exist
-      tools_required: []  # filesystem-only
+      tools_required: []  # filesystem-only; tetra (optional) upgrades load-state from UNVERIFIED
 
     - id: "06"
       name: Network Line (Jumbo MTU)
