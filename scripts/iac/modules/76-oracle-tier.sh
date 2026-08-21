@@ -76,7 +76,16 @@ VLLM_USE_FLASHINFER_SAMPLER=${IAC_VLLM_FLASHINFER_SAMPLER:-0}
 #   --reasoning-parser   gpt-oss emits chain-of-thought; unparsed it becomes the
 #                        answer (vllm/reasoning/__init__.py registers it as
 #                        openai_gptoss)
-ORACLE_EXTRA_ARGS=--served-model-name ${_proxy_id} --attention-backend ${IAC_VLLM_ATTENTION_BACKEND:-TRITON_ATTN} --reasoning-parser ${IAC_ORACLE_REASONING_PARSER:-openai_gptoss}
+#   --enable-auto-tool-choice + --tool-call-parser  REQUIRED for agentic clients
+#                        (OpenClaw sends tools + tool_choice:auto every turn).
+#                        Without them vLLM drops gpt-oss's harmony tool calls and
+#                        returns content:null + tool_calls:null → the client sees
+#                        an empty turn ("couldn't generate a response"). The gpt-oss
+#                        tool parser is registered under the name "openai"
+#                        (tool_parsers/__init__.py → GptOssToolParser, a capability
+#                        stub that delegates to HarmonyParser). Pairs with the
+#                        openai_gptoss reasoning parser. (2026-08-21)
+ORACLE_EXTRA_ARGS=--served-model-name ${_proxy_id} --attention-backend ${IAC_VLLM_ATTENTION_BACKEND:-TRITON_ATTN} --reasoning-parser ${IAC_ORACLE_REASONING_PARSER:-openai_gptoss} --enable-auto-tool-choice --tool-call-parser ${IAC_ORACLE_TOOL_PARSER:-openai}
 EOF
 
 # ─── weights ─────────────────────────────────────────────────────────────────
