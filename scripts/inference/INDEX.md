@@ -14,6 +14,10 @@ Direct-stack architecture per SDD-011 (Q-017 resolution path).
 
 [`router.py`](router.py) — thin OpenAI-compatible HTTP front for clients that want a single endpoint. Deterministic routing by model-id + request shape; no black-box dispatch.
 
+## GPU tier derivation (SDD-903 Phase 1b)
+
+[`derive-gpu-tiers.py`](derive-gpu-tiers.py) — PURE, side-effect-free core that derives gatewayd routing (the `GPU_ROUTE_TIERS` proxy records + embed/rerank endpoints + the SSRF allowlist) from an orchestration profile's `allocations[]`, **including multiple models per card**. It is the logic slated to replace `84-gpu-route.sh`'s hardcoded `_TIERS`, kept standalone + unit-tested FIRST because that module caused the week-long 256-wedge total-inference outage — wiring it into converge is integration-gated (nspawn/qemu + a live gatewayd apply). Faithful drop-in: a logic+oracle profile derives byte-identical output to today's hardcoded tiers (round-trip test). Tests: `tests/unit/test_derive_gpu_tiers.py` (7 cases). Not yet wired.
+
 ## Scheduler bridge (cross-repo, MS048)
 
 [`scheduler-bridge.py`](scheduler-bridge.py) — READ-ONLY consumer of the selfdef IPS-side Goldilocks Scheduler (Solution 2). Builds a task descriptor (profile + 4 model-estimated axes), invokes the `selfdef-scheduler-decide` producer binary, and maps the returned route → backend tier (`blackwell`→oracle / `rtx4090`→scout / `cpu`→cortex / `hybrid` / `hibernate`→defer), honoring the integration contract (`cyberpunk042/selfdef/docs/operator/ms048-scheduler-integration-contract.md`): **honor Hibernate · map route→tier · read-only**. Graceful-offline — binary absent/errored → `scheduler_available=False` so the gateway falls back to its own SDD-011 routing; never crashes, never fabricates a route. Binary path via `SELFDEF_SCHEDULER_DECIDE_BIN`. Usable standalone (`scheduler-bridge.py --profile careful --risk 0.2 --json`) or importable (`consult(task) -> verdict`). Maps route → runtime service (blackwell→Oracle Core / rtx4090→Logic Engine / cpu→Pulse). Tests: `tests/unit/test_scheduler_bridge.py` (10 cases).

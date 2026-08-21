@@ -95,6 +95,7 @@ A capstone (mirrors `perimeter-capstone.sh` discipline): `trinity profile switch
 - [ ] Review + pick F1–F4.
 - [x] Phase 0 — removed the dead per-tier env exports from `trinity profile switch` (kept the consumed GPU power-state exports; allocations now comments), honest switch messaging (applies per-tier swap; NOT N-per-card/new-tiers), + `test_runtime_profile_env_no_dead_exports.py` regression lint. Landed 2026-08-21.
 - [x] Phase 1a — allocation schema (F5): added `port` + `vram_limit_bytes` to the orchestration allocation schema, `embed`/`rerank` tiers+roles, a per-card port-uniqueness lint + an N-per-card-expressible acceptance lint, and a grounded seed profile `profiles/orchestration/dense-4090.yaml` (the live 4090 embed+rerank, 2-on-one-card). Pure config/lint, no live infra. Landed 2026-08-21.
-- [ ] Phase 1b — profile-derived `inference-*.env` + `84-gpu-route` tier enumeration. **Integration-gated** (nspawn/qemu + live gatewayd apply — the 256-wedge module).
+- [x] Phase 1b (core) — `scripts/inference/derive-gpu-tiers.py`: PURE derivation of `GPU_ROUTE_TIERS` + embed/rerank endpoints + SSRF allowlist from `allocations[]`, with port/VRAM `validate()`. 7 unit tests; round-trips **byte-identical** to today's hardcoded `_TIERS`. Landed 2026-08-21. NOT wired.
+- [ ] Phase 1b (wiring) — replace `84-gpu-route`'s hardcoded `_TIERS` with the derived output + profile-derived `inference-*.env`. **Integration-gated** (nspawn/qemu + a live gatewayd apply — the 256-wedge module).
 - [ ] Phase 2 — `sovereign-tier@.service` template + MPS N-per-card.
 - [ ] Phase 3 — switch → validate → reconcile → verify + acceptance capstone.
