@@ -1239,7 +1239,16 @@ impl ProxyRedactor {
         if self.pending.len() <= STREAM_GUARD_WINDOW {
             return String::new();
         }
-        let limit = self.pending.len() - STREAM_GUARD_WINDOW;
+        // `limit` is a BYTE offset; walk it back to the nearest char boundary so
+        // the slice below never lands INSIDE a multi-byte UTF-8 character.
+        // Reasoning models (gpt-oss on gpu-oracle) emit Unicode-heavy text — curly
+        // quotes ’ “ ”, non-breaking hyphens ‑, emoji 1️⃣ — so an un-clamped
+        // `self.pending[..limit]` panics ("byte index N is not a char boundary"),
+        // killing the streaming thread and failing the request (2026-08-21).
+        let mut limit = self.pending.len() - STREAM_GUARD_WINDOW;
+        while limit > 0 && !self.pending.is_char_boundary(limit) {
+            limit -= 1;
+        }
         if let Some(w) = self.pending[..limit].rfind(|c: char| c.is_ascii_whitespace()) {
             let cut = w + 1;
             let span = self.pending[..cut].to_string();
@@ -4022,6 +4031,27 @@ mod tests {
 
     fn infer_line(req: &CortexRequest) -> String {
         serde_json::json!({ "op": "infer", "request": req }).to_string()
+    }
+
+    #[test]
+    fn proxy_redactor_push_no_panic_on_multibyte_window_boundary() {
+        // Regression (2026-08-21): gpt-oss on gpu-oracle emits Unicode-heavy text,
+        // and ProxyRedactor::push sliced `self.pending[..len - STREAM_GUARD_WINDOW]`
+        // at a raw byte offset that could land INSIDE a multi-byte char → panic
+        // ("byte index N is not a char boundary"), killing the stream. 100 × '’'
+        // (U+2019, 3 bytes) = 300 bytes → limit = 44, mid-character.
+        let mut r = ProxyRedactor {
+            pending: String::new(),
+            redact_secrets: true,
+            redact_pii: false,
+        };
+        let out = r.push(&"\u{2019}".repeat(100)); // must NOT panic
+        assert!(out.is_empty(), "nothing to release before a whitespace boundary");
+        // non-breaking hyphens + emoji straddling the boundary must also be safe
+        let out2 = r.push(&format!("{}1\u{fe0f}\u{20e3} x", "\u{2011}".repeat(120)));
+        let _ = out2; // must NOT panic
+        let tail = r.finish(); // flush must NOT panic
+        assert!(!tail.is_empty());
     }
 
     #[test]
