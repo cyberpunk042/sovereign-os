@@ -1341,7 +1341,14 @@ impl<'a, F: FnMut(&str)> StreamGuard<'a, F> {
         if self.pending.len() <= STREAM_GUARD_WINDOW {
             return;
         }
-        let limit = self.pending.len() - STREAM_GUARD_WINDOW;
+        // `limit` is a BYTE offset — walk it back to a char boundary so the slice
+        // below never lands inside a multi-byte UTF-8 char (Unicode-heavy reasoning
+        // output, e.g. gpt-oss on gpu-oracle, otherwise panics here and kills the
+        // stream). Same fix as ProxyRedactor::push above (2026-08-21).
+        let mut limit = self.pending.len() - STREAM_GUARD_WINDOW;
+        while limit > 0 && !self.pending.is_char_boundary(limit) {
+            limit -= 1;
+        }
         // Cut at the last ASCII whitespace at or before `limit`; a whitespace-
         // free secret/PII token therefore never spans the cut. `+ 1` includes
         // the (1-byte ASCII) whitespace in the released span and lands on a char
@@ -4052,6 +4059,22 @@ mod tests {
         let _ = out2; // must NOT panic
         let tail = r.finish(); // flush must NOT panic
         assert!(!tail.is_empty());
+    }
+
+    #[test]
+    fn stream_guard_push_no_panic_on_multibyte_window_boundary() {
+        // The SECOND char-boundary site (StreamGuard::push, the streaming-relay
+        // path) had the identical un-clamped `self.pending[..limit]`. Multi-byte
+        // chars straddling the 256-byte window must not panic here either.
+        let mut out = String::new();
+        {
+            let mut sink = |t: &str| out.push_str(t);
+            let mut sg = StreamGuard::new(&mut sink, true, false, false);
+            sg.push(&"\u{2019}".repeat(100)); // 300 bytes of a 3-byte char
+            sg.push(&format!("{}1\u{fe0f}\u{20e3} tail ", "\u{2011}".repeat(120)));
+            let _ = sg.finish(); // must NOT panic
+        }
+        assert!(out.contains('\u{2019}') || out.contains('\u{2011}'));
     }
 
     #[test]
