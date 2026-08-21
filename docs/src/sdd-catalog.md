@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (239 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (240 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -196,6 +196,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (239 total), by number.
 - [SDD-724 — the adapter eval runner (the MS041 eval gate-producer) (IMPLEMENTATION)](../sdd/724-adapter-eval-gate-producer.md)
 - [SDD-800 — Cockpit wasm bridge: the typed cockpit crates run in the browser](../sdd/800-cockpit-wasm-bridge.md)
 - [SDD-902 — Compute Plane Phase 2: multi-model gateway (secondary-model hosting)](../sdd/902-compute-plane-phase2-multi-model.md)
+- [SDD-903 — Profile-driven inference reconciler: make the runtime/orchestration profile the real source of truth for model→card placement (N models per card)](../sdd/903-profile-driven-inference-reconciler-n-models-per-card.md)
 - [SDD-950 — Real RoPE: `rope_theta` + `rope_scaling` from the model config (make modern models decode coherently)](../sdd/950-real-rope-theta-scaling.md)
 - [SDD-951 — Durable memory: never silently lost (corruption recovery + bounded growth)](../sdd/951-durable-memory-corruption-safety.md)
 - [SDD-952 — context.md counts-as-contract: the re-orientation surface can't silently drift again](../sdd/952-context-md-counts-contract.md)
