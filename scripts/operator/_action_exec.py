@@ -382,7 +382,7 @@ def _stepup_factors() -> list[str]:
 
 def execute(control_id: str, args: dict[str, str] | None = None, *,
             confirm: bool = False, actor: str = "operator",
-            dry_run: bool | None = None, timeout: float = 30.0) -> dict[str, Any]:
+            dry_run: bool | None = None, timeout: float | None = None) -> dict[str, Any]:
     """Validate + (optionally) execute a control action. Returns a structured
     result. `dry_run` defaults to Phase-0-safe (execute only when the process
     opted in via SOVEREIGN_OS_ACTION_EXEC_LIVE=1 or an explicit dry_run=False).
@@ -391,6 +391,15 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
     the HTTP status a daemon would return (200/400/403/404/409).
     """
     args = args or {}
+    if timeout is None:
+        # Tunable ceiling: a profile switch that reloads a large model on a tier
+        # legitimately runs for minutes; the default 30s killed it mid-restart
+        # (504 + the post-restart steps, incl. the OpenClaw mirror, never ran).
+        # Operators raise this via SOVEREIGN_OS_ACTION_TIMEOUT in the live drop-in.
+        try:
+            timeout = float(os.environ.get("SOVEREIGN_OS_ACTION_TIMEOUT", "30"))
+        except ValueError:
+            timeout = 30.0
     if dry_run is None:
         dry_run = _DEFAULT_DRY_RUN
     reg = load_registry()
