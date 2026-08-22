@@ -300,3 +300,56 @@ def test_openclaw_home_prefers_a_config_that_exists(tmp_path: Path, monkeypatch)
     # An explicit override always wins — the tests and the IaC rely on it.
     monkeypatch.setenv("SOVEREIGN_OS_OPENCLAW_HOME", str(tmp_path / "managed"))
     assert mod._openclaw_home() == tmp_path / "managed"
+
+
+def test_swap_adopts_an_install_it_did_not_provision(tmp_path: Path, monkeypatch):
+    """`swap` refused without a saved descriptor, which only `provision` writes.
+    OpenClaw is normally installed by its OWN onboard wizard — that is how it got
+    onto this box — so a working install had no descriptor and `openclaw backend
+    local` answered "not provisioned, run: openclaw install" while the gateway
+    was up and serving. Telling an operator to install what they already have is
+    not a useful refusal."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_ab_adopt", ENGINE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    home = tmp_path / "oc"
+    (home / ".openclaw").mkdir(parents=True)
+    (home / ".openclaw" / "openclaw.json").write_text(json.dumps({
+        "gateway": {"port": 18789},
+        "agents": {"defaults": {"model": {"primary": "sovereign/gpu-oracle"}}},
+        "models": {"providers": {
+            "sovereign": {"baseUrl": "http://127.0.0.1:8787/v1",
+                          "models": [{"id": "gpu-oracle"}]},
+            "anthropic": {"baseUrl": "https://api.anthropic.com",
+                          "models": [{"id": "claude-opus-4-8"}]},
+        }},
+    }), encoding="utf-8")
+    monkeypatch.setenv("SOVEREIGN_OS_OPENCLAW_HOME", str(home))
+
+    d = mod._adopt_openclaw_desc()
+    assert d["backend"] == "local"
+    assert d["local"]["model"] == "gpu-oracle"
+    assert d["anthropic"]["model"] == "claude-opus-4-8"
+    assert d["gateway_port"] == 18789
+
+    # Nothing to adopt ⇒ empty, so the honest "not provisioned" error still fires.
+    monkeypatch.setenv("SOVEREIGN_OS_OPENCLAW_HOME", str(tmp_path / "absent"))
+    assert mod._adopt_openclaw_desc() == {}
+
+
+def test_descriptor_cache_failure_does_not_abort_the_swap(tmp_path: Path, monkeypatch):
+    """The descriptor lives under /etc and the save ran BEFORE the render, so a
+    non-root operator got a PermissionError traceback and an untouched config.
+    Failing the work because the note about the work could not be filed is the
+    wrong order of priorities."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_ab_desc", ENGINE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    monkeypatch.setattr(mod, "_desc_path", lambda r: Path("/proc/definitely-not-writable/x.json"))
+    mod._save_desc("openclaw", {"backend": "local"})  # must not raise

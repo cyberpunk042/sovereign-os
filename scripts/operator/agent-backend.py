@@ -116,9 +116,26 @@ def _load_desc(runtime: str) -> dict[str, Any]:
 
 
 def _save_desc(runtime: str, d: dict[str, Any]) -> None:
+    """Cache the descriptor under /etc. BEST EFFORT.
+
+    This is a convenience record of what was last provisioned; the artifact that
+    matters is the runtime's own config. It lives under /etc, so a non-root
+    operator cannot write it — and because the save ran BEFORE the render, an
+    unwritable cache aborted the whole swap with a PermissionError traceback,
+    leaving the config untouched. Failing the work because the note about the
+    work could not be filed is the wrong order of priorities.
+
+    A failure warns and continues; the render is what the operator asked for.
+    """
     p = _desc_path(runtime)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
+    except OSError as e:
+        sys.stderr.write(
+            f"[warn] could not record the backend descriptor at {p}: {e}\n"
+            f"[warn] the swap itself still applied; re-run as root to persist it\n"
+        )
 
 
 def _anthropic_key() -> str:
@@ -406,10 +423,60 @@ def provision(runtime: str, args: argparse.Namespace) -> dict[str, Any]:
     return {"ok": True, "runtime": runtime, "backend": args.backend, "config": path}
 
 
+def _adopt_openclaw_desc() -> dict[str, Any]:
+    """Derive a descriptor from an OpenClaw install this system did not provision.
+
+    `swap` refused without a saved descriptor, which only `provision` writes. But
+    OpenClaw is normally installed by its OWN `onboard` wizard — that is how it
+    got onto this box — so a perfectly working install has no descriptor and
+    `openclaw backend local` answered
+
+        error: openclaw not provisioned — run: sovereign-osctl openclaw install
+
+    while the gateway was up and serving. Telling an operator to install what
+    they already have is not a useful refusal.
+
+    So an existing config is ADOPTED: it already states the endpoint, the models
+    and the port. Read from the install, not from an assumption about how it got
+    there. Returns {} when there is genuinely nothing to adopt.
+    """
+    cfg, _ = _load_openclaw_config(_openclaw_home() / ".openclaw" / "openclaw.json")
+    if not cfg:
+        return {}
+    provs = cfg.get("models", {}).get("providers", {})
+    sov = provs.get("sovereign") or provs.get("local") or {}
+    anth = provs.get("anthropic") or {}
+    primary = (
+        cfg.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
+    )
+
+    def _first(p: dict[str, Any], fallback: str) -> str:
+        ms = p.get("models")
+        if isinstance(ms, list) and ms and isinstance(ms[0], dict) and ms[0].get("id"):
+            return str(ms[0]["id"])
+        return fallback
+
+    return {
+        "backend": "anthropic" if primary.startswith("anthropic/") else "local",
+        "local": {
+            "endpoint": sov.get("baseUrl", "http://127.0.0.1:8787"),
+            "model": primary.split("/", 1)[1] if primary.startswith(("sovereign/", "local/"))
+                     else _first(sov, "auto"),
+        },
+        "anthropic": {
+            "endpoint": anth.get("baseUrl", "https://api.anthropic.com"),
+            "model": _first(anth, "claude-opus-4-8"),
+        },
+        "gateway_port": cfg.get("gateway", {}).get("port", 18789),
+    }
+
+
 def swap(runtime: str, backend: str, key: str | None) -> dict[str, Any]:
     if key:
         _write_key(key)
     desc = _load_desc(runtime)
+    if not desc and runtime == "openclaw":
+        desc = _adopt_openclaw_desc()
     if not desc:
         return {"ok": False, "error": f"{runtime} not provisioned — run: sovereign-osctl {runtime} install"}
     desc["backend"] = backend
