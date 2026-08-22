@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pwd
 import re
 import shutil
 import subprocess
@@ -47,7 +48,48 @@ UNIT = {"openclaw": "sovereign-openclaw.service", "open-computer": "sovereign-op
 DRYRUN = os.environ.get("SOVEREIGN_OS_BACKEND_DRYRUN") == "1"
 ETC = Path(os.environ.get("SOVEREIGN_OS_ETC", "/etc/sovereign-os"))
 KEY_FILE = Path(os.environ.get("SOVEREIGN_OS_ANTHROPIC_KEY_ENV", str(ETC / "anthropic-key.env")))
-OPENCLAW_HOME = Path(os.environ.get("SOVEREIGN_OS_OPENCLAW_HOME", "/var/lib/sovereign-os/openclaw"))
+OPENCLAW_HOME_DEFAULT = Path("/var/lib/sovereign-os/openclaw")
+
+
+def _openclaw_home() -> Path:
+    """Where OpenClaw ACTUALLY reads its config.
+
+    The default assumed a managed install under /var/lib/sovereign-os/openclaw.
+    A real box does not necessarily have one: OpenClaw is an `npm install -g`
+    that its own `onboard` wizard configures, and on this machine that put the
+    config in the operator's home while /var/lib/sovereign-os/openclaw does not
+    exist at all. Writing the managed path would have produced a perfectly
+    correct config that nothing reads — a swap that appears to work and changes
+    nothing, which is worse than one that fails.
+
+    So: an explicit override wins, otherwise PREFER A CONFIG THAT EXISTS. Only
+    when none is found does this fall back to the managed path (a fresh box,
+    where creating it there is right).
+    """
+    env = os.environ.get("SOVEREIGN_OS_OPENCLAW_HOME")
+    if env:
+        return Path(env)
+    candidates = [OPENCLAW_HOME_DEFAULT]
+    # The invoking operator, sudo-aware — `sudo sovereign-osctl` must still find
+    # the config of the human who ran it, not root's.
+    for name in (os.environ.get("SUDO_USER"), os.environ.get("USER")):
+        if not name:
+            continue
+        try:
+            candidates.append(Path(pwd.getpwnam(name).pw_dir))
+        except KeyError:
+            pass
+    try:
+        candidates.append(Path.home())
+    except RuntimeError:
+        pass
+    for c in candidates:
+        if (c / ".openclaw" / "openclaw.json").is_file():
+            return c
+    return OPENCLAW_HOME_DEFAULT
+
+
+OPENCLAW_HOME = _openclaw_home()
 OC_ROOT = Path(os.environ.get("SOVEREIGN_OS_OPEN_COMPUTER_ROOT", "/var/lib/sovereign-os/open-computer"))
 OC_ENV = Path(os.environ.get("SOVEREIGN_OS_OPEN_COMPUTER_ENV", str(ETC / "open-computer.env")))
 # Claude Code reads ANTHROPIC_BASE_URL/ANTHROPIC_API_KEY from the environment;
@@ -188,7 +230,7 @@ def render_openclaw(desc: dict[str, Any]) -> str:
     lm = local.get("model", "auto")   # "you choose" — not the CPU primary
     am = anth.get("model", "claude-sonnet-4-6")
 
-    dst = OPENCLAW_HOME / ".openclaw" / "openclaw.json"
+    dst = _openclaw_home() / ".openclaw" / "openclaw.json"
     cfg, warning = _load_openclaw_config(dst)
     if warning:
         sys.stderr.write(f"[warn] {warning}\n")

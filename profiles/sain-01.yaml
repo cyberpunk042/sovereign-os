@@ -482,7 +482,12 @@ provisioning:
                                                # which pins every OpenClaw request to the CPU primary at ~1.6 tok/s on a
                                                # box whose GPU tiers serve ~250.
     anthropic_endpoint: https://api.anthropic.com   # hosted Claude — used when backend=anthropic (real ANTHROPIC_API_KEY, operator-supplied, never baked)
-    anthropic_model: claude-sonnet-4-6         # Claude model on the anthropic backend (operator can set any current Claude model)
+    anthropic_model: claude-opus-4-8           # Claude model on the anthropic backend (operator can set any current Claude model).
+                                               # NOTE: `anthropic/*` bills API credits against ANTHROPIC_API_KEY. The
+                                               # `claude-cli/*` provider reaches the same models through the operator's
+                                               # already-authenticated Claude CLI instead — no key, no separate billing —
+                                               # and claude-cli/claude-opus-4-8 is kept selectable in
+                                               # agents.defaults.models. Pick per turn; neither is automatic.
     gateway_port: 18789                        # OpenClaw gateway bind (loopback)
     node_major: 24                             # NodeSource major (OpenClaw engines: >=24.15 <25 recommended, or >=22.22.3 <23); 24.x satisfies the recommended band
   # open-computer preconfig (SDD-706). The QEMU AI-sandbox runs on-box; its LLM backend
@@ -495,7 +500,12 @@ provisioning:
     model_id: auto                             # OPENAI_MODEL advertised to open-computer (local). `auto` for the same
                                                # reason as openclaw above: local-oracle is the CPU primary.
     anthropic_endpoint: https://api.anthropic.com/v1/   # hosted Claude OpenAI-compat endpoint — used when backend=anthropic (real key, operator-supplied, never baked)
-    anthropic_model: claude-sonnet-4-6         # Claude model on the anthropic backend (operator can set any current Claude model)
+    anthropic_model: claude-opus-4-8           # Claude model on the anthropic backend (operator can set any current Claude model).
+                                               # NOTE: `anthropic/*` bills API credits against ANTHROPIC_API_KEY. The
+                                               # `claude-cli/*` provider reaches the same models through the operator's
+                                               # already-authenticated Claude CLI instead — no key, no separate billing —
+                                               # and claude-cli/claude-opus-4-8 is kept selectable in
+                                               # agents.defaults.models. Pick per turn; neither is automatic.
     web_port: 9800                             # open-computer agent UI/control base port (kiosk target)
     repo: https://github.com/Mintplex-Labs/anything-llm   # sparse-cloned for the open-computer/ subdir
     base_image_url: https://cdn.anythingllm.com/support/open-computer/base-images/06_08_2026/x64-base-image.tar

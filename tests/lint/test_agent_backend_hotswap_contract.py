@@ -274,3 +274,29 @@ def test_vscode_swap_renders_cline_fragment(tmp_path: Path):
     assert r.returncode == 0
     frag_cloud = (tmp_path / "vscode-cline-settings.json").read_text(encoding="utf-8")
     assert "api.anthropic.com" in frag_cloud, "cloud must target the hosted Claude endpoint"
+
+
+def test_openclaw_home_prefers_a_config_that_exists(tmp_path: Path, monkeypatch):
+    """OPENCLAW_HOME defaulted to /var/lib/sovereign-os/openclaw. OpenClaw is an
+    `npm install -g` whose own onboard wizard writes to the operator's home, and
+    on a real box the managed directory may not exist at all — so a swap wrote a
+    perfectly correct config that nothing read. It appeared to work and changed
+    nothing, which is worse than failing."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_ab_home", ENGINE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    monkeypatch.delenv("SOVEREIGN_OS_OPENCLAW_HOME", raising=False)
+    operator_home = tmp_path / "operator"
+    (operator_home / ".openclaw").mkdir(parents=True)
+    (operator_home / ".openclaw" / "openclaw.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("SUDO_USER", "nobody")
+    monkeypatch.setattr(mod.pwd, "getpwnam",
+                        lambda n: type("P", (), {"pw_dir": str(operator_home)})())
+    assert mod._openclaw_home() == operator_home, "must target the config that exists"
+
+    # An explicit override always wins — the tests and the IaC rely on it.
+    monkeypatch.setenv("SOVEREIGN_OS_OPENCLAW_HOME", str(tmp_path / "managed"))
+    assert mod._openclaw_home() == tmp_path / "managed"
