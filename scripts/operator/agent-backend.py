@@ -267,13 +267,43 @@ def render_openclaw(desc: dict[str, Any]) -> str:
     if not isinstance(sov.get("models"), list) or not sov["models"]:
         sov["models"] = [{"id": lm, "name": "Sovereign (local)", "contextWindow": 128000}]
 
-    # ── anthropic (hosted Claude, outside the spine — see the note below) ─────
-    a = providers.setdefault("anthropic", {})
-    a["baseUrl"] = anth.get("endpoint", "https://api.anthropic.com")
-    a["api"] = "anthropic-messages"
-    a["apiKey"] = "${ANTHROPIC_API_KEY}"
-    if not isinstance(a.get("models"), list) or not a["models"]:
-        a["models"] = [{"id": am, "name": "Cloud Claude"}]
+    # ── anthropic (hosted Claude, outside the spine) ──────────────────────────
+    # ONLY when a key is actually resolvable. An `apiKey: "${ANTHROPIC_API_KEY}"`
+    # secret-ref with no such variable is NOT a warning to OpenClaw — it is a
+    # HARD STARTUP FAILURE:
+    #
+    #   [secrets] [SECRETS_RELOADER_DEGRADED] SecretRefResolutionError:
+    #   Environment variable "ANTHROPIC_API_KEY" is missing or empty.
+    #   openclaw-gateway.service: Main process exited, code=exited, status=1
+    #
+    # Declaring the provider on a box without the key crash-looped the gateway
+    # until systemd's start limit stopped it. `openclaw gateway status` reports
+    # the same condition as a mere "feature will be unavailable", which is what
+    # made it look safe. It is not: a provider that cannot authenticate must not
+    # be declared at all.
+    #
+    # NOTE: `claude-cli/*` reaches the same Claude models through the operator's
+    # already-authenticated CLI and needs NO key — that is the keyless route to a
+    # second provider, and it is unaffected by any of this.
+    have_key = bool(_anthropic_key() or os.environ.get("ANTHROPIC_API_KEY"))
+    if have_key:
+        a = providers.setdefault("anthropic", {})
+        a["baseUrl"] = anth.get("endpoint", "https://api.anthropic.com")
+        a["api"] = "anthropic-messages"
+        a["apiKey"] = "${ANTHROPIC_API_KEY}"
+        if not isinstance(a.get("models"), list) or not a["models"]:
+            a["models"] = [{"id": am, "name": "Cloud Claude"}]
+    else:
+        # Remove any previously-written block, so a config that currently breaks
+        # startup is REPAIRED by re-rendering rather than preserved by the merge.
+        providers.pop("anthropic", None)
+        sys.stderr.write(
+            "[warn] no ANTHROPIC_API_KEY (checked "
+            f"{KEY_FILE} and the environment) — the `anthropic` provider is NOT\n"
+            "[warn] declared, because an unresolvable secret-ref stops the OpenClaw\n"
+            "[warn] gateway from starting at all. Add the key and re-run, or use\n"
+            "[warn] `claude-cli/*`, which needs no key.\n"
+        )
 
     # ── the swap is a CHOICE OF PRIMARY, nothing more ─────────────────────────
     prefix = "sovereign" if backend == "local" else "anthropic"
@@ -290,7 +320,11 @@ def render_openclaw(desc: dict[str, Any]) -> str:
     # claude-cli entry, because only those appear in this map.
     allow = cfg["agents"]["defaults"].setdefault("models", {})
     allow.setdefault(f"sovereign/{lm}", {})
-    allow.setdefault(f"anthropic/{am}", {})
+    if have_key:
+        allow.setdefault(f"anthropic/{am}", {})
+    else:
+        for k in [k for k in allow if k.startswith("anthropic/")]:
+            allow.pop(k)
 
     # ── cloud is SELECTABLE, never AUTOMATIC ──────────────────────────────────
     # An onboarding wizard had left `fallbacks: ["claude-cli/…"]`, so a sovereign

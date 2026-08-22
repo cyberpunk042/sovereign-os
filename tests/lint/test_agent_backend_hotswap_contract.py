@@ -142,6 +142,11 @@ def _openclaw_cfg(tmp: Path) -> dict:
 
 
 def test_openclaw_swap_flips_primary(tmp_path: Path):
+    # A key must exist for the anthropic provider to be declared at all: an
+    # unresolvable secret-ref is a hard startup failure for OpenClaw, so the
+    # renderer refuses to write one. See
+    # test_never_declares_a_provider_that_cannot_authenticate.
+    (tmp_path / "anthropic-key.env").write_text("ANTHROPIC_API_KEY=sk-test\n", encoding="utf-8")
     assert _provision_openclaw(tmp_path).returncode == 0
     cfg = _openclaw_cfg(tmp_path)
     provs = cfg["models"]["providers"]
@@ -353,3 +358,47 @@ def test_descriptor_cache_failure_does_not_abort_the_swap(tmp_path: Path, monkey
 
     monkeypatch.setattr(mod, "_desc_path", lambda r: Path("/proc/definitely-not-writable/x.json"))
     mod._save_desc("openclaw", {"backend": "local"})  # must not raise
+
+
+def test_never_declares_a_provider_that_cannot_authenticate(tmp_path: Path, monkeypatch):
+    """An `apiKey: "${ANTHROPIC_API_KEY}"` secret-ref with no such variable is not
+    a warning to OpenClaw — it is a HARD startup failure:
+
+        [secrets] SecretRefResolutionError: Environment variable
+        "ANTHROPIC_API_KEY" is missing or empty
+        openclaw-gateway.service: Main process exited, status=1/FAILURE
+
+    Declaring it on a keyless box crash-looped the gateway until systemd's start
+    limit stopped it. `openclaw gateway status` calls the same condition "feature
+    will be unavailable", which is what made it look safe."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_ab_key", ENGINE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    home = tmp_path / "oc"
+    (home / ".openclaw").mkdir(parents=True)
+    monkeypatch.setenv("SOVEREIGN_OS_OPENCLAW_HOME", str(home))
+    monkeypatch.setenv("SOVEREIGN_OS_ANTHROPIC_KEY_ENV", str(tmp_path / "no-key.env"))
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(mod, "KEY_FILE", tmp_path / "no-key.env")
+
+    desc = {"backend": "local", "local": {"model": "gpu-oracle"},
+            "anthropic": {"model": "claude-opus-4-8"}, "gateway_port": 18789}
+    cfg = json.loads(Path(mod.render_openclaw(desc)).read_text(encoding="utf-8"))
+    assert "anthropic" not in cfg["models"]["providers"], \
+        "a provider that cannot authenticate must not be declared"
+    assert not [k for k in cfg["agents"]["defaults"]["models"] if k.startswith("anthropic/")]
+
+    # With a key present it IS declared.
+    (tmp_path / "no-key.env").write_text("ANTHROPIC_API_KEY=sk-test\n", encoding="utf-8")
+    cfg2 = json.loads(Path(mod.render_openclaw(desc)).read_text(encoding="utf-8"))
+    assert "anthropic" in cfg2["models"]["providers"]
+    assert "anthropic/claude-opus-4-8" in cfg2["agents"]["defaults"]["models"]
+
+    # ...and removing the key REPAIRS a config that would now break startup.
+    (tmp_path / "no-key.env").write_text("", encoding="utf-8")
+    cfg3 = json.loads(Path(mod.render_openclaw(desc)).read_text(encoding="utf-8"))
+    assert "anthropic" not in cfg3["models"]["providers"], \
+        "re-rendering must repair a config that cannot start, not preserve it"
