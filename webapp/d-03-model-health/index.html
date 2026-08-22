@@ -2533,6 +2533,9 @@ refresh();
 .qp .qp-variant[aria-pressed="true"] .qp-meta { color: #0a0a0a; opacity: .85; }
 .qp .qp-variant .qp-q { font-weight: 600; font-size: .82rem; }
 .qp .qp-variant .qp-meta { font-size: .72rem; color: var(--muted, #888); }
+.qp .qp-variant .qp-ctx { color: var(--fg); font-weight: 600; }
+.qp .qp-variant .qp-ctx.big { color: var(--good); }  /* 1M-context models pop */
+.qp .qp-variant[aria-pressed="true"] .qp-ctx { color: #0a0a0a; }
 .qp .qp-chosen { margin: .7rem 0 0; font-size: .82rem; color: var(--muted, #888); }
 .qp .qp-chosen code { background: var(--border, #262626); padding: 1px 5px; border-radius: 3px; }
 </style>
@@ -2571,12 +2574,18 @@ refresh();
     var varsEl = document.getElementById('qp-variants');
     var chosenEl = document.getElementById('qp-chosen');
     var BASES = [];
+    // Human context window: 1000000 → "1M", 131072 → "131K", 4096 → "4K".
+    function fmtCtx(t) { t = +t || 0; return t >= 1e6 ? +(t / 1e6).toFixed(1) + 'M'
+      : t >= 1e3 ? Math.round(t / 1e3) + 'K' : (t || '?'); }
+    function baseCtx(b) { return (b.variants && b.variants[0] && b.variants[0].context_window_tokens)
+      || b.context_window_tokens || 0; }
     function fillSelect(bases) {
       BASES = bases || [];
       if (!BASES.length) { sel.innerHTML = '<option value="">— catalog unavailable —</option>'; return; }
       var multi = BASES.filter(function (b) { return b.variant_count > 1; });
       var single = BASES.filter(function (b) { return b.variant_count <= 1; });
-      function opt(b) { return '<option value="' + esc(b.base) + '">' + esc(b.base)
+      function opt(b) { var c = baseCtx(b); return '<option value="' + esc(b.base) + '">' + esc(b.base)
+        + (c ? ' · ' + fmtCtx(c) + ' ctx' : '')
         + (b.variant_count > 1 ? ' · ' + b.variant_count + ' quants' : '') + '</option>'; }
       sel.innerHTML = '<option value="">— choose a model —</option>'
         + (multi.length ? '<optgroup label="multiple quantizations">' + multi.map(opt).join('') + '</optgroup>' : '')
@@ -2588,9 +2597,13 @@ refresh();
       if (!g) { varsEl.innerHTML = ''; return; }
       varsEl.innerHTML = g.variants.map(function (v) {
         var vram = (v.vram_gib_min != null ? v.vram_gib_min + ' GiB' : '—');
+        var ct = +v.context_window_tokens || 0;
+        var ctx = ct ? '<span class="qp-ctx' + (ct >= 1e6 ? ' big' : '') + '">' + fmtCtx(ct) + ' ctx</span>' : '';
+        var prm = v.params_b != null ? v.params_b + 'B' : '';
+        var rest = [vram, prm, esc(v.status || '')].filter(Boolean).join(' · ');
         return '<button type="button" class="qp-variant" aria-pressed="false" data-id="' + esc(v.id)
           + '" data-quant="' + esc(v.quantization) + '"><span class="qp-q">' + esc(v.quantization)
-          + '</span><span class="qp-meta">' + vram + ' · ' + esc(v.status || '') + '</span></button>';
+          + '</span><span class="qp-meta">' + ctx + (ctx ? ' · ' : '') + rest + '</span></button>';
       }).join('');
     }
     function choose(btn) {

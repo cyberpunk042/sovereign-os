@@ -18,5 +18,8 @@
 .qp .qp-variant[aria-pressed="true"] .qp-meta { color: #0a0a0a; opacity: .85; }
 .qp .qp-variant .qp-q { font-weight: 600; font-size: .82rem; }
 .qp .qp-variant .qp-meta { font-size: .72rem; color: var(--muted, #888); }
+.qp .qp-variant .qp-ctx { color: var(--fg); font-weight: 600; }
+.qp .qp-variant .qp-ctx.big { color: var(--good); }  /* 1M-context models pop */
+.qp .qp-variant[aria-pressed="true"] .qp-ctx { color: #0a0a0a; }
 .qp .qp-chosen { margin: .7rem 0 0; font-size: .82rem; color: var(--muted, #888); }
 .qp .qp-chosen code { background: var(--border, #262626); padding: 1px 5px; border-radius: 3px; }
