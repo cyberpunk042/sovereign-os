@@ -265,6 +265,16 @@ def render_openclaw(desc: dict[str, Any]) -> str:
     )
     model_sel["primary"] = f"{prefix}/{lm if backend == 'local' else am}"
 
+    # ── register both in the allow-list, or neither is SELECTABLE ─────────────
+    # `agents.defaults.models` is what makes a model "configured" — it is the map
+    # OpenClaw's picker and `openclaw models list` read. Declaring a provider is
+    # NOT enough: the anthropic provider block was written correctly and
+    # `openclaw models list` still showed only sovereign/* and the one
+    # claude-cli entry, because only those appear in this map.
+    allow = cfg["agents"]["defaults"].setdefault("models", {})
+    allow.setdefault(f"sovereign/{lm}", {})
+    allow.setdefault(f"anthropic/{am}", {})
+
     # ── cloud is SELECTABLE, never AUTOMATIC ──────────────────────────────────
     # An onboarding wizard had left `fallbacks: ["claude-cli/…"]`, so a sovereign
     # failure silently continued on the hosted API — cloud use at exactly the
