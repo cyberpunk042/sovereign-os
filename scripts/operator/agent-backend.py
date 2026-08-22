@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -124,43 +125,120 @@ def _restart_if_active(runtime: str) -> None:
 
 # ---------- renderers (the single source of each runtime's config) ----------
 
+def _load_openclaw_config(path: Path) -> tuple[dict[str, Any], str | None]:
+    """Parse an existing openclaw.json, tolerating the JSON5 the old renderer wrote.
+
+    Returns `(config, warning)`. A file that cannot be parsed at all is BACKED UP
+    and reported — never silently discarded, because it holds the gateway auth
+    token and the operator's channel setup.
+    """
+    if not path.is_file():
+        return {}, None
+    raw = path.read_text(encoding="utf-8")
+    try:
+        return json.loads(raw), None
+    except json.JSONDecodeError:
+        pass
+    # JSON5-lite: strip // line comments and trailing commas. Enough for the
+    # shape the previous renderer emitted; not a general JSON5 parser.
+    stripped = re.sub(r"(?m)^\s*//.*$", "", raw)
+    stripped = re.sub(r",(\s*[}\]])", r"\1", stripped)
+    try:
+        return json.loads(stripped), None
+    except json.JSONDecodeError as e:
+        bak = path.with_suffix(".json.unparseable")
+        try:
+            bak.write_text(raw, encoding="utf-8")
+        except OSError:
+            pass
+        return {}, f"could not parse {path} ({e}); previous contents saved to {bak}"
+
+
 def render_openclaw(desc: dict[str, Any]) -> str:
-    """Write ~/.openclaw/openclaw.json (JSON5) with BOTH providers; primary per backend."""
+    """MERGE the two providers into ~/.openclaw/openclaw.json — never template over it.
+
+    SDD-707 always specified two coexisting providers with the hotswap flipping
+    the primary. The implementation wrote the whole file from a template, which
+    on a live box would have destroyed:
+
+      * `models.providers.sovereign` and its per-tier models — the entries
+        scripts/inference/sync-openclaw-models.py rewrites on every
+        `trinity profile switch`, so the D-21 profile mirroring would have
+        stopped working;
+      * `gateway.auth.token` — the credential the Control UI authenticates with;
+      * `session`, `tools`, `wizard` and any channel the operator had onboarded.
+
+    Worse than the loss: sync-openclaw-models.py looks up
+    `models.providers.sovereign.models`, would not find it, and logs
+    "skipping (ok)". The breakage would have been silent and permanent.
+
+    So this merges. It also uses the provider name the rest of the system
+    already uses — `sovereign`, not `local` — so the renderer and the profile
+    sync finally agree on one shape.
+
+    MERGE RULE: an EXISTING sovereign provider keeps its `baseUrl`/`api`. The
+    live box speaks `openai-completions` at `/v1` and works; re-asserting
+    `anthropic-messages` from a default would break a working setup to satisfy a
+    template. Those fields are written only when the provider is created.
+    """
     backend = desc.get("backend", "local")
     local = desc.get("local", {})
     anth = desc.get("anthropic", {})
     port = desc.get("gateway_port", 18789)
     lm = local.get("model", "auto")   # "you choose" — not the CPU primary
     am = anth.get("model", "claude-sonnet-4-6")
-    primary = f"local/{lm}" if backend == "local" else f"anthropic/{am}"
-    cfg = f"""{{
-  // sovereign-os SDD-707 — two coexisting providers; hotswap flips the primary.
-  // local  = the on-box safety-spine gateway (Anthropic Messages API).
-  // anthropic = hosted Claude (real ANTHROPIC_API_KEY, operator-supplied, never baked).
-  models: {{
-    mode: "merge",
-    providers: {{
-      local: {{
-        baseUrl: "{local.get('endpoint', 'http://127.0.0.1:8787')}",
-        api: "anthropic-messages",
-        apiKey: "sovereign-local",
-        models: [{{ id: "{lm}", name: "Local (sovereign)", contextWindow: 128000 }}],
-      }},
-      anthropic: {{
-        baseUrl: "{anth.get('endpoint', 'https://api.anthropic.com')}",
-        api: "anthropic-messages",
-        apiKey: "${{ANTHROPIC_API_KEY}}",
-        models: [{{ id: "{am}", name: "Cloud Claude" }}],
-      }},
-    }},
-  }},
-  agents: {{ defaults: {{ model: {{ primary: "{primary}" }}, models: {{ "local/*": {{}}, "anthropic/*": {{}} }} }} }},
-  gateway: {{ mode: "local", bind: "loopback", port: {port} }},
-}}
-"""
+
     dst = OPENCLAW_HOME / ".openclaw" / "openclaw.json"
+    cfg, warning = _load_openclaw_config(dst)
+    if warning:
+        sys.stderr.write(f"[warn] {warning}\n")
+
+    providers = cfg.setdefault("models", {}).setdefault("providers", {})
+
+    # ── sovereign (on-box, through the safety spine) ──────────────────────────
+    sov = providers.setdefault("sovereign", {})
+    created = "baseUrl" not in sov
+    if created:
+        sov["baseUrl"] = local.get("endpoint", "http://127.0.0.1:8787")
+        sov["api"] = "anthropic-messages"
+        sov["timeoutSeconds"] = 300
+    sov["apiKey"] = "sovereign-local"
+    # The models list is OWNED by sync-openclaw-models.py (it mirrors the active
+    # orchestration profile). Seed it only when there is nothing there at all.
+    if not isinstance(sov.get("models"), list) or not sov["models"]:
+        sov["models"] = [{"id": lm, "name": "Sovereign (local)", "contextWindow": 128000}]
+
+    # ── anthropic (hosted Claude, outside the spine — see the note below) ─────
+    a = providers.setdefault("anthropic", {})
+    a["baseUrl"] = anth.get("endpoint", "https://api.anthropic.com")
+    a["api"] = "anthropic-messages"
+    a["apiKey"] = "${ANTHROPIC_API_KEY}"
+    if not isinstance(a.get("models"), list) or not a["models"]:
+        a["models"] = [{"id": am, "name": "Cloud Claude"}]
+
+    # ── the swap is a CHOICE OF PRIMARY, nothing more ─────────────────────────
+    prefix = "sovereign" if backend == "local" else "anthropic"
+    model_sel = (
+        cfg.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})
+    )
+    model_sel["primary"] = f"{prefix}/{lm if backend == 'local' else am}"
+
+    # ── cloud is SELECTABLE, never AUTOMATIC ──────────────────────────────────
+    # An onboarding wizard had left `fallbacks: ["claude-cli/…"]`, so a sovereign
+    # failure silently continued on the hosted API — cloud use at exactly the
+    # moment nobody is watching, on a box whose headline invariant is
+    # "never_cloud_spill". Switching provider is a deliberate act; falling back
+    # to one is not. Opt back in with OPENCLAW_ALLOW_CLOUD_FALLBACK=1.
+    if os.environ.get("OPENCLAW_ALLOW_CLOUD_FALLBACK", "") != "1":
+        model_sel.pop("fallbacks", None)
+
+    gw = cfg.setdefault("gateway", {})
+    gw.setdefault("mode", "local")
+    gw.setdefault("bind", "loopback")
+    gw["port"] = port
+
     dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_text(cfg, encoding="utf-8")
+    dst.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
     return str(dst)
 
 

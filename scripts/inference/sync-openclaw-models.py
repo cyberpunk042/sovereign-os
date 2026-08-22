@@ -209,8 +209,22 @@ def main(argv: list[str] | None = None) -> int:
         .get("models")
     )
     if not isinstance(models, list):
-        _log("openclaw.json has no models.providers.sovereign.models list — skipping (ok)")
-        return 0
+        # NOT "skipping (ok)". A present openclaw.json with no sovereign provider
+        # is a BROKEN install, not an absent one — the absent case is handled
+        # above (no config file ⇒ clean no-op, a box without OpenClaw is normal).
+        #
+        # This branch is what a full-file rewrite of openclaw.json produces. The
+        # SDD-707 renderer used to template over the file, which erased the
+        # sovereign provider; this script then found nothing, reported "(ok)",
+        # and the profile mirroring stopped happening for good. Silent and
+        # permanent, and it read as success in every log.
+        _log(
+            f"BROKEN: {cfg_path} exists but has no models.providers.sovereign.models "
+            "list — the profile's per-tier models cannot be mirrored, so OpenClaw "
+            "will keep advertising whatever it last had. Re-render it with "
+            "`sovereign-osctl openclaw backend local`."
+        )
+        return 2
 
     changes: list[str] = []
     for entry in models:

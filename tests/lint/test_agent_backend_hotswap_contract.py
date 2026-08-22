@@ -19,6 +19,7 @@ the open-computer OPENAI_BASE_URL, and the cloud key is written only via --key.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -136,17 +137,78 @@ def _provision_openclaw(tmp: Path):
                              "--anthropic-model", "claude-sonnet-4-6", "--gateway-port", "18789"], tmp)
 
 
+def _openclaw_cfg(tmp: Path) -> dict:
+    return json.loads((tmp / "oc-home" / ".openclaw" / "openclaw.json").read_text(encoding="utf-8"))
+
+
 def test_openclaw_swap_flips_primary(tmp_path: Path):
     assert _provision_openclaw(tmp_path).returncode == 0
-    cfg = (tmp_path / "oc-home" / ".openclaw" / "openclaw.json").read_text(encoding="utf-8")
-    assert 'api: "anthropic-messages"' in cfg and "api.anthropic.com" in cfg and "127.0.0.1:8787" in cfg, \
-        "openclaw.json missing the two anthropic-messages providers"
-    assert 'primary: "local/local-oracle"' in cfg, "default primary should be local"
-    # swap to anthropic
+    cfg = _openclaw_cfg(tmp_path)
+    provs = cfg["models"]["providers"]
+    # The provider is `sovereign`, not `local`: scripts/inference/
+    # sync-openclaw-models.py mirrors the active profile's per-tier models into
+    # models.providers.sovereign, and a renderer using a different name meant the
+    # two halves of the system never saw the same config.
+    assert set(provs) == {"sovereign", "anthropic"}, f"want both providers, got {list(provs)}"
+    assert "127.0.0.1:8787" in provs["sovereign"]["baseUrl"]
+    assert "api.anthropic.com" in provs["anthropic"]["baseUrl"]
+    assert cfg["agents"]["defaults"]["model"]["primary"] == "sovereign/local-oracle"
+
+    # swap to anthropic — a change of PRIMARY, nothing else
     r = _run("openclaw", ["anthropic"], tmp_path)
     assert r.returncode == 0
-    cfg2 = (tmp_path / "oc-home" / ".openclaw" / "openclaw.json").read_text(encoding="utf-8")
-    assert 'primary: "anthropic/claude-sonnet-4-6"' in cfg2, "swap did not flip the primary to anthropic"
+    cfg2 = _openclaw_cfg(tmp_path)
+    assert cfg2["agents"]["defaults"]["model"]["primary"] == "anthropic/claude-sonnet-4-6"
+    assert set(cfg2["models"]["providers"]) == {"sovereign", "anthropic"}, \
+        "a swap must not remove the provider it swapped away from"
+
+
+def test_openclaw_render_merges_and_never_clobbers(tmp_path: Path):
+    """The renderer templated over the whole file. On a live box that erased the
+    gateway auth token, every channel the operator had onboarded, and the
+    per-tier models sync-openclaw-models.py maintains — after which that script
+    found no sovereign provider and logged "skipping (ok)", so the D-21 profile
+    mirroring stopped silently and permanently."""
+    home = tmp_path / "oc-home" / ".openclaw"
+    home.mkdir(parents=True)
+    (home / "openclaw.json").write_text(json.dumps({
+        "gateway": {"auth": {"mode": "token", "token": "SECRET-TOKEN"}, "port": 18789},
+        "tools": {"custom": True},
+        "models": {"providers": {"sovereign": {
+            "baseUrl": "http://127.0.0.1:8787/v1",
+            "api": "openai-completions",
+            "models": [{"id": "gpu-oracle"}, {"id": "gpu-logic"}, {"id": "local-oracle"}],
+        }}},
+    }), encoding="utf-8")
+
+    assert _provision_openclaw(tmp_path).returncode == 0
+    cfg = _openclaw_cfg(tmp_path)
+    assert cfg["gateway"]["auth"]["token"] == "SECRET-TOKEN", "the Control UI credential was destroyed"
+    assert cfg["tools"] == {"custom": True}, "operator configuration was destroyed"
+    sov = cfg["models"]["providers"]["sovereign"]
+    assert [m["id"] for m in sov["models"]] == ["gpu-oracle", "gpu-logic", "local-oracle"], \
+        "the profile-mirrored models were destroyed"
+    # A WORKING provider keeps its dialect: re-asserting anthropic-messages from a
+    # default would break a box that speaks openai-completions and works.
+    assert sov["api"] == "openai-completions"
+    assert sov["baseUrl"] == "http://127.0.0.1:8787/v1"
+
+
+def test_cloud_is_selectable_but_never_automatic(tmp_path: Path):
+    """An onboarding wizard had left fallbacks: ["claude-cli/…"], so a sovereign
+    failure silently continued on the hosted API — cloud use at exactly the
+    moment nobody is watching, on a box whose headline invariant is
+    never_cloud_spill. Choosing a provider is deliberate; falling back is not."""
+    home = tmp_path / "oc-home" / ".openclaw"
+    home.mkdir(parents=True)
+    (home / "openclaw.json").write_text(json.dumps({
+        "agents": {"defaults": {"model": {
+            "primary": "sovereign/gpu-oracle",
+            "fallbacks": ["claude-cli/claude-opus-4-8"],
+        }}},
+    }), encoding="utf-8")
+    assert _provision_openclaw(tmp_path).returncode == 0
+    assert "fallbacks" not in _openclaw_cfg(tmp_path)["agents"]["defaults"]["model"]
 
 
 def test_open_computer_swap_flips_base_url_and_key(tmp_path: Path):

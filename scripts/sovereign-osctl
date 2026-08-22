@@ -2129,6 +2129,52 @@ cmd_openclaw() {
       echo "  daemon unit: ${present} · enabled=${en} · active=${act}"
       echo "  binary:      ${bin}"
       echo "  config:      ${cfg}"
+
+      # WHICH PROVIDER IS ACTUALLY PRIMARY — and whether it is off-box.
+      #
+      # gatewayd's `never_cloud_spill_holds` counts spills the GATEWAY sees. An
+      # OpenClaw provider pointed at api.anthropic.com never touches gatewayd, so
+      # the invariant keeps reporting true while cloud traffic flows. The gateway
+      # cannot be taught to count what it never sees — its relay is plain TCP with
+      # no TLS, so it cannot even reach a hosted endpoint — so the honest fix is
+      # to make the configuration VISIBLE rather than to fabricate a number.
+      local oc_json="${OPENCLAW_HOME:-/home/${SUDO_USER:-${USER:-root}}}/.openclaw/openclaw.json"
+      [ -f "${oc_json}" ] || oc_json="/var/lib/sovereign-os/openclaw/.openclaw/openclaw.json"
+      if [ -f "${oc_json}" ]; then
+        local oc_primary oc_provs oc_fallbacks
+        oc_primary="$(${PYTHON3} -c 'import json,sys
+try: c=json.load(open(sys.argv[1]))
+except Exception: raise SystemExit
+print(c.get("agents",{}).get("defaults",{}).get("model",{}).get("primary",""))' "${oc_json}" 2>/dev/null)"
+        oc_provs="$(${PYTHON3} -c 'import json,sys
+try: c=json.load(open(sys.argv[1]))
+except Exception: raise SystemExit
+print(",".join(c.get("models",{}).get("providers",{})))' "${oc_json}" 2>/dev/null)"
+        oc_fallbacks="$(${PYTHON3} -c 'import json,sys
+try: c=json.load(open(sys.argv[1]))
+except Exception: raise SystemExit
+print(",".join(c.get("agents",{}).get("defaults",{}).get("model",{}).get("fallbacks",[])))' "${oc_json}" 2>/dev/null)"
+        echo "  providers:   ${oc_provs:-none}"
+        echo "  primary:     ${oc_primary:-unset}"
+        case "${oc_primary}" in
+          sovereign/*|local/*)
+            echo "               ↑ on-box: through the safety spine, the ledger and RAG grounding" ;;
+          anthropic/*|claude-cli/*)
+            echo "               ⚠ OFF-BOX: this provider does NOT pass through sovereign-gatewayd."
+            echo "                 No prompt screening, no output redaction, no ledger entry — and"
+            echo "                 the gateway's never_cloud_spill invariant cannot see these turns." ;;
+        esac
+        if [ -n "${oc_fallbacks}" ]; then
+          case "${oc_fallbacks}" in
+            *anthropic*|*claude*)
+              echo "  ⚠ fallbacks: ${oc_fallbacks}"
+              echo "               A cloud FALLBACK sends traffic off-box exactly when the local"
+              echo "               path fails — i.e. when nobody is watching. Clear it with"
+              echo "               \`sovereign-osctl openclaw backend local\`, or keep it"
+              echo "               deliberately with OPENCLAW_ALLOW_CLOUD_FALLBACK=1." ;;
+          esac
+        fi
+      fi
       echo
       echo "  ${verdict}"
       [ "${present}" = ABSENT ] && echo "  → provision it:  sovereign-osctl openclaw install   (first-boot installer; needs network)"
