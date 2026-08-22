@@ -6,14 +6,18 @@ orchestration_profile:
   id: coding-focus
   name: "Coding Focus"
   description: |
-    Optimized for code generation + editing. Logic (GPU 0) runs the coder model
-    as the primary; Conductor (CPU) handles fast orchestration/tooling steps;
-    Oracle (GPU 1) is idle to leave headroom. Use for day-to-day coding sessions.
+    Optimized for code generation + editing. Oracle (GPU 1 / RTX PRO 6000, 96 GB)
+    runs Qwen3-Coder-32B-Instruct as the PRIMARY coder — a 1M-token context model
+    that needs ~65 GB, so it belongs on the big card, not the 5090. Logic
+    (GPU 0 / RTX 5090, 32 GB) keeps the Nemotron-Nano reasoning model for planning
+    and non-coding reasoning while you code; Conductor (CPU) handles fast
+    orchestration/tooling steps. (Earlier revisions put the 1M coder on the 32 GB
+    5090 and idled the 96 GB card — backwards; fixed 2026-08-22.)
   intent: coding
   hardware_profile_compat: [sain-01]
   allocations:
-    - {agent_id: conductor_01, tier: pulse, role: conductor, target_hardware: cpu,     core_mask: "0-7", engine: bitnet.cpp, model: BitNet-b1.58-3B,          active: true}
-    - {agent_id: logic_coder,  tier: logic, role: logic,     target_hardware: "cuda:0",                   engine: vllm,       model: Qwen3-Coder-32B-Instruct, active: true}
-    - {agent_id: oracle_idle,  tier: oracle, role: oracle,   target_hardware: "cuda:1",                   engine: vllm,       model: DeepSeek-V3-Quant,        active: false}
+    - {agent_id: conductor_01, tier: pulse,  role: conductor, target_hardware: cpu,      core_mask: "0-7", engine: bitnet.cpp, model: BitNet-b1.58-3B,                        active: true}
+    - {agent_id: logic_reason, tier: logic,  role: logic,     target_hardware: "cuda:0",                   engine: vllm,       model: Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4, active: true}
+    - {agent_id: oracle_coder, tier: oracle, role: oracle,    target_hardware: "cuda:1",                   engine: vllm,       model: Qwen3-Coder-32B-Instruct,                 active: true}
   observability:
-    primary_metric: sovereign_os_inference_route_total{tier="logic"}
+    primary_metric: sovereign_os_inference_route_total{tier="oracle"}
