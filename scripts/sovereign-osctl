@@ -5464,6 +5464,16 @@ PYEOF
         done
       fi
 
+      # Mirror the profile's GPU-tier models into OpenClaw's sovereign catalog
+      # (name / contextWindow / maxTokens / reasoning for gpu-oracle + gpu-logic).
+      # Soft dependency: a clean no-op if OpenClaw is not installed. Non-fatal —
+      # a failed mirror must never fail the profile switch itself.
+      local oc_sync="$(dirname "${BASH_SOURCE[0]}")/inference/sync-openclaw-models.py"
+      if [ -f "${oc_sync}" ]; then
+        log_info "  mirroring GPU-tier models into OpenClaw (if installed)..."
+        ${PYTHON3} "${oc_sync}" --profile "${id}" 2>&1 || log_warn "  OpenClaw model sync failed (non-fatal)"
+      fi
+
       log_info "  profile switch complete: ${id}"
       ;;
     *)
