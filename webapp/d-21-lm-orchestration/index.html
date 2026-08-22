@@ -76,6 +76,14 @@
   .profile.active { border-left:3px solid var(--good); }
   .profile .p-active { display:inline-block; margin-left:.4rem; color:var(--good);
     font-size:.6rem; font-weight:600; letter-spacing:.02em; vertical-align:middle; }
+  /* D21: per-tier model layout on each profile card — what it actually runs. */
+  .profile .p-tiers { margin:.45rem 0 .15rem; display:grid; gap:.12rem;
+    border-top:1px solid var(--border); padding-top:.4rem; }
+  .profile .p-tier { display:flex; gap:.5rem; font-size:.68rem; line-height:1.3; }
+  .profile .p-tier-k { flex:0 0 3.3rem; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .profile .p-tier-m { color:var(--fg); font-family:var(--mono); word-break:break-word; }
+  .profile .p-tier.off { opacity:.45; }
+  .profile .p-tier.off .p-tier-m::after { content:' · idle'; color:var(--muted); }
   .profile .name { color:var(--accent); font-weight:600; }
   .profile .desc { color:var(--muted); font-size:.76rem; margin-top:.2rem; }
   /* family grouping (D21-1: runtime / orchestration / generated / user) */
@@ -2432,6 +2440,14 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         // Truncate at a WORD boundary + ellipsis (was a hard mid-word slice(0,140)).
         const desc0 = (p.description || '').split('\n')[0];
         const descT = desc0.length > 160 ? desc0.slice(0, 160).replace(/\s+\S*$/, '') + '…' : desc0;
+        // Per-tier model layout — what the profile actually places on each tier.
+        const tiersHtml = (p.tiers && p.tiers.length)
+          ? '<div class="p-tiers">' + p.tiers.map(function (t) {
+              return '<div class="p-tier' + (t.active === false ? ' off' : '') + '">'
+                + '<span class="p-tier-k">' + esc(t.tier) + '</span>'
+                + '<span class="p-tier-m">' + esc(t.model) + '</span></div>'; }).join('')
+            + '</div>'
+          : '';
         // Generated combos aren't on disk → materialize (Generate) before apply;
         // every other family applies for real through the exec rail.
         const applyBtn = isGen
@@ -2440,6 +2456,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         return `<div class="profile${on}${act}" data-id="${esc(id)}">
           <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span>${p.active ? '<span class="p-active" title="This profile is currently active (active-runtime-profile marker)">● active</span>' : ''}</div>
           <div class="desc">${esc(descT)}</div>
+          ${tiersHtml}
           <div class="p-apply-row">${applyBtn}<span class="p-result muted"></span></div>
         </div>`;
       }).join('');

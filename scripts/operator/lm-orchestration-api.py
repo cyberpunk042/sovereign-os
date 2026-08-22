@@ -49,6 +49,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import sys
 import time
 import urllib.parse
@@ -272,6 +273,43 @@ _gen = _import_optional(
     "_gen_runtime", _REPO_ROOT / "scripts" / "operator" / "generate-runtime-profile.py")
 
 
+def _alloc_tiers(lines: list[str]) -> list[dict[str, Any]]:
+    """Extract the per-tier model layout [{tier, model, active}] from an
+    orchestration-profile YAML's `allocations:` list. Stdlib only (no yaml dep):
+    handles both the flow style ({tier: .., model: ..}) and the block style
+    (tier: / model: on separate lines) by regex over each dash-delimited record."""
+    tiers: list[dict[str, Any]] = []
+    in_alloc = False
+    alloc_indent = -1
+    cur: list[str] = []
+
+    def _flush() -> None:
+        blob = " ".join(cur)
+        tm = re.search(r"\btier:\s*['\"]?([a-z0-9_-]+)", blob)
+        mm = re.search(r"\bmodel:\s*['\"]?([A-Za-z0-9._/-]+)", blob)
+        if tm and mm:
+            am = re.search(r"\bactive:\s*(true|false)", blob)
+            tiers.append({"tier": tm.group(1), "model": mm.group(1),
+                          "active": (am.group(1) != "false") if am else True})
+
+    for raw in lines:
+        s = raw.strip()
+        indent = len(raw) - len(raw.lstrip())
+        if not in_alloc:
+            if s.startswith("allocations:"):
+                in_alloc, alloc_indent = True, indent
+            continue
+        if s and indent <= alloc_indent and not s.startswith("-"):
+            break  # a sibling top-level key ended the allocations block
+        if s.startswith("-"):
+            _flush()
+            cur = [s.lstrip("- ").strip()]
+        elif s:
+            cur.append(s)
+    _flush()
+    return tiers
+
+
 def _parse_orch_yaml(path: Path, family: str) -> dict[str, Any] | None:
     """Minimal stdlib parser for an orchestration-profile YAML: extract the
     top-level id/name/description/intent under `orchestration_profile:` — enough
@@ -308,7 +346,10 @@ def _parse_orch_yaml(path: Path, family: str) -> dict[str, Any] | None:
                 in_block = len(raw) - len(raw.lstrip())
             elif val:
                 rec["description"] = val.strip('"\'')
-    return rec if rec.get("id") else None
+    if rec.get("id"):
+        rec["tiers"] = _alloc_tiers(lines)
+        return rec
+    return None
 
 
 def _orchestration_profiles() -> list[dict[str, Any]]:
