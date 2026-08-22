@@ -280,10 +280,16 @@ def test_apply_is_per_profile_card_via_exec_rail():
     assert "p-apply" in body and "p-result" in body, (
         "each profile card must render a .p-apply button + .p-result line"
     )
-    # Apply POSTs the sanctioned control-exec body (runtime-mode) — the sudoer rail
+    # Apply POSTs the sanctioned control-exec rail, routing by family to the
+    # allowlisted profile controls: runtime-mode (§18 fixed enum) +
+    # orchestration-profile (the growable composer family) — both are the
+    # `trinity profile switch` verb through the sudoer rail.
     assert "/api/control/execute" in body, "Apply must POST to the control-exec rail"
-    assert re.search(r"control_id:\s*['\"]runtime-mode['\"]", body), (
-        "Apply must execute the allowlisted 'runtime-mode' control (trinity profile switch)"
+    assert re.search(r"['\"]runtime-mode['\"]", body), (
+        "Apply must route the §18 runtime family through the 'runtime-mode' control"
+    )
+    assert re.search(r"['\"]orchestration-profile['\"]", body), (
+        "Apply must route the orchestration/user family through 'orchestration-profile'"
     )
     # dry-run-first + type-to-confirm gate
     assert "offerConfirm" in body and "dry_run" in body, (

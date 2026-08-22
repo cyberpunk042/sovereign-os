@@ -2521,10 +2521,16 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   async function applyProfile(id, fam, resultEl, confirmed) {
     setP(resultEl, 'muted', confirmed ? 'applying…' : 'checking…');
     try {
+      // Route to the RIGHT signed control: the §18 runtime family and the
+      // orchestration/user family are separate pick-one enums (both keyed 'verb').
+      // Sending the wrong control (runtime-mode's 3-enum for an orchestration id)
+      // is the `verb='' not in [...]` reject.
+      const useOrch = (fam === 'orchestration' || fam === 'user');
+      const control_id = useOrch ? 'orchestration-profile' : 'runtime-mode';
       const res = await fetch(EXECUTE_URL, {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ control_id: 'runtime-mode', args: { id }, confirm: !!confirmed }),
+        body: JSON.stringify({ control_id, args: { verb: id }, confirm: !!confirmed }),
       });
       let body = {}; try { body = await res.json(); } catch (e) {}
       const verb = 'sovereign-osctl trinity profile switch ' + id;

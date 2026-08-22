@@ -20,7 +20,7 @@ REGISTRY = REPO / "config" / "control-systems.yaml"
 CATALOG = REPO / "config" / "dashboard-catalog.yaml"
 
 EXPECTED_IDS = {
-    "os-profile", "runtime-mode", "flex-profile", "cpu-mode", "gpu-mode",
+    "os-profile", "runtime-mode", "orchestration-profile", "flex-profile", "cpu-mode", "gpu-mode",
     "dspark-speculative-decoding",
     "dashboard-toggle", "auth-tier", "selfdef", "perimeter",
     "inference-tier", "workload-knobs", "maintenance", "eval-run",

@@ -69,6 +69,30 @@ systems:
     applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration, d-21-lm-orchestration, d-22-lm-status-operability]
     refs: [schemas/runtime-profile.schema.yaml, SDD-043]
 
+  # ── 2b. Orchestration-intent profiles (SDD-043 growable family) ──────
+  - id: orchestration-profile
+    kind: mode
+    scope: scoped
+    label: "Orchestration Profile"
+    description: >-
+      An orchestration-intent profile (profiles/orchestration/*.yaml) — the
+      model→tier layout family the D-21 composer manages, applied via the SAME
+      `trinity profile switch` verb as the §18 runtime modes. A pick-one enum
+      (one-click segmented buttons); the applyable set is tracked here, so adding
+      a composed profile to it is a manifest edit (options + the change_cli enum),
+      the same explicit-allowlist posture as runtime-mode.
+    options: [as-deployed, coding-focus, dense-4090, full-hybrid, full-orchestration,
+              hybrid-coding-thinking, oracle-deepseek, oracle-glm, thinking-focus]
+    options_cli: "sovereign-osctl trinity profile list"
+    state_cli: "sovereign-osctl trinity profile active"
+    change_cli: "sovereign-osctl trinity profile switch {as-deployed|coding-focus|dense-4090|full-hybrid|full-orchestration|hybrid-coding-thinking|oracle-deepseek|oracle-glm|thinking-focus}"
+    state_path: "/etc/sovereign-os/active-runtime-profile"
+    privileged: true
+    # Same heavy operation as runtime-mode — a whole-machine model reshuffle.
+    auth: step-up
+    applies_to: [d-21-lm-orchestration, orchestration, trinity, d-03-model-health]
+    refs: [schemas/orchestration-profile.schema.yaml, SDD-043]
+
   # ── 3. Flex-profiles — per-allocation runtime deltas ─────────────────
   - id: flex-profile
     kind: mode
