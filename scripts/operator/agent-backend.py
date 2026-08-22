@@ -298,11 +298,12 @@ def render_openclaw(desc: dict[str, Any]) -> str:
         # startup is REPAIRED by re-rendering rather than preserved by the merge.
         providers.pop("anthropic", None)
         sys.stderr.write(
-            "[warn] no ANTHROPIC_API_KEY (checked "
-            f"{KEY_FILE} and the environment) — the `anthropic` provider is NOT\n"
-            "[warn] declared, because an unresolvable secret-ref stops the OpenClaw\n"
-            "[warn] gateway from starting at all. Add the key and re-run, or use\n"
-            "[warn] `claude-cli/*`, which needs no key.\n"
+            f"[info] no ANTHROPIC_API_KEY (checked {KEY_FILE} and the environment),\n"
+            "[info] so the API-BILLED anthropic provider block is not declared — an\n"
+            "[info] unresolvable secret-ref stops the OpenClaw gateway from starting.\n"
+            "[info] Claude is still available: the canonical `anthropic/<model>` ref is\n"
+            "[info] registered against the claude-cli runtime, which authenticates via\n"
+            "[info] the operator's Claude CLI (OAuth) and needs no key.\n"
         )
 
     # ── the swap is a CHOICE OF PRIMARY, nothing more ─────────────────────────
@@ -320,11 +321,21 @@ def render_openclaw(desc: dict[str, Any]) -> str:
     # claude-cli entry, because only those appear in this map.
     allow = cfg["agents"]["defaults"].setdefault("models", {})
     allow.setdefault(f"sovereign/{lm}", {})
-    if have_key:
-        allow.setdefault(f"anthropic/{am}", {})
-    else:
-        for k in [k for k in allow if k.startswith("anthropic/")]:
-            allow.pop(k)
+
+    # Claude as a SECOND PROVIDER, authenticated by the operator's Claude CLI.
+    #
+    # OpenClaw's own guidance (docs/concepts/model-providers.md): "Preferred
+    # Claude CLI config keeps the model ref canonical and selects the CLI backend
+    # separately: anthropic/claude-opus-4-8 with model-scoped
+    # agentRuntime.id: 'claude-cli'." The legacy `claude-cli/*` ref still works
+    # but registers under the plugin rather than as the `anthropic` provider —
+    # which is why an operator asking for two providers kept seeing only one.
+    #
+    # This route needs NO api key and NO models.providers.anthropic block. The
+    # block is what crash-looped the gateway: an unresolvable
+    # `${ANTHROPIC_API_KEY}` secret-ref is a hard startup failure, not a warning.
+    allow[f"anthropic/{am}"] = {"agentRuntime": {"id": "claude-cli"}}
+    allow.pop(f"claude-cli/{am}", None)   # the legacy spelling of the same thing
 
     # ── cloud is SELECTABLE, never AUTOMATIC ──────────────────────────────────
     # An onboarding wizard had left `fallbacks: ["claude-cli/…"]`, so a sovereign

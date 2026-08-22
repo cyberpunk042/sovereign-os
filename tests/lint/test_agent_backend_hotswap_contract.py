@@ -388,8 +388,13 @@ def test_never_declares_a_provider_that_cannot_authenticate(tmp_path: Path, monk
             "anthropic": {"model": "claude-opus-4-8"}, "gateway_port": 18789}
     cfg = json.loads(Path(mod.render_openclaw(desc)).read_text(encoding="utf-8"))
     assert "anthropic" not in cfg["models"]["providers"], \
-        "a provider that cannot authenticate must not be declared"
-    assert not [k for k in cfg["agents"]["defaults"]["models"] if k.startswith("anthropic/")]
+        "a provider BLOCK that cannot authenticate must not be declared"
+    # The model REF stays: `anthropic/<model>` routed to the claude-cli runtime
+    # authenticates through the operator's CLI and is the whole point of having a
+    # second provider without a key. It is the providers BLOCK — with its
+    # unresolvable secret-ref — that breaks startup, not the ref.
+    assert cfg["agents"]["defaults"]["models"]["anthropic/claude-opus-4-8"] == \
+        {"agentRuntime": {"id": "claude-cli"}}
 
     # With a key present it IS declared.
     (tmp_path / "no-key.env").write_text("ANTHROPIC_API_KEY=sk-test\n", encoding="utf-8")
@@ -402,3 +407,41 @@ def test_never_declares_a_provider_that_cannot_authenticate(tmp_path: Path, monk
     cfg3 = json.loads(Path(mod.render_openclaw(desc)).read_text(encoding="utf-8"))
     assert "anthropic" not in cfg3["models"]["providers"], \
         "re-rendering must repair a config that cannot start, not preserve it"
+
+
+def test_claude_is_a_second_provider_without_an_api_key(tmp_path: Path, monkeypatch):
+    """The operator asked repeatedly for two providers and kept seeing one.
+
+    A `models.providers.anthropic` block needs ANTHROPIC_API_KEY, and declaring it
+    without one is a hard gateway startup failure. The legacy `claude-cli/*` ref
+    works but registers under the PLUGIN, not as the `anthropic` provider — so
+    `models status` reported a single provider and the picker showed one.
+
+    OpenClaw's own guidance (docs/concepts/model-providers.md) is to keep the ref
+    canonical and select the CLI backend separately:
+    `anthropic/claude-opus-4-8` + model-scoped `agentRuntime.id: "claude-cli"`.
+    That authenticates through the operator's Claude CLI — no key, no provider
+    block, no startup failure — and registers as `anthropic`."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_ab_two", ENGINE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    home = tmp_path / "oc"
+    (home / ".openclaw").mkdir(parents=True)
+    monkeypatch.setenv("SOVEREIGN_OS_OPENCLAW_HOME", str(home))
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(mod, "KEY_FILE", tmp_path / "absent.env")
+
+    cfg = json.loads(Path(mod.render_openclaw({
+        "backend": "local", "local": {"model": "gpu-oracle"},
+        "anthropic": {"model": "claude-opus-4-8"}, "gateway_port": 18789,
+    })).read_text(encoding="utf-8"))
+
+    allow = cfg["agents"]["defaults"]["models"]
+    assert allow["anthropic/claude-opus-4-8"] == {"agentRuntime": {"id": "claude-cli"}}, \
+        "Claude must be reachable as the `anthropic` provider via the CLI runtime"
+    assert "anthropic" not in cfg["models"]["providers"], \
+        "no key ⇒ no provider block, or the gateway will not start"
+    assert "claude-cli/claude-opus-4-8" not in allow, "the legacy ref is superseded"
