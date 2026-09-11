@@ -36,6 +36,42 @@
 
 > continue
 
+> Bonsai 27b is not what I asked, that's another profile I want to test but I asked for Qwen
+
+> jfortin@ai-workstation:~/sovereign-os$ sudo SOVEREIGN_OS_MODELS_DIR=/mnt/vault/models scripts/models/pull.sh Qwen3.6-27B-Coder --allow-candidate
+>
+> [sudo: authenticate] Password:
+>
+> INFO [build] ==== pulling Qwen3.6-27B-Coder ====
+>
+> INFO [build]   status: operator-must-confirm
+>
+> INFO [build]   repo:   Qwen/Qwen3.6-27B-Coder
+>
+> INFO [build]   dest:   /mnt/vault/models/Qwen3.6-27B-Coder
+>
+> WARN [build]   Qwen3.6-27B-Coder status='operator-must-confirm' — pulling ANYWAY (--allow-candidate bench-gate trial)
+>
+> INFO [build]   excluding: original/*
+>
+> INFO [build]   excluding: metal/*
+>
+> Traceback (most recent call last):
+>
+>   File "/usr/lib/python3/dist-packages/huggingface_hub/utils/_http.py", line 657, in hf_raise_for_status
+>
+>     response.raise_for_status()
+>
+> httpx.HTTPStatusError: Client error '401 Unauthorized' for url 'https://huggingface.co/api/models/Qwen/Qwen3.6-27B-Coder/revision/main'
+
+> we are going to create two new lm orchestration profiles:
+>
+> Strategy 1: The Dual-Agent Autocomplete Setup (Recommended)This configuration delivers maximum speed and utility by running two specialized models simultaneously.The RTX 5090's Role (Inline Autocomplete): Dedicate this card entirely to a lightning-fast fill-in-the-middle model. Run Qwen3.6-27B-Coder unquantized at FP8 or BF16. The 5090's massive 1,792 GB/s bandwidth will stream sub-second tab-completions as you type, utilizing only a fraction of its 32GB pool. [1] ([https://www.runpod.io/articles/guides/nvidia-rtx-5090](https://www.runpod.io/articles/guides/nvidia-rtx-5090)), [2] ([https://jarvislabs.ai/blog/coding-model-rtx-pro-6000](https://jarvislabs.ai/blog/coding-model-rtx-pro-6000)), [3] ([https://vrlatech.com/rtx-5090-vs-rtx-pro-6000-blackwell-ai-2026/](https://vrlatech.com/rtx-pro-6000-blackwell-ai-2026/)), [4] ([https://www.youtube.com/watch?v=pr9fsrK8nmQ)The](https://www.youtube.com/watch?v=pr9fsrK8nmQ) RTX 6000's Role (Agentic / Architectural Chat): Simultaneously run a heavy reasoning model like Qwen2.5-72B-Instruct at Q8 or native FP8 execution on the 6000. As you use an extension like Continue.dev or Cline, the fast autocomplete functions on one card while the larger card processes massive workspace index refactorings without freezing your IDE. [1] ([https://modelfit.io/gpu/rtx-6000-pro/)Strategy](https://modelfit.io/gpu/rtx-6000-pro/) 2: The Frontier Multi-File SpecialistIf your goal is to feed massive entire repositories into a single model for complex agentic coding (e.g., executing Python scripts, generating structural migrations, or auditing large C++ codebases), you can unify the VRAM pools using layer-splitting (Pipeline Parallelism) in vLLM or llama.cpp.The Model: Minimax 2.1 or DeepSeek-Coder-V2.How to deploy: Run the model at a Q4_K_M or EXL2 (3.5 to 4.0 bpw) quantization. The weights will occupy roughly 80GB on the RTX 6000.The VRAM Trick: Offload the remaining model layers and the massive KV Cache (Context Window) entirely onto the RTX 5090. This configuration enables you to digest a massive 64K to 128K context window locally. The 5090 handles the heavy context cache calculations efficiently due to its fast GDDR7 memory speeds. [1] ([https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/](https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/)), [2] ([https://www.reddit.com/r/LocalLLaMA/comments/1qew9df/best_coding_models_for_rtx_6000_pro_blackwell/](https://www.reddit.com/r/LocalLLaMA/comments/1qew9df/best_coding_models_for_rtx_6000_pro_blackwell/)), [3] ([https://www.runpod.io/articles/guides/nvidia-rtx-5090](https://www.runpod.io/articles/guides/nvidia-rtx-5090))
+
+> continue
+
+> continue
+
 > ERROR 500 FFS
 
 > FIX THE BIUG
@@ -43,6 +79,8 @@
 > stilll error 500... wtf... wtf are you doing... GO INVESTIGATE THE FUCKING BUG.. LOOK AT THE LOG, DO SOMETHING
 
 > good, we continue
+
+> continue
 
 > continue
 

@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+orchestration_profile:
+  id: bonsai-27b-test
+  name: Bonsai 27B Test
+  description: Separate experimental profile for benchmarking Ternary-Bonsai-27B without substituting it for the requested Qwen coding profile.
+  intent: coding
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - {agent_id: bonsai_5090, tier: logic, role: logic, target_hardware: "cuda:1", engine: llama.cpp, model: Ternary-Bonsai-27B, port: 8082, vram_limit_bytes: 25769803776, max_output_tokens: 4096, active: true}
+    - {agent_id: oracle_qwen_6000, tier: oracle, role: oracle, target_hardware: "cuda:0", engine: vllm, model: Qwen3-Coder-32B-Instruct, port: 8083, vram_limit_bytes: 85899345920, max_output_tokens: 16384, active: true}
+    - {agent_id: embed_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
+    - {agent_id: rerank_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
+  context_budget:
+    initial_tokens: {"cuda:0": 65536, "cuda:1": 16384, "cuda:2": 8192}

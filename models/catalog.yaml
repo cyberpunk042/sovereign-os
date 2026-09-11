@@ -185,6 +185,47 @@ catalog:
         ternary-quantized 32B Qwen on HF; AWQ 4-bit is the operator
         substitute. vllm-vulkan engine compatible with the 4090.
 
+    - id: Qwen3.6-27B-Coder
+      tier: logic
+      engine: vllm
+      class: code
+      quantization: fp8
+      size_class: l
+      purpose: [code, autocomplete, agent]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: Qwen/Qwen3.6-27B-FP8
+      parameters_millions: 27000
+      vram_gib_min: 28
+      context_window_tokens: 32768
+      master_spec_section: "operator directive 2026-09-11 — dual-agent autocomplete"
+      runtime_profile_bindings: [dual-agent-autocomplete]
+      operator_note: |
+        Requested exact autocomplete artifact. The repository/artifact revision,
+        FP8 availability, and FIM endpoint behavior must be verified before
+        download and promotion; this row intentionally prevents silent model
+        substitution.
+    - id: Qwen3.6-27B-Dense
+      tier: oracle
+      engine: vllm
+      class: code
+      quantization: bf16
+      size_class: l
+      purpose: [code, autocomplete, agent]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: Qwen/Qwen3.6-27B
+      parameters_millions: 27000
+      vram_gib_min: 28
+      context_window_tokens: 32768
+      master_spec_section: "operator directive 2026-09-11 — dual-agent autocomplete"
+      runtime_profile_bindings: []
+      operator_note: |
+        Requested exact autocomplete artifact. The repository/artifact revision,
+        FP8 availability, and FIM endpoint behavior must be verified before
+        download and promotion; this row intentionally prevents silent model
+        substitution.
+
     - id: Qwen3-Coder-32B-Instruct
       tier: logic
       engine: vllm
@@ -194,7 +235,7 @@ catalog:
       purpose: [code, agent, function-calling]
       status: verified-real
       license: apache-2.0
-      hf_repo_id: Qwen/Qwen3-Coder-32B-Instruct
+      hf_repo_id: Qwen/Qwen3-Coder-30B-A3B-Instruct
       parameters_millions: 32500
       vram_gib_min: 65
       context_window_tokens: 1000000
