@@ -1465,6 +1465,12 @@ fn stream_proxy_chat_completions(
     // gateway-side name it has never heard of. Any alias hits this — "auto",
     // "background", and "" alike.
     oai["model"] = serde_json::Value::String(resolved_model.to_string());
+    let prompt_chars = oai.get("messages").map_or(0, |m| m.to_string().len());
+    if server.proxy_input_fits(resolved_model, prompt_chars) == Some(false) {
+        return write_http(writer, &http::err(413, format!(
+            "context admission rejected: rendered request exceeds resident context for {resolved_model}; start a new task or reduce workspace/tool context"
+        )));
+    }
     clamp_max_tokens(server, resolved_model, &mut oai);
     let (mut reader, up_status, chunked) =
         match open_proxy_stream(endpoint, "/v1/chat/completions", &oai.to_string()) {

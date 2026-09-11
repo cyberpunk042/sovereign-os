@@ -1670,10 +1670,15 @@ fn proxy_message(
     // local gateway failed on every request while the OpenAI shim worked fine.
     // Fixing one relay and not the other is how a bug survives being fixed.
     oai_req["model"] = serde_json::Value::String(model.to_string());
+    let prompt_chars = oai_req.get("messages").map_or(0, |m| m.to_string().len());
+    if server.proxy_input_fits(model, prompt_chars) == Some(false) {
+        return anthropic_err(413, "invalid_request_error", format!(
+            "context admission rejected: rendered request exceeds resident context for {model}; start a new task or reduce workspace/tool context"
+        ));
+    }
     // Same clamp the streaming relays apply — a non-streaming caller can overflow
     // the backend's window exactly as easily.
     if let Some(requested) = oai_req.get("max_tokens").and_then(serde_json::Value::as_u64) {
-        let prompt_chars = oai_req.get("messages").map_or(0, |m| m.to_string().len());
         if let Some(allowed) = server.proxy_max_tokens(model, prompt_chars) {
             if (requested as usize) > allowed {
                 oai_req["max_tokens"] = serde_json::Value::from(allowed as u64);

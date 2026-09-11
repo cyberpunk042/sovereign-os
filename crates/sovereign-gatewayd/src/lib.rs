@@ -2708,6 +2708,16 @@ impl GatewayServer {
         Some(window.saturating_sub(prompt_estimate).max(256))
     }
 
+    /// Conservative preflight for an already-impossible proxy request.  Unlike
+    /// `proxy_max_tokens`, this distinguishes “clamp the output” from “the
+    /// rendered bootstrap/history alone cannot fit”, so callers can refuse
+    /// before contacting llama.cpp.
+    #[must_use]
+    pub fn proxy_input_fits(&self, model: &str, prompt_chars: usize) -> Option<bool> {
+        let window = self.proxies.read().ok().and_then(|m| m.get(model).and_then(|p| p.max_model_len))?;
+        Some(prompt_chars / 3 + 64 + 256 <= window)
+    }
+
     /// The upstream `(endpoint, dialect)` for `model` if it is a proxy backend — the
     /// signal to the HTTP handlers to forward instead of generating locally.
     pub fn resolve_proxy(&self, model: &str) -> Option<(String, String)> {
