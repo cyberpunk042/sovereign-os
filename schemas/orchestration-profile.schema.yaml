@@ -106,7 +106,23 @@ properties:
                 the layout (SDD-903).
               type: integer
               minimum: 1
+            runtime_invocation:
+              description: >-
+                Operator-visible llama.cpp/vLLM launch plan for this allocation.
+                It is declarative until the profile-driven reconciler consumes it;
+                profile application must never imply that an unconsumed command ran.
+              type: string
 
       observability:
+        type: object
+        additionalProperties: true
+      context_budget:
+        description: >-
+          Conservative context sizing plan. The catalog context is a model
+          capability ceiling, while this budget is the validated serving limit.
+        type: object
+        additionalProperties: true
+      benchmark_gate:
+        description: Required proof before increasing a conservative serving budget.
         type: object
         additionalProperties: true

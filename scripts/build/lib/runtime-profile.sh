@@ -36,14 +36,21 @@ runtime_profile_active_file() {
   fi
   [ -z "${active_id}" ] && return 1
 
-  # Resolve the repo root via the script's own location
+  # Resolve the repo root via the script's own location.  Profiles selected
+  # from D-21 live in either family: `runtime` or `orchestration`.  Treating
+  # the latter as invisible let a switch advertise Qwythos while the launchers
+  # silently retained their old model.
   local lib_dir; lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   local repo_root; repo_root="$(cd "${lib_dir}/../../.." && pwd)"
-  local yaml="${repo_root}/profiles/runtime/${active_id}.yaml"
-  if [ ! -f "${yaml}" ]; then
-    return 1
-  fi
-  echo "${yaml}"
+  local yaml
+  for yaml in "${repo_root}/profiles/runtime/${active_id}.yaml" \
+              "${repo_root}/profiles/orchestration/${active_id}.yaml"; do
+    if [ -f "${yaml}" ]; then
+      echo "${yaml}"
+      return 0
+    fi
+  done
+  return 1
 }
 
 # Get a field from a tier's allocation in the active runtime profile.
@@ -81,7 +88,7 @@ def _resolve_intent(alloc):
 try:
     with open(os.environ["YAML_FILE"]) as f:
         data = yaml.safe_load(f) or {}
-    rp = data.get("runtime_profile", {})
+    rp = data.get("runtime_profile") or data.get("orchestration_profile") or {}
     for alloc in rp.get("allocations") or []:
         if alloc.get("tier") == os.environ["TIER"]:
             v = alloc.get(os.environ["FIELD"])

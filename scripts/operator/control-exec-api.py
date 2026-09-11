@@ -205,8 +205,33 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
         self.send_header("X-Sovereign-Module", "control-exec-api")
         self.send_header("X-Sovereign-Version", API_VERSION)
         self.send_header("X-Content-Type-Options", "nosniff")
+        # D-21 is intentionally hosted by its read-only daemon on :8129 while
+        # this is the sole sanctioned mutation daemon on :8130. Permit only
+        # that loopback origin to make the explicit cross-origin rail usable;
+        # do not turn this into a broadly CORS-accessible write endpoint.
+        origin = self.headers.get("Origin", "")
+        if origin in ("http://127.0.0.1:8100", "http://localhost:8100",
+                      "http://127.0.0.1:8129", "http://localhost:8129"):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        """CORS preflight for the D-21 -> control-exec loopback bridge."""
+        origin = self.headers.get("Origin", "")
+        if origin not in ("http://127.0.0.1:8100", "http://localhost:8100",
+                          "http://127.0.0.1:8129", "http://localhost:8129"):
+            self.send_response(403)
+            self.end_headers()
+            return
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Vary", "Origin")
+        self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802
         path = urllib.parse.urlsplit(self.path).path.rstrip("/") or "/"
@@ -557,6 +582,15 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
         )
         if isinstance(result, dict):
             result["permission"] = decision
+            if int(result.get("code", 500)) >= 500:
+                # Redacted primitive output is the only useful evidence for a
+                # cockpit execution failure; log it server-side for diagnosis.
+                sys.stderr.write("[control-exec] failure " + json.dumps({
+                    "control_id": control_id, "code": result.get("code"),
+                    "error": result.get("error"), "exit_code": result.get("exit_code"),
+                    "stdout": result.get("stdout", "")[-2000:],
+                    "stderr": result.get("stderr", "")[-2000:],
+                }) + "\n")
         self._send_json(int(result.get("code", 500)), result)
 
     def do_PUT(self) -> None:  # noqa: N802

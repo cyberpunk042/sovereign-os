@@ -170,7 +170,9 @@ def load_catalog(path: Path = CATALOG_PATH) -> list[dict[str, Any]]:
         if indent < 4:
             # dedented out of the models list entirely
             break
-        if body.startswith("- "):
+        # Nested YAML lists (for example a catalog item's download include
+        # patterns) are not model rows. Only the four-space list owns models.
+        if indent == 4 and body.startswith("- "):
             if cur:
                 models.append(cur)
             cur = {}

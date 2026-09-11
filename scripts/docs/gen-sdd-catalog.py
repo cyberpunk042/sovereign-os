@@ -47,16 +47,22 @@ def _title(md_path: Path) -> str:
 
 
 def _sdd_number(name: str) -> int | None:
-    m = re.match(r"^(\d{3})-", name)
+    # The original phase-1 series exhausted 000–999. Keep the catalog's
+    # numeric order when the first four-digit SDD arrives rather than silently
+    # dropping it because its filename no longer fits the old three-digit glob.
+    m = re.match(r"^(\d{3,})-", name)
     return int(m.group(1)) if m else None
 
 
 def render_sdd_catalog() -> str:
     rows = []
-    for p in sorted(SDD_DIR.glob("[0-9][0-9][0-9]-*.md")):
+    candidates = []
+    for p in SDD_DIR.glob("[0-9]*-*.md"):
         n = _sdd_number(p.name)
         if n is None:
             continue
+        candidates.append((n, p))
+    for n, p in sorted(candidates, key=lambda item: item[0]):
         title = _title(p)
         # H1s are "SDD-NNN — <title>"; keep the H1 verbatim as the link text so
         # the catalog reads the same as the doc it points at.

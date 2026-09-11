@@ -27,6 +27,11 @@
 #                             (default: original/*,metal/* — alternate-runtime
 #                             weight trees a CUDA box cannot use; gpt-oss-120b
 #                             ships 120 GiB of them). Set empty to mirror all.
+#   Catalog `hf_include_patterns` limits a model to its declared artifact files
+#                             (for example one GGUF + mmproj), avoiding a
+#                             whole-repo pull of every available quantization.
+#   SOVEREIGN_OS_PULL_ATTEMPTS retry count for transient Hub/DNS failures
+#                             (default: 3; each retry resumes local files).
 #   SOVEREIGN_OS_DRY_RUN      print intent + exit 0
 #
 # Layer B metrics:
@@ -89,6 +94,14 @@ elif query.startswith("entry:"):
             print(yaml.safe_dump(m, sort_keys=False))
             sys.exit(0)
     sys.exit(2)
+elif query.startswith("include:"):
+    target = query.split(":",1)[1]
+    for m in models:
+        if m["id"] == target:
+            for pattern in m.get("hf_include_patterns", []):
+                print(pattern)
+            sys.exit(0)
+    sys.exit(2)
 PYEOF
 }
 
@@ -144,6 +157,10 @@ pull_one() {
     log_info "  DRY-RUN: would hf download \\"
     log_info "             ${repo} \\"
     log_info "             --local-dir ${SOVEREIGN_OS_MODELS_DIR}/${model_id}"
+    while IFS= read -r _pattern; do
+      [ -n "${_pattern}" ] || continue
+      log_info "             --include ${_pattern}"
+    done < <(catalog_query "include:${model_id}")
     emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"dry-run\""
     return 0
   fi
@@ -186,8 +203,38 @@ pull_one() {
     done
   fi
 
-  if "${HF_DL[@]}" "${repo}" "${_excl_args[@]}" \
-       --local-dir "${SOVEREIGN_OS_MODELS_DIR}/${model_id}"; then
+  # A catalog row can select the exact files needed for its declared quant.
+  # This is essential for GGUF repositories that publish BF16/Q5/Q6/Q8 and
+  # speculative variants alongside a single Q4 runtime artifact.
+  _include_args=()
+  while IFS= read -r _pattern; do
+    [ -n "${_pattern}" ] || continue
+    _include_args+=(--include "${_pattern}")
+    log_info "  including: ${_pattern}"
+  done < <(catalog_query "include:${model_id}")
+
+  _attempts="${SOVEREIGN_OS_PULL_ATTEMPTS:-3}"
+  [[ "${_attempts}" =~ ^[1-9][0-9]*$ ]] || {
+    log_error "SOVEREIGN_OS_PULL_ATTEMPTS must be a positive integer (got ${_attempts})"
+    exit 2
+  }
+  _attempt=1
+  _pulled=""
+  while [ "${_attempt}" -le "${_attempts}" ]; do
+    if "${HF_DL[@]}" "${repo}" "${_excl_args[@]}" "${_include_args[@]}" \
+         --local-dir "${SOVEREIGN_OS_MODELS_DIR}/${model_id}"; then
+      _pulled=1
+      break
+    fi
+    if [ "${_attempt}" -lt "${_attempts}" ]; then
+      _delay=$((_attempt * 5))
+      log_warn "  Hub download attempt ${_attempt}/${_attempts} failed; retrying in ${_delay}s (local files will resume)"
+      sleep "${_delay}"
+    fi
+    _attempt=$((_attempt + 1))
+  done
+
+  if [ -n "${_pulled}" ]; then
     log_info "  ✓ ${model_id} resident at ${SOVEREIGN_OS_MODELS_DIR}/${model_id}"
     emit_metric sovereign_os_models_pull_total 1 "model=\"${model_id}\",result=\"success\""
     emit_metric sovereign_os_models_pull_last_timestamp "$(date +%s)" "model=\"${model_id}\""

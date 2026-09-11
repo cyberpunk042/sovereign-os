@@ -46,7 +46,9 @@ def _catalog_ids() -> set[str]:
         "_mh_core", REPO_ROOT / "scripts" / "inference" / "model-health.py")
     mh = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mh)
-    return {m["id"] for m in mh.load_catalog()}
+    rows = mh.load_catalog()
+    assert all("id" in row for row in rows), "catalog parser emitted a non-model row"
+    return {m["id"] for m in rows}
 
 
 def _load(pid: str) -> dict:
@@ -69,6 +71,35 @@ def test_the_five_named_profiles_are_a_floor():
     on_disk = set(_all_stems())
     missing = set(EXPECTED_PROFILES) - on_disk
     assert not missing, f"the 5 named orchestration profiles must exist; missing: {missing}"
+
+
+def test_qwythos_profile_is_catalogued_and_applyable():
+    """The operator-requested Qwythos GGUF profile remains a first-class D-21 choice."""
+    profile = _load("qwythos-local-agent")["orchestration_profile"]
+    assert any(a.get("model") == "Qwythos-9B-Claude-Mythos-5-1M-GGUF"
+               and a.get("active") is True for a in profile["allocations"])
+
+
+def test_qwythos_deep_context_profile_is_pro_6000_sized_and_gated():
+    """Deep-context Qwythos stays a single PRO 6000 Oracle allocation until benchmarked."""
+    profile = _load("qwythos-deep-context")["orchestration_profile"]
+    alloc = next(a for a in profile["allocations"]
+                 if a.get("model") == "Qwythos-9B-Claude-Mythos-5-1M-GGUF")
+    assert alloc["target_hardware"] == "cuda:1"
+    assert alloc["vram_limit_bytes"] == 80 * 1024**3
+    assert "--ctx-size 65536" in alloc["runtime_invocation"]
+    assert profile["context_budget"]["initial_tokens"] == 65536
+    assert profile["benchmark_gate"]["required"] is True
+
+
+def test_qwythos_three_card_profile_places_one_instance_on_each_gpu():
+    """The explicit all-GPU Qwythos pool remains a D-21 applyable choice."""
+    profile = _load("qwythos-three-card")["orchestration_profile"]
+    qwythos = [a for a in profile["allocations"]
+               if a.get("model") == "Qwythos-9B-Claude-Mythos-5-1M-GGUF"]
+    assert {a["target_hardware"] for a in qwythos} == {"cuda:0", "cuda:1", "cuda:2"}
+    assert {a["port"] for a in qwythos} == {8082, 8083, 8086}
+    assert all(a["engine"] == "llama.cpp" and a["active"] for a in qwythos)
 
 
 def test_top_level_key_is_orchestration_profile():

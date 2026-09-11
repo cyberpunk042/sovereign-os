@@ -1373,6 +1373,44 @@ fn ground_proxy_request(server: &GatewayServer, oai: &mut serde_json::Value) {
     oai["messages"] = serde_json::Value::Array(grounded);
 }
 
+/// Present every system instruction before the conversation for strict native
+/// templates such as Qwythos, without losing any caller message.
+fn normalize_proxy_system_messages(oai: &mut serde_json::Value) {
+    let Some(messages) = oai.get("messages").and_then(serde_json::Value::as_array) else {
+        return;
+    };
+    // Qwythos's native template rejects a system instruction that appears
+    // after any conversational turn. OpenClaw can append operational system
+    // instructions late in a session (for title generation, tools, etc.); the
+    // request is valid OpenAI chat but the native template turns it into 500.
+    // Qwythos permits a single system block at position zero, not merely a
+    // consecutive run of system blocks. Merge textual instructions in order.
+    let mut system_text = Vec::new();
+    let mut conversation = Vec::new();
+    for message in messages.iter().cloned() {
+        if message.get("role").and_then(serde_json::Value::as_str) == Some("system") {
+            if let Some(content) = message.get("content").and_then(serde_json::Value::as_str) {
+                system_text.push(content.to_string());
+            } else {
+                // Preserve a non-text system payload rather than silently
+                // discarding it. The next backend can decide how to handle it.
+                conversation.push(message);
+            }
+        } else {
+            conversation.push(message);
+        }
+    }
+    if system_text.is_empty() {
+        return;
+    }
+    let mut normalized = vec![serde_json::json!({
+        "role": "system",
+        "content": system_text.join("\n\n"),
+    })];
+    normalized.extend(conversation);
+    oai["messages"] = serde_json::Value::Array(normalized);
+}
+
 /// Clamp a relayed `max_tokens` to what the backend can actually serve.
 ///
 /// `max_tokens` is forwarded verbatim, which is right until a client asks for
@@ -1414,6 +1452,7 @@ fn stream_proxy_chat_completions(
     let mut oai = req.clone();
     oai["stream"] = serde_json::Value::Bool(true);
     ground_proxy_request(server, &mut oai);
+    normalize_proxy_system_messages(&mut oai);
     // Forward the RESOLVED model id, not the client's.
     //
     // The body is relayed verbatim, which is right for messages, sampling

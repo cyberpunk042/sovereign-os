@@ -2147,6 +2147,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 </header>
 <main>
   <div class="banner" id="data-source-banner">connecting to <code>/api/lm-orchestration/grid</code>…</div>
+  <div class="banner muted" id="runtime-attestation">Runtime attestation loading…</div>
 
   <nav class="sec-nav" aria-label="jump to section">
     <a href="#s-profiles">Profiles</a>
@@ -2437,6 +2438,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         const on = id === selectedProfile ? ' on' : '';
         const act = p.active ? ' active' : '';
         const isGen = fam === 'generated';
+        const missing = p.missing_models || [];
+        const ready = p.ready !== false;
         // Truncate at a WORD boundary + ellipsis (was a hard mid-word slice(0,140)).
         const desc0 = (p.description || '').split('\n')[0];
         const descT = desc0.length > 160 ? desc0.slice(0, 160).replace(/\s+\S*$/, '') + '…' : desc0;
@@ -2452,11 +2455,18 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         // every other family applies for real through the exec rail.
         const applyBtn = isGen
           ? `<button class="p-apply gen" data-act="gen" data-id="${esc(id)}" data-gen="${esc(p.generate_cmd || '')}" title="Materialize this combo to profiles/runtime/, then it becomes applyable">Generate…</button>`
-          : `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail (dry-run → type-to-confirm)">Apply</button>`;
+          : ready
+            ? `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail (dry-run → type-to-confirm)">Apply</button>`
+            : `<button class="p-apply" data-act="download" data-id="${esc(id)}" data-missing="${esc(JSON.stringify(missing))}" title="Copy catalog-backed download commands required before applying">Download required</button>`;
+        const readinessHtml = missing.length
+          ? `<div class="p-result warn">not ready — missing ${missing.map(m => esc(m.id)).join(', ')}. Download first; candidate models require explicit approval.</div>`
+          : (p.required_models && p.required_models.length
+            ? '<div class="p-result ok">models resident · ready to apply</div>' : '');
         return `<div class="profile${on}${act}" data-id="${esc(id)}">
           <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span>${p.active ? '<span class="p-active" title="This profile is currently active (active-runtime-profile marker)">● active</span>' : ''}</div>
           <div class="desc">${esc(descT)}</div>
           ${tiersHtml}
+          ${readinessHtml}
           <div class="p-apply-row">${applyBtn}<span class="p-result muted"></span></div>
         </div>`;
       }).join('');
@@ -2476,6 +2486,11 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         if (btn.dataset.act === 'gen') {
           copyCmd(btn.dataset.gen, 'Materialize this generated combo, then Apply it:');
           setP(resultEl, 'muted', 'copied generate command — run it, then this combo is applyable');
+        } else if (btn.dataset.act === 'download') {
+          let missing = []; try { missing = JSON.parse(btn.dataset.missing || '[]'); } catch (_) {}
+          const plan = missing.map(m => m.download_command).filter(Boolean).join('\n');
+          copyCmd(plan, 'Download the missing catalog models, then return here and Apply:');
+          setP(resultEl, 'dry', 'download plan copied — run each command, then refresh this panel');
         } else {
           applyProfile(btn.dataset.id, btn.dataset.fam, resultEl, false);
         }
@@ -2499,7 +2514,9 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // sends (control_id 'runtime-mode', arg id=<profile>) to the signed exec
   // daemon: DRY-RUN by default, operator-key + type-to-confirm gated, then a
   // live run. Web itself never mutates (R10212); the sudoer rail does.
-  const EXECUTE_URL = '/api/control/execute';
+  // D-21 is read-only on :8129. All profile changes must go through the one
+  // sanctioned control-exec daemon on :8130, never a lookalike per-panel POST.
+  const EXECUTE_URL = 'http://127.0.0.1:8130/api/control/execute';
   function setP(el, cls, msg) { if (!el) return; el.className = 'p-result ' + cls; el.textContent = msg; }
 
   function offerConfirm(id, fam, resultEl) {
@@ -2546,6 +2563,9 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         setP(resultEl, 'warn', body.error || 'operator key not loaded — apply from a signed session');
       } else if (res.status === 409) {
         setP(resultEl, 'warn', 'another apply is in flight (or signed-proxy only) — retry');
+      } else if (res.status === 422) {
+        setP(resultEl, 'warn', (body.error || 'profile prerequisites are not met') +
+          (body.remediation ? ' — ' + body.remediation : ''));
       } else if (res.status === 405) {
         setP(resultEl, 'muted', 'read-only origin — run: ' + verb);
       } else {
@@ -2813,6 +2833,24 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     return res.json();
   }
 
+  function renderRuntimeAttestation(attestation) {
+    const el = $('runtime-attestation');
+    if (!attestation) {
+      el.className = 'banner warn';
+      el.textContent = 'Runtime attestation unavailable — profile labels are not yet verified against the serving backends and OpenClaw catalog.';
+      return;
+    }
+    const providers = (attestation.providers || []).map(p =>
+      `${p.role}: ${p.served_as || 'unreachable'} · ${p.resident_context_tokens || '?'} ctx`).join(' | ');
+    if (attestation.consistent) {
+      el.className = 'banner ok';
+      el.textContent = `Verified profile ${attestation.profile_id || '—'} — ${providers}`;
+    } else {
+      el.className = 'banner warn';
+      el.textContent = `Unverified profile ${attestation.profile_id || '—'} — ${(attestation.violations || ['unknown mismatch']).join(', ')}${providers ? ' · ' + providers : ''}`;
+    }
+  }
+
   async function refresh() {
     // SDD-117 DEMO short-circuit: render badged sample data with ZERO network
     // calls (the SB-077 reconciliation — opt-in + always-badged).
@@ -2837,6 +2875,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       // SDD-141 data-source-banner wording (from main); the `*` wildcard covers
       // the models endpoint the composer added, so the copy stays convergent.
       $('data-source-banner').innerHTML = 'consuming <code>/api/lm-orchestration/*</code> from the lm-orchestration API daemon';
+      renderRuntimeAttestation(grid.runtime_attestation);
       // Profiles are static config, not live telemetry — only re-render when the
       // set actually changes, so a live Apply's dry-run/confirm/result on a card
       // is NOT wiped by the SSE grid tick (D21-4).
@@ -2847,6 +2886,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       renderFeatures(features);
     } catch (e) {
       $('data-source-banner').innerHTML = 'cannot reach <code>/api/lm-orchestration/*</code> — is the lm-orchestration API daemon running? <span class="muted">('+esc(e.message)+')</span>';
+      renderRuntimeAttestation(null);
       // still render the fixed grid + profiles/features structure (honest —)
       renderGrid({}); renderProfilesIfChanged({profiles: PROFILES}); renderFeatures({});
     }
@@ -3591,7 +3631,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 (function(){
   var el = document.getElementById("control-surface");
   if (el && window.SovereignControlSurface) {
-    SovereignControlSurface.load(el, {filterSlug:'d-21-lm-orchestration'});
+    SovereignControlSurface.load(el, {filterSlug:'d-21-lm-orchestration', executeUrl:'http://127.0.0.1:8130/api/control/execute'});
   }
 })();
 </script>

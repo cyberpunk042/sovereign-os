@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../schemas/orchestration-profile.schema.yaml
+#
+# Qwythos on the RTX PRO 6000 is intentionally a separate profile from the
+# 5090 Logic-tier profile. It is an Oracle replacement, not a tensor split:
+# the 9.4B Q4_K_M model fits on one card, and keeping it local avoids PCIe
+# split overhead while retaining a large, controlled KV-cache budget.
+schema_version: "1.0.0"
+orchestration_profile:
+  id: qwythos-deep-context
+  name: "Qwythos deep context (RTX PRO 6000)"
+  description: >-
+    Runs Qwythos-9B-Claude-Mythos-5-1M-GGUF as the Oracle on the RTX PRO 6000
+    (cuda:1), reserving 80 GiB and starting at a 65,536-token context. The
+    catalogue's 1M-token maximum is an architecture ceiling, not a safe initial
+    allocation: increase only after the declared context/throughput benchmark
+    passes with the exact downloaded GGUF and llama.cpp build.
+  intent: custom
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - {agent_id: conductor_bitnet, tier: pulse, role: conductor, target_hardware: cpu, core_mask: "0-7", engine: bitnet.cpp, model: BitNet-b1.58-2B-4T, active: true}
+    - {agent_id: logic_nemotron, tier: logic, role: logic, target_hardware: "cuda:0", engine: vllm, model: Nemotron-3-Nano-Omni-30B-Reasoning-NVFP4, active: true}
+    - agent_id: oracle_qwythos_deep_context
+      tier: oracle
+      role: oracle
+      target_hardware: "cuda:1"
+      port: 8083
+      vram_limit_bytes: 85899345920 # 80 GiB; preserves driver/KV safety headroom on the 96 GiB PRO 6000.
+      engine: llama.cpp
+      model: Qwythos-9B-Claude-Mythos-5-1M-GGUF
+      active: true
+      runtime_invocation: |
+        CUDA_VISIBLE_DEVICES=1 llama-server \
+          -m "${QWYTHOS_GGUF_PATH:?set to the downloaded Q4_K_M GGUF}" \
+          --host 127.0.0.1 --port 8083 -ngl 999 --ctx-size 65536
+  context_budget:
+    initial_tokens: 65536
+    candidate_steps: [98304, 131072]
+    catalog_max_tokens: 1000000
+    policy: >-
+      Do not use the catalogue maximum as a launch setting. Promote only one
+      step at a time after the benchmark gate passes without VRAM pressure,
+      decode failure, or unacceptable throughput regression.
+  benchmark_gate:
+    required: true
+    commands:
+      - "llama-server --version"
+      - "nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv,noheader -i 1"
+      - "Run a 65,536-token prompt/retrieval workload through the local :8083 endpoint and record prefill/decode throughput plus peak VRAM."
+    promotion_rule: >-
+      Keep 65,536 tokens unless the complete workload is stable and leaves
+      sufficient VRAM headroom; test 98,304 then 131,072 tokens separately.
+  observability:
+    primary_metric: sovereign_os_inference_route_total{tier="oracle"}

@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (240 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (241 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -247,3 +247,4 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (240 total), by number.
 - [SDD-997 — a per-crate `✅ integrated` flag on the crate-inventory, validated by named usage (F-2026-100)](../sdd/997-crate-inventory-integrated-flag.md)
 - [SDD-998 — first-boot orchestration correctness: the flashed image must actually run its hooks (F-2026-101..104)](../sdd/998-firstboot-orchestration-correctness.md)
 - [SDD-999 — build-pipeline safety: a missing/critical step must fail the build, not silently pass (F-2026-105..106)](../sdd/999-build-pipeline-safety.md)
+- [SDD-1000 — OpenClaw context, workspace, and takeover integrity](../sdd/1000-openclaw-context-workspace-and-takeover-integrity.md)

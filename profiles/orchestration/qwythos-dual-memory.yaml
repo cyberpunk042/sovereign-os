@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+orchestration_profile:
+  id: qwythos-dual-memory
+  name: Qwythos Dual + Local Memory
+  description: Two Qwythos chat residents on the internal GPUs; RTX 4090 is reserved for local BGE-M3 embeddings and reranking for OpenClaw memory.
+  intent: full-hybrid
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - {agent_id: logic_qwythos_5090, tier: logic, role: logic, target_hardware: "cuda:1", engine: llama.cpp, model: Qwythos-9B-Claude-Mythos-5-1M-GGUF, port: 8082, vram_limit_bytes: 25769803776, max_output_tokens: 4096, active: true}
+    - {agent_id: oracle_qwythos_pro6000, tier: oracle, role: oracle, target_hardware: "cuda:0", engine: llama.cpp, model: Qwythos-9B-Claude-Mythos-5-1M-GGUF, port: 8083, vram_limit_bytes: 77309411328, max_output_tokens: 16384, active: true}
+    - {agent_id: embed_bge_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
+    - {agent_id: rerank_bge_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
+  context_budget:
+    initial_tokens: {"cuda:0": 65536, "cuda:1": 16384, "cuda:2": 8192}

@@ -186,6 +186,21 @@ def test_api_daemon_profiles_and_features_endpoints():
         ) as r:
             prof = json.loads(r.read())
         assert "profiles" in prof and isinstance(prof["profiles"], list)
+        qwythos = next(p for p in prof["profiles"] if p.get("id") == "qwythos-local-agent")
+        assert "Qwythos-9B-Claude-Mythos-5-1M-GGUF" in qwythos["required_models"]
+        missing = [m for m in qwythos["missing_models"]
+                   if m["id"] == "Qwythos-9B-Claude-Mythos-5-1M-GGUF"]
+        # A test host may already have the artifact resident. When it does not,
+        # the preflight must expose the exact explicit candidate-pull command.
+        if missing:
+            assert "scripts/models/pull.sh" in missing[0]["download_command"]
+            assert "--allow-candidate" in missing[0]["download_command"]
+        else:
+            assert all(m["id"] != "Qwythos-9B-Claude-Mythos-5-1M-GGUF"
+                       for m in qwythos["missing_models"])
+        deep_context = next(p for p in prof["profiles"] if p.get("id") == "qwythos-deep-context")
+        assert any(t["tier"] == "oracle" and t["model"] == "Qwythos-9B-Claude-Mythos-5-1M-GGUF"
+                   for t in deep_context["tiers"])
         with urllib.request.urlopen(
             f"http://127.0.0.1:{port}/api/lm-orchestration/features", timeout=3
         ) as r:

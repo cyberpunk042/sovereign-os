@@ -99,6 +99,17 @@ $defs:
         description: "HF revision pin (commit sha or tag). Strongly recommended for verified-real."
         type: string
 
+      hf_include_patterns:
+        description: >-
+          Optional Hugging Face file globs for a catalogued artifact. When set,
+          the downloader fetches only these files rather than mirroring every
+          quantization or alternate-runtime artifact in the repository.
+        type: array
+        minItems: 1
+        items:
+          type: string
+          minLength: 1
+
       closest_real_alternative:
         description: "When status=aspirational, the closest real HF repo the operator may substitute."
         type: string

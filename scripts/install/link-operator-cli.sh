@@ -45,4 +45,60 @@ _relink "${SRC}/scripts/sovereign-osctl" "${BIN}"
 # Deployed lib tree → the repo (the dashboards resolve REPO from here).
 _relink "${SRC}" "${LIB}"
 
+# A service with ProtectHome=true cannot follow a live link into /home: systemd
+# masks the source path in the service's mount namespace, then its ExecStart
+# fails before Python runs.  Keep the rest of /home private and bind only this
+# explicitly selected checkout read-only into every installed operator-panel
+# service that resolves code under ${LIB}.  This makes the live link genuinely
+# live while preserving the R171 hardening boundary.
+_grant_service_source_access() {
+  local src="$1" unit_file unit dropin seen_units=" "
+  case "${src}" in
+    /home/*) ;;
+    *) return 0 ;;  # /opt and other non-home live trees need no exception.
+  esac
+  case "${src}" in
+    *$'\n'*|*' '*)
+      echo "refusing a live source path with whitespace/newlines: ${src}" >&2
+      return 2
+      ;;
+  esac
+  # Packaged units live in /usr/lib/systemd/system while local overrides often
+  # live in /etc/systemd/system.  Inspect both: the control-exec API is a
+  # packaged unit and must refresh with the same live source as D-21.
+  for unit_file in /etc/systemd/system/sovereign-*.service /usr/lib/systemd/system/sovereign-*.service; do
+    [ -f "${unit_file}" ] || continue
+    grep -q '/usr/local/lib/sovereign-os/' "${unit_file}" || continue
+    unit="$(basename "${unit_file}")"
+    # A unit can have both its packaged definition and an /etc override; one
+    # generated drop-in is enough.
+    [[ "${seen_units}" == *" ${unit} "* ]] && continue
+    seen_units+="${unit} "
+    dropin="/etc/systemd/system/${unit}.d/dev-source.conf"
+    if [ -n "${DRY}" ]; then
+      info "dry-run: grant ${unit} read-only access to ${src}"
+      continue
+    fi
+    _sudo mkdir -p "$(dirname "${dropin}")"
+    printf '[Service]\nProtectHome=tmpfs\nBindReadOnlyPaths=%s\n' "${src}" \
+      | _sudo tee "${dropin}" >/dev/null
+    info "live-source access: ${unit} → ${src} (read-only)"
+  done
+  if [ -z "${DRY}" ]; then
+    _sudo systemctl daemon-reload
+    # The broker must see the new checkout to emit refresh notices, and panel
+    # APIs already running retain their imported repository root until a
+    # restart. Refresh every live-link owner needed for D-21: its read API,
+    # update broker, and sanctioned write endpoint.
+    for unit in sovereign-livereload-broker.service sovereign-lm-orchestration-api.service sovereign-control-exec-api.service; do
+      if systemctl is-active --quiet "${unit}"; then
+        _sudo systemctl try-restart "${unit}"
+        info "restarted ${unit} to adopt the live checkout"
+      fi
+    done
+  fi
+}
+
+_grant_service_source_access "${SRC}"
+
 [ -n "${DRY}" ] || info "operator CLI + lib are now live-linked to ${SRC}"

@@ -201,6 +201,14 @@ LOGIC_ATTENTION_BACKEND=${IAC_VLLM_ATTENTION_BACKEND:-TRITON_ATTN}
 # including the bare closing marker. vLLM ships a parser matched to this family;
 # it moves the trace to reasoning_content and leaves content as the answer.
 LOGIC_REASONING_PARSER=${IAC_VLLM_REASONING_PARSER:-nemotron_v3}
+# OpenClaw is agentic: it includes tool definitions and tool_choice=auto on
+# every turn. vLLM refuses those requests unless both switches below are set.
+# Nemotron's OpenAI chat template uses the Hermes-style function-call framing;
+# `hermes` is a built-in parser offered by the pinned vLLM release.
+# Quote the space-containing value: systemd EnvironmentFile parsing otherwise
+# treats it as an invalid/unset assignment on some systemd versions, leaving
+# the launched vLLM process without either agentic flag.
+LOGIC_EXTRA_ARGS="--enable-auto-tool-choice --tool-call-parser ${IAC_VLLM_TOOL_PARSER:-hermes}"
 # …and flashinfer is reached a SECOND way, which switching the attention backend
 # did not touch. The traceback after that change still ended in nvcc, but from
 #     flashinfer/sampling.py:1974 in top_k_mask_logits
@@ -225,7 +233,22 @@ ensure_dir /var/lib/sovereign-os/vllm-home 0750 root:root
 ensure_dropin sovereign-logic-engine.service 10-vllm-host <<EOF
 # Managed by scripts/iac — do not edit by hand.
 [Service]
+# Keep the agentic vLLM options in the unit itself as well as its EnvironmentFile.
+# This prevents a space-containing EnvironmentFile value from being lost before
+# start-logic-engine.sh constructs the vLLM argv.
+Environment="LOGIC_EXTRA_ARGS=--enable-auto-tool-choice --tool-call-parser ${IAC_VLLM_TOOL_PARSER:-hermes}"
 ExecStop=
+# The packaged unit points at /opt/sovereign-os, which is a stale copy on a
+# developer workstation. Keep the running tier on the same live-linked source
+# tree as its generated configuration; otherwise new managed flags can appear
+# in /etc while the old launcher silently ignores them.
+ExecStart=
+ExecStart=/usr/local/lib/sovereign-os/scripts/inference/start-logic-engine.sh
+# vLLM forks its engine after ExecStart and can need minutes to load a model.
+# Keep a restart transaction in "starting" until the OpenAI endpoint is
+# accepting requests, rather than reporting a green systemd service while
+# gatewayd/OpenClaw can only receive connection-refused responses.
+ExecStartPost=/bin/bash -c 'for _ in \$(seq 1 180); do curl -fsS --max-time 2 http://127.0.0.1:8082/v1/models >/dev/null && exit 0; sleep 1; done; exit 1'
 ReadWritePaths=/var/lib/sovereign-os/hf /var/lib/sovereign-os/cache /var/lib/sovereign-os/vllm-home
 # A multi-GB checkpoint load on a cold page cache exceeds the shipped 180s.
 TimeoutStartSec=900

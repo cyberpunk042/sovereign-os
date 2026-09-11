@@ -5254,8 +5254,12 @@ _trinity_profile() {
   # Operator-authored drafts live outside the repo (composer Save-draft target;
   # mirrors LM_ORCH_USER_PROFILES_DIR in the D-21 daemon).
   local user_dir="${SOVEREIGN_OS_USER_PROFILES_DIR:-${HOME}/.sovereign-os/profiles/orchestration}"
-  local state_dir="${SOVEREIGN_OS_STATE_DIR:-/etc/sovereign-os}"
-  if [ -z "${SOVEREIGN_OS_STATE_DIR:-}" ] && [ ! -w /etc 2>/dev/null ]; then
+  # Build orchestration also exports SOVEREIGN_OS_STATE_DIR (normally
+  # /root/.sovereign-os/build-state).  That is build scratch, never runtime
+  # profile authority.  A profile selection must use the single system marker
+  # when privileged, or the operator marker when not.
+  local state_dir="/etc/sovereign-os"
+  if [ ! -w /etc 2>/dev/null ]; then
     state_dir="${HOME}/.sovereign-os"
   fi
   local active_file="${state_dir}/active-runtime-profile"
@@ -5400,8 +5404,52 @@ PY
         return 1
       }
       fam="${resolved%%$'\t'*}"; f="${resolved#*$'\t'}"
+      # Qwythos uses three independent llama.cpp residents, including the
+      # 4090 worker.  The legacy switcher can only restart two pre-existing
+      # vLLM units, so it must never write the active marker or OpenClaw labels
+      # first.  The reconciler validates artifacts, starts all three services,
+      # waits for readiness, then commits the marker and mirrors OpenClaw.
+      if [ "${id}" = "qwythos-three-card" ] || [ "${id}" = "qwythos-dual-memory" ]; then
+        local qwythos_reconciler="${__REPO_ROOT}/scripts/inference/reconcile-qwythos-three-card.py"
+        if [ ! -f "${qwythos_reconciler}" ]; then
+          log_error "Qwythos reconciler missing; profile was not changed"
+          return 1
+        fi
+        log_info "converging Qwythos three-card runtime before committing profile..."
+        ${PYTHON3} "${qwythos_reconciler}" "${id}" || {
+          log_error "Qwythos profile was not committed; OpenClaw remains on the last verified runtime"
+          return 1
+        }
+        log_info "profile switch complete: ${id}"
+        return 0
+      fi
+      # Remove the profile-owned llama.cpp overrides before an explicit return
+      # to a regular profile.  Leaving them in place would make systemd serve
+      # Qwythos while OpenClaw advertised the newly selected profile.
+      local qwythos_systemd_dir="/etc/systemd/system"
+      if [ -e "${qwythos_systemd_dir}/sovereign-logic-engine.service.d/90-qwythos-profile.conf" ] \
+          || [ -e "${qwythos_systemd_dir}/sovereign-oracle-core.service.d/90-qwythos-profile.conf" ] \
+          || [ -e "${qwythos_systemd_dir}/sovereign-qwythos-worker.service" ] \
+          || [ -e "${qwythos_systemd_dir}/sovereign-gatewayd.service.d/90-qwythos-profile.conf" ]; then
+        log_info "removing the previous Qwythos three-card runtime..."
+        systemctl disable --now sovereign-qwythos-worker.service >/dev/null 2>&1 || true
+        rm -f "${qwythos_systemd_dir}/sovereign-logic-engine.service.d/90-qwythos-profile.conf" \
+              "${qwythos_systemd_dir}/sovereign-oracle-core.service.d/90-qwythos-profile.conf" \
+              "${qwythos_systemd_dir}/sovereign-qwythos-worker.service" \
+              "${qwythos_systemd_dir}/sovereign-gatewayd.service.d/90-qwythos-profile.conf" \
+              "/etc/sovereign-os/qwythos-gpu-route.env" \
+              "/etc/sovereign-os/profile-runtime/logic.json" \
+              "/etc/sovereign-os/profile-runtime/oracle.json" \
+              "/etc/sovereign-os/profile-runtime/worker.json" \
+              "/etc/sovereign-os/openclaw-catalog-revision.json"
+        systemctl daemon-reload
+      fi
       mkdir -p "$(dirname "${active_file}")" 2>/dev/null || true
       printf '%s\n' "${id}" > "${active_file}"
+      # The active profile id is not secret; D-21's unprivileged control rail
+      # must read it to verify a successful transaction instead of reporting a
+      # false HTTP 500 after root wrote it with a restrictive umask.
+      chmod 0644 "${active_file}" 2>/dev/null || true
       log_info "active profile set to: ${id} (family: ${fam})"
 
       # E108 closure: actuate the runtime profile. What this DOES apply:
@@ -5414,13 +5462,6 @@ PY
       local env_file="${state_dir}/active-runtime-profile-env.sh"
       [ -w /etc 2>/dev/null ] || env_file="${HOME}/.sovereign-os/active-runtime-profile-env.sh"
       mkdir -p "$(dirname "${env_file}")" 2>/dev/null || true
-
-      # An explicit state root is authoritative. Reassert it after any
-      # platform fallback merged above so Trinity state cannot split roots.
-      if [ -n "${SOVEREIGN_OS_STATE_DIR:-}" ]; then
-        env_file="${SOVEREIGN_OS_STATE_DIR}/active-runtime-profile-env.sh"
-        mkdir -p "$(dirname "${env_file}")" 2>/dev/null || true
-      fi
 
       # Generate the runtime-profile env file. SCOPE (SDD-903 Phase 0): this file
       # is SOURCED below only to apply GPU power-state commands, so it exports

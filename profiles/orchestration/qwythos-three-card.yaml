@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../schemas/orchestration-profile.schema.yaml
+#
+# One Qwythos GGUF instance per physical GPU.  These are independent llama.cpp
+# servers, not a tensor split: this retains low-latency local scheduling and
+# avoids making the RTX 4090's OcuLink link part of a cross-card inference path.
+schema_version: "1.0.0"
+orchestration_profile:
+  id: qwythos-three-card
+  name: "Qwythos three-card pool"
+  description: >-
+    Runs the Qwythos-9B-Claude-Mythos-5-1M-GGUF model independently on every
+    GPU: RTX 5090 (cuda:1) for interactive Logic work, RTX PRO 6000 (cuda:0)
+    for large-context Oracle work, and RTX 4090 (cuda:2) as a separate local
+    Qwythos worker. The instances share no VRAM and have distinct endpoints.
+  intent: custom
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - agent_id: logic_qwythos_5090
+      tier: logic
+      role: logic
+      target_hardware: "cuda:1"
+      port: 8082
+      vram_limit_bytes: 30064771072 # 28 GiB: leaves 4 GiB driver/display headroom on the 32 GiB RTX 5090.
+      engine: llama.cpp
+      model: Qwythos-9B-Claude-Mythos-5-1M-GGUF
+      active: true
+      runtime_invocation: |
+        CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 llama-server -m "${QWYTHOS_GGUF_PATH}" \
+          --host 127.0.0.1 --port 8082 -ngl 999 --ctx-size 16384
+    - agent_id: oracle_qwythos_pro6000
+      tier: oracle
+      role: oracle
+      target_hardware: "cuda:0"
+      port: 8083
+      vram_limit_bytes: 85899345920 # 80 GiB: controlled KV-cache budget on the 96 GiB RTX PRO 6000.
+      engine: llama.cpp
+      model: Qwythos-9B-Claude-Mythos-5-1M-GGUF
+      active: true
+      runtime_invocation: |
+        CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=0 llama-server -m "${QWYTHOS_GGUF_PATH}" \
+          --host 127.0.0.1 --port 8083 -ngl 999 --ctx-size 65536
+    - agent_id: worker_qwythos_4090
+      tier: router
+      target_hardware: "cuda:2"
+      port: 8086
+      vram_limit_bytes: 19327352832 # 18 GiB: leaves PCIe/OcuLink and desktop headroom on the 24 GiB RTX 4090.
+      max_output_tokens: 4096 # Leaves room for OpenClaw's ~26K startup/tool instruction payload.
+      engine: llama.cpp
+      model: Qwythos-9B-Claude-Mythos-5-1M-GGUF
+      active: true
+      runtime_invocation: |
+        CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=2 llama-server -m "${QWYTHOS_GGUF_PATH}" \
+          --host 127.0.0.1 --port 8086 -ngl 999 --ctx-size 32768
+  context_budget:
+    initial_tokens: {cuda:0: 65536, cuda:1: 16384, cuda:2: 32768}
+    catalog_max_tokens: 1000000
+    policy: >-
+      The 1M-token catalog capability is not a simultaneous launch setting.
+      Benchmark each independent instance before raising its own context limit.
+  benchmark_gate:
+    required: true
+    commands:
+      - "Probe each endpoint (:8082, :8083, :8086) independently and record prefill/decode throughput plus peak VRAM."
+      - "Raise only the context budget of the card whose complete workload remains stable with headroom."
+  observability:
+    primary_metric: sovereign_os_inference_route_total

@@ -50,6 +50,7 @@ import importlib.util
 import json
 import os
 import re
+import shlex
 import sys
 import time
 import urllib.parse
@@ -70,6 +71,9 @@ METRICS_DIR = os.environ.get(
     "SOVEREIGN_OS_METRICS_DIR", "/var/lib/node_exporter/textfile_collector",
 )
 METRIC_NAME = "sovereign_os_operator_lm_orchestration_api_request_total"
+MODEL_STATE_PATH = Path(os.environ.get(
+    "SOVEREIGN_OS_MODEL_STATE", "/run/sovereign-os/model-state.json"
+))
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 WEBAPP_PATH = Path(os.environ.get(
@@ -155,6 +159,20 @@ def _emit_metric(endpoint: str, result: str) -> None:
         pass
 
 
+def runtime_attestation_view() -> dict[str, Any] | None:
+    """Expose the publisher's read-only profile/runtime/consumer witness.
+
+    A missing witness is deliberately represented as null: the grid must never
+    dress a catalog intention up as a verified resident profile.
+    """
+    try:
+        state = json.loads(MODEL_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    value = state.get("runtime_attestation") if isinstance(state, dict) else None
+    return value if isinstance(value, dict) else None
+
+
 def grid_view() -> dict[str, Any]:
     """Reshape the shared model-health snapshot into the assignment grid:
     one cell per GPU0/GPU1/Ext-GPU/CPU0 with its bound Model 0/1/2 and a
@@ -205,7 +223,8 @@ def grid_view() -> dict[str, Any]:
             "models": model_slots,
         })
     return {"schema_version": snap.get("schema_version"),
-            "summary": snap.get("summary", {}), "cells": cells}
+            "summary": snap.get("summary", {}), "cells": cells,
+            "runtime_attestation": runtime_attestation_view()}
 
 
 _ORCH_DIR = _REPO_ROOT / "profiles" / "orchestration"
@@ -217,6 +236,7 @@ _GEN_STRATEGIES = ("efficiency", "high-concurrency", "deep-context")
 _USER_PROFILES_DIR = Path(os.environ.get(
     "LM_ORCH_USER_PROFILES_DIR",
     str(Path.home() / ".sovereign-os" / "profiles" / "orchestration")))
+_MODELS_DIR = Path(os.environ.get("SOVEREIGN_OS_MODELS_DIR", "/mnt/vault/models"))
 
 
 def _active_profile_id() -> str | None:
@@ -440,6 +460,26 @@ def profiles_view() -> dict[str, Any]:
     for p in user:
         p["apply_cmd"] = f"sovereign-osctl trinity profile switch {p['id']}"
     profiles = runtime + orchestration + generated + user
+    catalog = {m.get("id"): m for m in _core.load_catalog() if m.get("id")}
+    for p in profiles:
+        # Report active-profile requirements before application. Downloads stay
+        # explicit, confirmed operator actions; this read-only API only supplies
+        # catalog-grounded commands for artifacts that are not resident.
+        required = [t.get("model") for t in p.get("tiers", [])
+                    if t.get("active", True) and t.get("model")]
+        missing = []
+        for model_id in required:
+            entry = catalog.get(model_id, {})
+            if not (_MODELS_DIR / model_id).is_dir():
+                command = (f"SOVEREIGN_OS_MODELS_DIR={shlex.quote(str(_MODELS_DIR))} "
+                           f"scripts/models/pull.sh {shlex.quote(model_id)}")
+                if entry.get("status") == "operator-must-confirm":
+                    command += " --allow-candidate"
+                missing.append({"id": model_id, "status": entry.get("status", "unknown"),
+                                "download_command": command})
+        p["required_models"] = required
+        p["missing_models"] = missing
+        p["ready"] = not missing
     active_id = _active_profile_id()
     for p in profiles:
         p["active"] = bool(active_id) and p.get("id") == active_id
@@ -453,6 +493,7 @@ def profiles_view() -> dict[str, Any]:
         "user_count": len(user),
         "families": ["runtime", "orchestration", "generated", "user"],
         "user_profiles_dir": str(_USER_PROFILES_DIR),
+        "models_dir": str(_MODELS_DIR),
         "note": "four families: 3 runtime (§18 locked) + "
                 f"{len(orchestration)} orchestration (repo) + "
                 f"{len(generated)} generated combos (OS×strategy) + "
@@ -681,6 +722,10 @@ class LmOrchAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, grid_view())
                 _emit_metric("grid", "ok")
                 return
+            if path == "/api/lm-orchestration/attestation":
+                self._send_json(200, {"runtime_attestation": runtime_attestation_view()})
+                _emit_metric("attestation", "ok")
+                return
             if path == "/api/lm-orchestration/profiles":
                 self._send_json(200, profiles_view())
                 _emit_metric("profiles", "ok")
@@ -710,6 +755,7 @@ class LmOrchAPIHandler(BaseHTTPRequestHandler):
             "available": ["/api/lm-orchestration/grid",
                           "/api/lm-orchestration/profiles",
                           "/api/lm-orchestration/features",
+                          "/api/lm-orchestration/attestation",
                           "/api/lm-orchestration/stream",
                           "/version", "/healthz", "/webapp/"],
         })

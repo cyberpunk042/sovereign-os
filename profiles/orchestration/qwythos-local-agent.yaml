@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../schemas/orchestration-profile.schema.yaml
+# Local multimodal/agent profile for the catalogued Qwythos GGUF artifact.
+schema_version: "1.0.0"
+orchestration_profile:
+  id: qwythos-local-agent
+  name: "Qwythos local agent"
+  description: >-
+    A local-first agent profile centred on Qwythos-9B-Claude-Mythos-5-1M-GGUF
+    on the Logic GPU through llama.cpp. BitNet remains the CPU conductor and
+    gpt-oss-120b remains the Oracle, giving Qwythos a dedicated multimodal,
+    agentic working tier without replacing the rest of the Trinity.
+  intent: custom
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - {agent_id: conductor_bitnet, tier: pulse, role: conductor, target_hardware: cpu, core_mask: "0-7", engine: bitnet.cpp, model: BitNet-b1.58-2B-4T, active: true}
+    - {agent_id: logic_qwythos, tier: logic, role: logic, target_hardware: "cuda:0", engine: llama.cpp, model: Qwythos-9B-Claude-Mythos-5-1M-GGUF, active: true}
+    - {agent_id: oracle_gptoss, tier: oracle, role: oracle, target_hardware: "cuda:1", engine: vllm, model: gpt-oss-120b, active: true}
+  observability:
+    primary_metric: sovereign_os_inference_route_total{tier="logic"}

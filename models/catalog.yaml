@@ -513,6 +513,14 @@ catalog:
       status: operator-must-confirm
       license: apache-2.0
       hf_repo_id: empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF
+      hf_include_patterns:
+        # This repository publishes every precision (including BF16) and MTP
+        # variants. The D-21 Q4 profile needs only its declared GGUF plus the
+        # multimodal projector; never mirror the 78+ GiB shelf by default.
+        - Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf
+        - mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf
+        - README.md
+        - SHA256SUMS
       parameters_millions: 9409.8
       vram_gib_min: 7
       context_window_tokens: 1000000
@@ -526,7 +534,9 @@ catalog:
         sovereignty path (llama.cpp) rather than needing transformers/vLLM —
         ~7 GiB weights floor at Q4_K_M. status=operator-must-confirm: real HF
         repo (2.2M downloads), pull via `scripts/models/pull.sh
-        --allow-candidate`, not yet trialed on the stack.
+        --allow-candidate`, not yet trialed on the stack. The catalog limits
+        this pull to Q4_K_M + its vision projector, rather than downloading
+        every quantization published in the source repository.
 
     # ============================================================
     # R212 — LoRA adapter examples (class=lora-adapter MUST carry base_model)

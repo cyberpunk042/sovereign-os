@@ -250,6 +250,47 @@ def _privileged_argv(argv: list[str], privileged: bool) -> list[str]:
     return argv
 
 
+def _profile_switch_committed(control: dict[str, Any], args: dict[str, str]) -> tuple[bool, str]:
+    """Verify the one state change a successful profile switch must make.
+
+    ``systemctl restart`` returns once it has spawned a service, not once a
+    model is usable.  More importantly, a stale/split installation can return
+    zero after restarting tiers without writing the state marker.  Treat that
+    as a failed switch: reporting success in the cockpit would make OpenClaw's
+    catalog disagree with the model processes it is about to call.
+    """
+    expected = str(args.get("verb", "")).strip()
+    marker = Path(str(control.get("state_path", "")))
+    if not expected or not marker.is_file():
+        return False, f"profile switch did not commit active marker {marker}"
+    try:
+        actual = marker.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        # The control API intentionally runs as the operator user; older
+        # profile transactions created this non-secret marker mode 0600 root.
+        # Verify through the already-allowlisted sudo rail rather than turning
+        # a completed privileged transition into a false cockpit HTTP 500.
+        try:
+            check = subprocess.run([SUDO, "-n", os.environ.get(
+                "SOVEREIGN_OS_OSCTL", "/usr/local/bin/sovereign-osctl"
+            ), "trinity", "profile", "active"],
+                                   capture_output=True, text=True, timeout=5,
+                                   check=False)
+            if check.returncode == 0:
+                actual = check.stdout.strip()
+            else:
+                # The command that created this marker already returned zero.
+                # Its contents are a non-secret profile id; retain the success
+                # result rather than converting an allowlist/readability gap
+                # into a false cockpit 500. New transactions also chmod it 644.
+                return True, expected
+        except (OSError, subprocess.SubprocessError):
+            return True, expected
+    if actual != expected:
+        return False, f"profile switch marker is {actual!r}, expected {expected!r}"
+    return True, actual
+
+
 _METRIC_NAME = "sovereign_os_operator_cockpit_action_total"
 
 
@@ -508,7 +549,45 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
     try:
         proc = subprocess.run(run_argv, cwd=_REPO_ROOT, capture_output=True,
                               text=True, timeout=timeout, check=False)
+        # The profile controls restart heavyweight inference services. A zero
+        # exit is insufficient evidence of activation; the marker is the
+        # transaction's commit record and must match the selected profile.
+        if proc.returncode == 0 and control_id in ("runtime-mode", "orchestration-profile"):
+            committed, detail = _profile_switch_committed(control, args)
+            if not committed:
+                proc_returncode = 1
+                proc_stderr = (proc.stderr + "\npostcondition failed: " + detail).strip()
+                _emit_audit(control_id, argv, proc_returncode, actor, dry_run=False)
+                _emit_metric(control_id, "error")
+                return {"ok": False, "code": 500, "control_id": control_id,
+                        "argv": argv, "dry_run": False, "exit_code": proc_returncode,
+                        "stdout": proc.stdout[-4000:], "stderr": proc_stderr[-2000:],
+                        "error": detail}
         _emit_audit(control_id, argv, proc.returncode, actor, dry_run=False)
+        # A profile rejected by its own preflight is a valid, non-mutating
+        # operator result, not an internal server error.  In particular, the
+        # three-card Qwythos transaction refuses a CPU-only llama-server before
+        # it changes the committed marker or OpenClaw.  Preserve that reason and
+        # give the cockpit a status it can render as an actionable prerequisite.
+        profile_preflight = (
+            control_id in ("runtime-mode", "orchestration-profile")
+            and "was not applied" in (proc.stdout + proc.stderr)
+        )
+        if profile_preflight:
+            _emit_metric(control_id, "validation-reject")
+            detail_lines = (proc.stderr + "\n" + proc.stdout).splitlines()
+            reason = next((line.strip() for line in detail_lines
+                           if "was not applied" in line),
+                          "profile prerequisites are not met")
+            return {"ok": False, "code": 422, "control_id": control_id,
+                    "argv": argv, "dry_run": False, "exit_code": proc.returncode,
+                    "stdout": proc.stdout[-4000:], "stderr": proc.stderr[-2000:],
+                    "error": reason,
+                    "remediation": (
+                        "Install a CUDA-enabled llama.cpp / llama-server build, then apply "
+                        "Qwythos three-card pool again. The current installed llama-server "
+                        "reports no CUDA devices, so the profile was deliberately not changed."
+                    )}
         _emit_metric(control_id, "executed" if proc.returncode == 0 else "error")
         result = {"ok": proc.returncode == 0,
                   "code": 200 if proc.returncode == 0 else 500,

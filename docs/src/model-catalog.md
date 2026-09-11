@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 79 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 80 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -10,9 +10,9 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Tier | Count | Verified-real | Aspirational |
 |------|-------|---------------|--------------|
-| pulse | 29 | 9 | 14 |
+| pulse | 30 | 10 | 14 |
 | logic | 25 | 6 | 7 |
-| oracle | 20 | 8 | 5 |
+| oracle | 20 | 9 | 5 |
 | router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
@@ -27,7 +27,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | `multimodal` — Multimodal | 7 |
 | `reranker` — Reranker (cross-encoder) | 1 |
 | `rlm` — RLM (reasoning) | 9 |
-| `slm` — SLM (small) | 6 |
+| `slm` — SLM (small) | 7 |
 | `speculative` — Speculative draft | 3 |
 | `ternary-lm` — Ternary LM (1.58-bit) | 33 |
 | `vision` — Vision | 1 |
@@ -36,9 +36,9 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 25 |
+| `agent` | 26 |
 | `audio` | 3 |
-| `chat` | 41 |
+| `chat` | 42 |
 | `code` | 25 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
@@ -61,7 +61,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Purpose:** `chat`, `agent`
 - **Engine:** `bitnet.cpp`
 - **License:** mit
-- **HF repo id:** `microsoft/bitnet-b1.58-2B-4T`
+- **HF repo id:** `microsoft/bitnet-b1.58-2B-4T-gguf`
 - **Parameters:** 849.8 M
 - **VRAM minimum (GiB):** 1.5
 - **Context window (tokens):** 4,096
@@ -147,7 +147,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Purpose:** `chat`, `code`, `function-calling`
 - **Engine:** `llama.cpp`
 - **License:** mit
-- **HF repo id:** `microsoft/Phi-4-mini-instruct`
+- **HF repo id:** `bartowski/microsoft_Phi-4-mini-instruct-GGUF`
 - **Parameters:** 3800.0 M
 - **VRAM minimum (GiB):** 3.5
 - **Context window (tokens):** 131,072
@@ -155,6 +155,15 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 **Operator note:**
 
+> CORRECTION 2026-07-28 — hf_repo_id pointed at microsoft/Phi-4-mini-instruct,
+> which ships ZERO .gguf files (verified via the HF tree API); it is the
+> BF16 base repo. The declared Q5_K_M build is real but lives in a
+> dedicated GGUF repo, so the entry named the right artifact and the wrong
+> source. Repointed to bartowski/microsoft_Phi-4-mini-instruct-GGUF
+> (Q5_K_M = 2.65 GiB, measured). An earlier pass mistakenly 'corrected'
+> the metadata to bf16 to match the wrong repo — the pointer was the bug.
+> Caught by tests/lint/test_tier_intent_selection.py, which depends on this
+> entry resolving. Found by scripts/models/audit-sizes.py.
 > R212 — Phi-4-mini-instruct (3.8B). 128k context window at a
 > small footprint; ideal for code-heavy agent loops with a long
 > instruction buffer. GGUF Q5_K_M ships well-quantized.
@@ -593,6 +602,53 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 > Operator handwritten catalog 2026-07-02 — note: long-context ternary Llama-1B target; Llama-3.2-1B closest base.
 
+### SmolLM2-1.7B-Instruct
+
+- **Status:** ✓ verified-real
+- **Class:** `slm` — SLM (small)
+- **Quantization:** `bf16`
+- **Size class:** `s`
+- **Purpose:** `chat`, `agent`
+- **Engine:** `custom`
+- **License:** apache-2.0
+- **HF repo id:** `HuggingFaceTB/SmolLM2-1.7B-Instruct`
+- **Parameters:** 1711.0 M
+- **Context window (tokens):** 8,192
+- **Master spec:** operator catalog addition 2026-08-01
+
+**Operator note:**
+
+> THE MODEL THIS BOX IS ACTUALLY SERVING, added 2026-08-01 because
+> it was missing: the catalog listed 79 models and not the one
+> running.
+>
+> Resident at /mnt/vault/models/smollm2-1.7b-instruct (3.2 GB, bf16
+> safetensors) and served by sovereign-gatewayd under the model id
+> "local-oracle" (SOVEREIGN_GATEWAY_MODEL_ID). That id is a ROLE on
+> this host, not a claim about the model: by size this is pulse
+> tier, and it fills the oracle slot only because it is the sole
+> model installed.
+>
+> engine: custom — gatewayd runs it on its own pure-Rust
+> safetensors decoder (sovereign-quant-model / sovereign-mha-block),
+> not on any of the enum's named engines. None of bitnet.cpp, vllm,
+> llama.cpp or transformers is installed here, which is why the
+> other 79 entries are a portfolio rather than an inventory.
+>
+> vram_gib_min 0.0 is literal: decode runs entirely on CPU. Both
+> GPUs (RTX PRO 6000 96 GiB, RTX 5090 32 GiB) sit idle because no
+> crate links a GPU backend — sovereign-nvfp4-runtime's
+> blackwell-cuda feature is an empty placeholder (M01283).
+>
+> Measured on this host 2026-08-01: 24 layers x 2048, vocab 49152,
+> 8192 context. ~1 tok/s decode; a repeated prompt is ~51% faster
+> once prefix caching reuses its KV. Drives the SDD-712 agentic
+> loop correctly on simple arguments — calc(7*6) -> 42 -> "The
+> answer is 42." — but garbles an argument containing parentheses
+> nested in the [[tool:...]] delimiters, emitting
+> [[tool:calc|2+3]*4]] for (2+3)*4. It diagnoses that error when
+> shown it, then repeats the same call verbatim.
+
 ## Logic tier (master spec § 17)
 
 ### Qwen-32B-Ternary-Quant
@@ -707,7 +763,9 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > sovereignty path (llama.cpp) rather than needing transformers/vLLM —
 > ~7 GiB weights floor at Q4_K_M. status=operator-must-confirm: real HF
 > repo (2.2M downloads), pull via `scripts/models/pull.sh
-> --allow-candidate`, not yet trialed on the stack.
+> --allow-candidate`, not yet trialed on the stack. The catalog limits
+> this pull to Q4_K_M + its vision projector, rather than downloading
+> every quantization published in the source repository.
 
 ### deepseek-coder-loras-rust-systems
 
@@ -1038,18 +1096,29 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 - **Status:** ? operator-must-confirm
 - **Class:** `mixture` — Mixture-of-Experts
-- **Quantization:** `fp8`
+- **Quantization:** `bf16`
 - **Size class:** `l`
 - **Purpose:** `code`, `agent`, `chat`, `function-calling`
 - **Engine:** `vllm`
 - **License:** mit
 - **Parameters:** 31221.5 M
-- **VRAM minimum (GiB):** 32
+- **VRAM minimum (GiB):** 58
 - **Context window (tokens):** 200,000
 - **Master spec:** operator evaluation 2026-07-19 (oracle alternatives that fit SAIN-01)
 
 **Operator note:**
 
+> CORRECTION 2026-07-28 — the entry previously read quantization=fp8 /
+> vram_gib_min=32, describing a checkpoint that does NOT exist at this
+> repo. Verified against the HF API and config.json: `dtype: bfloat16`,
+> no quantization_config, and the repo is 62.47 GB — which is exactly
+> 31.22B params x 2 bytes. The "32 GB" was the FP8 size the 2026-07-19
+> evaluation projected, not a published artifact.
+> CONSEQUENCE: it does NOT fit the RTX 5090 (31.84 GiB) as published, and
+> the "FP8 fits the 5090 secondary, freeing the primary" plan needs an
+> FP8 or int4 conversion step first (int4 ~16 GB would be comfortable).
+> It does fit the RTX PRO 6000 at BF16 with room.
+>
 > Evaluation 2026-07-19 — GLM flavor at the interactive Logic
 > tier: 31.2B total / ~3B active MoE (glm4_moe_lite), MIT, 200K
 > context, Jan 2026, 9.5M HF downloads. Open-source SOTA in the
@@ -1096,14 +1165,23 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Purpose:** `reasoning`
 - **Engine:** `llama.cpp`
 - **License:** mit
-- **HF repo id:** `deepseek-ai/DeepSeek-R1-Distill-Llama-70B`
+- **HF repo id:** `unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF`
 - **Parameters:** 70553.7 M
-- **VRAM minimum (GiB):** 42
+- **VRAM minimum (GiB):** 40
 - **Context window (tokens):** 131,072
 - **Master spec:** R212 operator addition — RLM at GGUF quant for dual-GPU sharing
 
 **Operator note:**
 
+> CORRECTION 2026-07-28 — hf_repo_id pointed at deepseek-ai/DeepSeek-R1-Distill-Llama-70B,
+> which ships ZERO .gguf files (verified via the HF tree API); it is the
+> BF16 base repo. The declared Q4_K_M build is real but lives in a
+> dedicated GGUF repo, so the entry named the right artifact and the wrong
+> source. Repointed to unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF
+> (Q4_K_M = 39.6 GiB, measured). An earlier pass mistakenly 'corrected'
+> the metadata to bf16 to match the wrong repo — the pointer was the bug.
+> Caught by tests/lint/test_tier_intent_selection.py, which depends on this
+> entry resolving. Found by scripts/models/audit-sizes.py.
 > R212 — Same upstream as the FP16 entry, declared as the
 > GGUF-Q4_K_M variant for hosts that need to share VRAM with
 > a concurrent vllm workload. Lands cleanly on a single 4090.
@@ -1522,13 +1600,14 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 ### gpt-oss-120b
 
-- **Status:** ? operator-must-confirm
+- **Status:** ✓ verified-real
 - **Class:** `mixture` — Mixture-of-Experts
 - **Quantization:** `nvfp4`
 - **Size class:** `xl`
 - **Purpose:** `reasoning`, `agent`, `code`, `chat`
 - **Engine:** `vllm`
 - **License:** apache-2.0
+- **HF repo id:** `openai/gpt-oss-120b`
 - **Parameters:** 116830.0 M
 - **VRAM minimum (GiB):** 63
 - **Context window (tokens):** 131,072
@@ -1536,6 +1615,21 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 **Operator note:**
 
+> PROMOTED to verified-real 2026-07-28 — weights pulled and served on
+> SAIN-01, bench gate passed. Measured on the RTX PRO 6000 Blackwell
+> (driver 590.48.01, CUDA 13.3, vLLM 0.26.0, MXFP4/Marlin):
+>   throughput  199.76 tok/s decode, TTFT 0.036 s (R232 gate, 3/3 prompts)
+>   concurrency 918 tok/s aggregate at 16 streams (57 tok/s each,
+>               TTFT p50 0.085 s); 5x aggregate scaling 1->16
+>   quality     5/5 verifiable-answer smoke test (exact arithmetic,
+>               popcount one-liner, instruction following)
+>   footprint   85.8 GB VRAM, 288,679-token KV cache, whole model resident
+> Context for the ladder: the same box measured 3.02 tok/s on GLM-5.2 via
+> Colibri — a model 3x too large for its VRAM (docs/evaluations/
+> chromofold-fold-measurement-glm52-2026-07-27.md). Serving recipe and its
+> four footguns: scripts/inference/INDEX.md.
+> Revision pinned to the sha actually downloaded and benchmarked.
+>
 > Evaluation 2026-07-19 — the adopt-ready shape: ~117B total /
 > 5.1B active MoE, native MXFP4 checkpoint ~63 GB, 131K context,
 > Apache-2.0 (OpenAI open-weights, Aug 2025). The ONLY candidate

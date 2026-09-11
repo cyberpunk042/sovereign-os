@@ -59,8 +59,17 @@ oracle_max_vram_gib() {
     echo 0
     return 0
   fi
-  nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null \
-    | sort -n | tail -n1 | awk '{printf "%d\n", $1/1024}'
+  # This is an advisory check only.  A transient NVML failure (including a
+  # driver/library version mismatch while packages await reboot) must not make
+  # the Oracle service's set -e startup path fail before it can emit a useful
+  # backend diagnostic.
+  local totals
+  totals="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null || true)"
+  if [ -z "${totals}" ]; then
+    echo 0
+    return 0
+  fi
+  printf '%s\n' "${totals}" | sort -n | tail -n1 | awk '{printf "%d\n", $1/1024}'
 }
 
 # Sensible defaults; operator overrides via env

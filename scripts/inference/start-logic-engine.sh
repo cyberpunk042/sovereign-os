@@ -26,6 +26,9 @@
 #                                 (TRITON_ATTN / FLASH_ATTN / TORCH_SDPA / …).
 #                                 The env var VLLM_ATTENTION_BACKEND no longer
 #                                 exists in vLLM; this flag is the only way.
+#   LOGIC_EXTRA_ARGS              Additional vLLM argv (shlex-split). Used for
+#                                 served model id, reasoning/tool parsers, and
+#                                 agentic tool-choice support.
 #   LOGIC_MODEL                 Path to weights (default: /mnt/vault/models/qwen3-coder)
 #   LOGIC_HOST                  Listen host (default: 127.0.0.1)
 #   LOGIC_PORT                  Listen port (default: 8082 — router routes here)
@@ -114,6 +117,12 @@ PY
     # model thinking out loud plus a stray closing marker. vLLM splits it into
     # reasoning_content when told which format to expect.
     [ -n "${LOGIC_REASONING_PARSER:-}" ] && argv="${argv} --reasoning-parser ${LOGIC_REASONING_PARSER}"
+    # The backend adapter does not model every vLLM option. In particular,
+    # OpenClaw sends tools with tool_choice=auto, which vLLM rejects unless
+    # these explicitly managed extra arguments enable a compatible parser.
+    if [ -n "${LOGIC_EXTRA_ARGS:-}" ]; then
+      argv="${argv} ${LOGIC_EXTRA_ARGS}"
+    fi
     ;;
   llama_cpp)
     argv=$(python3 - <<PY
