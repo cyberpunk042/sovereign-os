@@ -111,15 +111,13 @@
   .mslot .k { color:var(--muted); }
   .pill { display:inline-block; padding:0 .4rem; border-radius:3px; border:1px solid var(--border); font-size:.72rem; color:var(--muted); }
   /* D21-4: per-profile-card Apply — executes through the control-exec rail
-     (sudoer, dry-run→type-to-confirm) inline on the card. Replaces the old
+     (sudoer, one click) inline on the card. Replaces the old
      floating round button that just scrolled to a distant control card. */
   .profile .p-apply-row { margin-top:.45rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
   .profile .p-apply { border:1px solid var(--accent); background:transparent; color:var(--accent);
     border-radius:4px; padding:.15rem .6rem; font:inherit; font-size:.74rem; cursor:pointer; }
   .profile .p-apply:hover { background:rgba(155,209,255,.12); }
   .profile .p-apply.gen { border-color:var(--warn); color:var(--warn); }
-  .profile .p-confirm { font-size:.72rem; border:1px solid var(--border); background:var(--bg);
-    color:var(--fg); border-radius:3px; padding:.1rem .35rem; font-family:var(--mono); width:11rem; }
   .profile .p-result { font-size:.72rem; line-height:1.4; }
   .profile .p-result.ok { color:var(--good); }
   .profile .p-result.dry { color:var(--accent); }
@@ -2456,7 +2454,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         const applyBtn = isGen
           ? `<button class="p-apply gen" data-act="gen" data-id="${esc(id)}" data-gen="${esc(p.generate_cmd || '')}" title="Materialize this combo to profiles/runtime/, then it becomes applyable">Generate…</button>`
           : ready
-            ? `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail (dry-run → type-to-confirm)">Apply</button>`
+            ? `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail">Apply</button>`
             : `<button class="p-apply" data-act="download" data-id="${esc(id)}" data-missing="${esc(JSON.stringify(missing))}" title="Copy catalog-backed download commands required before applying">Download required</button>`;
         const readinessHtml = missing.length
           ? `<div class="p-result warn">not ready — missing ${missing.map(m => esc(m.id)).join(', ')}. Download first; candidate models require explicit approval.</div>`
@@ -2472,8 +2470,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       }).join('');
     });
     $('profiles').innerHTML = html;
-    // Card click = select (preview in the grid). Apply/Generate buttons + the
-    // confirm input stop propagation so they never trigger a re-render.
+    // Card click = select (preview in the grid). Apply/Generate buttons stop
+    // propagation so they never trigger a re-render.
     document.querySelectorAll('.profile').forEach(el => el.addEventListener('click', () => {
       if (!el.dataset.id) return;
       selectedProfile = el.dataset.id; renderProfiles(LAST_PROFILES_DATA);
@@ -2492,7 +2490,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
           copyCmd(plan, 'Download the missing catalog models, then return here and Apply:');
           setP(resultEl, 'dry', 'download plan copied — run each command, then refresh this panel');
         } else {
-          applyProfile(btn.dataset.id, btn.dataset.fam, resultEl, false);
+          applyProfile(btn.dataset.id, btn.dataset.fam, resultEl);
         }
       });
     });
@@ -2512,31 +2510,17 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // ── D21-4: real Apply through the control-exec rail ────────────────────────
   // Each profile card's Apply POSTs the SAME body the shared control-surface
   // sends (control_id 'runtime-mode', arg id=<profile>) to the signed exec
-  // daemon: DRY-RUN by default, operator-key + type-to-confirm gated, then a
-  // live run. Web itself never mutates (R10212); the sudoer rail does.
+  // daemon in one profile-apply transaction. The button carries the profile
+  // selection; server-side authorization, validation, and readiness checks
+  // remain authoritative. Web itself never mutates (R10212); the sudoer rail
+  // does.
   // D-21 is read-only on :8129. All profile changes must go through the one
   // sanctioned control-exec daemon on :8130, never a lookalike per-panel POST.
   const EXECUTE_URL = 'http://127.0.0.1:8130/api/control/execute';
   function setP(el, cls, msg) { if (!el) return; el.className = 'p-result ' + cls; el.textContent = msg; }
 
-  function offerConfirm(id, fam, resultEl) {
-    const row = resultEl.closest('.p-apply-row');
-    if (row.querySelector('.p-confirm')) return;  // already offered
-    const inp = document.createElement('input');
-    inp.className = 'p-confirm'; inp.placeholder = 'type "' + id + '" to apply';
-    inp.addEventListener('click', e => e.stopPropagation());
-    const ok = document.createElement('button');
-    ok.className = 'p-apply'; ok.textContent = 'Confirm';
-    ok.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (inp.value.trim() === id) { inp.remove(); ok.remove(); applyProfile(id, fam, resultEl, true); }
-      else setP(resultEl, 'warn', 'type the exact id to confirm');
-    });
-    row.appendChild(inp); row.appendChild(ok);
-  }
-
-  async function applyProfile(id, fam, resultEl, confirmed) {
-    setP(resultEl, 'muted', confirmed ? 'applying…' : 'checking…');
+  async function applyProfile(id, fam, resultEl) {
+    setP(resultEl, 'muted', 'applying…');
     try {
       // Route to the RIGHT signed control: the §18 runtime family and the
       // orchestration/user family are separate pick-one enums (both keyed 'verb').
@@ -2547,18 +2531,14 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       const res = await fetch(EXECUTE_URL, {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ control_id, args: { verb: id }, confirm: !!confirmed }),
+        body: JSON.stringify({ control_id, args: { verb: id }, confirm: true }),
       });
       let body = {}; try { body = await res.json(); } catch (e) {}
       const verb = 'sovereign-osctl trinity profile switch ' + id;
       if (res.status === 200 && body.dry_run) {
         setP(resultEl, 'dry', 'dry-run ✓ would run: ' + ((body.would_run || body.argv || []).join(' ')));
-        offerConfirm(id, fam, resultEl);
       } else if (res.status === 200) {
         setP(resultEl, 'ok', 'applied ✓ ' + id + (body.exit_code != null ? ' · exit ' + body.exit_code : ''));
-      } else if (res.status === 403 && body.confirm_required && !confirmed) {
-        setP(resultEl, 'dry', 'confirm to apply');
-        offerConfirm(id, fam, resultEl);
       } else if (res.status === 403) {
         setP(resultEl, 'warn', body.error || 'operator key not loaded — apply from a signed session');
       } else if (res.status === 409) {
@@ -3732,8 +3712,8 @@ window.SO_ASSIST = {
     {
      "selector": ".profile .p-apply",
      "title": "Apply (operator-signed)",
-     "content": "Applies THIS profile — the one on its own card — through the signed control-exec rail, right here, no scrolling off to some other control. First click is a dry-run: it shows you the exact sudo verb it would run and changes nothing. Type the profile id to confirm, and only then does the box actually switch. Web never mutates on its own (R10212); the sudoer rail does the work.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Dry-run, then type-to-confirm</div>Switching profile re-points every tier's model→device binding, so it's gated: the first Apply POSTs a dry-run (control_id runtime-mode) and the rail replies with the sudo argv it WOULD run. You then type the profile's id to authorize the live run, which needs the operator key loaded. A generated combo shows <strong>Generate…</strong> instead — it isn't on disk yet, so you materialize it first, then it becomes applyable.</div><div class=\"so-tip\">💡 The dry-run is free and shows the exact command — read it before you confirm.</div>"
+     "content": "Applies THIS profile — the one on its own card — through the signed control-exec rail, right here, no scrolling off to some other control. One click starts the profile transaction. The rail still validates the profile, model readiness, authorization, and runtime result; the web page never mutates the host directly (R10212).",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">One-click apply</div>Switching profile re-points every tier's model→device binding. Apply sends the selected profile to the signed control rail in one transaction; the rail retains authorization, validation, readiness, and error handling. A generated combo shows <strong>Generate…</strong> instead — it isn't on disk yet, so materialize it first, then it becomes applyable.</div>"
     }
    ]
   },

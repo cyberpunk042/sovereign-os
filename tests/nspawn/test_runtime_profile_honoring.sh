@@ -127,15 +127,16 @@ else
   ko "override broken: got '${out}'"
 fi
 
-# When env var already set, override does NOT clobber
+# A selected profile owns a declared value, including when a stale service
+# EnvironmentFile supplied a previous value.
 export MY_TEST_VAR="operator-explicit-value"
 SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst bash -c "MY_TEST_VAR='operator-explicit-value'; . '${LIB}'; runtime_profile_override MY_TEST_VAR pulse core_mask; echo \"\${MY_TEST_VAR}\"" > /tmp/test-output-$$ 2>&1
 out="$(cat /tmp/test-output-$$)"
 rm -f /tmp/test-output-$$
-if [ "${out}" = "operator-explicit-value" ]; then
-  ok "override respects operator-set env var (does NOT clobber)"
+if [ "${out}" = "0-11" ]; then
+  ok "override replaces stale service env with active profile value"
 else
-  ko "override clobbered operator value: '${out}'"
+  ko "override did not apply active profile value: '${out}'"
 fi
 
 # ---------- runtime_profile_active_file ----------
@@ -194,16 +195,17 @@ else
   ko "start-pulse didn't pick up switched profile"
 fi
 
-# Operator-set env var wins over runtime profile
+# The active profile owns declared tier fields, so a stale environment value
+# cannot leave the previous profile's process resident after a switch.
 set +e
 out="$(SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst \
        PULSE_AFFINITY=2-3 \
        bash "${__REPO_ROOT}/scripts/inference/start-pulse.sh" 2>&1)"
 set -e
-if grep -q "2-3" <<< "${out}"; then
-  ok "operator-set PULSE_AFFINITY wins over active runtime profile"
+if grep -q "0-11" <<< "${out}"; then
+  ok "active runtime profile replaces stale PULSE_AFFINITY"
 else
-  ko "operator override didn't win"
+  ko "active profile did not replace stale PULSE_AFFINITY"
 fi
 
 # ---------- SDD-043: tier_intent resolves to a concrete model at launch ----------

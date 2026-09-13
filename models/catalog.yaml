@@ -681,18 +681,19 @@ catalog:
         projector weights + a multimodal serving smoke pending.
 
     - id: Ternary-Bonsai-27B-dspark
-      tier: oracle
+      tier: logic
       engine: llama.cpp
       class: speculative
       quantization: bf16
       size_class: xs
       purpose: [chat, code]
-      status: operator-must-confirm
+      status: verified-real
       license: apache-2.0
       base_model: Ternary-Bonsai-27B
       parameters_millions: 1700
       vram_gib_min: 1
       context_window_tokens: 32768
+      hf_repo_id: prism-ml/Ternary-Bonsai-27B-gguf
       master_spec_section: "SDD-717 — speculative draft (DSpark) for Ternary-Bonsai-27B on the dual-Turing node"
       runtime_profile_bindings: [dual-turing-serving]
       operator_note: |
@@ -750,7 +751,9 @@ catalog:
       hf_repo_id: prism-ml/Ternary-Bonsai-27B-gguf
       parameters_millions: 27000
       vram_gib_min: 11
-      context_window_tokens: 32768
+      # Observed from the resident Q2_g64 GGUF metadata on SAIN-01. The
+      # active orchestration profile remains the authoritative lower bound.
+      context_window_tokens: 262144
       master_spec_section: "operator directive 2026-07-16 (dual-turing serving plan, SDD-714)"
       runtime_profile_bindings: [dual-turing-serving]
       operator_note: |

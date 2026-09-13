@@ -105,18 +105,20 @@ except Exception:
 PY
 }
 
-# Override an env var with the active-runtime-profile value IF the
-# env var isn't already set AND the active profile has a value.
+# Override an env var with the active-runtime-profile value when the profile
+# declares one.  A selected profile is the runtime authority: a value left in
+# a long-lived systemd EnvironmentFile must not silently keep the previous
+# model alive after a profile switch.  If the profile does not declare this
+# field, preserve the service/operator environment as the fallback.
 # Usage: runtime_profile_override <ENV_VAR> <tier> <field>
 runtime_profile_override() {
   local env_var="$1" tier="$2" field="$3"
-  # Bail if already set
-  if [ -n "${!env_var:-}" ]; then
-    return 0
-  fi
   local v; v="$(runtime_profile_get_tier_field "${tier}" "${field}")"
   if [ -n "${v}" ]; then
-    eval "${env_var}=\"${v}\""
+    # Values such as vLLM JSON arguments are legitimate profile data.  Assign
+    # them verbatim rather than evaluating them as shell syntax, which both
+    # drops embedded quotes and makes a profile value executable.
+    printf -v "${env_var}" '%s' "${v}"
     # Dynamic export by NAME: env_var holds the target variable's name (set
     # via the eval above), so `export "${env_var}"` exporting that name is
     # intentional, not the SC2163 "export $var exports the value" mistake.

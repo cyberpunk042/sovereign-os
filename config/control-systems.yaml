@@ -83,10 +83,10 @@ systems:
       the same explicit-allowlist posture as runtime-mode.
     options: [as-deployed, coding-focus, dense-4090, full-hybrid, full-orchestration,
               hybrid-coding-thinking, oracle-deepseek, oracle-glm, qwythos-deep-context,
-              qwythos-local-agent, qwythos-three-card, qwythos-dual-memory, thinking-focus]
+              qwythos-local-agent, qwythos-three-card, qwythos-dual-memory, dual-agent-autocomplete, thinking-focus]
     options_cli: "sovereign-osctl trinity profile list"
     state_cli: "sovereign-osctl trinity profile active"
-    change_cli: "sovereign-osctl trinity profile switch {as-deployed|coding-focus|dense-4090|full-hybrid|full-orchestration|hybrid-coding-thinking|oracle-deepseek|oracle-glm|qwythos-deep-context|qwythos-local-agent|qwythos-three-card|qwythos-dual-memory|thinking-focus}"
+    change_cli: "sovereign-osctl trinity profile switch {as-deployed|coding-focus|dense-4090|full-hybrid|full-orchestration|hybrid-coding-thinking|oracle-deepseek|oracle-glm|qwythos-deep-context|qwythos-local-agent|qwythos-three-card|qwythos-dual-memory|dual-agent-autocomplete|thinking-focus}"
     state_path: "/etc/sovereign-os/active-runtime-profile"
     privileged: true
     # Same heavy operation as runtime-mode — a whole-machine model reshuffle.

@@ -55,6 +55,7 @@ TIER_FOR_MODEL_ID = {
 QWYTHOS_WORKER_ID = "gpu-qwythos-worker"
 QWYTHOS_WORKER_PROFILE = "qwythos-three-card"
 QWYTHOS_DUAL_MEMORY_PROFILE = "qwythos-dual-memory"
+DUAL_AGENT_AUTOCOMPLETE_PROFILE = "dual-agent-autocomplete"
 
 # SAIN-01 card layout — target_hardware -> human label for the model name.
 # Falls back to the raw target_hardware string on any other machine, so the
@@ -71,6 +72,14 @@ TIER_LABEL = {"oracle": "Oracle", "logic": "Logic", "router": "Qwythos Worker"}
 
 MAXTOK_CAP = 32768
 MAXTOK_FLOOR = 4096
+OPENCLAW_COMPACTION_BUDGET_OLD = (
+    "const minPromptBudget = Math.min(MIN_PROMPT_BUDGET_TOKENS, "
+    "Math.max(1, Math.floor(contextTokenBudget * MIN_PROMPT_BUDGET_RATIO)));"
+)
+OPENCLAW_COMPACTION_BUDGET_FIXED = (
+    "const minPromptBudget = Math.max(MIN_PROMPT_BUDGET_TOKENS, "
+    "Math.max(1, Math.floor(contextTokenBudget * MIN_PROMPT_BUDGET_RATIO)));"
+)
 CATALOG_REVISION_PATH = Path(
     os.environ.get(
         "SOVEREIGN_OS_OPENCLAW_CATALOG_REVISION",
@@ -147,7 +156,11 @@ def _profile_allocations(profile_yaml: Path) -> dict[str, dict]:
             # loaded on this card. Qwythos advertises 1M tokens but this
             # profile intentionally launches 12K / 16K / 64K residents.
             alloc = dict(a)
-            actual_ctx = context_budget.get(a.get("target_hardware"))
+            # A tier's explicit vLLM max_model_len is the served contract and
+            # must win over the card-level planning budget.  Advertising the
+            # larger planning number caused OpenClaw to send 16K prompts to a
+            # Qwen resident intentionally launched at 4K.
+            actual_ctx = a.get("max_model_len") or context_budget.get(a.get("target_hardware"))
             if actual_ctx is not None:
                 alloc["context_tokens"] = int(actual_ctx)
             out[tier] = alloc
@@ -161,7 +174,21 @@ def _derive_entry(alloc: dict, cat: dict[str, dict], oc_id: str) -> dict:
     tier = alloc.get("tier") or "?"
     active = alloc.get("active", True)
 
-    meta = cat.get(model, {})
+    # A llama.cpp allocation names the concrete GGUF file.  Retain the
+    # operator-facing catalogue identity rather than exposing a filesystem
+    # path in OpenClaw's model picker. A base GGUF stored in the dspark
+    # directory is still the BASE: infer DSpark only from the actual draft
+    # artifact, never from its parent-directory name.
+    display_model = model
+    catalog_model = model
+    model_name = Path(str(model)).name
+    if "Ternary-Bonsai-27B-dspark" in model_name:
+        display_model = "Ternary-Bonsai-27B + DSpark"
+        catalog_model = "Ternary-Bonsai-27B-dspark"
+    elif model_name.startswith("Ternary-Bonsai-27B-"):
+        display_model = "Ternary-Bonsai-27B"
+        catalog_model = "Ternary-Bonsai-27B"
+    meta = cat.get(catalog_model, {})
     catalog_ctx = int(meta.get("context_window_tokens") or 0) or None
     launch_ctx = int(alloc.get("context_tokens") or 0) or None
     ctx = min(v for v in (catalog_ctx, launch_ctx) if v is not None) if (catalog_ctx or launch_ctx) else None
@@ -170,7 +197,7 @@ def _derive_entry(alloc: dict, cat: dict[str, dict], oc_id: str) -> dict:
 
     card = CARD_LABEL.get(hw, hw)
     tlabel = TIER_LABEL.get(tier, tier.title())
-    name = f"Sovereign {tlabel} ({model}, {card})"
+    name = f"Sovereign {tlabel} ({display_model}, {card})"
     if not active:
         name += " [idle]"
 
@@ -298,6 +325,48 @@ def _restart_openclaw_gateway(config_owner_uid: int) -> None:
         _log("restarted OpenClaw gateway so the updated model list is live")
 
 
+def _patch_openclaw_compaction_budget(config_owner_uid: int, dry_run: bool) -> bool:
+    """Repair OpenClaw's reversed large-context prompt-budget bound.
+
+    OpenClaw 2026.9.1 uses ``min(8000, context / 2)`` despite its source
+    comment specifying an 8K *floor*.  That constrains every model with a
+    context above 16K to an 8K prompt budget and makes its own ~10K agent
+    bootstrap enter futile compaction loops.  Patch only the exact affected
+    upstream expression and re-check it on every profile sync, so an OpenClaw
+    package update cannot silently restore the failure.
+    """
+    try:
+        home = Path(pwd.getpwuid(config_owner_uid).pw_dir)
+    except KeyError:
+        _log("could not resolve OpenClaw owner for compaction compatibility check")
+        return False
+    dist = home / ".npm-global" / "lib" / "node_modules" / "openclaw" / "dist"
+    candidates = sorted(dist.glob("agent-compaction-constants-*.js"))
+    if not candidates:
+        _log("OpenClaw compaction compatibility check skipped (runtime module absent)")
+        return False
+    changed = False
+    for path in candidates:
+        source = path.read_text(encoding="utf-8")
+        if OPENCLAW_COMPACTION_BUDGET_FIXED in source:
+            continue
+        if OPENCLAW_COMPACTION_BUDGET_OLD not in source:
+            _log(f"OpenClaw compaction compatibility check skipped for {path.name} (unknown upstream form)")
+            continue
+        if dry_run:
+            _log(f"--dry-run: would repair OpenClaw compaction budget in {path.name}")
+            continue
+        path.write_text(source.replace(
+            OPENCLAW_COMPACTION_BUDGET_OLD,
+            OPENCLAW_COMPACTION_BUDGET_FIXED,
+            1,
+        ), encoding="utf-8")
+        _chown_like(path, config_owner_uid, path.stat().st_gid)
+        _log(f"repaired OpenClaw large-context prompt budget in {path.name}")
+        changed = True
+    return changed
+
+
 def _ensure_qwythos_worker(cfg: dict, models: list[dict], allocs: dict[str, dict],
                            cat: dict[str, dict], profile_id: str, changes: list[str]) -> None:
     """Add/remove the one profile-owned third-card model without touching user models."""
@@ -355,6 +424,56 @@ def _ensure_local_memory(cfg: dict, profile_id: str, changes: list[str]) -> None
             changes.append(f"memory.search.{key}: configured for local RTX 4090 BGE-M3")
 
 
+def _ensure_qwen_logic_request_params(cfg: dict, allocs: dict[str, dict],
+                                      changes: list[str]) -> None:
+    """Pin Qwen's request-level template mode for the managed Logic route.
+
+    vLLM's ``--default-chat-template-kwargs`` is only a default: an OpenAI
+    client can override it per request.  OpenClaw constructs its own agent
+    requests, so putting this in its managed model entry is the only way to
+    guarantee that the Qwen coding resident does not produce hidden reasoning
+    tokens before the visible answer.  Those hidden tokens made a simple chat
+    appear stuck until the 1,024-token response ceiling was exhausted.
+    """
+    logic = allocs.get("logic")
+    if not logic or not str(logic.get("model", "")).lower().startswith("qwen"):
+        return
+    defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
+    configured = defaults.setdefault("models", {})
+    model = configured.setdefault("sovereign/gpu-logic", {})
+    params = model.setdefault("params", {})
+    extra_body = params.setdefault("extra_body", {})
+    template_kwargs = extra_body.setdefault("chat_template_kwargs", {})
+    if template_kwargs.get("enable_thinking") is not False:
+        template_kwargs["enable_thinking"] = False
+        changes.append(
+            "sovereign/gpu-logic: force Qwen non-thinking chat template per request"
+        )
+
+
+def _ensure_profile_primary_model(cfg: dict, profile_id: str,
+                                  changes: list[str]) -> None:
+    """Keep OpenClaw's full agent on the tier assigned to agentic chat.
+
+    In the dual-agent autocomplete profile the 5090 Qwen resident is an IDE
+    completion service.  OpenClaw, however, always builds a large autonomous
+    tool-agent prompt.  Making that completion model the default agent turns a
+    fast inline role into a PCIe-offloaded 25K-token chat workload.  The PRO
+    6000 Oracle allocation is the profile's explicit agentic/architectural
+    role, so it must be OpenClaw's generated primary model.
+    """
+    if profile_id != DUAL_AGENT_AUTOCOMPLETE_PROFILE:
+        return
+    defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
+    model = defaults.setdefault("model", {})
+    desired = "sovereign/gpu-oracle"
+    if model.get("primary") != desired:
+        model["primary"] = desired
+        changes.append(
+            f"agents.defaults.model.primary: set {desired} for agentic chat"
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--profile", help="profile id (default: active-runtime-profile)")
@@ -410,6 +529,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    # Preserve ownership for both managed-config writes and the runtime
+    # compatibility check below, which must run under the same operator owner.
+    st = cfg_path.stat()
     changes: list[str] = []
     for entry in models:
         oc_id = entry.get("id")
@@ -428,11 +550,16 @@ def main(argv: list[str] | None = None) -> int:
 
     _ensure_qwythos_worker(cfg, models, allocs, cat, profile_id, changes)
     _ensure_local_memory(cfg, profile_id, changes)
+    _ensure_qwen_logic_request_params(cfg, allocs, changes)
+    _ensure_profile_primary_model(cfg, profile_id, changes)
+    compaction_patch_changed = _patch_openclaw_compaction_budget(st.st_uid, args.dry_run)
 
     if not changes:
         _log(f"OpenClaw already in sync with profile {profile_id!r} — no change")
         if not args.dry_run:
             _publish_catalog_revision(profile_id, profile_yaml, cfg_path, models)
+            if compaction_patch_changed:
+                _restart_openclaw_gateway(st.st_uid)
         return 0
 
     for c in changes:
@@ -443,7 +570,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # Backup then write, preserving ownership (important when run as root via sudo).
-    st = cfg_path.stat()
     backup = cfg_path.with_suffix(cfg_path.suffix + ".bak")
     backup.write_text(cfg_path.read_text(encoding="utf-8"), encoding="utf-8")
     _chown_like(backup, st.st_uid, st.st_gid)

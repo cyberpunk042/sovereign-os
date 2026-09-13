@@ -48,8 +48,39 @@ __SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STEP_ID="inference-logic-engine"
 TIER="logic_engine"
 
-# R151: honor active runtime profile § 18 logic-tier allocation
+# A selected profile owns its declared Logic settings.  In particular this
+# prevents stale Nemotron-specific values from /etc's EnvironmentFile winning
+# over a newly activated Qwen profile.
 runtime_profile_override LOGIC_MODEL logic model
+runtime_profile_override LOGIC_GPU_MEMORY_UTILIZATION logic gpu_memory_utilization
+runtime_profile_override LOGIC_MAX_MODEL_LEN logic max_model_len
+runtime_profile_override LOGIC_REASONING_PARSER logic reasoning_parser
+runtime_profile_override LOGIC_EXTRA_ARGS logic extra_args
+
+# Orchestration profiles use the catalog's portable engine names; the launcher
+# uses backend identifiers.  Keep this translation here so selecting a
+# llama.cpp profile actually changes the live logic service rather than leaving
+# its old vLLM backend in place.
+_logic_profile_engine="$(runtime_profile_get_tier_field logic engine)"
+case "${_logic_profile_engine}" in
+  vllm) SOVEREIGN_OS_LOGIC_BACKEND=vllm_host ;;
+  llama.cpp)
+    SOVEREIGN_OS_LOGIC_BACKEND=llama_cpp
+    # Do not inherit vLLM-only arguments from the service EnvironmentFile.
+    # An omitted llama.cpp `extra_args` is deliberately empty, not stale.
+    LOGIC_EXTRA_ARGS="$(runtime_profile_get_tier_field logic extra_args)"
+    ;;
+esac
+
+# Profile allocations name catalog ids while vLLM needs a local checkpoint
+# directory.  Prefer an installed local artifact; preserve an explicit path or
+# HF repo id when no matching local directory exists.
+if [[ "${LOGIC_MODEL}" != /* ]]; then
+  _logic_models_dir="${SOVEREIGN_OS_MODELS_DIR:-/mnt/vault/models}"
+  if [ -d "${_logic_models_dir}/${LOGIC_MODEL}" ]; then
+    LOGIC_MODEL="${_logic_models_dir}/${LOGIC_MODEL}"
+  fi
+fi
 
 : "${SOVEREIGN_OS_LOGIC_BACKEND:=vllm}"
 : "${LOGIC_GPU_MEMORY_UTILIZATION:=0.90}"
@@ -97,13 +128,13 @@ PY
     # with Nemotron-3-Nano-Omni-30B NVFP4: 314.41 tok/s decode, TTFT 0.173s.
     # CUDA_VISIBLE_DEVICES pins the tier to its card; set it in the env file.
     require_command python3
-    argv="python3 -m vllm.entrypoints.openai.api_server"
-    argv="${argv} --model ${LOGIC_MODEL}"
-    argv="${argv} --host ${LOGIC_HOST} --port ${LOGIC_PORT}"
-    argv="${argv} --gpu-memory-utilization ${LOGIC_GPU_MEMORY_UTILIZATION}"
-    argv="${argv} --max-model-len ${LOGIC_MAX_MODEL_LEN}"
-    [ -n "${LOGIC_SERVED_MODEL_NAME:-}" ] && argv="${argv} --served-model-name ${LOGIC_SERVED_MODEL_NAME}"
-    [ -n "${LOGIC_TRUST_REMOTE_CODE:-}" ] && argv="${argv} --trust-remote-code"
+    argv=(python3 -m vllm.entrypoints.openai.api_server)
+    argv+=(--model "${LOGIC_MODEL}")
+    argv+=(--host "${LOGIC_HOST}" --port "${LOGIC_PORT}")
+    argv+=(--gpu-memory-utilization "${LOGIC_GPU_MEMORY_UTILIZATION}")
+    argv+=(--max-model-len "${LOGIC_MAX_MODEL_LEN}")
+    [ -n "${LOGIC_SERVED_MODEL_NAME:-}" ] && argv+=(--served-model-name "${LOGIC_SERVED_MODEL_NAME}")
+    [ -n "${LOGIC_TRUST_REMOTE_CODE:-}" ] && argv+=(--trust-remote-code)
     # Attention backend selection. There is NO env var for this — vLLM removed
     # VLLM_ATTENTION_BACKEND, and setting it is silently inert (0.26 does not
     # reference the name anywhere). The only mechanism is this CLI flag, so a
@@ -111,30 +142,49 @@ PY
     # flashinfer's JIT-only build cannot compile — has no way to say so without
     # it. Accepts any AttentionBackendEnum name (TRITON_ATTN, FLASH_ATTN,
     # TORCH_SDPA, FLASHINFER, …).
-    [ -n "${LOGIC_ATTENTION_BACKEND:-}" ] && argv="${argv} --attention-backend ${LOGIC_ATTENTION_BACKEND}"
+    [ -n "${LOGIC_ATTENTION_BACKEND:-}" ] && argv+=(--attention-backend "${LOGIC_ATTENTION_BACKEND}")
     # Reasoning models emit chain-of-thought and then the answer. Without a
     # parser the whole trace is returned as message content, so a caller sees the
     # model thinking out loud plus a stray closing marker. vLLM splits it into
     # reasoning_content when told which format to expect.
-    [ -n "${LOGIC_REASONING_PARSER:-}" ] && argv="${argv} --reasoning-parser ${LOGIC_REASONING_PARSER}"
+    [ -n "${LOGIC_REASONING_PARSER:-}" ] && argv+=(--reasoning-parser "${LOGIC_REASONING_PARSER}")
     # The backend adapter does not model every vLLM option. In particular,
     # OpenClaw sends tools with tool_choice=auto, which vLLM rejects unless
     # these explicitly managed extra arguments enable a compatible parser.
     if [ -n "${LOGIC_EXTRA_ARGS:-}" ]; then
-      argv="${argv} ${LOGIC_EXTRA_ARGS}"
+      read -r -a logic_extra_argv <<< "${LOGIC_EXTRA_ARGS}"
+      argv+=("${logic_extra_argv[@]}")
     fi
     ;;
   llama_cpp)
-    argv=$(python3 - <<PY
+    # The system llama-server may be a CPU-only package.  Prefer the isolated
+    # CUDA build when present; it is intentionally outside /usr/local so a
+    # profile cannot alter system-managed binaries.
+    _llama_cuda_dir="${SOVEREIGN_OS_LLAMA_CUDA_DIR:-/home/jfortin/sovereign-os/.runtime/llama-cuda}"
+    if [ -x "${_llama_cuda_dir}/llama-server" ]; then
+      export LLAMA_BIN="${_llama_cuda_dir}/llama-server"
+      export LD_LIBRARY_PATH="${_llama_cuda_dir}:/opt/sovereign-os/venv/vllm/lib/python3.14/site-packages/nvidia/cu13/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+    fi
+    argv_text=$(python3 - <<PY
 import os, sys
 sys.path.insert(0, "${__SCRIPT_DIR}")
 from backends.llama_cpp import LlamaCppBackend
 b = LlamaCppBackend.for_sain01_fallback(os.environ["LOGIC_MODEL"])
 b.config.host = os.environ["LOGIC_HOST"]
 b.config.port = int(os.environ["LOGIC_PORT"])
+b.ctx_size = int(os.environ.get("LOGIC_MAX_MODEL_LEN", b.ctx_size))
 print(" ".join(b.start_command()))
 PY
 )
+    read -r -a argv <<< "${argv_text}"
+    # Profile-managed llama.cpp options (for example --model-draft for
+    # speculative decoding) must reach the server just as vLLM options do.
+    # Without this, selecting a llama.cpp profile silently starts only its
+    # base model with the backend defaults.
+    if [ -n "${LOGIC_EXTRA_ARGS:-}" ]; then
+      read -r -a logic_extra_argv <<< "${LOGIC_EXTRA_ARGS}"
+      argv+=("${logic_extra_argv[@]}")
+    fi
     ;;
   *)
     log_error "unknown SOVEREIGN_OS_LOGIC_BACKEND: ${SOVEREIGN_OS_LOGIC_BACKEND}"
@@ -143,7 +193,8 @@ PY
     ;;
 esac
 
-log_info "argv: ${argv}"
+printf -v argv_log '%q ' "${argv[@]}"
+log_info "argv: ${argv_log}"
 log_info "model: ${LOGIC_MODEL}"
 log_info "listening: http://${LOGIC_HOST}:${LOGIC_PORT}"
 
@@ -155,4 +206,4 @@ fi
 
 emit_start_metric success
 emit_metric sovereign_os_inference_backend_pid $$ "tier=\"${TIER}\""
-exec ${argv}
+exec "${argv[@]}"

@@ -64,6 +64,14 @@
 >
 > httpx.HTTPStatusError: Client error '401 Unauthorized' for url 'https://huggingface.co/api/models/Qwen/Qwen3.6-27B-Coder/revision/main'
 
+> both are downloaded, the profile activated but I get error for the logic / rtx 5090 one in openclaw when I try to use
+
+> WTF DO YOU FUCKING NOT UNDERSTAND: THE QWEN MODEL ON LOGIC CARD IS NOT WORKING
+
+> WHY ARE YOU TROLLING ME ???? WHY IS THERE STILL NEMOTRON... retard ...
+
+> JUST FIX THE FUCKING PROFILE SO THAT WHEN I ACTIVATE IT ACTIVATE PROPERLY..........
+
 > we are going to create two new lm orchestration profiles:
 >
 > Strategy 1: The Dual-Agent Autocomplete Setup (Recommended)This configuration delivers maximum speed and utility by running two specialized models simultaneously.The RTX 5090's Role (Inline Autocomplete): Dedicate this card entirely to a lightning-fast fill-in-the-middle model. Run Qwen3.6-27B-Coder unquantized at FP8 or BF16. The 5090's massive 1,792 GB/s bandwidth will stream sub-second tab-completions as you type, utilizing only a fraction of its 32GB pool. [1] ([https://www.runpod.io/articles/guides/nvidia-rtx-5090](https://www.runpod.io/articles/guides/nvidia-rtx-5090)), [2] ([https://jarvislabs.ai/blog/coding-model-rtx-pro-6000](https://jarvislabs.ai/blog/coding-model-rtx-pro-6000)), [3] ([https://vrlatech.com/rtx-5090-vs-rtx-pro-6000-blackwell-ai-2026/](https://vrlatech.com/rtx-pro-6000-blackwell-ai-2026/)), [4] ([https://www.youtube.com/watch?v=pr9fsrK8nmQ)The](https://www.youtube.com/watch?v=pr9fsrK8nmQ) RTX 6000's Role (Agentic / Architectural Chat): Simultaneously run a heavy reasoning model like Qwen2.5-72B-Instruct at Q8 or native FP8 execution on the 6000. As you use an extension like Continue.dev or Cline, the fast autocomplete functions on one card while the larger card processes massive workspace index refactorings without freezing your IDE. [1] ([https://modelfit.io/gpu/rtx-6000-pro/)Strategy](https://modelfit.io/gpu/rtx-6000-pro/) 2: The Frontier Multi-File SpecialistIf your goal is to feed massive entire repositories into a single model for complex agentic coding (e.g., executing Python scripts, generating structural migrations, or auditing large C++ codebases), you can unify the VRAM pools using layer-splitting (Pipeline Parallelism) in vLLM or llama.cpp.The Model: Minimax 2.1 or DeepSeek-Coder-V2.How to deploy: Run the model at a Q4_K_M or EXL2 (3.5 to 4.0 bpw) quantization. The weights will occupy roughly 80GB on the RTX 6000.The VRAM Trick: Offload the remaining model layers and the massive KV Cache (Context Window) entirely onto the RTX 5090. This configuration enables you to digest a massive 64K to 128K context window locally. The 5090 handles the heavy context cache calculations efficiently due to its fast GDDR7 memory speeds. [1] ([https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/](https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/)), [2] ([https://www.reddit.com/r/LocalLLaMA/comments/1qew9df/best_coding_models_for_rtx_6000_pro_blackwell/](https://www.reddit.com/r/LocalLLaMA/comments/1qew9df/best_coding_models_for_rtx_6000_pro_blackwell/)), [3] ([https://www.runpod.io/articles/guides/nvidia-rtx-5090](https://www.runpod.io/articles/guides/nvidia-rtx-5090))
@@ -149,3 +157,25 @@ context budget.
 
 The live cockpit must automatically receive relevant development-checkout changes;
 the operator must not need to manually copy or redeploy each dashboard edit.
+
+> remove the confirmation step for apply profile in the lm orchestrator cockpit
+
+> here is the latest error on openclaw with the logic card: Error: Context overflow: prompt too large for the model. Try /reset (or /new) to start a fresh session, or use a larger-context model.
+
+> it was a fresh conversation...
+
+> same error as before. take the time to think "Error: Context overflow: prompt too large for the model. Try /reset (or /new) to start a fresh session, or use a larger-context model."
+
+> this time stuck at "Waiting for a response…"
+
+> something is wrong. it takes too long for an answer. this model on this card should be much more powerful and fast
+
+> we replace it with ternary bonsai then... why have a model I can't use?
+
+> more precisely we will use Ternary-Bonsai-27B-dspark, its already downloaded
+
+> when I try it I get "Context overflow: this conversation is too large for the model. Try /compact, use /new to start a fresh session, or retry the command with a tighter output limit."
+>
+> Is there a way to redownload the corrupt file ?
+
+> okay now local-oracle, why does it not work ?

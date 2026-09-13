@@ -279,7 +279,7 @@ def test_nav_registry_includes_d21():
 
 def test_apply_is_per_profile_card_via_exec_rail():
     """D21-4: Apply lives on EACH profile card and executes through the signed
-    control-exec rail inline (dry-run → type-to-confirm), replacing the old
+    control-exec rail inline in one click, replacing the old
     floating round button that merely scrolled to a distant control card
     (the operator's bug: "the apply move to a card randomly instead of applying
     using sudoer like normal"). Web itself never mutates (R10212)."""
@@ -306,10 +306,11 @@ def test_apply_is_per_profile_card_via_exec_rail():
     assert re.search(r"['\"]orchestration-profile['\"]", body), (
         "Apply must route the orchestration/user family through 'orchestration-profile'"
     )
-    # dry-run-first + type-to-confirm gate
-    assert "offerConfirm" in body and "dry_run" in body, (
-        "Apply must be dry-run-first with a type-to-confirm gate"
-    )
+    # The selected profile is applied in one action; server-side validation and
+    # authorization remain on the control rail, not in a duplicate browser gate.
+    assert "applyProfile(btn.dataset.id, btn.dataset.fam, resultEl);" in body
+    assert 'confirm: true' in body
+    assert "function offerConfirm(id, fam, resultEl)" not in body
 
 
 def test_each_cell_shows_an_explicit_mode_field():

@@ -7,6 +7,7 @@ Used on sain-01 as the non-DFlash quantized-model fallback on the
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -75,7 +76,11 @@ class LlamaCppBackend(Backend):
         if self.config.cpu_affinity:
             argv += ["taskset", "-c", self.config.cpu_affinity]
 
-        llama_bin = self.config.env.get("LLAMA_BIN", "llama-server")
+        # A runtime profile may select an isolated CUDA build without replacing
+        # the system llama-server.  Config values remain highest priority.
+        llama_bin = self.config.env.get("LLAMA_BIN") or os.environ.get(
+            "LLAMA_BIN", "llama-server"
+        )
         argv += [llama_bin]
 
         argv += [
