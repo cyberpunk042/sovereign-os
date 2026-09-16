@@ -201,3 +201,5 @@ the operator must not need to manually copy or redeploy each dashboard edit.
 > id: GGML-Qwen3.6-27B-Coder
 
 > on openclaw I get the response : Context overflow: this conversation is too large for the model. Try /compact, use /new to start a fresh session, or retry the command with a tighter output limit.
+
+> I had a good run but then it started to bug: http://127.0.0.1:18789/chat/main/b3e14d12

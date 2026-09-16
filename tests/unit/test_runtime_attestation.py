@@ -113,3 +113,21 @@ def test_agent_materialized_catalog_is_refreshed_from_profile_catalog(tmp_path):
     assert {entry["id"] for entry in got} == {"gpu-oracle", "gpu-logic", "operator-custom"}
     assert next(entry for entry in got if entry["id"] == "gpu-logic")["name"] == "new logic"
     assert next(entry for entry in got if entry["id"] == "operator-custom")["name"] == "keep me"
+
+
+def test_openclaw_output_budget_leaves_agent_prompt_headroom():
+    """The advertised budget becomes max_tokens on every OpenClaw request."""
+    sync_path = Path(__file__).resolve().parents[2] / "scripts/inference/sync-openclaw-models.py"
+    sync_spec = importlib.util.spec_from_file_location("sync_openclaw_models_output_budget", sync_path)
+    assert sync_spec and sync_spec.loader
+    sync = importlib.util.module_from_spec(sync_spec)
+    sync_spec.loader.exec_module(sync)
+
+    oracle = sync._derive_entry(
+        {"model": "Qwen3-Coder-32B-Instruct", "tier": "oracle", "target_hardware": "cuda:0",
+         "context_tokens": 65536, "max_output_tokens": 16384},
+        {"Qwen3-Coder-32B-Instruct": {"context_window_tokens": 131072}},
+        "gpu-oracle",
+    )
+    assert oracle["contextWindow"] == 65536
+    assert oracle["maxTokens"] == 8192

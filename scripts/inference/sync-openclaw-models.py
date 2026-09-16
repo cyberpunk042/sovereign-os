@@ -19,8 +19,11 @@ SCOPE (deliberately narrow):
     operator-custom entries are left byte-for-byte alone.
   * Reads facts, writes facts. contextWindow is the lower of the catalog
     capability and the profile's actual per-card launch budget; reasoning comes
-    from models/catalog.yaml. maxTokens is a derived output budget (min(32768,
-    ctx//4), floored at 4096); name is composed from the model + card.
+    from models/catalog.yaml. maxTokens is a conservative derived output budget
+    (no more than one eighth of the resident context); name is composed from
+    the model + card. OpenClaw treats that number as a hard reservation, so a
+    quarter-window response reservation makes a long-lived agent chat overflow
+    before the model's actual context limit is reached.
   * Soft dependency: if OpenClaw is not installed (no openclaw.json), this is a
     clean no-op (exit 0) — a sovereign-os box without OpenClaw is normal.
 
@@ -72,7 +75,12 @@ CARD_LABEL = {
 TIER_LABEL = {"oracle": "Oracle", "logic": "Logic", "router": "Qwythos Worker"}
 
 MAXTOK_CAP = 32768
-MAXTOK_FLOOR = 4096
+# OpenClaw's agent executor sends the advertised output budget as
+# ``max_tokens`` on every request. Retain seven eighths of a model's resident
+# context for system prompt, tools, memory and conversation.  This makes the
+# 65K Oracle usable for an approximately 57K-token input instead of failing at
+# 33K because it reserved an unnecessary 32K completion.
+MAXTOK_CONTEXT_DIVISOR = 8
 OPENCLAW_COMPACTION_BUDGET_OLD = (
     "const minPromptBudget = Math.min(MIN_PROMPT_BUDGET_TOKENS, "
     "Math.max(1, Math.floor(contextTokenBudget * MIN_PROMPT_BUDGET_RATIO)));"
@@ -208,7 +216,7 @@ def _derive_entry(alloc: dict, cat: dict[str, dict], oc_id: str) -> dict:
         profile_output_cap = int(alloc.get("max_output_tokens") or 0) or None
         entry["maxTokens"] = min(
             MAXTOK_CAP,
-            ctx // 4,
+            ctx // MAXTOK_CONTEXT_DIVISOR,
             profile_output_cap if profile_output_cap is not None else MAXTOK_CAP,
         )
     return entry
@@ -217,15 +225,32 @@ def _derive_entry(alloc: dict, cat: dict[str, dict], oc_id: str) -> dict:
 def _openclaw_config_path() -> Path:
     if os.environ.get("OPENCLAW_CONFIG"):
         return Path(os.environ["OPENCLAW_CONFIG"]).expanduser()
-    # When invoked via sudo from the signed rail, target the real operator's
-    # config, not root's.
-    sudo_user = os.environ.get("SUDO_USER")
-    if sudo_user and os.geteuid() == 0:
+    # Profile reconciliation is launched by the privileged control rail.  That
+    # process has neither the interactive user's HOME nor necessarily
+    # SUDO_USER, so falling through to /root silently skips the live gateway.
+    # Resolve the operator deterministically: explicit operator → sudo caller
+    # → repository owner. The first existing config wins.
+    if os.geteuid() == 0:
+        candidates: list[str] = []
+        for user in (
+            os.environ.get("SOVEREIGN_OS_OPERATOR_USER"),
+            os.environ.get("SUDO_USER"),
+        ):
+            if user and user not in candidates:
+                candidates.append(user)
         try:
-            home = Path(pwd.getpwnam(sudo_user).pw_dir)
-            return home / ".openclaw" / "openclaw.json"
-        except KeyError:
+            repo_owner = pwd.getpwuid(REPO_ROOT.stat().st_uid).pw_name
+            if repo_owner != "root" and repo_owner not in candidates:
+                candidates.append(repo_owner)
+        except (KeyError, OSError):
             pass
+        for user in candidates:
+            try:
+                candidate = Path(pwd.getpwnam(user).pw_dir) / ".openclaw" / "openclaw.json"
+            except KeyError:
+                continue
+            if candidate.is_file():
+                return candidate
     return Path(os.environ.get("HOME", "/root")) / ".openclaw" / "openclaw.json"
 
 
