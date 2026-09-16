@@ -179,3 +179,25 @@ the operator must not need to manually copy or redeploy each dashboard edit.
 > Is there a way to redownload the corrupt file ?
 
 > okay now local-oracle, why does it not work ?
+
+> lets resolve this issue, I want to use it in openclaw
+
+> i just updated the active profile and openclaw models list did not update can we solve the code ?
+
+> Ternary-Bonsai-27B should be another profile, I still need the profile with Qwen that was too big. (i will run desktop from the rtx 4090)
+
+> do no hallucinate... removing the 4090 embedding/rerank allocations, I never said that.. wtf..
+
+> after activating the profile I get this on openclaw: [gateway generation error: no local model loaded]
+
+> I rebooted, what is the issue now ?
+> can we not finetine, offload and whatnot:
+> Error: Model context window too small (2048 tokens; source=modelsConfig). Minimum is 4000. OpenClaw is using the configured model context limit for this model. Raise contextWindow/contextTokens or choose a larger model.
+> lets find how to have a normal context size without it being too slow either
+
+> its too small
+
+> should be downloaded now:
+> id: GGML-Qwen3.6-27B-Coder
+
+> on openclaw I get the response : Context overflow: this conversation is too large for the model. Try /compact, use /new to start a fresh session, or retry the command with a tighter output limit.

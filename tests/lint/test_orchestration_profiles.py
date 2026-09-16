@@ -102,6 +102,27 @@ def test_qwythos_three_card_profile_places_one_instance_on_each_gpu():
     assert all(a["engine"] == "llama.cpp" and a["active"] for a in qwythos)
 
 
+def test_dual_agent_qwen_profile_has_hardware_safe_launch_contract():
+    """The Qwen profile must avoid known post-reboot vLLM startup failures.
+
+    Qwen3.6-27B-Coder consumes nearly all 32 GiB of the RTX 5090 before KV
+    cache initialization, so CUDAGraph capture is not viable there.  The PRO
+    6000 host does not ship nvcc, so FlashInfer JIT must not be selected.
+    """
+    allocs = _load("dual-agent-autocomplete")["orchestration_profile"]["allocations"]
+    logic = next(a for a in allocs if a["tier"] == "logic")
+    oracle = next(a for a in allocs if a["tier"] == "oracle")
+    assert logic["model"] == "GGML-Qwen3.6-27B-Coder"
+    assert logic["target_hardware"] == "cuda:1"
+    assert logic["model_path"].endswith("Qwen3.6-27B-Q4_K_M.gguf")
+    assert logic["engine"] == "llama.cpp"
+    assert logic["max_model_len"] == 32768
+    assert "--cache-type-k q8_0" in logic["extra_args"]
+    assert oracle["model"] == "Qwen3-Coder-32B-Instruct"
+    assert "--served-model-name gpu-oracle" in oracle["extra_args"]
+    assert "--attention-backend TRITON_ATTN" in oracle["extra_args"]
+
+
 def test_top_level_key_is_orchestration_profile():
     """The distinct top-level key guarantees no collision with the
     verbatim-locked runtime-profile family — checked for EVERY profile on disk

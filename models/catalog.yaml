@@ -185,6 +185,26 @@ catalog:
         ternary-quantized 32B Qwen on HF; AWQ 4-bit is the operator
         substitute. vllm-vulkan engine compatible with the 4090.
 
+    - id: GGML-Qwen3.6-27B-Coder
+      tier: logic
+      engine: llama.cpp
+      class: code
+      quantization: fp8
+      size_class: l
+      purpose: [code, autocomplete, agent]
+      status: verified-real
+      license: apache-2.0
+      hf_repo_id: ggml-org/Qwen3.6-27B-GGUF
+      parameters_millions: 27000
+      vram_gib_min: 28
+      context_window_tokens: 32768
+      master_spec_section: "operator directive 2026-09-11 — dual-agent autocomplete"
+      runtime_profile_bindings: []
+      operator_note: |
+        Requested exact autocomplete artifact. The repository/artifact revision,
+        FP8 availability, and FIM endpoint behavior must be verified before
+        download and promotion; this row intentionally prevents silent model
+        substitution.
     - id: Qwen3.6-27B-Coder
       tier: logic
       engine: vllm

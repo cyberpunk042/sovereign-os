@@ -52,6 +52,11 @@ TIER="logic_engine"
 # prevents stale Nemotron-specific values from /etc's EnvironmentFile winning
 # over a newly activated Qwen profile.
 runtime_profile_override LOGIC_MODEL logic model
+# Keep the catalog id for profile validation while allowing a quantized local
+# artifact to be the actual llama.cpp input.  Without this, a GGUF catalog id
+# resolves only to its containing directory and the launcher cannot select the
+# intended quantization.
+runtime_profile_override LOGIC_MODEL logic model_path
 runtime_profile_override LOGIC_GPU_MEMORY_UTILIZATION logic gpu_memory_utilization
 runtime_profile_override LOGIC_MAX_MODEL_LEN logic max_model_len
 runtime_profile_override LOGIC_REASONING_PARSER logic reasoning_parser
@@ -63,7 +68,16 @@ runtime_profile_override LOGIC_EXTRA_ARGS logic extra_args
 # its old vLLM backend in place.
 _logic_profile_engine="$(runtime_profile_get_tier_field logic engine)"
 case "${_logic_profile_engine}" in
-  vllm) SOVEREIGN_OS_LOGIC_BACKEND=vllm_host ;;
+  vllm)
+    SOVEREIGN_OS_LOGIC_BACKEND=vllm_host
+    # A selected orchestration profile owns request formatting as well as its
+    # model.  Do not let a previous resident's reasoning parser or tool parser
+    # leak through /etc's long-lived EnvironmentFile (for example Nemotron's
+    # parser being passed to Qwen).  An explicit profile value was already
+    # applied above; an absent one means intentionally no parser/extra flags.
+    [ -n "$(runtime_profile_get_tier_field logic reasoning_parser)" ] || LOGIC_REASONING_PARSER=""
+    [ -n "$(runtime_profile_get_tier_field logic extra_args)" ] || LOGIC_EXTRA_ARGS=""
+    ;;
   llama.cpp)
     SOVEREIGN_OS_LOGIC_BACKEND=llama_cpp
     # Do not inherit vLLM-only arguments from the service EnvironmentFile.

@@ -67,3 +67,18 @@ def test_generator_documents_the_real_model_path():
         "the generator must document that per-tier model selection flows through "
         "runtime_profile_override (not the generated env file)."
     )
+
+
+def test_switch_synchronizes_the_runtime_activation_contract_before_restart():
+    """A developer checkout switch must not restart stale /opt launchers."""
+    src = OSCTL.read_text(encoding="utf-8")
+    assert "_sync_runtime_activation_contract()" in src
+    for path in (
+        "scripts/build/lib/runtime-profile.sh",
+        "scripts/inference/start-logic-engine.sh",
+        "scripts/inference/start-oracle-core.sh",
+    ):
+        assert path in src
+    call = src.index('_sync_runtime_activation_contract "${fam}" "${f}"')
+    restart = src.index("# Restart inference tier services")
+    assert call < restart, "synchronize live runtime files before restarting inference tiers"

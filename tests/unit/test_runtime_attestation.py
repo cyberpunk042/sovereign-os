@@ -80,3 +80,36 @@ def test_catalog_revision_is_secret_free_and_is_profile_bound(tmp_path):
                                 "context_window_tokens": 32768, "max_output_tokens": 4096}]
     assert "must-not-appear" not in encoded
     assert "also-not-appear" not in encoded
+
+
+def test_agent_materialized_catalog_is_refreshed_from_profile_catalog(tmp_path):
+    """A gateway restart must not revive a prior profile from models.json."""
+    sync_path = Path(__file__).resolve().parents[2] / "scripts/inference/sync-openclaw-models.py"
+    sync_spec = importlib.util.spec_from_file_location("sync_openclaw_models_agent_catalog", sync_path)
+    assert sync_spec and sync_spec.loader
+    sync = importlib.util.module_from_spec(sync_spec)
+    sync_spec.loader.exec_module(sync)
+
+    cfg_path = tmp_path / ".openclaw" / "openclaw.json"
+    cfg_path.parent.mkdir(parents=True)
+    cfg_path.write_text("{}\n", encoding="utf-8")
+    agent_path = cfg_path.parent / "agents" / "main" / "agent" / "models.json"
+    agent_path.parent.mkdir(parents=True)
+    agent_path.write_text(json.dumps({"providers": {"sovereign": {"models": [
+        {"id": "gpu-oracle", "name": "old oracle", "contextWindow": 131072},
+        {"id": "gpu-logic", "name": "old logic", "contextWindow": 32768},
+        {"id": "gpu-qwythos-worker", "name": "stale Qwythos worker"},
+        {"id": "operator-custom", "name": "keep me"},
+    ]}}}, indent=2) + "\n", encoding="utf-8")
+
+    changed = sync._sync_agent_model_catalogs(cfg_path, [
+        {"id": "gpu-oracle", "name": "new oracle", "contextWindow": 65536},
+        {"id": "gpu-logic", "name": "new logic", "contextWindow": 65536},
+        {"id": "local-oracle", "name": "CPU fallback"},
+    ], dry_run=False)
+
+    assert changed == [str(agent_path)]
+    got = json.loads(agent_path.read_text(encoding="utf-8"))["providers"]["sovereign"]["models"]
+    assert {entry["id"] for entry in got} == {"gpu-oracle", "gpu-logic", "operator-custom"}
+    assert next(entry for entry in got if entry["id"] == "gpu-logic")["name"] == "new logic"
+    assert next(entry for entry in got if entry["id"] == "operator-custom")["name"] == "keep me"

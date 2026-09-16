@@ -5280,6 +5280,46 @@ _trinity_profile() {
     return 1
   }
 
+  _sync_runtime_activation_contract() {
+    # The control rail runs from the developer checkout on this workstation,
+    # whereas systemd inference units execute the packaged /opt payload.  A
+    # profile marker alone is therefore insufficient when /opt predates the
+    # checkout: the service would restart and silently retain its previous
+    # model.  Synchronize only the resolver, the two launchers, and the
+    # selected profile before restarting a tier.  This is intentionally not a
+    # general source-tree deployment.
+    local profile_family="$1" profile_file="$2"
+    local payload_root="/opt/sovereign-os"
+    [ -d "${payload_root}" ] || return 0
+    [ "$(readlink -f "${payload_root}")" = "$(readlink -f "${__REPO_ROOT}")" ] && return 0
+
+    local rel source destination mode
+    for rel in \
+      "scripts/build/lib/runtime-profile.sh" \
+      "scripts/inference/start-logic-engine.sh" \
+      "scripts/inference/start-oracle-core.sh"; do
+      source="${__REPO_ROOT}/${rel}"
+      destination="${payload_root}/${rel}"
+      [ -f "${source}" ] || { log_error "runtime activation source missing: ${source}"; return 1; }
+      mode=0755
+      install -D -m "${mode}" "${source}" "${destination}" || {
+        log_error "could not synchronize runtime activation file: ${destination}"
+        return 1
+      }
+    done
+
+    # User-authored drafts have the orchestration profile shape at runtime;
+    # store them in that family so runtime-profile.sh can resolve them too.
+    local payload_family="${profile_family}"
+    [ "${payload_family}" = "user" ] && payload_family="orchestration"
+    destination="${payload_root}/profiles/${payload_family}/$(basename "${profile_file}")"
+    install -D -m 0644 "${profile_file}" "${destination}" || {
+      log_error "could not synchronize selected profile into runtime payload: ${destination}"
+      return 1
+    }
+    log_info "  synchronized runtime activation contract into ${payload_root}"
+  }
+
   case "${sub}" in
     list)
       if [ ! -d "${runtime_dir}" ]; then
@@ -5423,6 +5463,10 @@ PY
         log_info "profile switch complete: ${id}"
         return 0
       fi
+      _sync_runtime_activation_contract "${fam}" "${f}" || {
+        log_error "profile was not changed; the live runtime could not be synchronized"
+        return 1
+      }
       # Remove the profile-owned llama.cpp overrides before an explicit return
       # to a regular profile.  Leaving them in place would make systemd serve
       # Qwythos while OpenClaw advertised the newly selected profile.

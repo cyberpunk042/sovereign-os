@@ -31,6 +31,7 @@ or reapply manually is how OpenClaw can keep an obsolete model list.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -325,6 +326,98 @@ def _restart_openclaw_gateway(config_owner_uid: int) -> None:
         _log("restarted OpenClaw gateway so the updated model list is live")
 
 
+def _agent_models_json_paths(cfg_path: Path) -> list[Path]:
+    """Return materialized per-agent model catalogs for this OpenClaw home.
+
+    OpenClaw reads provider credentials and provider metadata from each active
+    agent's ``agent/models.json``.  Its model picker merges that materialized
+    catalog with ``openclaw.json``.  Updating only the latter therefore leaves
+    a stale agent-level provider entry able to resurrect the previous profile's
+    model names after the gateway restarts.
+    """
+    agents_dir = cfg_path.parent / "agents"
+    if not agents_dir.is_dir():
+        return []
+    return sorted(path for path in agents_dir.glob("*/agent/models.json") if path.is_file())
+
+
+def _sync_agent_model_catalogs(cfg_path: Path, source_models: list[dict],
+                               dry_run: bool) -> list[str]:
+    """Mirror profile-owned sovereign entries into every materialized agent.
+
+    ``openclaw.json`` remains the source of truth.  This deliberately edits
+    only the managed GPU ids (including the profile-owned Qwythos worker), and
+    leaves credentials, local-oracle, and any operator-added provider models
+    untouched.  It is safe to run on every profile switch and makes an
+    OpenClaw gateway restart actually expose the just-selected profile.
+    """
+    desired = {
+        str(entry["id"]): copy.deepcopy(entry)
+        for entry in source_models
+        if isinstance(entry, dict) and entry.get("id") in TIER_FOR_MODEL_ID
+    }
+    changes: list[str] = []
+    for path in _agent_models_json_paths(cfg_path):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            _log(f"could not read agent catalog {path}: {exc}; leaving it untouched")
+            continue
+        models = (
+            data.get("providers", {})
+            .get("sovereign", {})
+            .get("models")
+        )
+        if not isinstance(models, list):
+            # An agent with no materialized sovereign provider inherits the
+            # global provider catalog; there is nothing stale to repair.
+            continue
+
+        by_id = {
+            str(entry.get("id")): entry
+            for entry in models
+            if isinstance(entry, dict) and entry.get("id")
+        }
+        changed = False
+        for model_id, entry in desired.items():
+            current = by_id.get(model_id)
+            if current is None:
+                models.append(copy.deepcopy(entry))
+                changed = True
+                continue
+            # The profile owns every field of its GPU catalog entry.  Copy the
+            # source entry rather than only name/context so a future profile
+            # metadata field cannot stay stale in the agent override.
+            if current != entry:
+                index = models.index(current)
+                models[index] = copy.deepcopy(entry)
+                changed = True
+
+        # gpu-qwythos-worker exists only while its Qwythos profile is active;
+        # retaining it is precisely how an old profile leaked back into /models.
+        if QWYTHOS_WORKER_ID not in desired:
+            retained = [
+                entry for entry in models
+                if not (isinstance(entry, dict) and entry.get("id") == QWYTHOS_WORKER_ID)
+            ]
+            if len(retained) != len(models):
+                models[:] = retained
+                changed = True
+
+        if not changed:
+            continue
+        changes.append(str(path))
+        if dry_run:
+            continue
+        st = path.stat()
+        backup = path.with_suffix(path.suffix + ".bak")
+        backup.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+        _chown_like(backup, st.st_uid, st.st_gid)
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        _chown_like(path, st.st_uid, st.st_gid)
+    return changes
+
+
 def _patch_openclaw_compaction_budget(config_owner_uid: int, dry_run: bool) -> bool:
     """Repair OpenClaw's reversed large-context prompt-budget bound.
 
@@ -552,9 +645,13 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_local_memory(cfg, profile_id, changes)
     _ensure_qwen_logic_request_params(cfg, allocs, changes)
     _ensure_profile_primary_model(cfg, profile_id, changes)
+    # OpenClaw materializes provider metadata per agent.  Keep those catalogs
+    # aligned with the global source before deciding whether this is a no-op:
+    # an old agent catalog must itself trigger the gateway reload.
+    agent_catalog_changes = _sync_agent_model_catalogs(cfg_path, models, args.dry_run)
     compaction_patch_changed = _patch_openclaw_compaction_budget(st.st_uid, args.dry_run)
 
-    if not changes:
+    if not changes and not agent_catalog_changes:
         _log(f"OpenClaw already in sync with profile {profile_id!r} — no change")
         if not args.dry_run:
             _publish_catalog_revision(profile_id, profile_yaml, cfg_path, models)
@@ -564,20 +661,24 @@ def main(argv: list[str] | None = None) -> int:
 
     for c in changes:
         _log(c)
+    for path in agent_catalog_changes:
+        _log(f"refreshed materialized agent catalog: {path}")
 
     if args.dry_run:
         _log("--dry-run: no file written")
         return 0
 
-    # Backup then write, preserving ownership (important when run as root via sudo).
-    backup = cfg_path.with_suffix(cfg_path.suffix + ".bak")
-    backup.write_text(cfg_path.read_text(encoding="utf-8"), encoding="utf-8")
-    _chown_like(backup, st.st_uid, st.st_gid)
+    if changes:
+        # Backup then write, preserving ownership (important when run as root
+        # via sudo).  An agent-catalog-only repair must not create a misleading
+        # global-config backup or rewrite an otherwise unchanged config.
+        backup = cfg_path.with_suffix(cfg_path.suffix + ".bak")
+        backup.write_text(cfg_path.read_text(encoding="utf-8"), encoding="utf-8")
+        _chown_like(backup, st.st_uid, st.st_gid)
 
-    cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
-    _chown_like(cfg_path, st.st_uid, st.st_gid)
-
-    _log(f"wrote {len(changes)} change(s) to {cfg_path} (backup: {backup.name})")
+        cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+        _chown_like(cfg_path, st.st_uid, st.st_gid)
+        _log(f"wrote {len(changes)} change(s) to {cfg_path} (backup: {backup.name})")
     _publish_catalog_revision(profile_id, profile_yaml, cfg_path, models)
     _restart_openclaw_gateway(st.st_uid)
     return 0

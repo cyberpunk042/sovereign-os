@@ -81,6 +81,7 @@ oracle_max_vram_gib() {
 #   ORACLE_HOST               Listen host (default: 127.0.0.1)
 #   ORACLE_PORT               Listen port (default: 8083 — router routes here)
 #   ORACLE_KV_CACHE_DTYPE     fp8 | auto (default: fp8 — deep-context-friendly)
+#   ORACLE_MAX_MODEL_LEN      Served context ceiling (profile-owned when set)
 #   ORACLE_DFLASH_DRAFT       Optional DFlash draft model id for speculative decode
 #   ORACLE_VRAM_REQUIRED_GIB  Min VRAM required (R455 default: 22 for nvfp4, 64 for bf16)
 #   ORACLE_EXTRA_ARGS         Extra vLLM argv appended verbatim (shlex-split),
@@ -93,6 +94,26 @@ oracle_max_vram_gib() {
 runtime_profile_override ORACLE_MODEL          oracle model
 runtime_profile_override ORACLE_KV_CACHE_DTYPE oracle kv_cache_dtype
 runtime_profile_override ORACLE_QUANTIZATION   oracle quantization
+runtime_profile_override ORACLE_MAX_MODEL_LEN  oracle max_model_len
+runtime_profile_override ORACLE_EXTRA_ARGS     oracle extra_args
+
+# As with Logic, request-formatting flags belong to the selected profile.  A
+# gpt-oss reasoning/tool parser left in the persistent EnvironmentFile is not
+# valid for a Qwen Oracle and must never survive a model switch.
+if [ -n "$(runtime_profile_get_tier_field oracle engine)" ] \
+   && [ -z "$(runtime_profile_get_tier_field oracle extra_args)" ]; then
+  ORACLE_EXTRA_ARGS=""
+fi
+
+# Orchestration profiles name models by their catalogue id while vLLM must be
+# pointed at the downloaded checkpoint.  Prefer the local artifact, without
+# rewriting an explicit filesystem path or a deliberate remote repository id.
+if [[ "${ORACLE_MODEL:-}" != /* ]]; then
+  _oracle_models_dir="${SOVEREIGN_OS_MODELS_DIR:-/mnt/vault/models}"
+  if [ -d "${_oracle_models_dir}/${ORACLE_MODEL:-}" ]; then
+    ORACLE_MODEL="${_oracle_models_dir}/${ORACLE_MODEL}"
+  fi
+fi
 
 # R455: Blackwell-aware default quantization. Operator-overridable.
 if [ -z "${ORACLE_QUANTIZATION:-}" ]; then
@@ -126,6 +147,7 @@ fi
 : "${ORACLE_HOST:=127.0.0.1}"
 : "${ORACLE_PORT:=8083}"
 : "${ORACLE_KV_CACHE_DTYPE:=fp8}"     # 'auto' on first run; fp8 for deep context (per L0 Profile 3)
+: "${ORACLE_MAX_MODEL_LEN:=131072}"
 : "${ORACLE_DFLASH_DRAFT:=}"          # e.g. z-lab/Nemotron-3-Nano-Omni-DFlash when published
 : "${ORACLE_VRAM_REQUIRED_GIB:=22}"
 
@@ -139,7 +161,7 @@ fi
 
 # Export so the inline python3 (subshell) sees them via os.environ.
 export ORACLE_MODEL ORACLE_HOST ORACLE_PORT ORACLE_KV_CACHE_DTYPE ORACLE_DFLASH_DRAFT \
-       ORACLE_QUANTIZATION ORACLE_VRAM_REQUIRED_GIB
+       ORACLE_QUANTIZATION ORACLE_VRAM_REQUIRED_GIB ORACLE_MAX_MODEL_LEN
 
 log_step_header "${STEP_ID}" "start Oracle Core (vLLM, Blackwell native)"
 runtime_profile_log_active
@@ -170,6 +192,12 @@ b = VllmBackend.for_oracle_core(
 )
 b.config.host = os.environ["ORACLE_HOST"]
 b.config.port = int(os.environ["ORACLE_PORT"])
+# vLLM otherwise adopts the checkpoint's full advertised context (262K for the
+# Qwen Oracle), which can exhaust VRAM before it ever becomes ready.  The
+# profile's served contract is authoritative.
+b.config.extra_args = list(b.config.extra_args) + [
+    "--max-model-len", os.environ["ORACLE_MAX_MODEL_LEN"],
+]
 # Operator escape hatch. VllmBackend already appends config.extra_args, but the
 # launcher never populated it, so flags the backend class does not model could
 # not be reached at all. The Logic tier needed exactly three such flags —
@@ -189,6 +217,7 @@ log_info "quantization: ${ORACLE_QUANTIZATION}  (R455 Blackwell-aware default)"
 log_info "vram required: ${ORACLE_VRAM_REQUIRED_GIB} GiB (detected max: ${__oracle_max_vram} GiB)"
 log_info "DFlash draft: ${ORACLE_DFLASH_DRAFT:-<none>}"
 log_info "kv cache dtype: ${ORACLE_KV_CACHE_DTYPE}"
+log_info "max model len: ${ORACLE_MAX_MODEL_LEN}"
 log_info "listening: http://${ORACLE_HOST}:${ORACLE_PORT}"
 
 if [ -n "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
