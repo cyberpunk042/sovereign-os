@@ -59,18 +59,49 @@
   header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
   h1 { margin:0; font-size:1.1rem; }
   h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
-  main { padding:1rem 1.25rem; max-width:1200px; }
+  main { padding:1rem 1.25rem 2.5rem; max-width:1440px; }
   h2 { font-size:.95rem; margin:1.2rem 0 .5rem; }
   .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
   .muted { color:var(--muted); }
   code { color:var(--accent); }
-  /* profiles */
-  .profiles { display:flex; flex-wrap:wrap; gap:.5rem; }
+  /* The command deck is deliberately the first thing an operator sees: the
+     active profile, its actual serving routes, and any declared/live mismatch.
+     The former all-sections-in-a-row layout hid this answer below a catalog. */
+  .deployment-deck { display:grid; grid-template-columns:minmax(260px,.85fr) minmax(0,2.15fr); gap:1px;
+    margin:1rem 0 1.15rem; border:1px solid var(--border); border-radius:14px; overflow:hidden;
+    background:var(--border); box-shadow:0 14px 36px rgba(0,0,0,.18); }
+  .deck-profile, .deck-routes { background:var(--so-surface-1,var(--panel)); padding:1rem 1.1rem; }
+  .deck-kicker { display:block; color:var(--muted); font-size:.66rem; text-transform:uppercase; letter-spacing:.1em; }
+  .deck-profile h2 { margin:.28rem 0 .35rem; color:var(--accent); font-size:1.18rem; line-height:1.25; }
+  .deck-profile p { margin:0; color:var(--muted); font-size:.76rem; line-height:1.5; }
+  .deck-routes { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.55rem; align-content:center; }
+  .route { border:1px solid var(--border); border-radius:8px; padding:.65rem .7rem; min-width:0; background:var(--so-surface-2,var(--bg)); }
+  .route[data-state="match"] { border-color:color-mix(in srgb,var(--good) 48%,var(--border)); }
+  .route[data-state="mismatch"] { border-color:var(--warn); background:color-mix(in srgb,var(--warn) 7%,var(--so-surface-2,var(--bg))); }
+  .route .route-role { display:block; color:var(--muted); font-size:.64rem; text-transform:uppercase; letter-spacing:.07em; }
+  .route .route-device { display:block; margin:.18rem 0 .4rem; color:var(--fg); font-size:.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .route .route-model { display:block; color:var(--accent); font-size:.7rem; overflow-wrap:anywhere; line-height:1.35; }
+  .route .route-expected { display:block; margin-top:.35rem; color:var(--muted); font-size:.64rem; overflow-wrap:anywhere; line-height:1.35; }
+  .route[data-state="mismatch"] .route-expected { color:var(--warn); }
+  .deck-alert { grid-column:1 / -1; margin:.05rem 0 0; color:var(--warn); font-size:.72rem; }
+  .orchestration-workspace { display:grid; grid-template-columns:minmax(500px,1.05fr) minmax(520px,1.3fr); gap:1.1rem; align-items:start; }
+  .orchestration-workspace > .so-section { min-width:0; margin:0; }
+  /* Profiles are a browseable library, not a wall of equally weighted cards.
+     The selected posture expands; the rest retain their identity and readiness. */
+  .profile-toolbar { display:grid; grid-template-columns:minmax(0,1fr) 8.5rem 8rem; gap:.45rem; margin:.55rem 0; }
+  .profile-toolbar input, .profile-toolbar select { min-width:0; border:1px solid var(--border); border-radius:6px; padding:.42rem .5rem; background:var(--so-surface-2,var(--bg)); color:var(--fg); font:inherit; font-size:.74rem; }
+  .profile-toolbar input:focus, .profile-toolbar select:focus { border-color:var(--accent); outline:0; }
+  .profile-filter-count { color:var(--muted); font-size:.68rem; margin:.1rem 0 .55rem; }
+  .profile-browser { display:grid; grid-template-columns:minmax(0,.9fr) minmax(220px,1.1fr); gap:.65rem; align-items:start; }
+  .profiles { display:grid; grid-template-columns:1fr; gap:.38rem; align-items:start; max-height:540px; overflow:auto; padding-right:.25rem; }
+  .profiles .fam-head { grid-column:1 / -1; }
   .profile {
-    border:1px solid var(--border); border-radius:6px; background:var(--panel);
-    padding:.5rem .75rem; cursor:pointer; min-width:200px; flex:1;
+    border:1px solid var(--border); border-radius:10px; background:var(--so-surface-1,var(--panel));
+    padding:.58rem .7rem; cursor:pointer; min-width:0; box-shadow:var(--so-card-shadow,none);
+    transition:border-color .16s ease, box-shadow .16s ease, transform .16s ease;
   }
-  .profile.on { border-color:var(--accent); }
+  .profile:hover { border-color:color-mix(in srgb,var(--accent) 48%,var(--border)); transform:translateY(-1px); }
+  .profile.on { border-color:var(--accent); box-shadow:var(--so-card-shadow-raised,none); }
   /* D21: the CURRENTLY-ACTIVE profile (active-runtime-profile marker) — a green
      left rail + badge, distinct from the accent-blue "selected/preview" state. */
   .profile.active { border-left:3px solid var(--good); }
@@ -85,7 +116,28 @@
   .profile .p-tier.off { opacity:.45; }
   .profile .p-tier.off .p-tier-m::after { content:' · idle'; color:var(--muted); }
   .profile .name { color:var(--accent); font-weight:600; }
-  .profile .desc { color:var(--muted); font-size:.76rem; margin-top:.2rem; }
+  .profile .desc { color:var(--muted); font-size:.7rem; margin:.2rem 0 0; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .profile .p-tiers, .profile .p-apply-row, .profile .p-result { display:none; }
+  .profile .profile-state { display:inline-block; margin-top:.35rem; color:var(--muted); font-size:.64rem; }
+  .profile .profile-state.ready { color:var(--good); }
+  .profile .profile-state.warn { color:var(--warn); }
+  .profile-inspector { position:sticky; top:calc(var(--so-header-h,48px) + .7rem); border:1px solid var(--border); border-radius:10px; background:var(--so-surface-1,var(--panel)); padding:.8rem .85rem; min-width:0; box-shadow:var(--so-card-shadow,none); }
+  .profile-inspector .inspector-kicker { color:var(--muted); font-size:.63rem; text-transform:uppercase; letter-spacing:.08em; }
+  .profile-inspector h3 { margin:.25rem 0 .35rem; color:var(--accent); font-size:.95rem; line-height:1.3; }
+  .profile-inspector .inspector-desc { margin:0; color:var(--muted); font-size:.72rem; line-height:1.45; }
+  .profile-inspector .inspector-status { margin:.55rem 0; padding:.38rem .5rem; border-radius:5px; background:var(--so-surface-2,var(--bg)); color:var(--good); font-size:.7rem; }
+  .profile-inspector .inspector-status.warn { color:var(--warn); }
+  .inspector-block { margin-top:.65rem; padding-top:.6rem; border-top:1px solid var(--border); }
+  .inspector-block h4 { margin:0 0 .38rem; color:var(--muted); font-size:.65rem; text-transform:uppercase; letter-spacing:.08em; }
+  .inspector-tier { display:grid; grid-template-columns:4.2rem minmax(0,1fr); gap:.45rem; padding:.26rem 0; border-bottom:1px solid color-mix(in srgb,var(--border) 65%,transparent); font-size:.69rem; }
+  .inspector-tier .tier-name { color:var(--muted); text-transform:uppercase; }
+  .inspector-tier .tier-model { overflow-wrap:anywhere; }
+  .inspector-change { font-size:.68rem; line-height:1.38; margin:.28rem 0; color:var(--muted); }
+  .inspector-change b { color:var(--fg); font-weight:500; }
+  .inspector-actions { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.7rem; }
+  .inspector-actions .p-apply { border:1px solid var(--accent); background:transparent; color:var(--accent); border-radius:5px; padding:.3rem .65rem; font:inherit; font-size:.72rem; cursor:pointer; }
+  .inspector-actions .p-apply.gen { border-color:var(--warn); color:var(--warn); }
+  .inspector-actions .p-result { flex-basis:100%; font-size:.68rem; }
   /* family grouping (D21-1: runtime / orchestration / generated / user) */
   .fam-head { width:100%; margin:.65rem 0 .05rem; color:var(--muted); font-size:.72rem;
     text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border);
@@ -99,16 +151,21 @@
   .profile .fam.user { color:#c99bff; border-color:#3a2b52; }
   /* grid */
   .grid {
-    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1px; /* SDD-137: minmax(0,…) so a wide cell shrinks instead of overflowing */
-    background:var(--border); border:1px solid var(--border); border-radius:6px;
-    overflow:hidden; position:relative; min-height:300px;
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem;
+    background:transparent; border:0; border-radius:0;
+    overflow:visible; position:relative; min-height:0;
   }
-  .cell { background:var(--panel); padding:.75rem .9rem; min-height:150px; }
-  .cell h3 { margin:0 0 .4rem; font-size:.9rem; display:flex; justify-content:space-between; gap:.5rem; }
-  .cell h3 .slot { color:var(--muted); font-size:.78rem; font-weight:400; }
+  .cell { background:var(--so-surface-1,var(--panel)); border:1px solid var(--border); border-radius:10px; padding:1rem; min-height:176px; box-shadow:var(--so-card-shadow,none); }
+  .cell h3 { margin:0; font-size:.88rem; line-height:1.35; display:block; }
+  .cell h3 .slot { display:block; color:var(--muted); font-size:.72rem; font-weight:400; margin-top:.2rem; }
   .cell.na { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.4rem; }
-  .mslot { font-size:.8rem; margin:.15rem 0; }
+  .cell .model-stack { margin:.7rem 0 .55rem; padding:.55rem .65rem; background:var(--so-surface-2,var(--bg)); border-radius:6px; }
+  .mslot { font-size:.78rem; margin:.2rem 0; overflow-wrap:anywhere; }
   .mslot .k { color:var(--muted); }
+  .cell .util-row { display:flex; align-items:center; justify-content:space-between; gap:.6rem; color:var(--muted); font-size:.72rem; }
+  .cell .util-row .so-meter { flex:1; min-width:5rem; }
+  @media (max-width:1060px) { .deployment-deck { grid-template-columns:1fr; } .orchestration-workspace { grid-template-columns:1fr; } .profiles { max-height:none; } .profile-inspector { position:static; } }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } .profile-toolbar, .profile-browser { grid-template-columns:1fr; } .deck-routes { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .pill { display:inline-block; padding:0 .4rem; border-radius:3px; border:1px solid var(--border); font-size:.72rem; color:var(--muted); }
   /* D21-4: per-profile-card Apply — executes through the control-exec rail
      (sudoer, one click) inline on the card. Replaces the old
@@ -163,7 +220,37 @@
   .deferred { color:var(--muted); font-style:italic; }
   .yes { color:var(--good); } .no { color:var(--muted); }
   footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+  /* The model library is a deliberate secondary task. It no longer forces a
+     full catalog ahead of deployment state on every visit. */
+  #quant-picker.model-library { margin:1.2rem 0 .6rem; border:1px solid var(--border); border-radius:10px; background:var(--panel); }
+  #quant-picker.model-library summary { cursor:pointer; list-style:none; padding:.8rem 1rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+  #quant-picker.model-library summary::-webkit-details-marker { display:none; }
+  #quant-picker.model-library summary::after { content:'+'; color:var(--accent); font-size:1.25rem; }
+  #quant-picker.model-library[open] summary { border-bottom:1px solid var(--border); }
+  #quant-picker.model-library[open] summary::after { content:'−'; }
+  .model-library .library-title { color:var(--fg); font-size:.9rem; font-weight:600; }
+  .model-library .library-sub { color:var(--muted); font-size:.72rem; }
+  .model-library .qp-body { padding:.1rem 1rem .9rem; }
+  .capability-section { margin-top:1.25rem; }
+  .capability-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin:.65rem 0 .8rem; }
+  .capability-signal { padding:.75rem .85rem; border:1px solid var(--border); border-radius:9px; background:var(--so-surface-1,var(--panel)); }
+  .capability-signal .sig-k { display:block; color:var(--muted); font-size:.65rem; text-transform:uppercase; letter-spacing:.08em; }
+  .capability-signal .sig-v { display:block; margin-top:.2rem; color:var(--good); font-size:.9rem; font-weight:600; }
+  .capability-signal .sig-sub { display:block; margin-top:.22rem; color:var(--muted); font-size:.68rem; line-height:1.35; }
+  .capability-details { border:1px solid var(--border); border-radius:10px; background:var(--panel); }
+  .capability-details summary, .controls-drawer > summary { cursor:pointer; list-style:none; padding:.75rem .9rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+  .capability-details summary::-webkit-details-marker, .controls-drawer > summary::-webkit-details-marker { display:none; }
+  .capability-details summary::after, .controls-drawer > summary::after { content:'+'; color:var(--accent); font-size:1.2rem; }
+  .capability-details[open] summary, .controls-drawer[open] > summary { border-bottom:1px solid var(--border); }
+  .capability-details[open] summary::after, .controls-drawer[open] > summary::after { content:'−'; }
+  .capability-details .features { padding:.8rem; }
+  .controls-drawer { max-width:1440px; margin:0 1.25rem 1.2rem; border:1px solid var(--border); border-radius:11px; background:var(--panel); }
+  .controls-drawer .controls-title { color:var(--fg); font-size:.9rem; font-weight:600; }
+  .controls-drawer .controls-sub { color:var(--muted); font-size:.72rem; }
+  .controls-drawer .controls-body { padding:.85rem 1rem 1rem; }
+  @media (max-width:760px) { .capability-summary { grid-template-columns:1fr; } .features { grid-template-columns:1fr; } }
 </style>
+<link rel="stylesheet" href="/_shared/cockpit-foundations.css">
 <!-- A11Y:BEGIN M060 -->
 <!-- ─────────────────────────────────────────────────────────────────
 M060 F05100 + R10100 WCAG 2.1 AA accessibility snippet — canonical
@@ -2148,20 +2235,47 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   <div class="banner muted" id="runtime-attestation">Runtime attestation loading…</div>
 
   <nav class="sec-nav" aria-label="jump to section">
-    <a href="#s-profiles">Profiles</a>
-    <a href="#s-grid">Assignment grid</a>
+    <a href="#s-deployment">Deployment</a>
+    <a href="#s-profiles">Profile library</a>
+    <a href="#s-grid">Hardware</a>
     <a href="#s-load">Load model</a>
     <a href="#s-caps">Capabilities</a>
     <a href="#s-controls">Controls</a>
   </nav>
 
-  <h2 id="s-profiles">Profiles · Language Model</h2>
-  <div class="banner muted" id="profiles-note"></div>
-  <div class="profiles" id="profiles"></div>
+  <section class="deployment-deck" id="s-deployment" aria-labelledby="deployment-name">
+    <div class="deck-profile">
+      <span class="deck-kicker">Active deployment</span>
+      <h2 id="deployment-name">Loading live profile…</h2>
+      <p id="deployment-summary">Reading the profile declaration and the models actually serving on each device.</p>
+    </div>
+    <div class="deck-routes" id="deployment-routes" aria-live="polite">
+      <div class="route"><span class="route-role">Loading</span><span class="route-model">Live routes pending…</span></div>
+    </div>
+  </section>
 
-  <h2 id="s-grid">Model → hardware assignment<button id="edit-models-btn" class="edit-toggle" title="Load a specific model onto a device through the signed rail">✎ Edit models</button></h2>
-  <p class="banner muted" id="grid-note">The grid previews the <em>selected</em> profile's model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.</p>
-  <div class="grid" id="grid"></div>
+  <div class="orchestration-workspace">
+  <section class="so-section" aria-labelledby="s-profiles">
+    <div class="so-section-heading"><div><span class="so-section-kicker">Choose a runtime posture</span><h2 id="s-profiles">Profile library</h2></div><div class="so-section-summary">Browse compactly; the selected profile keeps its full deployment detail visible.</div></div>
+    <div class="banner muted" id="profiles-note"></div>
+    <div class="profile-toolbar" aria-label="filter profiles">
+      <input id="profile-search" type="search" placeholder="Filter by profile or model…" autocomplete="off">
+      <select id="profile-family" aria-label="Profile family"><option value="all">All families</option><option value="runtime">Runtime</option><option value="orchestration">Orchestration</option><option value="generated">Generated</option><option value="user">Your drafts</option></select>
+      <select id="profile-readiness" aria-label="Profile availability"><option value="all">All availability</option><option value="ready">Ready now</option><option value="missing">Needs download</option></select>
+    </div>
+    <div class="profile-filter-count" id="profile-filter-count">Loading profiles…</div>
+    <div class="profile-browser">
+      <div class="profiles" id="profiles"></div>
+      <aside class="profile-inspector" id="profile-inspector" aria-live="polite">Select a profile to inspect its allocation.</aside>
+    </div>
+  </section>
+
+  <section class="so-section" aria-labelledby="s-grid">
+    <div class="so-section-heading"><div><span class="so-section-kicker">What is actually resident now</span><h2 id="s-grid">Hardware deployment <button id="edit-models-btn" class="edit-toggle" title="Load a specific model onto a device through the signed rail">✎ Edit models</button></h2></div><div class="so-section-summary">Live resident models are compared with the selected profile above.</div></div>
+    <p class="banner muted" id="grid-note">The grid previews the <em>selected</em> profile's model→device layout. Apply each profile from its own card above — or <strong>Edit models</strong> to load a specific catalog model onto a device.</p>
+    <div class="grid" id="grid"></div>
+  </section>
+  </div>
   <div id="compose-bar" class="compose-bar" hidden>
     <div class="k">Save the current per-device picks as a <strong>new</strong> profile (SB-077 — models are catalog-grounded):</div>
     <div class="compose-row">
@@ -2183,8 +2297,9 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <!-- SDD-049 load-time quantization picker (inlined verbatim from
      webapp/_shared/quant-picker.{css,js}; lockstep-linted). Groups the catalog
      by base model + fills the signed model-load control. Read-only (R10212). -->
-<section id="quant-picker" class="qp">
-  <h2 id="s-load">load a model — choose quantization</h2>
+<details id="quant-picker" class="qp model-library">
+  <summary><span><span class="library-title" id="s-load">Model library · load or change a model</span><br><span class="library-sub">Choose a catalog model and quantization only when changing the deployment.</span></span></summary>
+  <div class="qp-body">
   <p class="qp-sub">Pick a model, then its quantization. A lighter quant uses less
      VRAM at some quality cost. Your choice fills the <b>Load Model</b> control
      below — press <b>Execute</b> there to apply (dry-run first, key + type-to-confirm gated).</p>
@@ -2193,7 +2308,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   </label>
   <div id="qp-variants" class="qp-variants" role="group" aria-label="quantization variants"></div>
   <div id="qp-chosen" class="qp-chosen" hidden></div>
-</section>
+  </div>
+</details>
 <style>
 /* webapp/_shared/quant-picker.css — SDD-049 load-time quantization picker.
  * Palette vars mirror control-surface.css (--bg/--fg/--muted/--accent/--border)
@@ -2318,11 +2434,21 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 })();
 </script>
 
-  <h2 id="s-caps">Capabilities</h2>
-  <div class="features">
-    <div class="fcol"><h3>Features CPU (AVX-512)</h3><div id="features-cpu"></div></div>
-    <div class="fcol"><h3>Features GPUs</h3><div id="features-gpu"></div></div>
-  </div>
+  <section class="so-section capability-section" aria-labelledby="s-caps">
+    <div class="so-section-heading"><div><span class="so-section-kicker">What this deployment can use</span><h2 id="s-caps">Capability status</h2></div><div class="so-section-summary">A compact readiness view first; detailed hardware evidence remains one disclosure away.</div></div>
+    <div class="capability-summary" id="capability-summary" aria-live="polite">
+      <div class="capability-signal"><span class="sig-k">CPU execution</span><span class="sig-v">Loading…</span></div>
+      <div class="capability-signal"><span class="sig-k">GPU fabric</span><span class="sig-v">Loading…</span></div>
+      <div class="capability-signal"><span class="sig-k">Speculative decoding</span><span class="sig-v">Loading…</span></div>
+    </div>
+    <details class="capability-details">
+      <summary><span><strong>Hardware capability evidence</strong><br><span class="library-sub">CPU instruction families, GPU compute support, and DSpark settings.</span></span></summary>
+      <div class="features">
+        <div class="fcol"><h3>Features CPU (AVX-512)</h3><div id="features-cpu"></div></div>
+        <div class="fcol"><h3>Features GPUs</h3><div id="features-gpu"></div></div>
+      </div>
+    </details>
+  </section>
   <p class="banner" id="last-fetch"></p>
 </main>
 <footer>
@@ -2393,6 +2519,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 
   let PROFILES = [];
   let selectedProfile = null;
+  let LAST_GRID = null;
 
   async function copyCmd(cmd, note) {
     try { await navigator.clipboard.writeText(cmd); alert((note ? note+'\n\n' : '') + '  ' + cmd); }
@@ -2408,23 +2535,43 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     user:          { label: 'Your drafts',               blurb: 'Profiles you composed and saved (local drafts).' },
   };
   let LAST_PROFILES_DATA = null;
+  let PROFILE_FILTER = { query: '', family: 'all', readiness: 'all' };
 
   function renderProfiles(data) {
     LAST_PROFILES_DATA = data;
     PROFILES = data.profiles || [];
     $('profiles-note').textContent = data.note || '';
-    if (selectedProfile == null && PROFILES.length) selectedProfile = (PROFILES[0].id || PROFILES[0].mode_id);
+    // Start on the actual active profile, not the first item in an arbitrary
+    // family. The live deployment is the operator's first question.
+    if (selectedProfile == null && PROFILES.length) {
+      const active = PROFILES.find(p => p.active);
+      selectedProfile = (active || PROFILES[0]).id || (active || PROFILES[0]).mode_id;
+    }
     // The Profiles section stays visible even with no live profiles — an honest
     // placeholder rather than a collapsed empty row (SB-077; "seeing all sections").
     if (!PROFILES.length) {
       $('profiles').innerHTML = '<div class="profile" style="opacity:.6;cursor:default"><div class="name">profiles unavailable</div><div class="desc">lm-orchestration daemon offline — start it to list the profile families</div></div>';
+      $('profile-filter-count').textContent = 'No profile data available.';
+      $('profile-inspector').textContent = 'Profile detail is unavailable until the orchestration daemon responds.';
+      renderDeploymentDeck();
       return;
     }
     // Group by family, in FAMILY_META order, so every family is a labelled band
     // with its live count — the operator sees all families, never a flat blur.
     const order = data.families || ['runtime', 'orchestration', 'generated', 'user'];
+    const query = PROFILE_FILTER.query.trim().toLowerCase();
+    const visible = PROFILES.filter(p => {
+      const fam = p.family || 'orchestration';
+      if (PROFILE_FILTER.family !== 'all' && fam !== PROFILE_FILTER.family) return false;
+      if (PROFILE_FILTER.readiness === 'ready' && p.ready === false) return false;
+      if (PROFILE_FILTER.readiness === 'missing' && p.ready !== false) return false;
+      if (!query) return true;
+      const haystack = [p.id, p.name, p.description].concat((p.tiers || []).map(t => t.tier + ' ' + t.model)).join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+    $('profile-filter-count').textContent = visible.length + ' of ' + PROFILES.length + ' profiles shown' + (query ? ' · matching “' + PROFILE_FILTER.query + '”' : '');
     const byFam = {};
-    PROFILES.forEach(p => { (byFam[p.family || 'orchestration'] ||= []).push(p); });
+    visible.forEach(p => { (byFam[p.family || 'orchestration'] ||= []).push(p); });
     let html = '';
     order.forEach(fam => {
       const list = byFam[fam];
@@ -2441,34 +2588,17 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         // Truncate at a WORD boundary + ellipsis (was a hard mid-word slice(0,140)).
         const desc0 = (p.description || '').split('\n')[0];
         const descT = desc0.length > 160 ? desc0.slice(0, 160).replace(/\s+\S*$/, '') + '…' : desc0;
-        // Per-tier model layout — what the profile actually places on each tier.
-        const tiersHtml = (p.tiers && p.tiers.length)
-          ? '<div class="p-tiers">' + p.tiers.map(function (t) {
-              return '<div class="p-tier' + (t.active === false ? ' off' : '') + '">'
-                + '<span class="p-tier-k">' + esc(t.tier) + '</span>'
-                + '<span class="p-tier-m">' + esc(t.model) + '</span></div>'; }).join('')
-            + '</div>'
-          : '';
-        // Generated combos aren't on disk → materialize (Generate) before apply;
-        // every other family applies for real through the exec rail.
-        const applyBtn = isGen
-          ? `<button class="p-apply gen" data-act="gen" data-id="${esc(id)}" data-gen="${esc(p.generate_cmd || '')}" title="Materialize this combo to profiles/runtime/, then it becomes applyable">Generate…</button>`
-          : ready
-            ? `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Apply this profile through the signed control-exec rail">Apply</button>`
-            : `<button class="p-apply" data-act="download" data-id="${esc(id)}" data-missing="${esc(JSON.stringify(missing))}" title="Copy catalog-backed download commands required before applying">Download required</button>`;
-        const readinessHtml = missing.length
-          ? `<div class="p-result warn">not ready — missing ${missing.map(m => esc(m.id)).join(', ')}. Download first; candidate models require explicit approval.</div>`
-          : (p.required_models && p.required_models.length
-            ? '<div class="p-result ok">models resident · ready to apply</div>' : '');
-        return `<div class="profile${on}${act}" data-id="${esc(id)}">
+        const stateText = isGen ? 'Generate before applying' : (ready ? 'Ready to apply' : 'Needs ' + missing.length + ' download' + (missing.length === 1 ? '' : 's'));
+        const stateClass = ready && !isGen ? 'ready' : (missing.length ? 'warn' : '');
+        const visualState = p.active ? 'active' : (id === selectedProfile ? 'selected' : '');
+        return `<article class="profile so-card${on}${act}" data-id="${esc(id)}"${visualState ? ' data-state="'+visualState+'"' : ''}>
           <div class="name">${esc(p.name || id)}<span class="fam ${esc(fam)}">${esc(fam)}</span>${p.active ? '<span class="p-active" title="This profile is currently active (active-runtime-profile marker)">● active</span>' : ''}</div>
           <div class="desc">${esc(descT)}</div>
-          ${tiersHtml}
-          ${readinessHtml}
-          <div class="p-apply-row">${applyBtn}<span class="p-result muted"></span></div>
-        </div>`;
+          <span class="profile-state ${stateClass}">${esc(stateText)}</span>
+        </article>`;
       }).join('');
     });
+    if (!html) html = '<div class="profile" style="opacity:.7;cursor:default"><div class="name">No matching profiles</div><div class="desc">Clear or change the filters to see the rest of the profile library.</div></div>';
     $('profiles').innerHTML = html;
     // Card click = select (preview in the grid). Apply/Generate buttons stop
     // propagation so they never trigger a re-render.
@@ -2476,24 +2606,118 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       if (!el.dataset.id) return;
       selectedProfile = el.dataset.id; renderProfiles(LAST_PROFILES_DATA);
     }));
-    document.querySelectorAll('.profile .p-apply[data-act]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const row = btn.closest('.p-apply-row');
-        const resultEl = row.querySelector('.p-result');
-        if (btn.dataset.act === 'gen') {
-          copyCmd(btn.dataset.gen, 'Materialize this generated combo, then Apply it:');
-          setP(resultEl, 'muted', 'copied generate command — run it, then this combo is applyable');
-        } else if (btn.dataset.act === 'download') {
-          let missing = []; try { missing = JSON.parse(btn.dataset.missing || '[]'); } catch (_) {}
-          const plan = missing.map(m => m.download_command).filter(Boolean).join('\n');
-          copyCmd(plan, 'Download the missing catalog models, then return here and Apply:');
-          setP(resultEl, 'dry', 'download plan copied — run each command, then refresh this panel');
-        } else {
-          applyProfile(btn.dataset.id, btn.dataset.fam, resultEl);
-        }
-      });
+    renderProfileInspector();
+    renderDeploymentDeck();
+  }
+
+  function renderProfileInspector() {
+    const el = $('profile-inspector');
+    const p = PROFILES.find(x => (x.id || x.mode_id) === selectedProfile);
+    if (!el || !p) return;
+    const id = p.id || p.mode_id;
+    const fam = p.family || 'orchestration';
+    const missing = p.missing_models || [];
+    const active = PROFILES.find(x => x.active);
+    const activeTiers = {};
+    (active && active.tiers || []).forEach(t => { activeTiers[t.tier] = t.model; });
+    const tiers = (p.tiers || []).filter(t => t.active !== false);
+    const tierHtml = tiers.length ? tiers.map(t => `<div class="inspector-tier"><span class="tier-name">${esc(t.tier)}</span><span class="tier-model">${esc(t.model)}</span></div>`).join('') : '<p class="inspector-change">This runtime posture does not prescribe individual catalog models.</p>';
+    const changes = tiers.filter(t => activeTiers[t.tier] && activeTiers[t.tier] !== t.model);
+    const changesHtml = changes.length
+      ? changes.map(t => `<p class="inspector-change"><b>${esc(t.tier)}</b> · ${esc(activeTiers[t.tier])} → ${esc(t.model)}</p>`).join('')
+      : '<p class="inspector-change">No declared tier-model difference from the currently active profile.</p>';
+    const status = missing.length
+      ? `Needs download: ${missing.map(m => m.id).join(', ')}`
+      : (fam === 'generated' ? 'Generated combination — materialize it before applying.' : 'Catalog requirements are resident and ready.');
+    const action = fam === 'generated'
+      ? `<button class="p-apply gen" data-act="gen" data-id="${esc(id)}" data-gen="${esc(p.generate_cmd || '')}">Generate profile</button>`
+      : missing.length
+        ? `<button class="p-apply" data-act="download" data-id="${esc(id)}" data-missing="${esc(JSON.stringify(missing))}">Copy download plan</button>`
+        : `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}">Apply this profile</button>`;
+    el.innerHTML = `<span class="inspector-kicker">Selected profile · ${esc(fam)}</span><h3>${esc(p.name || id)}</h3>
+      <p class="inspector-desc">${esc(p.description || 'No profile description supplied.')}</p>
+      <div class="inspector-status${missing.length ? ' warn' : ''}">${esc(status)}</div>
+      <div class="inspector-block"><h4>Declared allocation</h4>${tierHtml}</div>
+      <div class="inspector-block"><h4>Change from active profile</h4>${changesHtml}</div>
+      <div class="inspector-actions">${action}<span class="p-result muted"></span></div>`;
+    const button = el.querySelector('.p-apply[data-act]');
+    if (!button) return;
+    button.addEventListener('click', () => {
+      const resultEl = el.querySelector('.p-result');
+      if (button.dataset.act === 'gen') {
+        copyCmd(button.dataset.gen, 'Materialize this generated combo, then Apply it:');
+        setP(resultEl, 'muted', 'generate command copied — run it, then refresh this panel');
+      } else if (button.dataset.act === 'download') {
+        let planItems = []; try { planItems = JSON.parse(button.dataset.missing || '[]'); } catch (_) {}
+        copyCmd(planItems.map(m => m.download_command).filter(Boolean).join('\n'), 'Download these catalog models, then return here and Apply:');
+        setP(resultEl, 'dry', 'download plan copied — run it, then refresh this panel');
+      } else {
+        const btn = button;
+        applyProfile(btn.dataset.id, btn.dataset.fam, resultEl);
+      }
     });
+  }
+
+  function wireProfileFilters() {
+    const search = $('profile-search');
+    const family = $('profile-family');
+    const readiness = $('profile-readiness');
+    if (!search || !family || !readiness) return;
+    const applyFilter = () => {
+      PROFILE_FILTER = { query: search.value || '', family: family.value || 'all', readiness: readiness.value || 'all' };
+      if (LAST_PROFILES_DATA) renderProfiles(LAST_PROFILES_DATA);
+    };
+    search.addEventListener('input', applyFilter);
+    family.addEventListener('change', applyFilter);
+    readiness.addEventListener('change', applyFilter);
+  }
+  wireProfileFilters();
+
+  // The old panel represented profile declaration and resident runtime in
+  // separate, far-apart sections. This deck reconciles them on every refresh:
+  // green means declared and resident agree; amber means a profile switch did
+  // not result in the model that is actually serving. It is read-only evidence,
+  // not a speculative assertion about why a mismatch occurred.
+  function renderDeploymentDeck() {
+    const title = $('deployment-name');
+    const summary = $('deployment-summary');
+    const routes = $('deployment-routes');
+    if (!title || !summary || !routes) return;
+    const selected = PROFILES.find(p => (p.id || p.mode_id) === selectedProfile);
+    const active = PROFILES.find(p => p.active) || selected;
+    const profile = selected || active;
+    title.textContent = profile ? (profile.name || profile.id || 'Unnamed profile') : 'Profile data unavailable';
+    const selectingNonActive = selected && active && (selected.id || selected.mode_id) !== (active.id || active.mode_id);
+    summary.textContent = selectingNonActive
+      ? 'Previewing this profile against the live deployment. It is not active.'
+      : 'Declared profile compared with the models actually serving now.';
+    const expected = {};
+    (profile && profile.tiers || []).forEach(t => { if (t.active !== false) expected[String(t.tier || '').toLowerCase()] = t.model; });
+    const cells = (LAST_GRID && LAST_GRID.cells) || [];
+    const roleOrder = ['oracle', 'logic', 'router', 'conductor'];
+    const usable = cells.filter(c => c.present !== false).sort((a,b) => {
+      const ai = roleOrder.indexOf(String(a.role || '').toLowerCase());
+      const bi = roleOrder.indexOf(String(b.role || '').toLowerCase());
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    });
+    if (!usable.length) {
+      routes.innerHTML = '<div class="route"><span class="route-role">Runtime</span><span class="route-model">Waiting for hardware telemetry…</span></div>';
+      return;
+    }
+    let mismatches = 0;
+    routes.innerHTML = usable.map(c => {
+      const role = String(c.role || 'unassigned').toLowerCase();
+      const resident = (c.models || []).map(m => m.id).find(Boolean) || 'no model loaded';
+      const want = expected[role] || (role === 'router' ? (expected.embed || expected.rerank) : null);
+      const state = want ? (want === resident ? 'match' : 'mismatch') : '';
+      if (state === 'mismatch') mismatches++;
+      return `<article class="route"${state ? ' data-state="'+state+'"' : ''}>
+        <span class="route-role">${esc(role)}</span>
+        <span class="route-device">${esc(c.slot || c.label || 'device')} · ${esc(c.mode || 'unknown')}</span>
+        <span class="route-model">${esc(resident)}</span>
+        ${want ? `<span class="route-expected">${state === 'match' ? 'profile matches' : 'profile expects: ' + esc(want)}</span>` : '<span class="route-expected">not prescribed by this profile</span>'}
+      </article>`;
+    }).join('') + (mismatches ? `<p class="deck-alert">${mismatches} declared/live model ${mismatches === 1 ? 'mismatch' : 'mismatches'} — applying a profile is not evidence that its models became resident. Inspect the affected hardware card before using that route.</p>` : '');
   }
 
   // Only re-render the profiles section when the set actually changed — the SSE
@@ -2501,7 +2725,10 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // on a card. Selection changes force a render (LAST_PROFILES_DATA carries it).
   let LAST_PROFILES_SIG = null;
   function renderProfilesIfChanged(data) {
-    const sig = JSON.stringify((data.profiles || []).map(p => p.id || p.mode_id)) + '|' + (selectedProfile || '');
+    const sig = JSON.stringify((data.profiles || []).map(p => ({
+      id: p.id || p.mode_id, active: !!p.active, ready: p.ready,
+      tiers: p.tiers || [], missing: p.missing_models || []
+    }))) + '|' + (selectedProfile || '');
     if (sig === LAST_PROFILES_SIG) { LAST_PROFILES_DATA = data; return; }
     LAST_PROFILES_SIG = sig;
     renderProfiles(data);
@@ -2560,7 +2787,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // catalog (filtered to the tier the device serves), loaded via the rail.
   let EDIT_MODELS = false;
   let MODELS_BY_ROLE = {};   // { conductor:[…], logic:[…], oracle:[…] } from /models
-  let LAST_GRID = null;      // last grid payload (so the toggle can re-render frozen)
+  // last grid payload (so the toggle can re-render frozen)
 
   function cellHtml(c) {
     if (!c.present) return `<div class="cell na" title="${esc(c.label)}">${esc(c.slot)} · N/A</div>`;
@@ -2568,6 +2795,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       `<div class="mslot"><span class="k">Model ${m.slot}${m.core_range ? ' (Core '+esc(m.core_range)+')' : ''}:</span> ${m.id ? '<code>'+esc(m.id)+'</code>' : '<span class="muted">—</span>'} ${m.precision ? '<span class="pill">'+esc(m.precision)+'</span>' : ''}</div>`
     ).join('');
     const util = c.util_pct != null ? c.util_pct.toFixed(0)+'%' : '—';
+    const utilValue = Number.isFinite(Number(c.util_pct)) ? Math.max(0, Math.min(100, Number(c.util_pct))) : 0;
+    const active = String(c.mode || '').toLowerCase().includes('active');
     // In edit mode, a role-bearing device gets a tier-filtered model dropdown +
     // Load — the operator's "edit the models for individual card". Loading binds
     // that tier to the chosen model (SDD-049) through the signed rail.
@@ -2584,12 +2813,13 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         <span class="m-result muted"></span>
       </div>`;
     }
-    return `<div class="cell">
+    return `<article class="cell so-card"${active ? ' data-state="active"' : ''}>
       <h3>${esc(c.label)} <span class="slot">${esc(c.slot)} · util ${util}</span></h3>
-      ${models}
+      <div class="util-row"><span>Compute utilization</span><div class="so-meter" style="--so-meter:${utilValue}%;--so-meter-color:${utilValue >= 85 ? 'var(--warn)' : 'var(--accent)'}"><span></span></div><strong>${util}</strong></div>
+      <div class="model-stack">${models}</div>
       <div class="mslot"><span class="k">Mode:</span> ${esc(c.mode || '—')}</div>
       ${editBlk}
-    </div>`;
+    </article>`;
   }
 
   // The quadrant is a FIXED hardware topology (M075 SRP roles) — always render the
@@ -2650,6 +2880,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         if (btn && sel) btn.addEventListener('click', () => loadModel(sel.value, res, false));
       });
     }
+    renderDeploymentDeck();
   }
 
   // ── D21-3: load a specific model onto a device via the control-exec rail ────
@@ -2763,6 +2994,27 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       `<div class="frow"><span><code>${esc(g.name)}</code> (cc ${esc(g.compute_cap)})</span><span>${g.nvfp4_capable ? '<span class="yes">NVFP4</span> ' : ''}${g.tensor_cores ? '<span class="yes">TensorCore</span>' : ''}</span></div>`
     ).join('') : '<div class="muted">no GPU telemetry (nvidia-smi absent or no GPU)</div>';
     $('features-gpu').innerHTML = gpuRows + renderDspark(f.dspark);
+    renderCapabilitySummary(f);
+  }
+
+  function renderCapabilitySummary(f) {
+    const el = $('capability-summary');
+    if (!el) return;
+    const cpu = f.cpu || [];
+    const cpuPresent = cpu.filter(x => x.present === true).length;
+    const gpus = f.gpu || [];
+    const blackwell = gpus.filter(g => Number(g.compute_cap) >= 10 || g.nvfp4_capable).length;
+    const d = f.dspark;
+    el.innerHTML = `<article class="capability-signal">
+      <span class="sig-k">CPU execution</span><span class="sig-v">${cpu.length ? cpuPresent + ' / ' + cpu.length + ' flags live' : 'Telemetry unavailable'}</span>
+      <span class="sig-sub">${cpu.length ? 'AVX-512 capability for local ternary and routing work.' : 'No CPU capability response from the daemon.'}</span>
+    </article><article class="capability-signal">
+      <span class="sig-k">GPU fabric</span><span class="sig-v">${gpus.length ? gpus.length + ' GPUs · ' + blackwell + ' Blackwell-capable' : 'Telemetry unavailable'}</span>
+      <span class="sig-sub">${gpus.length ? gpus.map(g => g.name).join(' · ') : 'No GPU capability response from the daemon.'}</span>
+    </article><article class="capability-signal">
+      <span class="sig-k">Speculative decoding</span><span class="sig-v">${d ? (d.enabled ? 'DSpark enabled' : 'DSpark disabled') : 'Status unavailable'}</span>
+      <span class="sig-sub">${d ? 'DSpark-' + esc(d.block_size || '?') + (d.lossless ? ' · lossless verification' : '') : 'The daemon did not supply DSpark state.'}</span>
+    </article>`;
   }
 
   // DSpark speculative decoding — the DFlash (M083) successor, surfaced in the
@@ -2824,7 +3076,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       `${p.role}: ${p.served_as || 'unreachable'} · ${p.resident_context_tokens || '?'} ctx`).join(' | ');
     if (attestation.consistent) {
       el.className = 'banner ok';
-      el.textContent = `Verified profile ${attestation.profile_id || '—'} — ${providers}`;
+      el.textContent = `Serving endpoints reachable for profile ${attestation.profile_id || '—'} — ${providers}. The deployment deck separately compares declared and resident models.`;
     } else {
       el.className = 'banner warn';
       el.textContent = `Unverified profile ${attestation.profile_id || '—'} — ${(attestation.violations || ['unknown mismatch']).join(', ')}${providers ? ' · ' + providers : ''}`;
@@ -2887,6 +3139,19 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     $('compose-bar').hidden = !EDIT_MODELS;
     renderGrid(LAST_GRID || {});
   });
+
+  // Navigation opens intentional disclosures before scrolling to them. A link
+  // must never land on a collapsed section and make the operator hunt again.
+  function revealAnchoredDisclosure() {
+    const id = String(window.location.hash || '');
+    if (id === '#s-load') $('quant-picker').open = true;
+    if (id === '#s-controls') $('controls-drawer').open = true;
+  }
+  document.querySelectorAll('.sec-nav a').forEach(a => a.addEventListener('click', () => {
+    window.setTimeout(revealAnchoredDisclosure, 0);
+  }));
+  window.addEventListener('hashchange', revealAnchoredDisclosure);
+  revealAnchoredDisclosure();
 
   // ── D21-3: compose a NEW profile from the current per-device picks ──────────
   // Save-draft (user dir) or Save-to-repo (tracked) — both via the signed
@@ -2965,8 +3230,10 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 </script>
 
 <!-- SDD-045 shared control-surface (inlined verbatim from webapp/_shared/control-surface.{css,js}; lockstep-linted). -->
-<section style="max-width:1200px;padding:0 1.25rem 1rem"><h2 id="s-controls">Controls · features &amp; profiles</h2>
-<div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></section>
+<details class="controls-drawer" id="controls-drawer">
+  <summary id="s-controls"><span><span class="controls-title">Controls · features &amp; profiles</span><br><span class="controls-sub">Open only when making a signed runtime change; deployment evidence stays above.</span></span></summary>
+  <div class="controls-body"><div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div></div>
+</details>
 <style>
 /* webapp/_shared/control-surface.css — SDD-045 shared control-surface.
  * Renders the control-systems registry (profiles / modes / feature toggles)

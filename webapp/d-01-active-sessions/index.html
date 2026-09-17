@@ -209,11 +209,11 @@ a11y; contract test catches drift.
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale, 1));line-height:1.5}
-  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  body{padding:1.2rem;max-width:1440px;margin:0 auto}
   h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
   h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
   .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .panel{background:var(--so-surface-1,var(--panel));border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;margin:.6rem 0;box-shadow:var(--so-card-shadow,none)}
   table{width:100%;border-collapse:collapse;font-size:.85rem}
   th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
   th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
@@ -225,9 +225,10 @@ a11y; contract test catches drift.
   .pill.warn{background:#3d2f14;color:var(--warn)}
   .pill.accent{background:#143d3d;color:var(--accent)}
   .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
-  .stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat{flex:1 1 180px;background:var(--so-surface-2,var(--panel));border:1px solid var(--border);border-radius:9px;padding:.7rem .9rem;box-shadow:var(--so-card-shadow,none)}
   .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
   .stat .v{font-size:1.05rem;font-weight:600;margin-top:.2rem}
+  .session-deck{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}.session-deck .stat{min-width:0}@media(max-width:700px){.session-deck{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:440px){.session-deck{grid-template-columns:1fr}}
   .step-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;margin:.4rem 0}
   .step-cell{padding:.15rem .15rem;font-size:.65rem;text-align:center;border-radius:2px;background:var(--border);color:var(--muted)}
   .step-cell.done{background:#143d14;color:var(--good)}
@@ -244,6 +245,7 @@ a11y; contract test catches drift.
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
 </style>
+<link rel="stylesheet" href="/_shared/cockpit-foundations.css">
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
 /* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
@@ -2135,7 +2137,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 </style>
 
 <h2>summary</h2>
-<div class="row">
+<div class="row session-deck">
   <div class="stat"><div class="k">active</div><div class="v ok" id="active-count">—</div></div>
   <div class="stat"><div class="k">hibernated</div><div class="v warn" id="hibernated-count">—</div></div>
   <div class="stat"><div class="k">blocked</div><div class="v bad" id="blocked-count">—</div></div>

@@ -44,7 +44,7 @@
   header { padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
   h1 { margin:0; font-size:1.1rem; }
   h1 .sub { color:var(--muted); font-weight:400; font-size:.8rem; margin-left:.5rem; }
-  main { padding:1rem 1.25rem; max-width:1200px; }
+  main { padding:1rem 1.25rem 2.5rem; max-width:1440px; }
   h2 { font-size:.9rem; margin:1.2rem 0 .4rem; color:var(--accent); }
   .banner { font-size:.78rem; color:var(--muted); margin:.5rem 0; }
   .muted { color:var(--muted); }
@@ -58,7 +58,28 @@
   .st-aspirational { color:var(--warn); }
   .st-operator-must-confirm { color:var(--bad); }
   footer { padding:1rem 1.25rem; border-top:1px solid var(--border); color:var(--muted); font-size:.75rem; }
+  .catalog-deck { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.65rem; margin:1rem 0; }
+  .catalog-stat { padding:.8rem .9rem; min-height:100px; }
+  .catalog-stat .k { display:block; color:var(--muted); font-size:.65rem; text-transform:uppercase; letter-spacing:.08em; }
+  .catalog-stat .v { display:block; color:var(--good); font-size:1.1rem; font-weight:600; margin:.25rem 0 .15rem; }
+  .catalog-stat .v.warn { color:var(--warn); } .catalog-stat .v.bad { color:var(--bad); }
+  .catalog-stat .sub { display:block; color:var(--muted); font-size:.68rem; line-height:1.35; }
+  .catalog-toolbar { display:grid; grid-template-columns:minmax(0,1fr) 11rem; gap:.5rem; margin:.65rem 0 .35rem; }
+  .catalog-toolbar input, .catalog-toolbar select { min-width:0; padding:.42rem .5rem; border:1px solid var(--border); border-radius:6px; background:var(--so-surface-2,var(--bg)); color:var(--fg); font:inherit; font-size:.76rem; }
+  .catalog-toolbar input:focus, .catalog-toolbar select:focus { border-color:var(--accent); outline:0; }
+  .catalog-filter-count { color:var(--muted); font-size:.7rem; margin-bottom:.65rem; }
+  .tier-card { margin:.55rem 0; border:1px solid var(--border); border-radius:10px; background:var(--so-surface-1,var(--panel)); overflow:hidden; }
+  .tier-card summary { cursor:pointer; list-style:none; padding:.75rem .9rem; display:flex; align-items:center; justify-content:space-between; gap:.7rem; }
+  .tier-card summary::-webkit-details-marker { display:none; }
+  .tier-card summary::after { content:'+'; color:var(--accent); font-size:1.2rem; }
+  .tier-card[open] summary { border-bottom:1px solid var(--border); } .tier-card[open] summary::after { content:'−'; }
+  .tier-card .tier-meta { color:var(--muted); font-size:.7rem; }
+  .tier-card .tier-body { padding:.3rem .75rem .65rem; overflow-x:auto; }
+  .quant-drawer { border:1px solid var(--border); border-radius:10px; background:var(--panel); padding:.1rem .9rem; }
+  @media (max-width:800px) { .catalog-deck { grid-template-columns:repeat(2,minmax(0,1fr)); } .catalog-toolbar { grid-template-columns:1fr; } }
+  @media (max-width:520px) { .catalog-deck { grid-template-columns:1fr; } }
 </style>
+<link rel="stylesheet" href="/_shared/cockpit-foundations.css">
 <!-- SDD-116/120 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
 /* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
@@ -2096,13 +2117,24 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 </header>
 <main>
   <div class="banner" id="data-source-banner">connecting to <code>/api/models-catalog/catalog</code>…</div>
+  <section class="catalog-deck" id="catalog-deck" aria-label="catalog posture" aria-live="polite">
+    <article class="catalog-stat so-card"><span class="k">Catalog entries</span><span class="v">Loading…</span></article>
+    <article class="catalog-stat so-card"><span class="k">Ready candidates</span><span class="v">Loading…</span></article>
+    <article class="catalog-stat so-card"><span class="k">Needs evidence</span><span class="v">Loading…</span></article>
+    <article class="catalog-stat so-card"><span class="k">Tier coverage</span><span class="v">Loading…</span></article>
+  </section>
   <div class="banner" id="summary"></div>
+  <div class="catalog-toolbar" aria-label="filter catalog">
+    <input id="catalog-search" type="search" placeholder="Filter by model, purpose, engine, or tier…" autocomplete="off">
+    <select id="catalog-status" aria-label="Catalog status"><option value="all">All statuses</option><option value="verified-real">Verified real</option><option value="aspirational">Aspirational</option><option value="operator-must-confirm">Needs confirmation</option></select>
+  </div>
+  <div class="catalog-filter-count" id="catalog-filter-count">Loading catalog…</div>
   <!-- Quantization variants — the models offered in more than one quant (grouped
        by base model, from GET /api/models-catalog/by-base). Read-only reference,
        like the rest of D-23: loading a chosen variant is a signed action on
        D-03 / D-21. Answers this panel's own "compare quantizations of the same
        base" purpose at a glance. -->
-  <section id="quant-variants" class="qv" hidden>
+  <section id="quant-variants" class="qv quant-drawer" hidden>
     <h2>quantization variants <span class="muted">— same model, different precision</span></h2>
     <p class="qv-sub muted">Models offered in more than one quantization — a lighter quant trades quality for VRAM.
        Load a chosen variant from <b>D-03</b> or <b>D-21</b> (signed action; the web never mutates, R10212).</p>
@@ -2146,6 +2178,19 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     { label: 'Oracle · GPU1 (Blackwell)', models: [
       { id: 'demo/deepseek-r1-32b', class: 'rlm', engine: 'vllm', precision: 'NVFP4', params_b: 32, context_window_tokens: 65536, license: 'MIT', status: 'verified-real', purpose: 'deep reasoning' } ] },
   ] };
+  let LAST_CATALOG = null;
+  let CATALOG_FILTER = { query:'', status:'all' };
+  function renderCatalogDeck(data) {
+    const host = $('catalog-deck'); if (!host) return;
+    const models = (data.tiers || []).flatMap(t => t.models || []);
+    const verified = models.filter(m => m.status === 'verified-real').length;
+    const aspirational = models.filter(m => m.status === 'aspirational').length;
+    const candidate = models.filter(m => m.status === 'operator-must-confirm').length;
+    host.innerHTML = `<article class="catalog-stat so-card"><span class="k">Catalog entries</span><span class="v">${models.length}</span><span class="sub">${data.tiers.length} SRP tier groups in the canonical registry.</span></article>
+      <article class="catalog-stat so-card"><span class="k">Verified real</span><span class="v">${verified}</span><span class="sub">Catalog entries cleared for normal model evaluation.</span></article>
+      <article class="catalog-stat so-card"><span class="k">Needs evidence</span><span class="v warn">${aspirational + candidate}</span><span class="sub">${aspirational} aspirational · ${candidate} require operator confirmation.</span></article>
+      <article class="catalog-stat so-card"><span class="k">Tier coverage</span><span class="v">${data.tiers.length} tiers</span><span class="sub">Browse a tier to see each model’s engine, precision, context, and license.</span></article>`;
+  }
   function renderTiers(data) {
     data = data || {};
     // The catalog scaffold stays visible even with the daemon offline (SDD-113 —
@@ -2153,15 +2198,31 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     // never a blank #tiers (SB-077).
     if (data.offline) {
       $('summary').innerHTML = '<span class="muted">models-catalog daemon unreachable</span>';
+      $('catalog-deck').innerHTML = '<article class="catalog-stat so-card"><span class="k">Catalog posture</span><span class="v bad">Offline</span><span class="sub">No catalog facts are fabricated while the daemon is unreachable.</span></article>';
+      $('catalog-filter-count').textContent = 'Catalog unavailable.';
       $('tiers').innerHTML = '<div class="muted">the models-catalog daemon is unreachable — the registry (models/catalog.yaml, by SRP tier) populates when it\'s reachable. Nothing is fabricated (SB-077).</div>';
       return;
     }
+    LAST_CATALOG = data;
+    renderCatalogDeck(data);
     $('summary').innerHTML = `<strong>${data.total ?? 0}</strong> models · source <code>${esc(data.catalog_path || 'models/catalog.yaml')}</code>`;
-    $('tiers').innerHTML = (data.tiers || []).map(t => `
-      <h2>${esc(t.label)} <span class="muted">(${(t.models||[]).length})</span></h2>
-      <table>
+    const q = CATALOG_FILTER.query.trim().toLowerCase();
+    const status = CATALOG_FILTER.status;
+    let shown = 0;
+    $('tiers').innerHTML = (data.tiers || []).map(t => {
+      const models = (t.models || []).filter(m => {
+        if (status !== 'all' && m.status !== status) return false;
+        if (!q) return true;
+        return [m.id,m.purpose,m.engine,m.class,t.label].join(' ').toLowerCase().includes(q);
+      });
+      shown += models.length;
+      const statusSummary = ['verified-real','aspirational','operator-must-confirm'].map(s => models.filter(m => m.status === s).length + ' ' + s.replaceAll('-',' ')).join(' · ');
+      return `
+      <details class="tier-card"${q || status !== 'all' ? ' open' : ''}>
+        <summary><span><strong>${esc(t.label)}</strong><br><span class="tier-meta">${models.length} shown of ${(t.models||[]).length} · ${statusSummary}</span></span></summary>
+        <div class="tier-body"><table>
         <thead><tr><th>Model</th><th>Class</th><th>Engine</th><th>Precision</th><th class="num">Params (B)</th><th class="num">Context</th><th>License</th><th>Status</th></tr></thead>
-        <tbody>${(t.models||[]).map(m => `
+        <tbody>${models.map(m => `
           <tr>
             <td><code>${esc(m.id)}</code>${m.purpose ? '<div class="muted" style="font-size:.72rem">'+esc(m.purpose)+'</div>' : ''}</td>
             <td class="muted">${esc(m.class || '—')}</td>
@@ -2171,9 +2232,20 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
             <td class="num">${m.context_window_tokens ? m.context_window_tokens.toLocaleString() : '—'}</td>
             <td class="muted" style="font-size:.72rem">${esc(m.license || '—')}</td>
             <td class="${stCls(m.status)}">${esc(m.status || '—')}</td>
-          </tr>`).join('')}</tbody>
-      </table>`).join('') || '<div class="muted">catalog empty or unreadable</div>';
+          </tr>`).join('') || '<tr><td colspan="8" class="muted">No models in this tier match the current filters.</td></tr>'}</tbody>
+        </table></div>
+      </details>`;
+    }).join('') || '<div class="muted">catalog empty or unreadable</div>';
+    $('catalog-filter-count').textContent = shown + ' of ' + (data.total ?? 0) + ' models shown' + (q ? ' · matching “' + CATALOG_FILTER.query + '”' : '');
   }
+
+  function wireCatalogFilters() {
+    const search = $('catalog-search'), status = $('catalog-status');
+    if (!search || !status) return;
+    const update = () => { CATALOG_FILTER = {query:search.value || '', status:status.value || 'all'}; if (LAST_CATALOG) renderTiers(LAST_CATALOG); };
+    search.addEventListener('input', update); status.addEventListener('change', update);
+  }
+  wireCatalogFilters();
 
   // SDD-120 DEMO: one multi-quant base so the section is visible without network.
   const DEMO_BASES = [{ base: 'DeepSeek-R1-Distill-Llama-70B', variant_count: 2, variants: [

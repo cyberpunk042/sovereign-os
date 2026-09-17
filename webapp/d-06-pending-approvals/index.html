@@ -2128,6 +2128,20 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <!-- APP-SHELL:END M067 -->
 
 
+<link rel="stylesheet" href="/_shared/cockpit-foundations.css">
+<style>
+  body{max-width:1440px}
+  #approvals-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:start}
+  #approvals-list .approval-card{margin:0;border-radius:12px;padding:1.1rem;background:var(--so-surface-1,var(--panel));box-shadow:var(--so-card-shadow);min-width:0;overflow-wrap:anywhere}
+  #approvals-list .body{line-height:1.6;margin:.8rem 0}
+  #approvals-list .actions{padding-top:.8rem;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:.5rem}
+  .approval-toolbar{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin:.8rem 0}
+  .approval-toolbar input,.approval-toolbar select{font:inherit;background:var(--panel);color:var(--fg);padding:.6rem;border:1px solid var(--border);border-radius:6px;min-width:0}
+  .approval-toolbar input{flex:1}
+  .approval-evidence summary{cursor:pointer;color:var(--accent);padding:.5rem 0}
+  .stat{border-radius:10px}.gate-cell{border-radius:8px}
+  @media(max-width:950px){#approvals-list{grid-template-columns:1fr}}
+</style>
 <h1>D-06 — pending approvals</h1>
 <div class="sub">operator-controlled axiom — <span class="kbd">Cmd-7</span> · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-02-profile-choices/">D-02 profiles</a></div>
 
@@ -2185,6 +2199,11 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 </div>
 
 <h2>pending approval queue</h2>
+<div class="approval-toolbar">
+  <input id="approval-search" type="search" aria-label="Search approval requests" placeholder="Search title, actor, or request…">
+  <select id="approval-severity" aria-label="Filter severity"><option value="all">All severities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+</div>
+<p id="approval-results" class="muted" role="status"></p>
 <div id="approvals-list">
   <div class="approval-card medium">
     <h3>loading… <span class="pill muted">init</span></h3>
@@ -2230,8 +2249,19 @@ function fmtAge(ts) {
   return `${d}d ago`;
 }
 
+let approvalSnapshot = [];
 function renderApprovals(approvals) {
+  approvalSnapshot = approvals.slice();
+  const query = $('approval-search').value.trim().toLowerCase();
+  const severity = $('approval-severity').value;
+  const total = approvals.length;
+  approvals = approvals.filter(a => (severity === 'all' || a.severity === severity) && [a.title,a.actor,a.summary,a.kind,a.id].join(' ').toLowerCase().includes(query));
+  $('approval-results').textContent = `${approvals.length} of ${total} requests · highest severity first, then oldest`;
   const list = $('approvals-list');
+  if (total && !approvals.length) {
+    list.innerHTML = '<div class="approval-card"><h3>No matching requests</h3><p>Change the search or severity filter to see the other requests.</p></div>';
+    return;
+  }
   if (!approvals.length) {
     list.innerHTML = '<div class="approval-card low"><h3>queue empty <span class="pill ok">no pending approvals</span></h3><div class="meta">next-action: approvals appear here when L3 Prepare → L4 Execute / L4 → L5 Commit / L5 → L6 Persist transitions await operator sign-off (MS039 R09169 + R09254-R09256)</div></div>';
     return;
@@ -2244,7 +2274,7 @@ function renderApprovals(approvals) {
         ${escapeHtml(a.actor)} · ${escapeHtml(a.kind)} · profile <span class="ok">${escapeHtml(a.profile)}</span> · ${fmtAge(a.ts)} · trace <code>${escapeHtml(a.trace_id || '—')}</code>
       </div>
       <div class="body">${escapeHtml(a.summary)}</div>
-      ${a.context ? `<div class="ctx">${escapeHtml(a.context)}</div>` : ''}
+      ${a.context ? `<details class="approval-evidence"><summary>Request context</summary><div class="ctx">${escapeHtml(a.context)}</div></details>` : ''}
       ${a.diff_url ? `<div class="meta">diff: <a href="${escapeHtml(a.diff_url)}">${escapeHtml(a.diff_url)}</a></div>` : ''}
       <div class="actions">
         <button class="approve" data-action="approve" data-id="${a.id}">approve</button>
@@ -2259,6 +2289,9 @@ function renderApprovals(approvals) {
     btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.id));
   });
 }
+
+$('approval-search').addEventListener('input', () => renderApprovals(approvalSnapshot));
+$('approval-severity').addEventListener('change', () => renderApprovals(approvalSnapshot));
 
 function escapeHtml(s) {
   if (s == null) return '';

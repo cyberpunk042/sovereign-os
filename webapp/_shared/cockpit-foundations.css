@@ -1,0 +1,24 @@
+/* Reusable visual hierarchy for sovereign-os operational cockpits.
+ *
+ * A cockpit must make active state, capacity, attention and the next safe
+ * action legible before an operator reads every line. Panel-local CSS owns
+ * domain meaning; this incremental foundation owns hierarchy and geometry.
+ */
+:root {
+  --so-surface-1: color-mix(in srgb, var(--panel) 94%, var(--bg));
+  --so-surface-2: color-mix(in srgb, var(--panel) 82%, var(--bg));
+  --so-card-shadow: 0 1px 0 rgba(255,255,255,.035), 0 10px 26px rgba(0,0,0,.13);
+  --so-card-shadow-raised: 0 2px 0 color-mix(in srgb, var(--accent) 35%, transparent), 0 16px 32px rgba(0,0,0,.22);
+}
+.so-section { margin:1.65rem 0 0; }
+.so-section > h2, .so-section-heading h2 { margin:0; font-size:var(--fs-md,1rem); letter-spacing:-.015em; }
+.so-section-heading { display:flex; align-items:end; justify-content:space-between; gap:.8rem; margin:0 0 .65rem; }
+.so-section-kicker { display:block; color:var(--muted); font-size:var(--fs-2xs,.7rem); letter-spacing:.09em; text-transform:uppercase; margin-bottom:.12rem; }
+.so-section-summary { color:var(--muted); font-size:var(--fs-sm,.78rem); max-width:54ch; text-align:right; }
+.so-card { background:var(--so-surface-1); border:1px solid var(--border); border-radius:10px; box-shadow:var(--so-card-shadow); }
+.so-card:hover { border-color:color-mix(in srgb,var(--accent) 38%,var(--border)); }
+.so-card[data-state="active"] { border-color:color-mix(in srgb,var(--good) 55%,var(--border)); box-shadow:0 2px 0 color-mix(in srgb,var(--good) 50%,transparent),var(--so-card-shadow); }
+.so-card[data-state="selected"] { box-shadow:var(--so-card-shadow-raised); }
+.so-meter { height:5px; overflow:hidden; border-radius:999px; background:var(--so-surface-2); }
+.so-meter > span { display:block; width:var(--so-meter,0%); height:100%; background:var(--so-meter-color,var(--accent)); border-radius:inherit; }
+@media (max-width:700px) { .so-section-heading { align-items:start; flex-direction:column; } .so-section-summary { text-align:left; } }

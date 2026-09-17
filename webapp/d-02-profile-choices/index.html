@@ -2122,6 +2122,30 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <!-- APP-SHELL:END M067 -->
 
 
+<link rel="stylesheet" href="/_shared/cockpit-foundations.css">
+<style>
+  body{max-width:1440px}
+  .profile-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:1.3rem;align-items:start;margin-top:1.5rem}
+  #profiles-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+  .profile-card{min-width:0;border-radius:10px;text-align:left;color:var(--fg);background:var(--panel)}
+  .profile-card.active{border-left:4px solid var(--good);background:var(--panel)}
+  .profile-card.preview{outline:2px solid var(--accent);outline-offset:2px}
+  .profile-inspector{padding:1.2rem;position:sticky;top:4rem;min-width:0}
+  .profile-inspector h2{margin:.7rem 0}
+  .profile-inspector .ladder,.profile-inspector .rings{grid-template-columns:1fr;gap:.3rem}
+  .profile-inspector .ladder-cell,.profile-inspector .ring-cell{text-align:left;padding:.4rem .6rem;font-size:.8rem}
+  .ring-cell.denied{background:#3d1414;color:var(--bad)}
+  #profile-diff{font-size:.78rem;border-left:2px solid var(--accent);padding-left:.7rem}
+  #profile-diff p{margin:.35rem 0}
+  .history-scroll{overflow-x:auto}.history-scroll td{overflow-wrap:anywhere;max-width:32ch}
+  .history-scroll details{min-width:8rem}.history-scroll summary{cursor:pointer;color:var(--accent)}
+  .permission-comparison{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.35rem .6rem;margin:.5rem 0}
+  .permission-comparison span{padding:.3rem .35rem;border-bottom:1px solid var(--border)}
+  .permission-comparison .comparison-label{color:var(--muted)}
+  .stat{border-radius:10px;min-width:0}.stat .v{overflow-wrap:anywhere}
+  @media(max-width:1000px){.profile-workspace{grid-template-columns:1fr}.profile-inspector{position:static}}
+  @media(max-width:560px){#profiles-row{grid-template-columns:1fr}}
+</style>
 <h1>D-02 — profile choices</h1>
 <div class="sub">six-profile authority selector + L0..L6 envelope + Ring 0..4 highlights — <span class="kbd">Cmd-3</span> · catalog <a href="../master-dashboard/">D-00 main</a></div>
 
@@ -2170,12 +2194,26 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   </div>
 </div>
 
-<h2>six profiles (MS040)</h2>
+<div class="profile-workspace">
+<section aria-labelledby="profile-library-title">
+<h2 id="profile-library-title">Choose a profile to inspect</h2>
+<p class="muted">Selection previews the declared permissions. It does not change the active profile.</p>
 <div class="row" id="profiles-row">
   <!-- profile cards injected by JS -->
 </div>
-
-<h2>current authority ladder (L0..L6 per MS039)</h2>
+</section>
+<section class="profile-inspector so-card" aria-labelledby="preview-title">
+<span class="muted">Selected profile · permission preview</span>
+<h2 id="preview-title">Select a profile</h2>
+<p id="preview-summary" class="muted"></p>
+<button id="return-active-btn" hidden>Inspect active profile</button>
+<div id="profile-diff" aria-live="polite"></div>
+<div class="panel">
+  <button id="switch-btn" disabled>Show switch command</button>
+  <p><code id="switch-command" hidden></code></p>
+  <span class="muted">Use this command to request the selected profile through the signed CLI.</span>
+</div>
+<h2>Authority ladder · selected profile</h2>
 <div class="panel">
   <div class="ladder" id="ladder">
     <div class="ladder-cell">L0 Observe</div>
@@ -2193,7 +2231,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   </div>
 </div>
 
-<h2>current trust rings (Ring 0..4 per MS039)</h2>
+<h2>Trust rings · selected profile</h2>
 <div class="panel">
   <div class="rings" id="rings">
     <div class="ring-cell">R0 Kernel</div>
@@ -2204,8 +2242,15 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   </div>
 </div>
 
-<h2>profile-change history</h2>
-<div class="panel">
+<h2>Predeclared gates · selected profile</h2>
+<div class="panel" id="gates-panel">
+  <div class="muted" id="gates-body">Select a profile to inspect its gate requirements.</div>
+</div>
+</section>
+</div>
+<h2>Profile-change history <button id="refresh-btn">Refresh live state</button></h2>
+<p class="muted" id="history-summary" role="status">Reading recorded transitions…</p>
+<div class="panel history-scroll">
   <table>
     <thead>
       <tr><th>ts</th><th>from → to</th><th>actor</th><th>rationale</th><th>signature</th></tr>
@@ -2216,19 +2261,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   </table>
 </div>
 
-<h2>predeclared gates (autonomous profile only)</h2>
-<div class="panel" id="gates-panel">
-  <div class="muted" id="gates-body">visible only when autonomous profile is active</div>
-</div>
 
-<h2>actions</h2>
-<div class="panel">
-  <div class="row">
-    <button id="refresh-btn">refresh now</button>
-    <button id="switch-btn" disabled>switch profile (operator-signed)</button>
-    <span class="muted" style="font-size:.78rem">switch requires MS003 signature via <code>sovereign profile set &lt;name&gt;</code> CLI</span>
-  </div>
-</div>
 
 <div class="footer">
   D-02 profile choices · M060 catalog R10063-R10068 · MS040 six-profile authority matrix · MS039 L0..L6 + Ring 0..4 · operator-toggleable via /etc/sovereign-os/dashboards.toml
@@ -2294,7 +2327,9 @@ function renderCards(active) {
   const row = $('profiles-row');
   row.innerHTML = '';
   for (const p of PROFILES) {
-    const card = document.createElement('div');
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.setAttribute('aria-pressed', 'false');
     card.className = 'profile-card' + (p.id === active ? ' active' : '');
     card.dataset.id = p.id;
     card.innerHTML = `
@@ -2317,6 +2352,7 @@ function renderLadder(profile) {
   const cells = $('ladder').children;
   for (let i = 0; i < profile.ladder.length; i++) {
     cells[i].className = 'ladder-cell ' + profile.ladder[i];
+    cells[i].textContent = ['L0 Observe','L1 Suggest','L2 Simulate','L3 Prepare','L4 Execute','L5 Commit','L6 Persist'][i] + ' · ' + profile.ladder[i];
   }
 }
 
@@ -2324,6 +2360,7 @@ function renderRings(profile) {
   const cells = $('rings').children;
   for (let i = 0; i < profile.rings.length; i++) {
     cells[i].className = 'ring-cell ' + profile.rings[i];
+    cells[i].textContent = ['R0 Kernel','R1 Trusted','R2 Sandboxed','R3 Experimental','R4 Cloud'][i] + ' · ' + profile.rings[i];
   }
 }
 
@@ -2336,6 +2373,8 @@ function renderGates(profile) {
 }
 
 let activeProfileId = null;
+let selectedProfileId = null;
+let activeProfileVerified = false;
 
 function selectProfile(id) {
   // visually highlights the chosen card; actual switch requires MS003-signed CLI invocation
@@ -2343,12 +2382,36 @@ function selectProfile(id) {
   if (!card) return;
   document.querySelectorAll('.profile-card').forEach(c => c.classList.remove('preview'));
   card.classList.add('preview');
+  selectedProfileId = id;
+  $('switch-command').hidden = true;
+  document.querySelectorAll('.profile-card').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.id === id)));
   const p = PROFILES.find(p => p.id === id);
+  $('preview-title').textContent = p.name;
+  $('preview-summary').textContent = p.scope;
+  const current = activeProfileVerified && PROFILES.find(p => p.id === activeProfileId);
+  $('return-active-btn').hidden = !current || current.id === id;
+  const changes = [];
+  if (current) {
+    p.ladder.forEach((s,i) => { if(s !== current.ladder[i]) changes.push(`L${i}: ${current.ladder[i]} → ${s}`); });
+    p.rings.forEach((s,i) => { if(s !== current.rings[i]) changes.push(`Ring ${i}: ${current.rings[i]} → ${s}`); });
+  }
+  $('profile-diff').replaceChildren();
+  const messages = !current ? ['Live profile is unconfirmed. Comparison is unavailable; the permissions below are the profile declaration.'] : changes.length ? changes : ['Same declared permissions as the active profile.'];
+  if (current && changes.length) {
+    const comparison = document.createElement('div');
+    comparison.className = 'permission-comparison';
+    const add = (text, cls) => { const cell = document.createElement('span'); cell.textContent = text; cell.className = cls || ''; comparison.appendChild(cell); };
+    add('Permission', 'comparison-label'); add('Active', 'comparison-label'); add('Selected', 'comparison-label');
+    [['ladder',['Observe','Suggest','Simulate','Prepare','Execute','Commit','Persist']],['rings',['Kernel','Trusted','Sandboxed','Experimental','Cloud']]].forEach(([key, labels]) => {
+      p[key].forEach((value,i) => { if (value !== current[key][i]) { add(labels[i]); add(current[key][i]); add(value); } });
+    });
+    $('profile-diff').appendChild(comparison);
+  } else messages.forEach(message => { const line = document.createElement('p'); line.textContent = message; $('profile-diff').appendChild(line); });
   renderLadder(p);
   renderRings(p);
   renderGates(p);
   $('switch-btn').disabled = false;
-  $('switch-btn').textContent = `switch to ${p.name} (operator-signed via CLI)`;
+  $('switch-btn').textContent = `Show switch command for ${p.name}`;
 }
 
 async function fetchActiveProfile() {
@@ -2414,34 +2477,52 @@ async function refresh() {
   if (demoActive() && window.soDemo) { const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; window.soDemo.badge(); }
   renderMirrorBanner(state);
   activeProfileId = state.active;
-  $('active-profile').innerHTML = `<span class="ok">${state.active}</span>`;
+  activeProfileVerified = state.mirror_status === 'online';
+  $('active-profile').textContent = activeProfileVerified ? state.active : 'Unconfirmed · ' + (state.active || 'private') + ' fallback';
   $('active-since').textContent = state.since;
   $('active-actor').textContent = state.actor;
   $('active-envelope').textContent = state.envelope;
-  renderCards(state.active);
+  renderCards(activeProfileVerified ? state.active : null);
   const p = PROFILES.find(p => p.id === state.active);
   if (p) {
     renderLadder(p);
     renderRings(p);
     renderGates(p);
   }
+  selectProfile(selectedProfileId || state.active || 'private');
   const tbody = $('history-tbody');
   if (state.history && state.history.length) {
-    tbody.innerHTML = state.history.map(h => `
-      <tr>
-        <td class="muted">${h.ts}</td>
-        <td>${h.from} → <span class="ok">${h.to}</span></td>
-        <td>${h.actor}</td>
-        <td>${h.rationale}</td>
-        <td class="muted">${h.signature ? h.signature.slice(0, 12) + '…' : '—'}</td>
-      </tr>
-    `).join('');
+    $('history-summary').textContent = state.history.length + ' recorded transitions · expand a signature to inspect its full value.';
+    tbody.replaceChildren();
+    state.history.forEach(h => {
+      const row = document.createElement('tr');
+      [h.ts, (h.from || '—') + ' → ' + (h.to || '—'), h.actor, h.rationale].forEach(value => {
+        const cell = document.createElement('td'); cell.textContent = value || '—'; row.appendChild(cell);
+      });
+      const signature = document.createElement('td');
+      if (h.signature) {
+        const detail = document.createElement('details');
+        const label = document.createElement('summary'); label.textContent = 'View signature';
+        const code = document.createElement('code'); code.textContent = h.signature;
+        detail.append(label, code); signature.appendChild(detail);
+      } else signature.textContent = '—';
+      row.appendChild(signature); tbody.appendChild(row);
+    });
   } else {
+    $('history-summary').textContent = activeProfileVerified ? 'No recorded transitions.' : 'History unavailable while the profile mirror is offline.';
     tbody.innerHTML = '<tr><td colspan="5" class="muted">no profile transitions recorded yet</td></tr>';
   }
 }
 
 $('refresh-btn').addEventListener('click', refresh);
+$('return-active-btn').addEventListener('click', () => {
+  if (activeProfileVerified) selectProfile(activeProfileId);
+});
+$('switch-btn').addEventListener('click', () => {
+  if (!PROFILES.some(p => p.id === selectedProfileId)) return;
+  $('switch-command').hidden = false;
+  $('switch-command').textContent = 'sovereign profile set ' + selectedProfileId;
+});
 
 // Keyboard shortcut Cmd-3 / Ctrl-3 navigates to D-02 from any dashboard per M060 R10068
 document.addEventListener('keydown', (e) => {

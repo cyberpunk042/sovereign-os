@@ -398,18 +398,18 @@ a11y; contract test catches drift.
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale, 1));line-height:1.5}
-  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  body{padding:1.2rem;max-width:1440px;margin:0 auto}
   h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
   h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
   .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;margin:.6rem 0}
+  .panel{background:var(--so-surface-1,var(--panel));border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;margin:.6rem 0;box-shadow:var(--so-card-shadow,none)}
   table{width:100%;border-collapse:collapse;font-size:.85rem}
   th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--border);vertical-align:top}
   th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
   tr:last-child td{border-bottom:none}
   .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
   .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
-  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem;min-width:0}
+  .stat{flex:1 1 200px;background:var(--so-surface-2,var(--panel));border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;min-width:0}
   .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
   .stat .v{font-size:1.4rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
   .stat .u{color:var(--muted);font-size:.78rem}
@@ -442,6 +442,7 @@ a11y; contract test catches drift.
   button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.4rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
   button:hover{border-color:var(--accent)}
 </style>
+<link rel="stylesheet" href="/_shared/cockpit-foundations.css">
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
 /* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.

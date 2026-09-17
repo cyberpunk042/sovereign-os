@@ -7163,13 +7163,19 @@ cmd_inference() {
     [oracle]="sovereign-oracle-core.service"
     [oracle-core]="sovereign-oracle-core.service"
     [router]="sovereign-router.service"
+    # The model proxy is part of the inference path too: OpenClaw reaches
+    # gpu-logic and gpu-oracle through gatewayd on :8787.  Omitting it made a
+    # saturated proxy unrecoverable through the normal, allowlisted inference
+    # service rail even while every model process remained healthy.
+    [gateway]="sovereign-gatewayd.service"
+    [gatewayd]="sovereign-gatewayd.service"
   )
 
   case "${sub}" in
     status)
       printf "%-25s %-12s %-20s %s\n" "TIER" "STATE" "ENDPOINT" "BACKEND"
       printf "%-25s %-12s %-20s %s\n" "----" "-----" "--------" "-------"
-      for tier in pulse logic oracle router; do
+      for tier in pulse logic oracle router gateway; do
         local unit="${tier_units[$tier]}"
         local state="not-installed"
         if systemctl list-unit-files "${unit}" >/dev/null 2>&1; then
@@ -7181,6 +7187,7 @@ cmd_inference() {
           logic)  port=8082; backend="vLLM (3090 VFIO) or llama.cpp" ;;
           oracle) port=8083; backend="vLLM + DFlash (Blackwell)" ;;
           router) port=8080; backend="OpenAI-compatible front" ;;
+          gateway) port=8787; backend="GPU proxy + sovereign gateway" ;;
         esac
         endpoint="http://127.0.0.1:${port}"
         printf "%-25s %-12s %-20s %s\n" "${tier}" "${state}" "${endpoint}" "${backend}"
@@ -7204,10 +7211,19 @@ cmd_inference() {
       else
         local unit="${tier_units[${target}]:-}"
         if [ -z "${unit}" ]; then
-          log_error "unknown tier: ${target} (use pulse|logic|oracle|router|all)"
+          log_error "unknown tier: ${target} (use pulse|logic|oracle|router|gateway|all)"
           return 2
         fi
         systemctl "${sub}" "${unit}"
+        # gatewayd keeps the GPU proxy registry in memory.  A daemon restart
+        # correctly clears its saturated connection pool, but without this
+        # reconciliation it comes back advertising only local-oracle and every
+        # OpenClaw gpu-logic/gpu-oracle request fails.  Re-register the active
+        # profile's routes as part of the same sanctioned recovery operation.
+        if [ "${target}" = "gateway" ] || [ "${target}" = "gatewayd" ]; then
+          log_info "reconciling GPU proxy routes after gateway restart"
+          systemctl start sovereign-gpu-route-reconcile.service
+        fi
       fi
       ;;
 
@@ -7241,13 +7257,14 @@ PY
       local any_fail=0
       printf "%-15s %-25s %-10s %s\n" "TIER" "ENDPOINT" "STATUS" "DETAIL"
       printf "%-15s %-25s %-10s %s\n" "----" "--------" "------" "------"
-      for tier in pulse logic oracle router; do
+      for tier in pulse logic oracle router gateway; do
         local port endpoint
         case "${tier}" in
           pulse)  port=8081 ;;
           logic)  port=8082 ;;
           oracle) port=8083 ;;
           router) port=8080 ;;
+          gateway) port=8787 ;;
         esac
         endpoint="http://127.0.0.1:${port}"
 

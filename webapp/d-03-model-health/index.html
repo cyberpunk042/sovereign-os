@@ -398,7 +398,7 @@ a11y; contract test catches drift.
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:calc(14px * var(--font-scale, 1));line-height:1.5}
-  body{padding:1.2rem;max-width:1200px;margin:0 auto}
+  body{padding:1.2rem;max-width:1440px;margin:0 auto}
   h1{font-size:1.4rem;margin:0 0 .2rem 0;font-weight:600}
   h2{font-size:1rem;margin:1.6rem 0 .4rem 0;font-weight:600;color:var(--accent)}
   .sub{color:var(--muted);margin-bottom:1.4rem;font-size:.85rem}
@@ -410,11 +410,11 @@ a11y; contract test catches drift.
   .ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
   .num{font-variant-numeric:tabular-nums;text-align:right}
   .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:stretch}
-  .stat{flex:1 1 200px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.7rem .9rem}
+  .stat{flex:1 1 200px;background:var(--so-surface-1,var(--panel));border:1px solid var(--border);border-radius:9px;padding:.7rem .9rem;box-shadow:var(--so-card-shadow,none)}
   .stat .k{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
   .stat .v{font-size:1.3rem;font-weight:600;margin-top:.2rem;font-variant-numeric:tabular-nums}
   .stat .u{color:var(--muted);font-size:.78rem}
-  .role-card{flex:1 1 320px;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:.9rem 1rem;border-left:3px solid var(--accent)}
+  .role-card{flex:1 1 320px;background:var(--so-surface-1,var(--panel));border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;border-left:3px solid var(--accent);box-shadow:var(--so-card-shadow,none)}
   .role-card.conductor{border-left-color:var(--good)}
   .role-card.logic{border-left-color:var(--warn)}
   .role-card.oracle{border-left-color:#a9b8ff}
@@ -444,7 +444,12 @@ a11y; contract test catches drift.
   code{color:var(--accent)}
   button{background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:.35rem .8rem;font-family:inherit;font-size:.85rem;cursor:pointer}
   button:hover{border-color:var(--accent)}
+  .health-deck{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.55rem}.health-deck .stat{min-width:0}.health-deck .v{overflow-wrap:anywhere}
+  .role-deck{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem}.role-deck .role-card{min-width:0}.role-deck .row{gap:.4rem}
+  .analytics-drawer{border:1px solid var(--border);border-radius:10px;background:var(--panel);margin:1rem 0}.analytics-drawer summary{cursor:pointer;list-style:none;padding:.75rem .9rem;color:var(--accent);font-weight:600}.analytics-drawer summary::-webkit-details-marker{display:none}.analytics-drawer summary::after{content:'+';float:right}.analytics-drawer[open] summary{border-bottom:1px solid var(--border)}.analytics-drawer[open] summary::after{content:'−'}.analytics-drawer .panel{margin:.7rem .85rem .85rem}
+  @media(max-width:980px){.health-deck{grid-template-columns:repeat(2,minmax(0,1fr))}.role-deck{grid-template-columns:1fr}}@media(max-width:560px){.health-deck{grid-template-columns:1fr}}
 </style>
+<link rel="stylesheet" href="/_shared/cockpit-foundations.css">
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
 /* webapp/_shared/demo-mode.css — SDD-116 DEMO badge.
@@ -2117,7 +2122,7 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
 </style>
 
 <h2>summary</h2>
-<div class="row">
+<div class="row health-deck">
   <div class="stat"><div class="k">total loaded</div><div class="v" id="total-loaded">—</div></div>
   <div class="stat"><div class="k">Blackwell models</div><div class="v ok" id="bw-count">—</div></div>
   <div class="stat"><div class="k">Logic (5090) models</div><div class="v warn" id="rtx-count">—</div></div>
@@ -2137,7 +2142,7 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
 <h2>sovereign gateway <span class="muted" style="font-weight:400;font-size:.8rem">— sovereign-gatewayd · 127.0.0.1:8787 · the router in front of every model</span></h2>
 <p class="muted" style="margin:.15rem 0 .5rem 0;font-size:.82rem">A summary — open the <a href="../brain/" style="color:var(--accent)">Sovereign Brain observatory ↗</a> to browse the decoded memory, probe routing, and chat with the model.</p>
 <div id="gw-tripwire" class="panel" style="border-left:3px solid var(--muted,#555)"><span class="muted">probing gateway…</span></div>
-<div class="row">
+<div class="row health-deck">
   <div class="stat"><div class="k">gateway</div><div class="v" id="gw-up">—</div></div>
   <div class="stat"><div class="k">requests</div><div class="v" id="gw-requests">—</div></div>
   <div class="stat"><div class="k">learned</div><div class="v ok" id="gw-learned">—</div></div>
@@ -2147,7 +2152,7 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
 <div class="panel" id="gw-roles"><span class="muted">route ledger loading…</span></div>
 
 <h2>SRP role health (M075 + M058)</h2>
-<div class="row">
+<div class="row role-deck">
   <div class="role-card conductor">
     <h3>Conductor — CPU bound</h3>
     <div class="scope">M075 R12426-R12428: bitnet.cpp ternary on Pulse Core CCD 0 (cores 0-5)</div>
