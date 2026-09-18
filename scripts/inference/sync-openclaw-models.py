@@ -443,6 +443,23 @@ def _sync_agent_model_catalogs(cfg_path: Path, source_models: list[dict],
     return changes
 
 
+def _ensure_compaction_defaults(cfg: dict, changes: list[str]) -> None:
+    """Use bounded history summaries for local models; preserve explicit choices.
+
+    An absent mode resolves to unchunked ``default`` in OpenClaw 2026.9.1.
+    Oracle can therefore reject the recovery summary itself at 65,536 tokens.
+    Safeguard splits summaries into bounded chunks instead. Do not opt into
+    mid-turn prechecks: upstream treats the 20K maintenance reserve as a hard
+    input ceiling and can exhaust recovery on requests that still fit.
+    Do not inflate advertised model context or discard conversation history.
+    """
+    compaction = cfg.setdefault("agents", {}).setdefault("defaults", {}).setdefault("compaction", {})
+    for key, value in (("mode", "safeguard"), ("notifyUser", True)):
+        if key not in compaction:
+            compaction[key] = value
+            changes.append(f"compaction.{key}: default -> {value!r}")
+
+
 def _patch_openclaw_compaction_budget(config_owner_uid: int, dry_run: bool) -> bool:
     """Repair OpenClaw's reversed large-context prompt-budget bound.
 
@@ -670,6 +687,7 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_local_memory(cfg, profile_id, changes)
     _ensure_qwen_logic_request_params(cfg, allocs, changes)
     _ensure_profile_primary_model(cfg, profile_id, changes)
+    _ensure_compaction_defaults(cfg, changes)
     # OpenClaw materializes provider metadata per agent.  Keep those catalogs
     # aligned with the global source before deciding whether this is a no-op:
     # an old agent catalog must itself trigger the gateway reload.
