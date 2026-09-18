@@ -126,9 +126,8 @@ for _rec in ${TIERS//,/ }; do
   fi
 
   _live="${_live} ${_id}"
-  case "${_registered}" in
-    *" ${_id} "*) say_ok "proxy ${_id} already registered (${_ep})"; continue ;;
-  esac
+  # Re-registration probes the backend's current context window. Presence in
+  # /v1/models alone does not prove that a profile's new limit was adopted.
   if [ "${DRY}" = 1 ]; then
     say_changed "would register ${_id} → ${_ep}"
     continue

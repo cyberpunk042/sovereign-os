@@ -11,8 +11,8 @@ orchestration_profile:
     - "Qwen3-Coder-32B-Instruct must be present in the local model store."
   allocations:
     - {agent_id: autocomplete_5090, tier: logic, role: logic, target_hardware: "cuda:1", engine: llama.cpp, model: GGML-Qwen3.6-27B-Coder, model_path: /mnt/vault/models/GGML-Qwen3.6-27B-Coder/Qwen3.6-27B-Q4_K_M.gguf, port: 8082, vram_limit_bytes: 30064771072, max_model_len: 32768, extra_args: "--alias gpu-logic --jinja --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0", max_output_tokens: 2048, active: true}
-    - {agent_id: architect_6000, tier: oracle, role: oracle, target_hardware: "cuda:0", engine: vllm, model: Qwen3-Coder-32B-Instruct, port: 8083, vram_limit_bytes: 85899345920, max_model_len: 65536, extra_args: "--served-model-name gpu-oracle --attention-backend TRITON_ATTN --enable-auto-tool-choice --tool-call-parser qwen3_coder", max_output_tokens: 16384, active: true}
+    - {agent_id: architect_6000, tier: oracle, role: oracle, target_hardware: "cuda:0", engine: vllm, model: Qwen3-Coder-32B-Instruct, port: 8083, vram_limit_bytes: 85899345920, max_model_len: 131072, extra_args: "--served-model-name gpu-oracle --attention-backend TRITON_ATTN --enable-auto-tool-choice --tool-call-parser qwen3_coder", max_output_tokens: 8192, active: true}
     - {agent_id: embed_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
     - {agent_id: rerank_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
   context_budget:
-    initial_tokens: {"cuda:0": 65536, "cuda:1": 32768, "cuda:2": 8192}
+    initial_tokens: {"cuda:0": 131072, "cuda:1": 32768, "cuda:2": 8192}

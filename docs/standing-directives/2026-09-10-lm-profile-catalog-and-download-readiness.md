@@ -240,6 +240,12 @@ the operator must not need to manually copy or redeploy each dashboard edit.
 
 > good, we continue, remaster next cockpit
 
+> fix things
+
+> it keeps and keeps doing it "Context overflow: this conversation is too large for the model. Try /compact, use /new to start a fresh session, or retry the command with a tighter output limit." what the hell is happening we need to solve this
+
+> it failed again: [http://127.0.0.1:18789/chat/main/61e0effc](http://127.0.0.1:18789/chat/main/61e0effc)
+
 > restart done. even the oracle fail with Error: Context overflow: prompt too large for the model. Try /reset (or /new) to start a fresh session, or use a larger-context model.
 
 > i tried the oracle and I got Context overflow: this conversation is too large for the model. Try /compact, use /new to start a fresh session, or retry the command with a tighter output limit.

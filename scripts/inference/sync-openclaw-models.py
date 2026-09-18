@@ -448,13 +448,15 @@ def _ensure_compaction_defaults(cfg: dict, changes: list[str]) -> None:
 
     An absent mode resolves to unchunked ``default`` in OpenClaw 2026.9.1.
     Oracle can therefore reject the recovery summary itself at 65,536 tokens.
-    Safeguard splits summaries into bounded chunks instead. Do not opt into
-    mid-turn prechecks: upstream treats the 20K maintenance reserve as a hard
-    input ceiling and can exhaust recovery on requests that still fit.
+    Safeguard splits summaries into bounded chunks instead. Keep a bounded
+    recent tail rather than preserving whole tool-heavy turns verbatim, so
+    mid-turn recovery can free space before repeated file reads fill context.
     Do not inflate advertised model context or discard conversation history.
     """
     compaction = cfg.setdefault("agents", {}).setdefault("defaults", {}).setdefault("compaction", {})
-    for key, value in (("mode", "safeguard"), ("notifyUser", True)):
+    for key, value in (("mode", "safeguard"), ("notifyUser", True),
+                       ("keepRecentTokens", 8000), ("recentTurnsPreserve", 0),
+                       ("midTurnPrecheck", {"enabled": True})):
         if key not in compaction:
             compaction[key] = value
             changes.append(f"compaction.{key}: default -> {value!r}")
@@ -476,11 +478,17 @@ def _patch_openclaw_compaction_budget(config_owner_uid: int, dry_run: bool) -> b
         _log("could not resolve OpenClaw owner for compaction compatibility check")
         return False
     dist = home / ".npm-global" / "lib" / "node_modules" / "openclaw" / "dist"
+    if dist.is_dir():
+        import runpy
+        compat = runpy.run_path(str(Path(__file__).with_name("openclaw_context_compat.py")))
+        context_changed = compat["patch_runtime"](dist, dry_run, _log)
+    else:
+        context_changed = False
     candidates = sorted(dist.glob("agent-compaction-constants-*.js"))
     if not candidates:
         _log("OpenClaw compaction compatibility check skipped (runtime module absent)")
-        return False
-    changed = False
+        return context_changed
+    changed = context_changed
     for path in candidates:
         source = path.read_text(encoding="utf-8")
         if OPENCLAW_COMPACTION_BUDGET_FIXED in source:

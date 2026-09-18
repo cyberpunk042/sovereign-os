@@ -5318,6 +5318,10 @@ _trinity_profile() {
       return 1
     }
     log_info "  synchronized runtime activation contract into ${payload_root}"
+    if [ -f /usr/local/lib/sovereign-os/gpu-route-apply.sh ]; then
+      install -m 0755 "${__REPO_ROOT}/scripts/iac/assets/gpu-route-apply.sh" \
+        /usr/local/lib/sovereign-os/gpu-route-apply.sh || return 1
+    fi
   }
 
   case "${sub}" in
@@ -5578,6 +5582,15 @@ PYEOF
         fi
       done
       log_info "  inference services restarted: ${restarted}/3"
+      # Proxy context windows are cached at registration. A larger backend
+      # window is ineffective if gatewayd keeps clamping to the old profile.
+      if systemctl cat sovereign-gpu-route-reconcile.service >/dev/null 2>&1; then
+        log_info "  refreshing GPU routes and served context limits..."
+        systemctl start sovereign-gpu-route-reconcile.service || {
+          log_error "GPU route reconciliation failed; profile activation is incomplete"
+          return 1
+        }
+      fi
       log_info "  applied: per-tier model selection from the active profile (on restart, via runtime_profile_override)"
       log_warn "  NOT applied by a profile switch: multiple models per card / new tiers — that needs the SDD-903 reconciler (converge owns tier creation + gatewayd routing today)"
 
