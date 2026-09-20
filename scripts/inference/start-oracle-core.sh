@@ -97,6 +97,33 @@ runtime_profile_override ORACLE_QUANTIZATION   oracle quantization
 runtime_profile_override ORACLE_MAX_MODEL_LEN  oracle max_model_len
 runtime_profile_override ORACLE_EXTRA_ARGS     oracle extra_args
 
+# GGUF profiles must not fall through into vLLM's checkpoint/quantization path.
+if [ "$(runtime_profile_get_tier_field oracle engine)" = "llama.cpp" ]; then
+  ORACLE_MODEL="$(runtime_profile_get_tier_field oracle model_path)"
+  [ -f "${ORACLE_MODEL}" ] || { log_error "Oracle GGUF missing: ${ORACLE_MODEL}; download the selected profile model first"; exit 1; }
+  _llama_cuda_dir="${SOVEREIGN_OS_LLAMA_CUDA_DIR:-/home/jfortin/sovereign-os/.runtime/llama-cuda}"
+  [ -x "${_llama_cuda_dir}/llama-server" ] || { log_error "CUDA llama-server missing in ${_llama_cuda_dir}; refusing CPU fallback"; exit 1; }
+  export LD_LIBRARY_PATH="${_llama_cuda_dir}:/opt/sovereign-os/venv/vllm/lib/python3.14/site-packages/nvidia/cu13/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+  export ORACLE_MODEL ORACLE_EXTRA_ARGS ORACLE_MAX_MODEL_LEN
+  export ORACLE_HOST="${ORACLE_HOST:-127.0.0.1}" ORACLE_PORT="${ORACLE_PORT:-8083}"
+  export LLAMA_BIN="${_llama_cuda_dir}/llama-server"
+  # Preserve the unit's physical GPU pin; never expose the other two cards.
+  if [ -z "${CUDA_VISIBLE_DEVICES:-}" ] && [ -z "${SOVEREIGN_OS_DRY_RUN:-}" ]; then
+    log_error "Oracle CUDA_VISIBLE_DEVICES is unset; refusing an unpinned GGUF launch"
+    exit 1
+  fi
+  exec "${PYTHON3}" - <<'PY'
+import os, shlex
+e = os.environ
+argv = [e['LLAMA_BIN'], '-m', e['ORACLE_MODEL'], '--host', e['ORACLE_HOST'],
+        '--port', e['ORACLE_PORT'], '-c', e['ORACLE_MAX_MODEL_LEN'], '-ngl', '999']
+argv += shlex.split(e.get('ORACLE_EXTRA_ARGS', ''))
+print('Oracle llama.cpp argv: ' + shlex.join(argv), flush=True)
+if not e.get('SOVEREIGN_OS_DRY_RUN'):
+    os.execv(argv[0], argv)
+PY
+fi
+
 # As with Logic, request-formatting flags belong to the selected profile.  A
 # gpt-oss reasoning/tool parser left in the persistent EnvironmentFile is not
 # valid for a Qwen Oracle and must never survive a model switch.
@@ -108,7 +135,7 @@ fi
 # Orchestration profiles name models by their catalogue id while vLLM must be
 # pointed at the downloaded checkpoint.  Prefer the local artifact, without
 # rewriting an explicit filesystem path or a deliberate remote repository id.
-if [[ "${ORACLE_MODEL:-}" != /* ]]; then
+if [[ -n "${ORACLE_MODEL:-}" && "${ORACLE_MODEL}" != /* ]]; then
   _oracle_models_dir="${SOVEREIGN_OS_MODELS_DIR:-/mnt/vault/models}"
   if [ -d "${_oracle_models_dir}/${ORACLE_MODEL:-}" ]; then
     ORACLE_MODEL="${_oracle_models_dir}/${ORACLE_MODEL}"

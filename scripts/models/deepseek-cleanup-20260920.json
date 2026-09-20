@@ -1,0 +1,218 @@
+[
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/.cache/huggingface/download/DeepSeek-R1-Distill-Llama-70B-Q8_0/qv--6CAwKWwBWylvBS4FFoKkgiU=.ab699b11ad02cf02739dea5fe5f66b64eb5140cbdfc11052ebc227fdb2a59ac9.incomplete",
+    "size": 22617619548,
+    "inode": 1063,
+    "mtime_ns": 1789873282148031939
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/.cache/huggingface/download/UD-Q8_K_XL/vZewkj4bALGgbZK5YddoLruqITE=.7c6c5f4c7ca993d832328fbedfb9ee6f7ba7aeebc1a2d69a4d9949806088d21e.incomplete",
+    "size": 23595185654,
+    "inode": 2698,
+    "mtime_ns": 1789873183743782675
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/BF16/DeepSeek-R1-Distill-Llama-70B-BF16-00001-of-00003.gguf",
+    "size": 49875751872,
+    "inode": 292,
+    "mtime_ns": 1789846822809351522
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/BF16/DeepSeek-R1-Distill-Llama-70B-BF16-00002-of-00003.gguf",
+    "size": 49779949088,
+    "inode": 429,
+    "mtime_ns": 1789766675356451579
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/BF16/DeepSeek-R1-Distill-Llama-70B-BF16-00003-of-00003.gguf",
+    "size": 41462214912,
+    "inode": 932,
+    "mtime_ns": 1789765732132319352
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-F16/DeepSeek-R1-Distill-Llama-70B-F16-00001-of-00003.gguf",
+    "size": 47845609952,
+    "inode": 1157,
+    "mtime_ns": 1789767798685140880
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-F16/DeepSeek-R1-Distill-Llama-70B-F16-00002-of-00003.gguf",
+    "size": 47917579104,
+    "inode": 795,
+    "mtime_ns": 1789786394394025493
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-F16/DeepSeek-R1-Distill-Llama-70B-F16-00003-of-00003.gguf",
+    "size": 45354726880,
+    "inode": 1036,
+    "mtime_ns": 1789786165058392064
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-IQ4_NL.gguf",
+    "size": 40053621408,
+    "inode": 672,
+    "mtime_ns": 1789785731530194672
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-IQ4_XS.gguf",
+    "size": 37935497888,
+    "inode": 1290,
+    "mtime_ns": 1789766935147038857
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q2_K.gguf",
+    "size": 26375111328,
+    "inode": 1409,
+    "mtime_ns": 1789766811849760131
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q2_K_L.gguf",
+    "size": 26621362848,
+    "inode": 294,
+    "mtime_ns": 1789767704169831708
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q3_K_M.gguf",
+    "size": 34267497120,
+    "inode": 1052,
+    "mtime_ns": 1789776980076546562
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q3_K_S.gguf",
+    "size": 30912053920,
+    "inode": 1460,
+    "mtime_ns": 1789833055662119821
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q4_0.gguf",
+    "size": 40116535968,
+    "inode": 947,
+    "mtime_ns": 1789775307197737926
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q4_1.gguf",
+    "size": 44313592480,
+    "inode": 1799,
+    "mtime_ns": 1789838818267217949
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q4_K_S.gguf",
+    "size": 40347222688,
+    "inode": 1462,
+    "mtime_ns": 1789833166345412626
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q5_K_M.gguf",
+    "size": 49949819552,
+    "inode": 2055,
+    "mtime_ns": 1789832706268195140
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q5_K_S.gguf",
+    "size": 48657449632,
+    "inode": 1060,
+    "mtime_ns": 1789786968654611591
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q6_K/DeepSeek-R1-Distill-Llama-70B-Q6_K-00001-of-00002.gguf",
+    "size": 29933776704,
+    "inode": 18,
+    "mtime_ns": 1789830117792339251
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q6_K/DeepSeek-R1-Distill-Llama-70B-Q6_K-00002-of-00002.gguf",
+    "size": 27954369376,
+    "inode": 2071,
+    "mtime_ns": 1789837719008370917
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q8_0/DeepSeek-R1-Distill-Llama-70B-Q8_0-00002-of-00002.gguf",
+    "size": 35166113792,
+    "inode": 1065,
+    "mtime_ns": 1789832979710918910
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-IQ1_M.gguf",
+    "size": 17171563168,
+    "inode": 1066,
+    "mtime_ns": 1789837547597926971
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-IQ1_S.gguf",
+    "size": 15885222560,
+    "inode": 1466,
+    "mtime_ns": 1789836929563326289
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-IQ2_M.gguf",
+    "size": 24368595616,
+    "inode": 2194,
+    "mtime_ns": 1789838476359332425
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-IQ2_XXS.gguf",
+    "size": 19447628448,
+    "inode": 1804,
+    "mtime_ns": 1789838814972209416
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-IQ3_XXS.gguf",
+    "size": 27655619232,
+    "inode": 2446,
+    "mtime_ns": 1789868802692638168
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-Q2_K_XL.gguf",
+    "size": 26966737568,
+    "inode": 1172,
+    "mtime_ns": 1789868116640177885
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-Q3_K_XL.gguf",
+    "size": 34876474016,
+    "inode": 2199,
+    "mtime_ns": 1789845600565364383
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-Q4_K_XL.gguf",
+    "size": 42664575648,
+    "inode": 2694,
+    "mtime_ns": 1789869972129618613
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-UD-Q5_K_XL.gguf",
+    "size": 49973478048,
+    "inode": 2820,
+    "mtime_ns": 1789870278354399064
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/Q6_K/DeepSeek-R1-Distill-Llama-70B-Q6_K-00001-of-00002.gguf",
+    "size": 49973947296,
+    "inode": 1069,
+    "mtime_ns": 1789847813668411163
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/Q6_K/DeepSeek-R1-Distill-Llama-70B-Q6_K-00002-of-00002.gguf",
+    "size": 7914199008,
+    "inode": 961,
+    "mtime_ns": 1789863077061777951
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/UD-Q6_K_XL/DeepSeek-R1-Distill-Llama-70B-UD-Q6_K_XL-00001-of-00002.gguf",
+    "size": 49958216864,
+    "inode": 1950,
+    "mtime_ns": 1789870436645802489
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/UD-Q6_K_XL/DeepSeek-R1-Distill-Llama-70B-UD-Q6_K_XL-00002-of-00002.gguf",
+    "size": 11201847008,
+    "inode": 1185,
+    "mtime_ns": 1789847373629494756
+  },
+  {
+    "path": "/mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/UD-Q8_K_XL/DeepSeek-R1-Distill-Llama-70B-UD-Q8_K_XL-00002-of-00002.gguf",
+    "size": 31371281024,
+    "inode": 1467,
+    "mtime_ns": 1789869539873516960
+  }
+]

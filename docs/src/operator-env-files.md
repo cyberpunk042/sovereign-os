@@ -49,6 +49,21 @@
 only one whose values are ALL external-service secrets the operator must
 supply by hand; the others are written by hooks/tools from operator choices.
 
+### Model downloader authentication
+
+`scripts/models/pull.sh` accepts `HF_TOKEN` directly, with
+`SOVEREIGN_OS_HF_TOKEN` and `HUGGINGFACE_HUB_TOKEN` as fallback aliases.
+If none is exported, it reads `/etc/sovereign-os/model.env` (root/current-user
+owned, mode `0600`) without executing its contents. Thus a token configured
+through the Setup pane remains available when the puller runs under `sudo`.
+Use the Setup pane's **HuggingFace read token** field, or `sudoedit
+/etc/sovereign-os/model.env` with `HF_TOKEN=...`; never paste a real token into
+chat, a repository file, or a command argument. When no token is supplied,
+the Hugging Face CLI's existing login/token-file mechanism still applies.
+
+The downloader passes credentials only through the child process environment,
+not `--token` arguments. An explicit `HF_TOKEN` takes precedence over the file.
+
 ## The unified way: `sovereign-osctl setup` (the integration collector)
 
 Rather than hand-copying an example and `sudoedit`-ing, the **integration

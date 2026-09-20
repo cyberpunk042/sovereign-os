@@ -28,3 +28,13 @@ def test_puller_passes_catalog_include_patterns_to_huggingface():
     assert "SOVEREIGN_OS_PULL_ATTEMPTS" in body
     assert "local files will resume" in body
     assert 'log_info "             --include ${_pattern}"' in body
+
+
+def test_deepseek_q4_does_not_download_other_quantizations():
+    import fnmatch
+    models = yaml.safe_load(CATALOG.read_text())["catalog"]["models"]
+    row = next(m for m in models if m["id"] == "DeepSeek-R1-Distill-Llama-70B-Q4_K_M")
+    patterns = row["hf_include_patterns"]
+    assert "DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf" in patterns
+    for filename in ("DeepSeek-R1-Distill-Llama-70B-Q8_0/a.gguf", "BF16/a.gguf", "DeepSeek-R1-Distill-Llama-70B-Q5_K_M.gguf"):
+        assert not any(fnmatch.fnmatch(filename, pattern) for pattern in patterns)

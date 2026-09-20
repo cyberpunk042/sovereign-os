@@ -1,0 +1,19 @@
+schema_version: "1.0.0"
+orchestration_profile:
+  id: deepseek-70b-qwen-dual
+  name: DeepSeek 70B Oracle + Qwen Logic
+  description: DeepSeek R1 Distill Llama 70B Q4_K_M reasoning trial on the 96GB RTX PRO 6000, with a 128K single-slot context and Q8 KV cache. Qwen stays on the RTX 5090 with 32K context. RTX 4090 embedding and reranking allocations are preserved. OpenClaw tool calling and sustained throughput require a live trial; this is not a benchmarked replacement for Qwen Oracle.
+  intent: thinking
+  hardware_profile_compat: [sain-01]
+  readiness: ready
+  prerequisites:
+    - "DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf must be present and verified in its catalog directory."
+    - "The CUDA llama-server build must be installed; no CPU-only fallback is selected."
+    - "128K is the launch target, not a claim of benchmarked usable context or speed."
+  allocations:
+    - {agent_id: qwen_logic_5090, tier: logic, role: logic, target_hardware: "cuda:1", engine: llama.cpp, model: GGML-Qwen3.6-27B-Coder, model_path: /mnt/vault/models/GGML-Qwen3.6-27B-Coder/Qwen3.6-27B-Q4_K_M.gguf, port: 8082, vram_limit_bytes: 30064771072, max_model_len: 32768, extra_args: "--alias gpu-logic --jinja --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0", max_output_tokens: 2048, active: true}
+    - {agent_id: deepseek_oracle_6000, tier: oracle, role: oracle, target_hardware: "cuda:0", engine: llama.cpp, model: DeepSeek-R1-Distill-Llama-70B-Q4_K_M, model_path: /mnt/vault/models/DeepSeek-R1-Distill-Llama-70B-Q4_K_M/DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf, port: 8083, vram_limit_bytes: 85899345920, max_model_len: 131072, extra_args: "--alias gpu-oracle --jinja --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --split-mode none --parallel 1", max_output_tokens: 8192, active: true}
+    - {agent_id: embed_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
+    - {agent_id: rerank_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
+  context_budget:
+    initial_tokens: {"cuda:0": 131072, "cuda:1": 32768, "cuda:2": 8192}

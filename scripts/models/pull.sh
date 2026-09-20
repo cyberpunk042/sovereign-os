@@ -22,7 +22,10 @@
 #
 # Env vars:
 #   SOVEREIGN_OS_MODELS_DIR   destination (default: /mnt/vault/models)
-#   HUGGINGFACE_HUB_TOKEN     optional auth token (some licenses gated)
+#   HF_TOKEN                 optional Hugging Face token (canonical name)
+#   SOVEREIGN_OS_HF_TOKEN / HUGGINGFACE_HUB_TOKEN legacy aliases
+#   SOVEREIGN_OS_HF_ENV_FILE  private credential file (default:
+#                             /etc/sovereign-os/model.env), also works with sudo
 #   SOVEREIGN_OS_PULL_EXCLUDE comma-separated globs passed as --exclude
 #                             (default: original/*,metal/* — alternate-runtime
 #                             weight trees a CUDA box cannot use; gpt-oss-120b
@@ -221,7 +224,7 @@ pull_one() {
   _attempt=1
   _pulled=""
   while [ "${_attempt}" -le "${_attempts}" ]; do
-    if "${HF_DL[@]}" "${repo}" "${_excl_args[@]}" "${_include_args[@]}" \
+    if "${PYTHON3}" "${__SCRIPT_DIR}/hf-auth.py" "${HF_DL[@]}" "${repo}" "${_excl_args[@]}" "${_include_args[@]}" \
          --local-dir "${SOVEREIGN_OS_MODELS_DIR}/${model_id}"; then
       _pulled=1
       break

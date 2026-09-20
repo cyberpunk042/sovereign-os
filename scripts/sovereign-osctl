@@ -5318,10 +5318,9 @@ _trinity_profile() {
       return 1
     }
     log_info "  synchronized runtime activation contract into ${payload_root}"
-    if [ -f /usr/local/lib/sovereign-os/gpu-route-apply.sh ]; then
-      install -m 0755 "${__REPO_ROOT}/scripts/iac/assets/gpu-route-apply.sh" \
-        /usr/local/lib/sovereign-os/gpu-route-apply.sh || return 1
-    fi
+    # The route reconciler is installed by IaC, not by profile activation.
+    # On linked installs its stable entry point forwards to the source tree;
+    # overwriting it also fails inside the control service's read-only mount.
   }
 
   case "${sub}" in

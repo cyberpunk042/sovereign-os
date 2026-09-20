@@ -240,6 +240,12 @@ the operator must not need to manually copy or redeploy each dashboard edit.
 
 > good, we continue, remaster next cockpit
 
+> I receive error 500 when I try to apply the profile.
+
+> we I would need a new profile to try this new model
+
+> I am trying to pull DeepSeek-R1-Distill-Llama-70B-Q4\_K\_M but its too big. could we fix the storage of the OS so that we have more nvme ssd for the models vault, and support for the hf\_token too
+
 > fix things
 
 > it keeps and keeps doing it "Context overflow: this conversation is too large for the model. Try /compact, use /new to start a fresh session, or retry the command with a tighter output limit." what the hell is happening we need to solve this
