@@ -256,6 +256,16 @@ a11y; contract test catches drift.
   .preview-box.show{display:block}
   .preview-line{font-family:var(--mono);font-size:.78rem;padding:.05rem 0}
   .preview-line.diff-add{color:var(--good)} .preview-line.diff-del{color:var(--bad)} .preview-line.diff-ctx{color:var(--muted)}
+  /* d-08 remaster — readiness chips: the rollback story in four honest lines */
+  .insights{display:flex;flex-wrap:wrap;gap:.45rem;margin:.6rem 0 .9rem}
+  .ins{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .65rem;border-radius:4px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .ins:hover{border-color:var(--accent)}
+  .ins::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:var(--muted);flex:0 0 auto}
+  .ins.warn{border-color:var(--warn);color:var(--warn)} .ins.warn::before{background:var(--warn)}
+  .ins.bad{border-color:var(--bad);color:var(--bad)} .ins.bad::before{background:var(--bad)}
+  .age{color:var(--muted);font-size:.72rem;margin-left:.35rem;white-space:nowrap}
+  .age.stale{color:var(--warn)}
+  .tl-row:hover{background:rgba(155,209,255,0.04)}
 </style>
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
@@ -2155,6 +2165,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   <div class="stat"><div class="k">last rollback</div><div class="v warn" id="s-last-rollback" style="font-size:1rem">never</div><div class="u">M047 R09xxx</div></div>
 </div>
 
+<div id="rollback-insights" class="insights" hidden></div>
+
 <h2>ZFS snapshot inventory (M068)</h2>
 <div class="panel">
   <div class="filters" aria-label="dataset filter" id="dataset-filters">
@@ -2232,6 +2244,66 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     document.getElementById('s-last-rollback').textContent = seed.lastRollback || "never";
   }
 
+  // d-08 remaster — human age for an ISO timestamp ("3h ago", "12d ago").
+  function fmtAge(ts) {
+    const t = Date.parse(ts);
+    if (Number.isNaN(t)) return "";
+    const s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 3600) return Math.max(1, Math.floor(s / 60)) + "m ago";
+    if (s < 86400) return Math.floor(s / 3600) + "h ago";
+    return Math.floor(s / 86400) + "d ago";
+  }
+  function ageHours(ts) {
+    const t = Date.parse(ts);
+    return Number.isNaN(t) ? Infinity : (Date.now() - t) / 36e5;
+  }
+
+  // d-08 remaster — readiness chips: the rollback story in a few honest lines.
+  // Only things that change a decision: where a rollback would land, which
+  // datasets are covered, whether snapshot storage is crowding the pool.
+  function renderRollbackInsights() {
+    const box = document.getElementById('rollback-insights');
+    if (!box) return;
+    const chips = [];
+    const push = (cls, text, target) => chips.push({ cls, text, target });
+    const snaps = seed.snapshots || [];
+    const pre = snaps.filter(s => s.kind === 'pre-commit').sort((a, b) => Date.parse(b.taken) - Date.parse(a.taken));
+    if (pre.length) {
+      const h = ageHours(pre[0].taken);
+      if (h > 24) push('warn', `newest pre-commit snapshot is ${fmtAge(pre[0].taken)} — a rollback lands in state from ${Math.floor(h / 24)} day(s) ago`, 'snapshots-tbody');
+      else push('', `pre-commit snapshot ${fmtAge(pre[0].taken)} — a rollback target is fresh`, 'snapshots-tbody');
+    } else if (snaps.length) {
+      push('bad', 'no pre-commit snapshot — a rollback has no safe recent state to land in; create one from the Controls rail ↓', 'control-surface');
+    } else {
+      push('bad', 'no snapshots at all — nothing would survive a rollback; create one from the Controls rail ↓', 'control-surface');
+    }
+    const covered = new Set(snaps.map(s => s.dataset));
+    const allDs = [...document.querySelectorAll('#dataset-filters .filter')].map(f => f.dataset.ds);
+    if (snaps.length && covered.size < allDs.length) {
+      const missing = allDs.filter(d => !covered.has(d)).length;
+      push('warn', `${covered.size} of ${allDs.length} datasets snapshot-covered — ${missing} would have nothing to roll back to`, 'dataset-filters');
+    }
+    if ((seed.diskGib ?? 0) >= 20) {
+      push('warn', `snapshot storage is ${seed.diskGib.toFixed(1)} GiB — prune old snapshots before they crowd the pool`, 's-disk');
+    } else if (snaps.length) {
+      push('', `snapshot storage ${seed.diskGib.toFixed(1)} GiB — healthy headroom`, 's-disk');
+    }
+    if ((seed.commits24h ?? 0) > 0) {
+      push('', `${seed.commits24h} MS041 commit${seed.commits24h > 1 ? 's' : ''} in 24h — the timeline pairs each with its snapshot anchor`, 'timeline');
+    }
+    if (seed.lastRollback === 'never') {
+      push('', 'no rollback ever applied — the signed R10100 path has not fired on this box', 'timeline');
+    }
+    box.hidden = chips.length === 0;
+    box.innerHTML = chips.map(c => `<span class="ins ${c.cls}" data-scroll="${c.target}" title="jump to section">${c.text}</span>`).join('');
+    box.querySelectorAll('.ins').forEach(el => {
+      el.addEventListener('click', () => {
+        const t = document.getElementById(el.dataset.scroll);
+        if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+  }
+
   function renderDataSourceBanner(ok, errMsg) {
     const b = document.getElementById('datasource-banner'); if (!b) return;
     const label = document.getElementById('ds-state-label');
@@ -2262,7 +2334,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     ]
   };
   async function load() {
-    if (demoActive()) { seed = Object.assign(seed, DEMO_D08); renderSummary(); renderSnapshots(); renderTimeline(); const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return; }
+    if (demoActive()) { seed = Object.assign(seed, DEMO_D08); renderSummary(); renderSnapshots(); renderTimeline(); renderRollbackInsights(); const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return; }
     let ok = false, errMsg = '';
     try {
       const r = await fetch('/api/d-08/snapshot', { credentials: 'same-origin' });
@@ -2275,6 +2347,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     renderSummary();
     renderSnapshots();
     renderTimeline();
+    renderRollbackInsights();
   }
 
   function renderSnapshots() {
@@ -2288,7 +2361,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       tr.innerHTML = `
         <td><code>${s.id}</code></td>
         <td>${s.dataset}</td>
-        <td class="muted">${s.taken}</td>
+        <td class="muted">${s.taken}<span class="age${ageHours(s.taken) > 24 ? ' stale' : ''}">${fmtAge(s.taken)}</span></td>
         <td><span class="pill ${kindPill}">${s.kind}</span></td>
         <td class="num">${s.used}</td>
         <td class="num muted">${s.refer}</td>
@@ -3077,6 +3150,27 @@ window.SO_ASSIST = {
  },
  "nodes": [
   {
+   "icon": "✦",
+   "title": "Rollback readiness",
+   "content": "The rollback story in a few honest lines: where a rollback would actually land, which datasets are covered, and whether snapshot storage is crowding the pool. A calm box renders neutral context chips; the moment a rollback would land in stale state, a dataset is uncovered, or storage runs high, the matching chip turns amber or red. Click a chip to jump to the section it points at.",
+   "children": [
+    {
+     "selector": "#rollback-insights",
+     "title": "Readiness chips",
+     "content": "Computed from the live inventory: the newest pre-commit snapshot's age (a rollback lands there — amber when it's older than a day, red when no pre-commit snapshot exists at all), dataset coverage (datasets with no snapshot have nothing to roll back to), snapshot storage headroom (amber at 20 GiB), 24h commit activity, and whether the signed rollback path has ever fired.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why chips and not the table</div>The inventory answers 'what states exist'. The chips answer 'is my undo actually good right now' — a snapshot that is 90 days old is a snapshot in name only, and a dataset with zero snapshots is uncovered no matter how many the others have. Only decision-changing facts earn a chip; a fully covered, fresh, roomy box renders the neutral context line instead of silence.<div class=\"so-grid\"><span class=\"k\">neutral</span><span>fresh pre-commit target, coverage, storage headroom, activity</span><span class=\"k\">amber</span><span>stale rollback target, uncovered dataset, storage ≥ 20 GiB</span><span class=\"k\">red</span><span>no pre-commit snapshot — a rollback has nothing safe to land in</span></div><div class=\"so-xref\"><span class=\"x\">→</span> snapshot-create control in the Controls rail — the fix for the red case</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#rollback-insights .ins",
+      "nameSelector": ".ins",
+      "title": "Readiness · {{name}}",
+      "content": "{{name}} — one computed readiness signal. Click it to jump to the section that can act on it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Readiness · {{name}}</div>A single readiness signal computed from the live snapshot inventory and commit history — the rollback story in one line. Each chip exists because it changes a decision: where a rollback would land, what's covered, what's crowded.<div class=\"so-xref\"><span class=\"x\">→</span> the Controls rail — snapshot-create / prune / rollback-apply</div></div>"
+     }
+    }
+   ]
+  },
+  {
    "icon": "◆",
    "title": "Live-source banner",
    "content": "Whether the snapshot inventory is live from /api/d-08/snapshot or a snapshot-of-the-snapshots. A stale read could miss a just-taken rollback point.",
@@ -3183,7 +3277,7 @@ window.SO_ASSIST = {
     {
      "selector": "#snapshots-tbody",
      "title": "Snapshot inventory",
-     "content": "Each ZFS snapshot with its dataset, timestamp, reference size, and tag. Hover a row for what that snapshot captured; its actions preview and (signed) apply a rollback to it. This is the menu of states you can return to.",
+     "content": "Each ZFS snapshot with its dataset, timestamp (plus a human age — amber when the snapshot is older than a day, because a rollback landing there is a rollback into the past), reference size, and tag. Hover a row for what that snapshot captured; its actions preview and (signed) apply a rollback to it. This is the menu of states you can return to.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading a snapshot row</div>Each row is a restorable point: a dataset frozen at a moment. The refer size is how much data it holds; the tag is why it was taken (a commit, a manual mark, a scheduled point).<div class=\"so-tip\">💡 Preview before applying — the dry-run shows exactly what would change with no side effects (R10099).</div></div>",
      "dynamic": true,
      "childTemplate": {
