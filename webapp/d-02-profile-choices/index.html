@@ -2125,11 +2125,41 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <link rel="stylesheet" href="/_shared/cockpit-foundations.css">
 <style>
   body{max-width:1440px}
-  .profile-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:1.3rem;align-items:start;margin-top:1.5rem}
-  #profiles-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
-  .profile-card{min-width:0;border-radius:10px;text-align:left;color:var(--fg);background:var(--panel)}
+  /* — profile cards: compact selector rail (the matrix carries the comparison) — */
+  #profiles-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:.7rem;margin:.6rem 0 1rem}
+  .profile-card{min-width:0;border-radius:10px;text-align:left;color:var(--fg);background:var(--panel);padding:.7rem .85rem}
   .profile-card.active{border-left:4px solid var(--good);background:var(--panel)}
   .profile-card.preview{outline:2px solid var(--accent);outline-offset:2px}
+  .profile-card h3{margin:0 0 .25rem 0;font-size:.92rem;font-weight:600;display:flex;align-items:center;gap:.45rem}
+  .profile-card .scope{color:var(--muted);font-size:.76rem;line-height:1.35;margin-bottom:.3rem}
+  .profile-card .msdef{font-size:.68rem;color:var(--muted);opacity:.75}
+  .profile-card .ceiling{margin-left:auto;font-size:.68rem;font-weight:600;color:var(--fg-2,#c8c8c8);
+    border:1px solid var(--border);border-radius:999px;padding:.05rem .5rem;white-space:nowrap}
+  /* — authority matrix: all six envelopes at one glance — */
+  .matrix-panel{margin-top:.4rem}
+  table.matrix{width:100%;border-collapse:collapse;font-size:.78rem}
+  table.matrix th{padding:.3rem .35rem;text-align:center;font-weight:500;color:var(--muted);font-size:.7rem}
+  table.matrix th.mx-rowhead, table.matrix td.mx-rowhead{text-align:left;min-width:150px}
+  .matrix-panel h2{margin:.2rem 0 .1rem}
+  table.matrix th.group{border-bottom:1px solid var(--accent);color:var(--fg-2,#c8c8c8);letter-spacing:.03em}
+  table.matrix th.group.rings{border-bottom-color:var(--warn,#e0c07a)}
+  table.matrix td{padding:.22rem .35rem;text-align:center;border-bottom:1px solid rgba(128,128,128,.10)}
+  table.matrix td.mx-div, table.matrix th.mx-div{width:8px;padding:0;border-bottom:none;background:transparent}
+  table.matrix tr.mx-active{background:rgba(31,122,58,.08)}
+  table.matrix tr.mx-selected{outline:2px solid var(--accent);outline-offset:-2px}
+  .mx-row-btn{display:flex;align-items:center;gap:.45rem;width:100%;text-align:left;background:transparent;
+    border:0;color:var(--fg);font:inherit;font-size:.8rem;padding:.15rem .2rem;cursor:pointer;border-radius:4px}
+  .mx-row-btn:hover{background:rgba(155,209,255,.07)}
+  .mx-row-btn .mx-name{font-weight:600}
+  .mx-row-btn .mx-ceil{margin-left:auto;font-size:.68rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .mx-cell{display:inline-block;width:20px;height:20px;border-radius:4px;vertical-align:middle}
+  .mx-cell.allowed{background:#143d14;box-shadow:inset 0 0 0 1px rgba(122,209,122,.4)}
+  .mx-cell.gated{background:#3d2f14;box-shadow:inset 0 0 0 1px rgba(224,192,122,.4)}
+  .mx-cell.denied{background:#3d1414;box-shadow:inset 0 0 0 1px rgba(209,122,122,.28)}
+  .mx-legend{display:flex;gap:.9rem;margin-top:.45rem;font-size:.72rem;color:var(--muted)}
+  .mx-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:.3rem;vertical-align:-1px}
+  /* — inspector — */
+  .profile-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:1.3rem;align-items:start;margin-top:.8rem}
   .profile-inspector{padding:1.2rem;position:sticky;top:4rem;min-width:0}
   .profile-inspector h2{margin:.7rem 0}
   .profile-inspector .ladder,.profile-inspector .rings{grid-template-columns:1fr;gap:.3rem}
@@ -2137,14 +2167,18 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   .ring-cell.denied{background:#3d1414;color:var(--bad)}
   #profile-diff{font-size:.78rem;border-left:2px solid var(--accent);padding-left:.7rem}
   #profile-diff p{margin:.35rem 0}
+  /* — history — */
   .history-scroll{overflow-x:auto}.history-scroll td{overflow-wrap:anywhere;max-width:32ch}
   .history-scroll details{min-width:8rem}.history-scroll summary{cursor:pointer;color:var(--accent)}
+  .h-dir{font-size:.7rem;font-weight:600;border-radius:999px;padding:.08rem .5rem;white-space:nowrap}
+  .h-dir.widen{color:var(--warn,#e0c07a);border:1px solid rgba(224,192,122,.45)}
+  .h-dir.narrow{color:var(--good,#7ad17a);border:1px solid rgba(122,209,122,.45)}
+  .h-dir.flat{color:var(--muted);border:1px solid var(--border)}
   .permission-comparison{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:.35rem .6rem;margin:.5rem 0}
   .permission-comparison span{padding:.3rem .35rem;border-bottom:1px solid var(--border)}
   .permission-comparison .comparison-label{color:var(--muted)}
   .stat{border-radius:10px;min-width:0}.stat .v{overflow-wrap:anywhere}
-  @media(max-width:1000px){.profile-workspace{grid-template-columns:1fr}.profile-inspector{position:static}}
-  @media(max-width:560px){#profiles-row{grid-template-columns:1fr}}
+  @media(max-width:1100px){.profile-workspace{grid-template-columns:1fr}.profile-inspector{position:static}}
 </style>
 <h1>D-02 — profile choices</h1>
 <div class="sub">six-profile authority selector + L0..L6 envelope + Ring 0..4 highlights — <span class="kbd">Cmd-3</span> · catalog <a href="../master-dashboard/">D-00 main</a></div>
@@ -2195,11 +2229,40 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 </div>
 
 <div class="profile-workspace">
-<section aria-labelledby="profile-library-title">
+<section aria-labelledby="profile-library-title" style="grid-column:1/-1;margin-top:.2rem">
 <h2 id="profile-library-title">Choose a profile to inspect</h2>
-<p class="muted">Selection previews the declared permissions. It does not change the active profile.</p>
+<p class="muted">Selection previews the declared permissions. It does not change the active profile. The matrix compares all six envelopes at once — read it across for one profile, down for one rung.</p>
 <div class="row" id="profiles-row">
   <!-- profile cards injected by JS -->
+</div>
+</section>
+<section class="so-card matrix-panel" aria-labelledby="matrix-title">
+<h2 id="matrix-title">Authority matrix · all six envelopes</h2>
+<p class="muted">Highest unsigned rung and outermost ring per profile, with every gated/denied cell shown — the at-a-glance answer to “which profile may do X”.</p>
+<div class="panel">
+  <table class="matrix" id="authority-matrix">
+    <thead>
+      <tr>
+        <th class="mx-rowhead" rowspan="2">profile</th>
+        <th class="group" colspan="7">authority L0–L6</th>
+        <th class="mx-div"></th>
+        <th class="group rings" colspan="5">trust rings R0–R4</th>
+      </tr>
+      <tr>
+        <th>L0</th><th>L1</th><th>L2</th><th>L3</th><th>L4</th><th>L5</th><th>L6</th>
+        <th class="mx-div"></th>
+        <th>R0</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th>
+      </tr>
+    </thead>
+    <tbody id="matrix-tbody">
+      <!-- rows injected by JS -->
+    </tbody>
+  </table>
+  <div class="mx-legend">
+    <span><i style="background:#143d14;box-shadow:inset 0 0 0 1px rgba(122,209,122,.4)"></i>allowed unsigned</span>
+    <span><i style="background:#3d2f14;box-shadow:inset 0 0 0 1px rgba(224,192,122,.4)"></i>gated — needs approval</span>
+    <span><i style="background:#3d1414;box-shadow:inset 0 0 0 1px rgba(209,122,122,.28)"></i>denied</span>
+  </div>
 </div>
 </section>
 <section class="profile-inspector so-card" aria-labelledby="preview-title">
@@ -2323,29 +2386,75 @@ const PROFILES = [
 
 const $ = (id) => document.getElementById(id);
 
+const L_LABELS = ['Observe','Suggest','Simulate','Prepare','Execute','Commit','Persist'];
+const R_LABELS = ['Kernel','Trusted','Sandboxed','Experimental','Cloud'];
+// Highest rung the profile allows unsigned / outermost ring it allows.
+function ceilingOf(p) {
+  let l = -1, r = -1;
+  p.ladder.forEach((s, i) => { if (s === 'allowed') l = i; });
+  p.rings.forEach((s, i) => { if (s === 'allowed') r = i; });
+  return { l, r };
+}
+
 function renderCards(active) {
   const row = $('profiles-row');
   row.innerHTML = '';
   for (const p of PROFILES) {
+    const c = ceilingOf(p);
     const card = document.createElement('button');
     card.type = 'button';
     card.setAttribute('aria-pressed', 'false');
     card.className = 'profile-card' + (p.id === active ? ' active' : '');
     card.dataset.id = p.id;
     card.innerHTML = `
-      <h3>${p.name} ${p.id === active ? '<span class="pill selected">active</span>' : ''}</h3>
+      <h3>${p.name} ${p.id === active ? '<span class="pill selected">active</span>' : ''}
+        <span class="ceiling" title="highest unsigned rung · outermost allowed ring">L≤${c.l} · R≤${c.r}</span></h3>
       <div class="scope">${p.scope}</div>
-      <div class="muted" style="font-size:.7rem">${p.msdef}</div>
-      <div class="ladder">
-        ${p.ladder.map((s, i) => `<div class="ladder-cell ${s}" title="L${i} ${s}">L${i}</div>`).join('')}
-      </div>
-      <div class="rings">
-        ${p.rings.map((s, i) => `<div class="ring-cell ${s}" title="Ring ${i} ${s}">R${i}</div>`).join('')}
-      </div>
+      <div class="msdef">${p.msdef}</div>
     `;
     card.addEventListener('click', () => selectProfile(p.id));
     row.appendChild(card);
   }
+}
+
+function renderMatrix() {
+  const tbody = $('matrix-tbody');
+  tbody.replaceChildren();
+  const act = activeProfileVerified ? activeProfileId : null;
+  for (const p of PROFILES) {
+    const c = ceilingOf(p);
+    const tr = document.createElement('tr');
+    tr.dataset.id = p.id;
+    tr.className = (p.id === act ? 'mx-active' : '') + (p.id === selectedProfileId ? ' mx-selected' : '');
+    const head = document.createElement('td');
+    head.className = 'mx-rowhead';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mx-row-btn';
+    btn.setAttribute('aria-label', 'Inspect ' + p.name + ' profile');
+    btn.innerHTML = `<span class="mx-name">${p.name}</span>${p.id === act ? '<span class="pill selected">active</span>' : ''}<span class="mx-ceil">L≤${c.l} · R≤${c.r}</span>`;
+    btn.addEventListener('click', () => selectProfile(p.id));
+    head.appendChild(btn);
+    tr.appendChild(head);
+    const cells = (arr, prefix) => arr.map((s, i) => {
+      const td = document.createElement('td');
+      const span = document.createElement('span');
+      span.className = 'mx-cell ' + s;
+      span.title = prefix + i + ' ' + s + ' · ' + p.name;
+      td.appendChild(span);
+      return td;
+    });
+    cells(p.ladder, 'L').forEach(td => tr.appendChild(td));
+    const div = document.createElement('td'); div.className = 'mx-div'; tr.appendChild(div);
+    cells(p.rings, 'R').forEach(td => tr.appendChild(td));
+    tbody.appendChild(tr);
+  }
+}
+
+function syncMatrixSelection() {
+  document.querySelectorAll('#matrix-tbody tr').forEach(tr => {
+    tr.classList.toggle('mx-selected', tr.dataset.id === selectedProfileId);
+  });
 }
 
 function renderLadder(profile) {
@@ -2412,6 +2521,7 @@ function selectProfile(id) {
   renderGates(p);
   $('switch-btn').disabled = false;
   $('switch-btn').textContent = `Show switch command for ${p.name}`;
+  syncMatrixSelection();
 }
 
 async function fetchActiveProfile() {
@@ -2474,8 +2584,8 @@ async function refresh() {
   $('active-profile').textContent = 'loading…';
   function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
   const state = demoActive() ? DEMO_PROFILE : await fetchActiveProfile();
-  if (demoActive() && window.soDemo) { const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; window.soDemo.badge(); }
   renderMirrorBanner(state);
+  if (demoActive() && window.soDemo) { const _l=document.getElementById('mirror-state-label'); if(_l)_l.textContent='mirror: DEMO — sample data'; window.soDemo.badge(); }
   activeProfileId = state.active;
   activeProfileVerified = state.mirror_status === 'online';
   $('active-profile').textContent = activeProfileVerified ? state.active : 'Unconfirmed · ' + (state.active || 'private') + ' fallback';
@@ -2483,6 +2593,7 @@ async function refresh() {
   $('active-actor').textContent = state.actor;
   $('active-envelope').textContent = state.envelope;
   renderCards(activeProfileVerified ? state.active : null);
+  renderMatrix();
   const p = PROFILES.find(p => p.id === state.active);
   if (p) {
     renderLadder(p);
@@ -2492,12 +2603,25 @@ async function refresh() {
   selectProfile(selectedProfileId || state.active || 'private');
   const tbody = $('history-tbody');
   if (state.history && state.history.length) {
-    $('history-summary').textContent = state.history.length + ' recorded transitions · expand a signature to inspect its full value.';
+    $('history-summary').textContent = state.history.length + ' recorded transitions · ▲ widened the envelope, ▼ narrowed it · expand a signature to inspect its full value.';
     tbody.replaceChildren();
     state.history.forEach(h => {
       const row = document.createElement('tr');
-      [h.ts, (h.from || '—') + ' → ' + (h.to || '—'), h.actor, h.rationale].forEach(value => {
-        const cell = document.createElement('td'); cell.textContent = value || '—'; row.appendChild(cell);
+      const fromP = PROFILES.find(x => x.id === h.from), toP = PROFILES.find(x => x.id === h.to);
+      const dir = (fromP && toP) ? (ceilingOf(toP).l > ceilingOf(fromP).l ? 'widen' : ceilingOf(toP).l < ceilingOf(fromP).l ? 'narrow' : 'flat') : null;
+      [h.ts, null, h.actor, h.rationale].forEach((value, i) => {
+        const cell = document.createElement('td');
+        if (i === 1) {
+          cell.textContent = (h.from || '—') + ' → ' + (h.to || '—') + ' ';
+          const chip = document.createElement('span');
+          chip.className = 'h-dir ' + (dir || 'flat');
+          chip.textContent = dir === 'widen' ? '▲ widen' : dir === 'narrow' ? '▼ narrow' : (dir === 'flat' ? '＝ same ceiling' : '—');
+          if (dir) chip.title = 'unsigned authority ceiling before → after';
+          cell.appendChild(chip);
+        } else {
+          cell.textContent = value || '—';
+        }
+        row.appendChild(cell);
       });
       const signature = document.createElement('td');
       if (h.signature) {
@@ -3315,8 +3439,29 @@ window.SO_ASSIST = {
     {
      "selector": "#profiles-row",
      "title": "Profile set",
-     "content": "The six selectable profiles (MS040). Each is a distinct envelope of (max authority, trust ring, predeclared gates). Hover a tile for what that profile lets an agent do without your signature; switching is a signed act.",
+     "content": "The six selectable profiles (MS040). Each is a distinct envelope of (max authority, trust ring, predeclared gates). The chip on each card names its highest unsigned rung and outermost allowed ring (L≤n · R≤m); the matrix below compares all six cell by cell. Switching is a signed act.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Tight .. wide, one axis</div>The profiles trade autonomy for oversight. A tight profile withholds authority (more queues for you); a wide one grants it (more happens unattended, bounded only by predeclared gates). The right one depends on how much you are watching.<div class=\"so-tip\">💡 The active profile is highlighted; the others are what you could switch TO.</div></div>"
+    }
+   ]
+  },
+  {
+   "icon": "⊞",
+   "title": "Authority matrix",
+   "content": "All six envelopes side by side — one row per profile, one column per authority rung (L0..L6) and trust ring (R0..R4). Read a row across for what a profile permits; read a column down for which profiles permit a given rung. This is the at-a-glance answer to ‘which profile may do X without my signature.’",
+   "children": [
+    {
+     "selector": "#authority-matrix",
+     "title": "Six-profile authority matrix",
+     "content": "Every profile × every rung and ring in one table: green = allowed unsigned, amber = gated (needs your approval), red = denied. The active profile’s row is tinted, the selected one is outlined. Click a row name to inspect that profile.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#matrix-tbody > tr",
+      "nameSelector": ".mx-name",
+      "title": "Envelope · {{name}}",
+      "content": "{{name}}’s full envelope at a glance — its seven authority rungs and five trust rings, colour-coded allowed/gated/denied. Read across for this profile; compare columns against the other five rows.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Envelope · {{name}}</div>One profile’s complete authority envelope: the green rungs are what an agent may do unsigned, amber stops at your approval, red never happens. The chip on the right names the ceiling (highest unsigned rung, outermost allowed ring).</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">All six envelopes at once</div>The matrix answers the comparison question the cards can’t: which profiles allow a given rung. A column that is green on four rows and red on two is where those profiles genuinely differ — and where your choice changes what the box may do unattended.</div>"
     }
    ]
   },

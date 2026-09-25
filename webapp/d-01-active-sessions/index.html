@@ -2113,7 +2113,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 
 
 <h1>D-01 — active sessions</h1>
-<div class="sub">M057 12-step task lifecycle per session — <span class="kbd">Cmd-2</span> · <a href="../master-dashboard/">D-00 main</a></div>
+<div class="sub">M057 12-step task lifecycle per session — <span class="kbd">Cmd-2</span> · <a href="../master-dashboard/">D-00 main</a> · <a href="../d-06-pending-approvals/">D-06 approvals</a> · <a href="../d-09-hardware-pressure/">D-09 pressure</a></div>
 
 <div id="datasource-banner" class="ds-banner unknown" role="status" aria-live="polite">
   <span class="dot"></span>
@@ -2134,54 +2134,116 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   .ds-banner.online  .dot { background:#1f7a3a; box-shadow:0 0 .35rem rgba(31,122,58,.7); }
   .ds-banner.offline .dot { background:#7a3a1f; }
   .ds-banner .spacer { flex:1; }
+
+  /* ── D-01 remaster — compact + smart (2026-09-25) ─────────────────────── */
+  .summary-block{margin:.6rem 0}
+  /* load-by-step strip: where in the 12-step lifecycle the work actually sits */
+  .step-dist{display:flex;align-items:flex-end;gap:2px;margin-top:.55rem;height:34px;
+    padding:.3rem .45rem;border:1px solid var(--border);border-radius:6px;background:var(--so-surface-1,var(--panel))}
+  .sd-cell{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px;min-width:0}
+  .sd-bar{width:100%;max-width:22px;border-radius:2px 2px 0 0;background:var(--border);min-height:2px}
+  .sd-cell.n0 .sd-bar{min-height:2px;opacity:.45}
+  .sd-cell.pile .sd-bar{background:var(--warn,#e0b050)}
+  .sd-n{font-size:.62rem;color:var(--muted);line-height:1}
+  .sd-cell.pile .sd-n{color:var(--warn,#e0b050);font-weight:600}
+  .step-dist-note{font-size:.74rem;color:var(--muted);margin-top:.3rem}
+  .step-dist-note b{color:var(--fg);font-weight:600}
+
+  /* section header with right-aligned actions (actions folded into sessions) */
+  .sec-head{display:flex;align-items:baseline;gap:.8rem;margin:1.6rem 0 .4rem 0}
+  .sec-head h2{margin:0}
+  .sec-head .sec-acts{margin-left:auto;display:flex;gap:.5rem;align-items:center}
+  .sec-head .muted{font-size:.72rem}
+
+  /* lifecycle key strip — the compact reference, hover highlights rows */
+  .step-key{display:flex;gap:3px;flex-wrap:wrap;margin:.15rem 0 .5rem}
+  .sk-chip{font-size:.64rem;padding:.12rem .38rem;border:1px solid var(--border);border-radius:999px;
+    color:var(--muted);cursor:default;white-space:nowrap;transition:border-color .1s, color .1s, background .1s}
+  .sk-chip:hover{border-color:var(--accent);color:var(--accent);background:rgba(155,209,255,.06)}
+  .sk-chip .n{color:inherit;opacity:.75;margin-right:.2rem;font-variant-numeric:tabular-nums}
+
+  /* session table — compact rows */
+  .sess-table th{white-space:nowrap}
+  .sess-table td{vertical-align:middle}
+  .sess-id code{font-size:.8rem}
+  .sess-kind{display:block;font-size:.68rem;color:var(--muted);margin-top:.1rem}
+  .sess-step{display:flex;align-items:center;gap:.45rem}
+  .sess-step .pos{font-size:.74rem;white-space:nowrap}
+  .sess-step .pos b{font-weight:600}
+  .sess-step .pos .mn{color:var(--muted)}
+  /* 12-tick lifecycle strip (per row) */
+  .tick-strip{display:inline-flex;gap:1.5px}
+  .tick{width:5px;height:8px;border-radius:1px;background:var(--border);opacity:.5}
+  .tick.done{background:#2c6e3f;opacity:.9}
+  .tick.now{background:var(--accent);opacity:1;box-shadow:0 0 4px rgba(155,209,255,.5)}
+  /* state-aware rows */
+  tr.r-hibernated{opacity:.62}
+  tr.r-hibernated td:first-child{border-left:2px solid var(--warn,#e0b050)}
+  tr.r-blocked td:first-child{border-left:2px solid var(--bad,#e06a6a)}
+  tr.r-over td:first-child{border-left:2px solid var(--warn,#e0b050)}
+  .eta-over{color:var(--warn,#e0b050)}
+  .eta-over .over-chip{font-size:.64rem;border:1px solid var(--warn,#e0b050);border-radius:3px;padding:0 .3rem;margin-left:.3rem;white-space:nowrap}
+  /* smart insight row under the table — rendered only when something needs attention */
+  .sess-insights{margin:.45rem 0 0;padding:.45rem .7rem;border:1px solid var(--border);border-radius:6px;
+    background:rgba(255,255,255,.02);font-size:.78rem;display:flex;flex-direction:column;gap:.3rem}
+  .sess-insights .ins{display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
+  .sess-insights .ins .ic{flex:none}
+  .sess-insights .ins.warn .ic{color:var(--warn,#e0b050)}
+  .sess-insights .ins.bad .ic{color:var(--bad,#e06a6a)}
+  .sess-insights .ins .muted{font-size:.74rem}
 </style>
 
 <h2>summary</h2>
-<div class="row session-deck">
-  <div class="stat"><div class="k">active</div><div class="v ok" id="active-count">—</div></div>
-  <div class="stat"><div class="k">hibernated</div><div class="v warn" id="hibernated-count">—</div></div>
-  <div class="stat"><div class="k">blocked</div><div class="v bad" id="blocked-count">—</div></div>
-  <div class="stat"><div class="k">total branches</div><div class="v" id="branch-count">—</div></div>
-</div>
-
-<h2>M057 12-step lifecycle reference</h2>
-<div class="panel">
-  <div class="step-grid">
-    <div class="step-cell" title="Intake">1·Intake</div>
-    <div class="step-cell" title="Normalize">2·Norm</div>
-    <div class="step-cell" title="Profile Resolve">3·Profile</div>
-    <div class="step-cell" title="Map">4·Map</div>
-    <div class="step-cell" title="Plan-Compile">5·Plan</div>
-    <div class="step-cell" title="Route">6·Route</div>
-    <div class="step-cell" title="Execute">7·Exec</div>
-    <div class="step-cell" title="Observe">8·Obs</div>
-    <div class="step-cell" title="Evaluate">9·Eval</div>
-    <div class="step-cell" title="Commit-Rollback">10·Commit</div>
-    <div class="step-cell" title="Learn">11·Learn</div>
-    <div class="step-cell" title="Resume-Archive">12·Archive</div>
+<div class="summary-block">
+  <div class="row session-deck">
+    <div class="stat"><div class="k">active</div><div class="v ok" id="active-count">—</div></div>
+    <div class="stat"><div class="k">hibernated</div><div class="v warn" id="hibernated-count">—</div></div>
+    <div class="stat"><div class="k">blocked</div><div class="v bad" id="blocked-count">—</div></div>
+    <div class="stat"><div class="k">total branches</div><div class="v" id="branch-count">—</div></div>
   </div>
-  <div class="muted" style="font-size:.78rem;margin-top:.3rem">M057 12-step lifecycle (sovereign-os M057). Critical Data Flow Law: "Text is not the system state. Text is payload inside typed state." (M057 verbatim)</div>
+  <div class="step-dist" id="step-dist" role="img" aria-label="sessions by lifecycle step">
+    <div class="muted" style="align-self:center;font-size:.74rem">loading…</div>
+  </div>
+  <div class="step-dist-note" id="step-dist-note" aria-live="polite"></div>
 </div>
 
-<h2>sessions</h2>
-<div class="panel">
-  <table>
-    <thead>
-      <tr><th>id</th><th>kind</th><th>profile</th><th>step</th><th>SRP agent</th><th>started</th><th>ETA</th><th>branches</th><th>actions</th></tr>
-    </thead>
-    <tbody id="sessions-tbody">
-      <tr><td colspan="9" class="muted">loading…</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<h2>actions</h2>
-<div class="panel">
-  <div class="row">
+<div class="sec-head">
+  <h2>sessions</h2>
+  <div class="sec-acts">
+    <span class="muted">Cmd-2 refreshes</span>
     <button id="refresh-btn">refresh now</button>
     <button id="hibernate-all-btn">hibernate all (operator-signed)</button>
-    <span class="muted" style="font-size:.78rem">hibernate composes with M047 CRIU + ZFS warm-sandbox continuity</span>
   </div>
+</div>
+
+<!-- compact lifecycle key — the 12-step reference folded to one strip;
+     hover a chip to isolate the sessions sitting on that step.
+     M057 12-step lifecycle: "Text is not the system state. Text is payload inside typed state." -->
+<div class="step-key" id="step-key" aria-hidden="true">
+  <span class="sk-chip" data-step="1"><span class="n">1</span>Intake</span>
+  <span class="sk-chip" data-step="2"><span class="n">2</span>Norm</span>
+  <span class="sk-chip" data-step="3"><span class="n">3</span>Profile</span>
+  <span class="sk-chip" data-step="4"><span class="n">4</span>Map</span>
+  <span class="sk-chip" data-step="5"><span class="n">5</span>Plan</span>
+  <span class="sk-chip" data-step="6"><span class="n">6</span>Route</span>
+  <span class="sk-chip" data-step="7"><span class="n">7</span>Exec</span>
+  <span class="sk-chip" data-step="8"><span class="n">8</span>Obs</span>
+  <span class="sk-chip" data-step="9"><span class="n">9</span>Eval</span>
+  <span class="sk-chip" data-step="10"><span class="n">10</span>Commit</span>
+  <span class="sk-chip" data-step="11"><span class="n">11</span>Learn</span>
+  <span class="sk-chip" data-step="12"><span class="n">12</span>Archive</span>
+</div>
+
+<div class="panel">
+  <table class="sess-table">
+    <thead>
+      <tr><th>session</th><th>profile</th><th>SRP</th><th>lifecycle step</th><th>age</th><th>ETA</th><th>branches</th><th>actions</th></tr>
+    </thead>
+    <tbody id="sessions-tbody">
+      <tr><td colspan="8" class="muted">loading…</td></tr>
+    </tbody>
+  </table>
+  <div class="sess-insights" id="session-insights" hidden></div>
 </div>
 
 <div class="footer">
@@ -2191,20 +2253,21 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <script>
 const $ = (id) => document.getElementById(id);
 const STEPS = ['Intake','Normalize','Profile','Map','Plan','Route','Execute','Observe','Evaluate','Commit','Learn','Archive'];
+const STEP_SHORT = ['Intake','Norm','Profile','Map','Plan','Route','Exec','Obs','Eval','Commit','Learn','Archive'];
 
 function escapeHtml(s) {
   if (s == null) return '';
-  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
 }
 
-function renderStepBar(step) {
-  // step is 1-12; render a compact 12-cell progress
-  const cells = [];
+function renderTickStrip(step) {
+  // step is 1-12; compact 12-tick lifecycle strip
+  const ticks = [];
   for (let i = 1; i <= 12; i++) {
-    const cls = i < step ? 'done' : i === step ? 'active' : 'pending';
-    cells.push(`<div class="step-cell ${cls}" title="step ${i} ${STEPS[i-1]}">${i}</div>`);
+    const cls = i < step ? 'done' : i === step ? 'now' : '';
+    ticks.push(`<span class="tick ${cls}" title="step ${i} · ${STEP_SHORT[i-1]}"></span>`);
   }
-  return `<div class="step-grid" style="grid-template-columns:repeat(12,1fr)">${cells.join('')}</div>`;
+  return `<span class="tick-strip" aria-hidden="true">${ticks.join('')}</span>`;
 }
 
 function fmtAge(ts) {
@@ -2225,6 +2288,22 @@ function fmtEta(eta) {
   return `${Math.floor(min/60)}h ${min%60}m`;
 }
 
+// past-ETA heuristic: an active session whose elapsed wall time already exceeds
+// its declared ETA. A soft flag (the ETA is a prediction), surfaced so a stale
+// "ETA 40m" on a 3h-old session stops reading as if it were on track.
+function overEtaMs(s) {
+  if (s.state !== 'active' || !s.eta_seconds) return 0;
+  const elapsed = Date.now() - new Date(s.started_at).getTime();
+  const over = elapsed - s.eta_seconds * 1000;
+  return over > 0 ? over : 0;
+}
+
+function fmtOver(ms) {
+  const min = Math.floor(ms / 60000);
+  if (min < 60) return `${min}m`;
+  return `${Math.floor(min/60)}h ${min%60}m`;
+}
+
 function statusClass(state) {
   return {active: 'ok', hibernated: 'warn', blocked: 'bad', queued: 'muted', complete: 'ok'}[state] || 'muted';
 }
@@ -2232,35 +2311,85 @@ function statusClass(state) {
 function renderSessions(sessions) {
   const tbody = $('sessions-tbody');
   if (!sessions.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="muted">no active sessions — next-action: invoke <code>sovereign run &lt;task&gt;</code> to start a session (M060 R10054 CLI quick-action)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="muted">no active sessions — next-action: invoke <code>sovereign run &lt;task&gt;</code> to start a session (M060 R10054 CLI quick-action)</td></tr>';
     return;
   }
-  tbody.innerHTML = sessions.map(s => `
-    <tr class="session-row" data-id="${escapeHtml(s.id)}">
-      <td><code>${escapeHtml(s.id.slice(0, 12))}</code></td>
-      <td>${escapeHtml(s.kind)}</td>
+  tbody.innerHTML = sessions.map(s => {
+    const over = overEtaMs(s);
+    const rowCls = s.state === 'hibernated' ? 'r-hibernated' : s.state === 'blocked' ? 'r-blocked' : over ? 'r-over' : '';
+    const etaHtml = over
+      ? `<span class="eta-over">${fmtEta(s.eta_seconds)}<span class="over-chip">over by ${fmtOver(over)}</span></span>`
+      : fmtEta(s.eta_seconds);
+    return `
+    <tr class="session-row ${rowCls}" data-id="${escapeHtml(s.id)}" data-step="${s.step}">
+      <td class="sess-id"><code title="${escapeHtml(s.id)}">${escapeHtml(s.id.slice(0, 14))}</code><span class="sess-kind">${escapeHtml(s.kind)}</span></td>
       <td><span class="pill accent">${escapeHtml(s.profile)}</span></td>
-      <td>
-        <div style="display:flex;gap:.4rem;align-items:center">
-          <span class="pill ${statusClass(s.state)}">${escapeHtml(s.state)}</span>
-          <span class="muted">${s.step}/12 ${STEPS[s.step-1] || '?'}</span>
-        </div>
-        ${renderStepBar(s.step)}
-      </td>
       <td><span class="muted">${escapeHtml(s.srp_agent || 'Conductor')}</span></td>
-      <td class="muted">${fmtAge(s.started_at)}</td>
-      <td>${fmtEta(s.eta_seconds)}</td>
-      <td>${s.branch_count || 0}</td>
       <td>
+        <div class="sess-step">
+          <span class="pill ${statusClass(s.state)}">${escapeHtml(s.state)}</span>
+          <span class="pos"><b>${s.step}/12</b> <span class="mn">${STEP_SHORT[s.step-1] || '?'}</span></span>
+          ${renderTickStrip(s.step)}
+        </div>
+      </td>
+      <td class="muted" style="white-space:nowrap">${fmtAge(s.started_at)}</td>
+      <td style="white-space:nowrap">${etaHtml}</td>
+      <td>${s.branch_count || 0}</td>
+      <td style="white-space:nowrap">
         ${s.state === 'active' ? `<button class="hibernate" data-action="hibernate" data-id="${escapeHtml(s.id)}">hibernate</button>` : ''}
         ${s.state === 'hibernated' ? `<button class="resume" data-action="resume" data-id="${escapeHtml(s.id)}">resume</button>` : ''}
         <button class="kill" data-action="kill" data-id="${escapeHtml(s.id)}">kill</button>
       </td>
     </tr>
-  `).join('');
+  `;}).join('');
   tbody.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.id));
   });
+}
+
+// load-by-step distribution — the shape of the load across the 12 steps.
+// A pile (>=2 sessions on one step) is the at-a-glance "is anything stuck?" signal.
+function renderStepDist(sessions) {
+  const host = $('step-dist'); const note = $('step-dist-note');
+  const counts = new Array(13).fill(0);
+  (sessions || []).forEach(s => { if (s.step >= 1 && s.step <= 12) counts[s.step]++; });
+  const max = Math.max(...counts);
+  if (!(sessions || []).length) {
+    host.innerHTML = '<div class="muted" style="align-self:center;font-size:.74rem">no sessions</div>';
+    note.textContent = '';
+    return;
+  }
+  host.innerHTML = counts.slice(1).map((c, i) => {
+    const n = i + 1;
+    const h = max ? Math.round(6 + (c / max) * 18) : 2;
+    const pile = c >= 2;
+    return `<div class="sd-cell${c ? '' : ' n0'}${pile ? ' pile' : ''}" title="step ${n} · ${STEP_SHORT[i]} — ${c} session(s)">
+      <span class="sd-n">${c || ''}</span><span class="sd-bar" style="height:${c ? h : 2}px"></span>
+    </div>`;
+  }).join('');
+  const piles = [];
+  for (let n = 1; n <= 12; n++) if (counts[n] >= 2) piles.push(`<b>${counts[n]} at ${n}·${STEP_SHORT[n-1]}</b>`);
+  note.innerHTML = piles.length
+    ? 'work piling up: ' + piles.join(', ') + ' — check those sessions in the table'
+    : 'no pile-ups — sessions are spread across the lifecycle';
+}
+
+// smart insight row — only rendered when something actually needs attention.
+// Blocked sessions point at the gate they usually wait on; past-ETA sessions
+// point at the trace view where the hang is visible at span level.
+function renderInsights(sessions, summary) {
+  const box = $('session-insights');
+  const items = [];
+  const blocked = (summary && summary.blocked) || sessions.filter(s => s.state === 'blocked').length;
+  if (blocked > 0) {
+    items.push(`<div class="ins bad"><span class="ic">⛔</span><span>${blocked} session${blocked>1?'s':''} blocked — usually waiting on a gate: <a href="../d-06-pending-approvals/">D-06 pending approvals</a> is where blocked sessions get unblocked.</span></div>`);
+  }
+  const overN = sessions.filter(s => overEtaMs(s) > 0).length;
+  if (overN > 0) {
+    items.push(`<div class="ins warn"><span class="ic">⏱</span><span>${overN} active session${overN>1?'s':''} past their declared ETA — before killing, confirm the step is actually hung in <a href="../d-05-traces/">D-05 traces</a>.</span></div>`);
+  }
+  box.hidden = items.length === 0;
+  box.innerHTML = items.join('');
 }
 
 function handleAction(action, id) {
@@ -2312,23 +2441,38 @@ async function fetchSessions() {
 }
 
 function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
+// DEMO data — ages are relative so the board reads realistically whenever it is
+// opened (a fixed 2026-06-30 start would flag every session past-ETA in
+// September, which would teach the wrong lesson). age_min = minutes since start;
+// resolveDemoAges() maps them to started_at at render time.
 const DEMO_SESSIONS = {
-  summary:{active:3,hibernated:1,blocked:0,branches:5},
+  summary:{active:3,hibernated:1,blocked:1,branches:6},
   sessions:[
-    {id:"demo-session-01ab", kind:"agent", profile:"careful", state:"active", step:4, srp_agent:"demo/Conductor", started_at:"2026-06-30T14:02:00Z", eta_seconds:420, branch_count:2},
-    {id:"demo-session-02cd", kind:"agent", profile:"fast", state:"active", step:7, srp_agent:"demo/Weaver", started_at:"2026-06-30T13:40:00Z", eta_seconds:180, branch_count:1},
-    {id:"demo-session-03ef", kind:"chat", profile:"private", state:"active", step:2, srp_agent:"demo/Auditor", started_at:"2026-06-30T14:10:00Z", eta_seconds:600, branch_count:2},
-    {id:"demo-session-04gh", kind:"agent", profile:"careful", state:"hibernated", step:9, srp_agent:"demo/Conductor", started_at:"2026-06-29T22:00:00Z", eta_seconds:0, branch_count:0}
+    {id:"demo-session-01ab", kind:"agent", profile:"careful", state:"active", step:7, srp_agent:"demo/Conductor", age_min:25,  eta_seconds:2400,  branch_count:2},
+    {id:"demo-session-02cd", kind:"agent", profile:"fast",    state:"active", step:7, srp_agent:"demo/Weaver",   age_min:55,  eta_seconds:900,   branch_count:1},
+    {id:"demo-session-03ef", kind:"chat",  profile:"private", state:"active", step:2, srp_agent:"demo/Auditor",  age_min:8,   eta_seconds:600,   branch_count:2},
+    {id:"demo-session-04gh", kind:"agent", profile:"careful", state:"hibernated", step:9, srp_agent:"demo/Conductor", age_min:1560, eta_seconds:0,     branch_count:0},
+    {id:"demo-session-05ij", kind:"agent", profile:"careful", state:"blocked",  step:6, srp_agent:"demo/Weaver",  age_min:180, eta_seconds:1800,  branch_count:1}
   ]
 };
+function resolveDemoAges(sessions) {
+  return (sessions || []).map(s => {
+    const c = Object.assign({}, s);
+    if (c.age_min !== undefined) { c.started_at = new Date(Date.now() - c.age_min * 60000).toISOString(); delete c.age_min; }
+    return c;
+  });
+}
 async function refresh() {
   const state = demoActive() ? DEMO_SESSIONS : await fetchSessions();
+  const sessions = demoActive() ? resolveDemoAges(state.sessions) : (state.sessions || []);
   if (demoActive()) { const _b=document.getElementById('datasource-banner'); if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');} const _l=document.getElementById('ds-state-label'); if(_l)_l.textContent='data source: DEMO — sample data'; const _d=document.getElementById('ds-state-detail'); if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)'; if(window.soDemo)window.soDemo.badge(); }
   $('active-count').textContent = state.summary.active;
   $('hibernated-count').textContent = state.summary.hibernated;
   $('blocked-count').textContent = state.summary.blocked;
   $('branch-count').textContent = state.summary.branches;
-  renderSessions(state.sessions || []);
+  renderStepDist(sessions);
+  renderSessions(sessions);
+  renderInsights(sessions, state.summary);
 }
 
 $('refresh-btn').addEventListener('click', refresh);
@@ -2337,6 +2481,22 @@ $('refresh-btn').addEventListener('click', refresh);
 // itself never mutates (R10212).
 $('hibernate-all-btn').setAttribute('title', 'bulk-hibernate every active session — via the Controls rail');
 $('hibernate-all-btn').addEventListener('click', () => jumpToControl('session-hibernate-all'));
+
+// lifecycle key strip — hover isolates the rows sitting on that step
+(function(){
+  const key = document.getElementById('step-key');
+  if (!key) return;
+  const rows = () => Array.from(document.querySelectorAll('#sessions-tbody tr.session-row'));
+  key.addEventListener('mouseover', (e) => {
+    const chip = e.target.closest('.sk-chip'); if (!chip) return;
+    const n = chip.dataset.step;
+    rows().forEach(r => { r.style.opacity = r.dataset.step === n ? '' : '.28'; });
+  });
+  key.addEventListener('mouseout', (e) => {
+    if (!e.target.closest('.sk-chip')) return;
+    rows().forEach(r => { r.style.opacity = ''; });
+  });
+})();
 
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); refresh(); }
@@ -3013,7 +3173,7 @@ window.SO_ASSIST = {
  "context": {
   "icon": "▣",
   "title": "D-01 · Active Sessions",
-  "content": "The live board of everything the box is working on — every operator session in flight and exactly where it sits in the M057 12-step task lifecycle, from init through inference, response, and validation to cleanup. It answers the question a summary can’t: not ‘how busy is the box’ but ‘what is it actually doing, and is anything stuck.’ Because every session walks the same twelve steps, a session parked at one step is a session that needs attention — a validation that never finished, an inference that never returned.\n\nSessions aren’t only active: they can be hibernated (parked to reclaim resources, resumable) or blocked (waiting on something). Read the counts for the shape of the load, the table for the per-session detail, and use hibernate to reclaim resources under pressure — a signed action, because parking work is a real decision."
+  "content": "The live board of everything the box is working on — every operator session in flight and exactly where it sits in the M057 12-step task lifecycle. It answers the question a summary can’t: not ‘how busy is the box’ but ‘what is it actually doing, and is anything stuck.’\n\nRead it top-down: the four counts give the shape of the load, the load-by-step strip shows WHERE in the lifecycle the work sits (a pile on one step is the at-a-glance stuck signal), the table gives per-session detail with a past-ETA flag when a session’s wall time has already blown its prediction, and the insight line under the table points you at the panel that unblocks whatever is stuck — approvals for blocked sessions, traces for past-ETA ones. Sessions can also be hibernated (parked, resumable) or blocked (waiting on a gate); hibernate is a signed action, because parking work is a real decision."
  },
  "nodes": [
   {
@@ -3067,7 +3227,7 @@ window.SO_ASSIST = {
   {
    "icon": "▦",
    "title": "Summary",
-   "content": "The load at a glance — how many sessions are active, hibernated, and blocked, and how many branches they hold in total. It’s the shape of what the box is carrying: lots of active is healthy throughput, lots of blocked is a bottleneck, lots of hibernated is deliberately-parked work waiting to resume. Read it before the table for the overall picture.",
+   "content": "The load at a glance — how many sessions are active, hibernated, and blocked, how many branches they hold, and WHERE in the 12-step lifecycle that load sits. The counts say how much; the strip below them says where. It’s the shape of what the box is carrying: lots of active is healthy throughput, lots of blocked is a bottleneck, lots of hibernated is deliberately-parked work, and a pile on one step is work queueing behind a slow stage.",
    "children": [
     {
      "selector": "#active-count",
@@ -3084,7 +3244,7 @@ window.SO_ASSIST = {
     {
      "selector": "#blocked-count",
      "title": "Blocked",
-     "content": "How many sessions are stalled — waiting on something they can’t proceed without: a pending approval, a dependency, an unavailable resource. Unlike hibernated (parked on purpose), blocked is involuntary, so this count is the bottleneck number: sessions here are work the box wants to advance but can’t.",
+     "content": "How many sessions are stalled — waiting on something they can’t proceed without: a pending approval, a dependency, an unavailable resource. Unlike hibernated (parked on purpose), blocked is involuntary, so this count is the bottleneck number: sessions here are work the box wants to advance but can’t. When it’s non-zero, the insight line under the table points you at the gate.",
      "variants": [
       {
        "when": {
@@ -3097,8 +3257,8 @@ window.SO_ASSIST = {
        "when": {
         "textContains": ""
        },
-       "content": "Sessions are blocked — read the table to see what each is waiting on; a pending approval is a common cause.",
-       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Sessions blocked</div>Some work can’t advance. Check the table for what each blocked session is waiting on — often an approval on D-06.</div>"
+       "content": "Sessions are blocked — the insight line below the table tells you where they’re usually waiting; a pending approval is the common cause.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ Sessions blocked</div>Some work can’t advance. The insight line links the usual unblock point — an approval on D-06.</div>"
       }
      ],
      "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">Work stalled on a decision</div>How many sessions are blocked — waiting on an approval or a resource. A rising blocked count is work piling up behind a gate; it's the number that predicts a growing D-06 approval queue.<div class=\"so-xref\"><span class=\"x\">→</span> D-06 pending approvals — what blocked sessions wait on</div></div>"
@@ -3108,40 +3268,67 @@ window.SO_ASSIST = {
      "title": "Total branches",
      "content": "The total number of branches across all sessions. A session can fan out into multiple reasoning branches (speculative or parallel paths), so this is a finer measure of concurrency than the session count — it’s the real number of things being reasoned at once, and what the backpressure rules narrow when a GPU or CPU tier saturates.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Branches are the real unit of concurrency</div>One session can spawn several branches — parallel attempts, speculative continuations. So the box’s actual parallel load is branches, not sessions, and it’s branches the 4090-busy and CPU-pressure rules cut when a tier fills. A branch count far above the session count means heavy fan-out, which is where concurrency pressure comes from.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-09 rule 4090-busy — narrows branch width when the Scout GPU saturates</div>"
+    },
+    {
+     "selector": "#step-dist",
+     "title": "Load by lifecycle step",
+     "content": "Where the sessions actually sit, across the M057 12-step lifecycle — one bar per step, its height the number of sessions on it. This is the 'is anything stuck' read: sessions normally flow, so a pile (amber, ≥2 on one step) means work is queueing behind a slow stage — a model that isn’t returning at Exec, a validation that never finishes at Eval. A flat spread is healthy flow; a single tall bar is the bottleneck, and it names the step so you know what to look for next.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The shape of the flow</div>Twelve bars, one per M057 step. Healthy traffic spreads out — sessions enter at Intake and drain toward Archive. When one bar grows amber, sessions are stacking on that step: the stage behind it is the slow one. The step name tells you the failure class — Exec = inference not returning, Eval = validation stalled, Route = no tier available — so this strip turns 'something feels slow' into 'look at Exec.'</div><div class=\"so-xref\"><span class=\"x\">→</span> the sessions table — which specific sessions are piled on that step<br><span class=\"x\">→</span> D-03 — model health if the pile is at Exec (the stage that needs the model)<br><span class=\"x\">→</span> D-05 — traces for span-level proof of the hang</div>"
     }
    ]
   },
   {
    "icon": "◫",
    "title": "Sessions",
-   "content": "The per-session detail — each session with its lifecycle position, branches, and state. Where the counts give the shape, this is where ‘a session is stuck’ becomes ‘THIS session is stuck at step 7 waiting on validation.’ Hover a row to read one session’s full state and where in the twelve steps it sits.",
+   "content": "The per-session detail — each session with its identity, its 12-step position, its state, and how far its wall time has run against its ETA. Where the counts give the shape, this is where ‘a session is stuck’ becomes ‘THIS session is stuck at step 7, 40 minutes past its ETA.’ The lifecycle key strip above the table isolates a step on hover; the insight line below links the stuck work to the panel that unblocks it.",
    "children": [
+    {
+     "selector": "#step-key",
+     "title": "Lifecycle key strip",
+     "content": "The M057 12-step lifecycle folded to one strip — the reference for every step label on this board. It’s interactive: hover a step and only the sessions sitting on it stay lit, everything else dims. Use it the way you’d use a legend while diagnosing — 'what's at Exec right now?' — instead of scanning the table row by row.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Hover to isolate a step</div>The twelve M057 steps in fixed order — Intake through Archive. Every session row carries its position on this same scale, so the strip is the key to the table: hover 7·Exec and the board shows exactly who is executing. A step with a bright cluster is the one to read next.</div><div class=\"so-xref\"><span class=\"x\">→</span> #step-dist — the same distribution, counted<br><span class=\"x\">→</span> M057 — the 12-step task lifecycle (sovereign-os M057): 'Text is not the system state. Text is payload inside typed state.'</div>"
+    },
     {
      "selector": "#sessions-tbody",
      "title": "Session rows",
-     "content": "Each row is one session: its identity, where it sits in the M057 12-step lifecycle, its branches, and its state (active/hibernated/blocked). Read a row to diagnose a specific session — a session parked at the same step across refreshes is stuck, not slow, and the step tells you what it’s stuck on (a hung inference, a stalled validation, a pending approval). Hover for the detail.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The lifecycle position is the diagnosis</div>The M057 twelve steps run init → prepare → infer → validate → respond → … → cleanup. A session’s step is not decoration — it’s where the problem is: stuck at infer means the model isn’t returning; stuck at validate means a check is failing or waiting; stuck before cleanup means work isn’t draining. So the step column turns ‘this session is slow’ into a specific, actionable cause.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the span-level detail of what a stuck session is doing<br><span class=\"x\">→</span> D-06 approvals — where a session blocked on a gate is waiting</div>",
+     "content": "Each row is one session: its identity (id + kind), profile, SRP agent, lifecycle position (state + step + a 12-tick strip), how old it is, its ETA — amber with 'over by …' when wall time has already passed the prediction — and its branches. Read a row to diagnose a specific session: parked at the same step across refreshes is stuck, not slow, and the step names the cause (hung inference, stalled validation, pending gate). Hibernated rows dim; blocked and past-ETA rows get an edge so they can’t hide in the list.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The lifecycle position is the diagnosis</div>The M057 twelve steps run intake → profile → map → plan → route → exec → observe → evaluate → commit → learn → archive. A session’s step is not decoration — it’s where the problem is: stuck at Exec means the model isn’t returning; stuck at Eval means a check is failing or waiting; stuck before Archive means work isn’t draining. The amber 'over by' flag on ETA is the same idea from the time side: the session took longer than its own prediction said it would. Two sessions both over-ETA at the same step is a stage problem, not a session problem.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-05 traces — the span-level detail of what a stuck session is doing<br><span class=\"x\">→</span> D-06 approvals — where a session blocked on a gate is waiting</div>",
      "dynamic": true,
      "childTemplate": {
       "selector": "#sessions-tbody tr",
-      "nameSelector": "td,code,strong",
+      "nameSelector": "code",
       "title": "Session · {{name}}",
-      "content": "The {{name}} session — its lifecycle step, branches, and state. Read the step: parked at the same one across refreshes means stuck, not slow, and the step names the cause (hung inference, stalled validation, pending gate). Branches show its fan-out; state shows whether it’s active, parked, or waiting.",
-      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Session · {{name}}</div>One session in the M057 lifecycle. Its step is the diagnosis — where it sits tells you what it’s stuck on. An active session advancing is healthy; a blocked one is waiting on something (often an approval); a hibernated one is parked and resumable.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-05 — trace this session’s spans<br><span class=\"x\">→</span> D-06 — if it’s blocked on a gate</div>"
+      "content": "The {{name}} session — its lifecycle step, branches, and state. Read the step: parked at the same one across refreshes means stuck, not slow, and the step names the cause (hung inference, stalled validation, pending gate). An amber ETA means its wall time already passed its own prediction. Branches show its fan-out; state shows whether it’s active, parked, or waiting.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Session · {{name}}</div>One session in the M057 lifecycle. Its step is the diagnosis — where it sits tells you what it’s stuck on. An active session advancing is healthy; a blocked one is waiting on something (often an approval on D-06); a hibernated one is parked and resumable; a past-ETA one is worth a look in D-05 before you kill it.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-05 — trace this session’s spans<br><span class=\"x\">→</span> D-06 — if it’s blocked on a gate</div>"
      }
+    },
+    {
+     "selector": "#session-insights",
+     "title": "Insight line",
+     "content": "The smart line under the table — rendered only when something actually needs attention, never as decoration. Right now it’s hidden, and that is the information: no blocked sessions, none past ETA, nothing on this board that needs a second panel. The moment a count goes non-zero, the line appears and points at the panel that fixes it — D-06 for blocked work, D-05 for past-ETA hangs.",
+     "variants": [
+      {
+       "when": {
+        "hasSelector": ".ins"
+       },
+       "content": "Something needs attention — each item is a number on this board plus the shortest path to fixing it: blocked sessions point at D-06, where they get unblocked; past-ETA sessions point at D-05, where the hang is visible at span level before you decide to kill.",
+       "expanded": "<div class=\"so-card warn\"><div class=\"so-card-label\">▲ The line is live</div>Each insight is a consequence of a count on this board plus the shortest path to fixing it: blocked → the approval queue; past-ETA → the trace of the hang. It links out instead of explaining in, because the unblock happens on the other panel.</div>"
+      }
+     ],
+     "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">● All clear</div>No blocked sessions and none past their ETA — the board needs no second panel today. If this line appears, each item will carry the link that unblocks it.</div>"
     }
    ]
   },
   {
    "icon": "⇄",
    "title": "Actions",
-   "content": "Refresh re-reads the board; hibernate-all parks every session at once to reclaim resources fast — a signed action, because parking all live work is a real, consequential decision, not a click.",
+   "content": "Folded into the sessions header: refresh re-reads the board now; hibernate-all parks every session at once to reclaim resources fast — a signed action, because parking all live work is a real, consequential decision, not a click.",
    "children": [
     {
      "selector": "#refresh-btn",
      "title": "Refresh now",
      "content": "Re-reads the session board immediately rather than waiting for the automatic poll. Read-only. Use it after an action, or when a session looks stuck and you want to confirm it hasn’t moved — a fresh read distinguishes ‘genuinely stalled’ from ‘the board was just stale.’",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read the live lifecycle</div>Re-polls the session list now — read-only. It re-samples the M057 registry; it never starts or stops a session.</div>"
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Re-read the live lifecycle</div>Re-polls the session list now — read-only. It re-samples the M057 registry; it never starts or stops a session. Cmd-2 does the same.</div>"
     },
     {
      "selector": "#hibernate-all-btn",

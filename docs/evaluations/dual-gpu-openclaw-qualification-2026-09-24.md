@@ -2,6 +2,23 @@
 
 Status: qualification design and initial baseline; no candidate certified.
 
+## Saved profile and heavier OpenClaw work — 2026-09-25
+
+Renamed the profile file and ID to `qwen38-dual-agent`, retaining the display name
+Qwen 3.8 Dual Agent — 96K / 128K. Updated control options, actual command enum,
+OpenClaw profile-primary mapping and regression tests. Activated the new ID via
+the existing authorized CLI (exit 0); runtime payload and marker migrated.
+Readiness means downloadable artifacts are available, not soak certification.
+
+Added `scripts/inference/qualify-openclaw.py`: bounded, concurrent actual OpenClaw
+read-tool tasks on both routes, each reading three ~11KB generated ledgers and
+extracting random codes and summed amounts. Transcript tool-call/result evidence,
+answer checking, fallback detection and per-case timing are recorded. The harness
+stops a route after a failed case rather than continuing a misleading success tally.
+Run artifacts for the first five-round-per-card batch:
+`/tmp/sovereign-openclaw-qualification-t7vg_8bd` (temporary, not archival storage).
+This batch is heavier functional testing, not the planned four-hour soak.
+
 ## Context increase trial — 2026-09-25
 
 Operator approved the next step: Logic 98304 tokens, Oracle 131072 tokens.

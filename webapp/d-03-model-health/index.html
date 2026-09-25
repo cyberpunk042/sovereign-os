@@ -434,10 +434,22 @@ a11y; contract test catches drift.
   .pill.precision-bf16{background:#143d3d;color:var(--accent)}
   .pill.precision-hrm{background:#3d1414;color:#ff7676}
   .latency-bar{display:inline-block;width:80px;height:12px;background:#0a0a0a;border:1px solid var(--border);border-radius:2px;vertical-align:middle;position:relative}
-  .latency-bar .seg{position:absolute;top:0;bottom:0;background:var(--accent)}
-  .latency-bar .p50{background:var(--good);width:50%}
-  .latency-bar .p95{background:var(--warn);width:30%;left:50%}
-  .latency-bar .p99{background:var(--bad);width:20%;left:80%}
+  .latency-bar .seg{position:absolute;top:0;bottom:0}
+  .latency-bar .p50{background:var(--good)}
+  .latency-bar .p95{background:var(--warn)}
+  .latency-bar .p99{background:var(--bad)}
+  /* — health insight strip: renders only when something needs attention — */
+  .insights{display:flex;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 .9rem}
+  .ins{font:inherit;font-size:.74rem;padding:.22rem .6rem;border-radius:999px;cursor:pointer;
+    background:var(--panel);border:1px solid var(--border);color:var(--fg)}
+  .ins:hover{border-color:var(--accent)}
+  .ins.warn{color:var(--warn);border-color:rgba(224,192,122,.45);background:rgba(224,192,122,.07)}
+  .ins.bad{color:var(--bad);border-color:rgba(255,118,118,.5);background:rgba(255,118,118,.08)}
+  /* — heatmap time axis (24h buckets: 0 = oldest, 23 = most recent) — */
+  .hm-axis{display:flex;align-items:center;gap:.4rem;margin:.35rem 0 .15rem}
+  .hm-axis .hm-spacer{flex:0 0 200px}
+  .hm-tick{flex:0 0 18px;font-size:.62rem;color:var(--muted);text-align:center;white-space:nowrap}
+  .hm-now{box-shadow:0 0 0 1px var(--accent,#9bd1ff)}
   .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
   .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
   a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
@@ -2134,6 +2146,11 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
   <div class="stat"><div class="k">Router (eGPU) models</div><div class="v accent" id="router-count">—</div></div>
 </div>
 
+<!-- Smart insight strip: rendered only when something needs operator attention
+     (sovereignty tripwire, saturation, latency tail, availability). Clicking a
+     chip jumps to the relevant section. Empty = all quiet. -->
+<div id="model-insights" class="insights" hidden></div>
+
 <!-- Live Sovereign Gateway (:8787) — the M048 sovereign router in front of every
      model: it decides route / placement / precision before a token is generated.
      Served read-only at /api/models/gateway (model-health-api probes :8787
@@ -2153,7 +2170,7 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
 
 <h2>SRP role health (M075 + M058)</h2>
 <div class="row role-deck">
-  <div class="role-card conductor">
+  <div class="role-card conductor" id="role-card-conductor">
     <h3>Conductor — CPU bound</h3>
     <div class="scope">M075 R12426-R12428: bitnet.cpp ternary on Pulse Core CCD 0 (cores 0-5)</div>
     <div class="row" style="margin:.5rem 0">
@@ -2173,7 +2190,7 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
     </table>
   </div>
 
-  <div class="role-card logic">
+  <div class="role-card logic" id="role-card-logic">
     <h3>Logic Engine — RTX 5090 (32GB, internal secondary)</h3>
     <div class="scope">M075 R12441-R12446: mid-scale Q4 / NVFP4 — Logic Engine on the RTX 5090 (internal secondary, Blackwell GB202; operator D-022, 2026-07-14). The RTX 4090 is the OcuLink eGPU (DSpark speculative-decode draft).</div>
     <div class="row" style="margin:.5rem 0">
@@ -2194,7 +2211,7 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
     </table>
   </div>
 
-  <div class="role-card oracle">
+  <div class="role-card oracle" id="role-card-oracle">
     <h3>Oracle Core — GPU 1 Blackwell PRO 6000 (96GB FP4)</h3>
     <div class="scope">M075 R12456-R12462: FP16 / NVFP4 (M077) / HRM-Text-1B uncompromised</div>
     <div class="row" style="margin:.5rem 0">

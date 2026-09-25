@@ -1,11 +1,11 @@
 schema_version: "1.0.0"
 orchestration_profile:
-  id: qwen38-dual-trial
-  name: Qwen 3.8 Dual — Qualification
-  description: Qualification-only dual GPU profile. Qwen 3.8 27B Q4_K_M on the RTX 5090 and Qwen3.8-27B-Q8_0 on the RTX PRO 6000. Logic targets 96K and Oracle 128K single-slot context. No reliability certification until backend, gateway, OpenClaw and sustained dual-card tests pass. RTX 4090 allocations unchanged.
+  id: qwen38-dual-agent
+  name: Qwen 3.8 Dual Agent — 96K / 128K
+  description: Saved dual-agent configuration. Qwen 3.8 27B Q4_K_M on the RTX 5090 with 96K context, and Q8_0 on the RTX PRO 6000 with 128K context. Actual OpenClaw tool calls and synthetic 80K/110K input retrieval passed initial checks. Sustained reliability qualification remains pending. RTX 4090 embedding and reranking allocations are preserved.
   intent: coding
   hardware_profile_compat: [sain-01]
-  readiness: candidate
+  readiness: ready
   prerequisites:
     - "Download only the selected quantizations and verify all artifact checksums."
     - "96K Logic / 128K Oracle are test targets, not certified context or throughput claims."

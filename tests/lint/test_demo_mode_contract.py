@@ -141,7 +141,11 @@ def test_d21_lm_orchestration_demo():
     assert m and "fetch(" not in m.group(1) and "fetchJson(" not in m.group(1), (
         "the D-21 DEMO render path must make NO fetch (SB-077 / R10212)"
     )
-    assert re.search(r"if \(!demoActive\(\)\) \{\s*try \{\s*const es = new EventSource", body), (
+    # The model-download work (f4d3a08f) added a setInterval block between the
+    # demo gate and the EventSource; anchor on the gate + EventSource co-presence
+    # instead of requiring them adjacent (intent unchanged: NO EventSource in
+    # the demo path).
+    assert re.search(r"if \(!demoActive\(\)\) \{[\s\S]*?try \{[\s\S]*?const es = new EventSource", body), (
         "D-21 must open NO EventSource in DEMO mode"
     )
 
