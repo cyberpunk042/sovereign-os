@@ -2114,6 +2114,18 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
   .ds-banner .spacer { flex:1; }
 </style>
 
+<style>
+  /* d-09 remaster — pressure strip: what is actually pressuring the box right now */
+  .insights{display:flex;flex-wrap:wrap;gap:.45rem;margin:.6rem 0 .9rem}
+  .ins{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .65rem;border-radius:4px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .ins:hover{border-color:var(--accent)}
+  .ins::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:var(--muted);flex:0 0 auto}
+  .ins.warn{border-color:var(--warn);color:var(--warn)} .ins.warn::before{background:var(--warn)}
+  .ins.bad{border-color:var(--bad);color:var(--bad)} .ins.bad::before{background:var(--bad)}
+</style>
+
+<div id="pressure-insights" class="insights" hidden></div>
+
 <h2>Linux PSI (M045 cgroup v2)</h2>
 <div class="panel">
   <div class="grid-3">
@@ -2401,6 +2413,47 @@ async function refresh() {
   // Backpressure rules
   const bp = s.backpressure || {};
   ['blackwell-vram','4090-busy','cpu-pressure','ram-pressure','io-pressure','human-gate'].forEach(r => setRule(r, bp[r] || 'idle'));
+  renderPressureInsights(s);
+}
+
+// d-09 remaster — pressure strip: the answer to "what is actually pressuring
+// the box right now". Two kinds of chips: rules that are FIRING (red — the
+// M058 feedback loop is already acting) and readings approaching their rule
+// threshold (amber — headroom is running out). A quiet box gets one neutral
+// chip so the strip always says something true. Click a chip to jump to it.
+function renderPressureInsights(s) {
+  const box = document.getElementById('pressure-insights');
+  if (!box) return;
+  const chips = [];
+  const push = (cls, text, target) => chips.push({ cls, text, target });
+  const bp = s.backpressure || {};
+  const RULES = ['blackwell-vram','4090-busy','cpu-pressure','ram-pressure','io-pressure','human-gate'];
+  for (const r of RULES) {
+    const state = bp[r] || 'idle';
+    if (state === 'idle') continue;
+    const row = document.querySelector(`.backpressure-rule[data-rule="${r}"]`);
+    const src = row ? row.querySelector('.src').textContent : r;
+    const act = row ? row.querySelector('.action').textContent : '';
+    push('bad', `${r} rule ${state.toUpperCase()} — ${src} → ${act}`, 'backpressure-panel');
+  }
+  const psi = s.psi || {};
+  const near = (v, thr, floor) => { const x = Number(v); return Number.isFinite(x) && x > floor && x < thr; };
+  if (near(psi.cpu?.some_10s, 30, 20)) push('warn', `CPU PSI ${psi.cpu.some_10s}% — ${(30 - Number(psi.cpu.some_10s)).toFixed(0)} pts from the cpu-pressure rule`, 'psi-cpu-some');
+  if (near(psi.memory?.some_10s, 20, 14)) push('warn', `RAM PSI ${psi.memory.some_10s}% — ${(20 - Number(psi.memory.some_10s)).toFixed(0)} pts from the ram-pressure rule`, 'psi-mem-some');
+  if (near(psi.io?.some_10s, 25, 17)) push('warn', `IO PSI ${psi.io.some_10s}% — ${(25 - Number(psi.io.some_10s)).toFixed(0)} pts from the io-pressure rule`, 'psi-io-some');
+  const g0 = (s.gpu || {})['0'];
+  if (g0 && g0.vram_used_gb != null && g0.vram_used_gb / 96 > 0.75) push('warn', `Blackwell VRAM ${g0.vram_used_gb.toFixed(1)}/96 GB — heading for the blackwell-vram rule`, 'gpu-0-util');
+  const g1 = (s.gpu || {})['1'];
+  if (g1 && g1.util_pct != null && g1.util_pct > 70) push('warn', `4090 at ${g1.util_pct}% — ${85 - g1.util_pct} pts from the 4090-busy rule`, 'gpu-1-util');
+  if (!chips.length) push('', 'no backpressure firing — headroom on all six M058 rules', 'backpressure-panel');
+  box.hidden = chips.length === 0;
+  box.innerHTML = chips.map(c => `<span class="ins ${c.cls}" data-scroll="${c.target}" title="jump to section">${c.text}</span>`).join('');
+  box.querySelectorAll('.ins').forEach(el => {
+    el.addEventListener('click', () => {
+      const t = document.getElementById(el.dataset.scroll);
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
 }
 
 // SDD-056 — scroll to a functional control in the rail + highlight it. Controls
@@ -3101,6 +3154,27 @@ window.SO_ASSIST = {
   "content": "The one screen that answers “can the box take more work right now, or is it already shedding it?” Everything here measures STRESS, not activity — a CPU can sit at 90% utilization and be perfectly happy, or at 20% and be choking, and it is the difference between those two that decides whether your next build runs smoothly or crawls. Read it top to bottom as a stack: PSI says whether anything is stalling, the two CCDs say where on the CPU, the GPUs say whether the accelerators have room, ZFS says whether storage is the bottleneck, and the backpressure rules at the bottom say what the scheduler has already decided to give up to keep live serving alive.\n\nNothing on this panel is a control — it is a read-only instrument. The one mutating action, a pool scrub, copies a signed CLI verb; the box changes only when you run it."
  },
  "nodes": [
+  {
+   "icon": "✦",
+   "title": "Pressure right now",
+   "content": "The one-line answer to 'is this box under strain?'. Two kinds of chips: backpressure rules that are FIRING (red — the M058 feedback loop is already shedding load, and the chip names the rule, its trigger, and its action), and readings approaching their rule threshold (amber — headroom is running out). A fully quiet box renders one neutral chip so the strip always says something true. Click a chip to jump to the section behind it.",
+   "children": [
+    {
+     "selector": "#pressure-insights",
+     "title": "Pressure strip",
+     "content": "Computed from the same snapshot the gauges read: firing rules first (rule name, state, trigger → action), then near-threshold readings (CPU/RAM/IO PSI within headroom of their rule, Blackwell VRAM past 75% of 96 GB, 4090 utilization past 70%). Nothing here is a control — it is the panel's honest summary of what the M058 loop has already decided.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a strip and not just the rule pills</div>The backpressure section lists all six rules with their steady state; this strip answers the question you actually ask — 'is anything firing, and what's about to?' — without scanning. A firing rule is red because the box is already changing behavior to cope (deferred indexing, evicted KV, narrower branch width). Amber means the margin is thin: the number is still green but the rule is one load spike away.<div class=\"so-grid\"><span class=\"k\">red</span><span>a rule is firing — the M058 loop is shedding load right now</span><span class=\"k\">amber</span><span>a reading is within headroom of its rule threshold</span><span class=\"k\">neutral</span><span>no pressure — headroom on all six rules</span></div><div class=\"so-xref\"><span class=\"x\">→</span> the backpressure rules section — trigger + action for every rule</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#pressure-insights .ins",
+      "nameSelector": ".ins",
+      "title": "Pressure · {{name}}",
+      "content": "{{name}} — one computed pressure signal from the live snapshot. Click it to jump to the section behind it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pressure · {{name}}</div>One computed signal from the live pressure snapshot — a firing backpressure rule or a near-threshold reading. Each chip exists because it changes what you would queue next on this box.<div class=\"so-xref\"><span class=\"x\">→</span> the backpressure rules section — the full M058 table with triggers and actions</div></div>"
+     }
+    }
+   ]
+  },
   {
    "icon": "◆",
    "title": "Data source",
