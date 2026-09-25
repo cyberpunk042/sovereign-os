@@ -445,10 +445,7 @@ a11y; contract test catches drift.
   .ins:hover{border-color:var(--accent)}
   .ins.warn{color:var(--warn);border-color:rgba(224,192,122,.45);background:rgba(224,192,122,.07)}
   .ins.bad{color:var(--bad);border-color:rgba(255,118,118,.5);background:rgba(255,118,118,.08)}
-  /* — heatmap time axis (24h buckets: 0 = oldest, 23 = most recent) — */
-  .hm-axis{display:flex;align-items:center;gap:.4rem;margin:.35rem 0 .15rem}
-  .hm-axis .hm-spacer{flex:0 0 200px}
-  .hm-tick{flex:0 0 18px;font-size:.62rem;color:var(--muted);text-align:center;white-space:nowrap}
+  /* most-recent heatmap bucket — the "now" edge of the 24h window */
   .hm-now{box-shadow:0 0 0 1px var(--accent,#9bd1ff)}
   .kbd{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.7rem;background:var(--border);color:var(--muted);border:1px solid var(--border)}
   .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
@@ -2325,7 +2322,7 @@ const DEMO_HEALTH = {
   summary: { total: 4, blackwell: 1, rtx4090: 2, cpu: 1 },
   roles: {
     conductor: { util_pct: 16, tokens_per_sec: 3.2, models: [{ id: 'demo/bitnet-2b', precision: 'ternary', status: 'loaded' }] },
-    logic: { util_pct: 64, vram_used_gb: 14.2, tokens_per_sec: 58.0, models: [
+    logic: { util_pct: 84, vram_used_gb: 14.2, tokens_per_sec: 58.0, models: [
       { id: 'demo/qwen3-coder-14b', precision: 'NVFP4', status: 'serving' },
       { id: 'demo/glm-4-9b', precision: 'Q4', status: 'loaded' }] },
     oracle: { util_pct: 38, vram_used_gb: 41.0, tokens_per_sec: 22.5, models: [{ id: 'demo/deepseek-r1-32b', precision: 'NVFP4', status: 'serving' }] },
@@ -2362,6 +2359,11 @@ async function refresh() {
   // SDD-119 DEMO short-circuit: badged sample health with ZERO network calls.
   const s = demoActive() ? DEMO_HEALTH : await fetchHealth();
   if (demoActive()) {
+    // keep the data-source banner coherent in demo too: a "?" label next to a
+    // DEMO detail line reads as a broken feed, not a deliberate opt-in.
+    $('ds-state-label').textContent = 'data source: DEMO';
+    $('datasource-banner').classList.remove('unknown','offline');
+    $('datasource-banner').classList.add('online');
     $('ds-state-detail').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
     if (window.soDemo) window.soDemo.badge();
   }
@@ -2385,8 +2387,17 @@ async function refresh() {
   setGauge('oracle-vram-fill','oracle-vram-pct',pct(o.vram_used_gb, 96));
   $('oracle-vram-used').textContent = o.vram_used_gb != null ? o.vram_used_gb.toFixed(1) : '—';
   renderRoleModels($('oracle-models-tbody'), o.models);
-  // Latency table
-  $('latency-tbody').innerHTML = (s.models || []).length ? s.models.map(m => `
+  // Latency table — each bar's segments are proportional to the panel-wide
+  // max p99, so a row's bar shows where its tail sits on the shared scale
+  // (hover for exact values).
+  const maxP99 = Math.max(1, ...(s.models || []).map(m => m.p99_ms || 0));
+  $('latency-tbody').innerHTML = (s.models || []).length ? s.models.map(m => {
+    const w50 = ((m.p50_ms || 0) / maxP99 * 100).toFixed(1);
+    const w95 = (((m.p95_ms || 0) - (m.p50_ms || 0)) / maxP99 * 100).toFixed(1);
+    const w99 = (((m.p99_ms || 0) - (m.p95_ms || 0)) / maxP99 * 100).toFixed(1);
+    const l95 = ((m.p95_ms || 0) / maxP99 * 100).toFixed(1);
+    const tip = `p50 ${fmtMs(m.p50_ms)} · p95 ${fmtMs(m.p95_ms)} · p99 ${fmtMs(m.p99_ms)}`;
+    return `
     <tr>
       <td><code>${escapeHtml(m.id)}</code></td>
       <td class="muted">${escapeHtml(m.role || '—')}</td>
@@ -2394,9 +2405,10 @@ async function refresh() {
       <td class="num ${m.p50_ms > 1000 ? 'warn' : ''}">${fmtMs(m.p50_ms)}</td>
       <td class="num ${m.p95_ms > 5000 ? 'bad' : m.p95_ms > 2000 ? 'warn' : ''}">${fmtMs(m.p95_ms)}</td>
       <td class="num ${m.p99_ms > 10000 ? 'bad' : m.p99_ms > 5000 ? 'warn' : ''}">${fmtMs(m.p99_ms)}</td>
-      <td><span class="latency-bar"><span class="seg p50"></span><span class="seg p95"></span><span class="seg p99"></span></span></td>
+      <td><span class="latency-bar" title="${tip}"><span class="seg p50" style="left:0;width:${w50}%"></span><span class="seg p95" style="left:${w50}%;width:${w95}%"></span><span class="seg p99" style="left:${l95}%;width:${w99}%"></span></span></td>
       <td class="num muted">${m.req_per_min ?? '—'}</td>
-    </tr>`).join('') : '<tr><td colspan="8" class="muted">no inference requests in last 1h</td></tr>';
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" class="muted">no inference requests in last 1h</td></tr>';
   // KV cache table
   $('kvcache-tbody').innerHTML = (s.kvcache || []).length ? s.kvcache.map(k => `
     <tr>
@@ -2407,14 +2419,22 @@ async function refresh() {
       <td><div class="gauge" style="margin:0"><div class="fill ${fillCls(pct(k.resident_tokens, k.max_tokens))}" style="width:${pct(k.resident_tokens, k.max_tokens).toFixed(1)}%"></div></div></td>
       <td class="num ${k.prefill_hit_pct >= 80 ? 'ok' : k.prefill_hit_pct >= 50 ? 'warn' : ''}">${k.prefill_hit_pct != null ? k.prefill_hit_pct.toFixed(0) + '%' : '—'}</td>
     </tr>`).join('') : '<tr><td colspan="6" class="muted">no KV cache activity</td></tr>';
-  // Heatmap
+  // Heatmap — one row per model under a shared time axis (labels every 6th
+  // bucket); the most recent bucket carries an accent ring.
   const hm = $('heatmap-container');
   if ((s.heatmap || []).length) {
-    hm.innerHTML = s.heatmap.map(row => `
+    const first = s.heatmap[0].buckets || [];
+    const axis = '<div style="display:flex;align-items:center;gap:.4rem;margin:.2rem 0">' +
+      '<span style="flex:0 0 200px"></span>' +
+      first.map((b, i) =>
+        `<span style="flex:0 0 18px;font-size:.62rem;color:var(--muted);text-align:center;white-space:nowrap">${i % 6 === 0 ? escapeHtml(b.ts) : ''}</span>`
+      ).join('') + '</div>';
+    hm.innerHTML = axis + s.heatmap.map(row => `
       <div style="display:flex;align-items:center;gap:.4rem;margin:.2rem 0">
         <span style="flex:0 0 200px;font-size:.78rem"><code>${escapeHtml(row.model)}</code></span>
-        ${(row.buckets || []).map(b => `
+        ${(row.buckets || []).map((b, i) => `
           <span title="${escapeHtml(b.ts)}: ${b.status}"
+            class="${i === row.buckets.length - 1 ? 'hm-now' : ''}"
             style="display:inline-block;width:18px;height:14px;border-radius:1px;background:${b.status === 'available' ? 'var(--good)' : b.status === 'degraded' ? 'var(--warn)' : 'var(--bad)'}"></span>
         `).join('')}
       </div>
@@ -2422,7 +2442,11 @@ async function refresh() {
   } else {
     hm.innerHTML = '<div class="muted">no heatmap data — accumulates over 24h of inference activity</div>';
   }
-  refreshGateway();  // live sovereign-gatewayd (:8787) probe — same cadence as health
+  // Live Sovereign Gateway (:8787) — fetched once, shared by the section render
+  // and the insight chips (the gateway is the hero sovereignty signal).
+  const gw = demoActive() ? DEMO_GATEWAY : await fetchGatewayData();
+  renderGatewaySection(gw);
+  renderInsights(s, gw);
 }
 
 // ── Live Sovereign Gateway (:8787) ────────────────────────────────────────
@@ -2485,6 +2509,59 @@ function renderGatewaySection(g) {
         ' <span class="muted" style="margin-left:.4rem">committed ' + (L.committed ?? '—') +
         ' · predictions ' + (L.predictions ?? '—') + ' (' + (L.prediction_agreements ?? '—') + ' agreed)</span>'
     : '<span class="muted">no requests yet — the ledger fills as the gateway routes</span>';
+}
+
+// — Smart insight chips: surface ONLY what needs operator attention, as
+//   clickable jump-chips. Empty strip = all quiet (the good state).
+const VRAM_CAP_GB = { logic: 32, oracle: 96 };
+function renderInsights(s, gw) {
+  const box = $('model-insights');
+  if (!box) return;
+  const chips = [];
+  const add = (cls, text, target) =>
+    chips.push(`<button class="ins ${cls}" data-target="${target}">${text}</button>`);
+  // Sovereignty is the hero signal — it comes first.
+  if (gw) {
+    if (!gw.up) add('bad', '⚠ sovereign gateway offline', 'gw-tripwire');
+    else {
+      const spills = (gw.health && gw.health.cloud_spills) || (gw.ledger && gw.ledger.cloud_spills) || 0;
+      if (spills > 0) add('bad', `☁ ${spills} cloud spill(s) — sovereignty broken`, 'gw-tripwire');
+    }
+  }
+  // SRP role pressure (conductor is CPU-only: no VRAM cap to watch).
+  const r = s.roles || {};
+  ['conductor', 'logic', 'oracle'].forEach(role => {
+    const d = r[role];
+    if (!d) return;
+    if ((d.util_pct || 0) >= 80) add('warn', `${role} GPU ${d.util_pct}% busy`, 'role-card-' + role);
+    const cap = VRAM_CAP_GB[role];
+    if (cap && (d.vram_used_gb || 0) >= 0.7 * cap)
+      add('warn', `${role} VRAM ${d.vram_used_gb}/${cap} GB`, 'role-card-' + role);
+  });
+  // KV-cache pressure: near-full, or a prefill hit-rate below half.
+  (s.kvcache || []).forEach(k => {
+    const fill = pct(k.resident_tokens, k.max_tokens);
+    if (fill >= 80) add('warn', `KV ${k.model}: ${fill.toFixed(0)}% full`, 'kvcache-tbody');
+    else if (k.prefill_hit_pct != null && k.prefill_hit_pct < 50)
+      add('warn', `KV ${k.model}: prefill ${k.prefill_hit_pct}%`, 'kvcache-tbody');
+  });
+  // Latency tail beyond 5s p99 (matches the table's own warn threshold).
+  (s.models || []).forEach(m => {
+    if (m.p99_ms > 5000) add('warn', `${m.id} p99 ${fmtMs(m.p99_ms)}`, 'latency-tbody');
+  });
+  // 24h availability: any full down-hour is a red flag.
+  (s.heatmap || []).forEach(row => {
+    const downs = (row.buckets || []).filter(b => b.status === 'down').length;
+    if (downs > 0) add('bad', `${row.model}: ${downs}h down (24h)`, 'heatmap-container');
+  });
+  box.innerHTML = chips.join('');
+  box.hidden = chips.length === 0;
+  box.querySelectorAll('.ins').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = $(btn.dataset.target);
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
 }
 
 async function refreshGateway() {
@@ -3333,6 +3410,13 @@ window.SO_ASSIST = {
      "variants": [
       {
        "when": {
+        "textContains": "DEMO"
+       },
+       "content": "DEMO mode (opt-in, Personalization) — the tier readings below are badged sample data with placeholder ids, not the live daemon. Zero network calls in this path; nothing here is a real model.",
+       "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">● DEMO — sample data</div>The whole panel is rendering a fixed sample so the layout and the assistant’s intel can be exercised without the daemons. The ids all read <code>demo/…</code> on purpose — if you ever see a real model here, the banner would say live, not DEMO.</div>"
+      },
+      {
+       "when": {
         "textContains": "checking"
        },
        "content": "Reaching the model-health daemon — the tier readings below are not yet confirmed live.",
@@ -3396,6 +3480,31 @@ window.SO_ASSIST = {
      "title": "CPU/Pulse models",
      "content": "How many models are resident on CPU — the Conductor tier, running ternary BitNet. Unlike the GPU tiers this is bounded by RAM, not VRAM, and the models are cheap to keep — so a higher count here is normal and inexpensive. It is the tier most prompts should be served from, so a healthy box usually has the Conductor well-populated.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Cheap to keep, cheap to run</div>Ternary models on CPU cost RAM (plentiful) rather than VRAM (scarce), so the Conductor tier can hold more resident models without the pressure the GPU tiers feel. This count reflects the box’s cheap-cognition capacity — the more that lives here, the more prompts avoid the expensive tiers.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-24 cpu-features — the AVX-512 path these ternary models run on</div>"
+    }
+   ]
+  },
+  {
+   "icon": "✦",
+   "title": "Health insights",
+   "content": "The strip of clickable chips that surfaces ONLY what needs operator attention right now — a sovereignty tripwire, a saturated tier, a near-full KV cache, a slow tail, or downtime on the 24h grid. Clicking a chip jumps to the section behind it. An empty strip is the good state: nothing here means everything on the panel is quiet, so the absence of chips is the health signal.",
+   "children": [
+    {
+     "selector": "#model-insights",
+     "title": "What needs attention now",
+     "content": "One chip per open issue, worst first: red (bad) is a sovereignty or availability breach — gateway offline, a cloud spill, a model with down-hours; amber (warn) is pressure — a tier ≥80% busy, a GPU past 70% VRAM, a KV cache ≥80% full or with a prefill hit under half, or a p99 past 5 seconds. Each chip scrolls to the element it describes, so a diagnosis is one click, not a scan. When this strip is hidden, the panel is all quiet.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Attention, not telemetry</div>The rest of the panel shows everything; this strip shows only the things that deserve a response. It is deliberately sparse — a healthy box renders nothing here — so when chips appear they are worth acting on rather than filtering through. Red chips are invariants and history (sovereignty broken, models that went down); amber chips are pressure that will become a red chip if left.</div><div class=\"so-xref\"><span class=\"x\">→</span> #gw-tripwire — the hero signal this strip leads with<br><span class=\"x\">→</span> #latency-tbody / #kvcache-tbody — where amber pressure usually lives</div>",
+     "variants": [
+      {
+       "when": { "textContains": "cloud spill" },
+       "content": "A request left the box — the never-cloud-spill invariant is broken right now. This is a red chip: the gateway’s force-local posture failed and the sovereignty tripwire below explains where.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Sovereignty breach</div>Cloud spills are the one number on this panel that is never “just pressure” — they mean work left the machine. Go to the gateway tripwire, confirm force-local, and check the route ledger for which role spilled.</div><div class=\"so-xref\"><span class=\"x\">→</span> #gw-tripwire — the spill count and its cause</div>"
+      },
+      {
+       "when": { "textContains": "offline" },
+       "content": "The sovereign gateway (:8787) is not answering. Routing, the route ledger, and the cortex memory snapshot are all behind this — health numbers are still live, but the box’s front door is down.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">Front door down</div>The gateway process is dead while the model daemons keep serving directly. Start it with <code>systemctl start sovereign-gatewayd</code> — the persisted cortex memory reads from disk even while it’s down, so no state is lost, only routing.</div><div class=\"so-xref\"><span class=\"x\">→</span> #gw-memory — the on-disk snapshot that survives the outage</div>"
+      }
+     ]
     }
    ]
   },
@@ -3504,7 +3613,7 @@ window.SO_ASSIST = {
     {
      "selector": "#latency-tbody",
      "title": "Per-model latency",
-     "content": "Each row is a model with its p50/p95/p99 over the last hour. Read across the percentiles, not just down the p50 column: a widening gap between p50 and p99 means the model is inconsistent — fine most of the time, badly slow sometimes — which points at contention or a KV-eviction stall rather than raw model speed. Hover a row for that model’s latency story.",
+     "content": "Each row is a model with its p50/p95/p99 over the last hour. Read across the percentiles, not just down the p50 column: a widening gap between p50 and p99 means the model is inconsistent — fine most of the time, badly slow sometimes — which points at contention or a KV-eviction stall rather than raw model speed. The rightmost bar is the distribution drawn on the panel-wide scale: its segments span p50, p95, and p99 relative to the slowest p99 on the panel, so a short bar means this model is fast next to its peers and a long one means it owns the tail. Hover a row for that model’s latency story.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why three numbers, not one</div><div class=\"so-grid\"><span class=\"k\">p50</span><span>the median — half of requests are faster than this; the “typical” feel</span><span class=\"k\">p95</span><span>the slow tail — 1 in 20 requests is at least this slow</span><span class=\"k\">p99</span><span>the very slow tail — 1 in 100; the outliers users complain about</span></div>A healthy model has the three close together (consistent). A large p99 with a small p50 is the signature of intermittent stalls — usually KV pressure or a busy tier, not the model itself.</div><div class=\"so-xref\"><span class=\"x\">→</span> #kvcache-tbody — KV pressure is the usual cause of a bad tail<br><span class=\"x\">→</span> D-09 hardware pressure — the contention behind an inconsistent latency</div>",
      "dynamic": true,
      "childTemplate": {
@@ -3548,6 +3657,48 @@ window.SO_ASSIST = {
      "title": "24h availability heatmap",
      "content": "The per-model availability grid over the last day. Read it for PATTERNS, not points: a scattered blip is nothing, but a recurring degraded band points at a scheduled job colliding with serving, and a model that drops whenever the box is busy points at it being the first evicted under memory pressure. It’s the historical context the live tier cards lack.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Patterns the live view can’t show</div>The tier cards above are a snapshot — true now, silent about yesterday. This heatmap is the memory: it shows whether a degradation is a one-off or a rhythm. A model degraded in a daily band is usually colliding with a cron (a scrub, an eval); a model that drops under load is one the box sheds first when VRAM tightens.</div><div class=\"so-xref\"><span class=\"x\">→</span> D-10 eval-history — whether a degraded band lines up with scheduled evals</div>"
+    }
+   ]
+  },
+  {
+   "icon": "⛨",
+   "title": "Sovereign gateway (:8787)",
+   "content": "The live tripwire for the box’s single most important invariant: every inference request is handled on this machine. The sovereign gateway (M048) sits in front of the providers, routes by SRP role, keeps a route ledger of its decisions, and carries the deterministic cortex memory. This section answers one question first — did anything leave the box? — and then shows the gateway’s live routing behavior behind that answer.",
+   "children": [
+    {
+     "selector": "#gw-tripwire",
+     "title": "Sovereignty tripwire",
+     "content": "The one-line verdict on the never-cloud-spill invariant. Green ◆ SOVEREIGN means force-local is on and zero requests have left the box across the gateway’s lifetime; red ▲ CLOUD SPILL means at least one request went to a cloud provider and the invariant is broken; grey means the gateway process itself is down. This is the hero signal of the whole panel — a model can be slow and it’s a tuning problem, but a cloud spill is a sovereignty breach.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The invariant in one line</div>Force-local means the gateway refuses cloud providers entirely — the only path for a request is a local model on a local card. When that holds, every token generated on this box was generated on this box, which is what “sovereign” actually means at the routing layer. The spill counter is cumulative, so it never goes back to zero on its own: a box that ever spilled shows it here until the ledger is reset deliberately.</div><div class=\"so-xref\"><span class=\"x\">→</span> #gw-roles — where the requests are actually routed<br><span class=\"x\">→</span> <code>sovereign-osctl gateway trips</code> — the full spill audit</div>",
+     "variants": [
+      {
+       "when": { "textContains": "SOVEREIGN" },
+       "content": "Force-local on, zero cloud spills — the never-cloud-spill invariant is holding across every request the gateway has handled.",
+       "expanded": "<div class=\"so-card ok\"><div class=\"so-card-label\">◆ Sovereign</div>Every request the gateway has routed stayed on this box. The force-local posture is active, so the only way this line ever turns red is a configuration or provider failure — worth knowing when it happens.</div>"
+      },
+      {
+       "when": { "textContains": "CLOUD SPILL" },
+       "content": "One or more requests left the box — the sovereignty invariant is broken right now. Check force-local and the route ledger for which role spilled, and audit the full history with the gateway trips verb.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">▲ Spill — work left the machine</div>This is the worst state on the panel. A spill usually means force-local was disabled or a provider slipped past the local-only gate. <code>sovereign-osctl gateway trips</code> lists each spill with its role and model so you can find the path that let it out.</div><div class=\"so-xref\"><span class=\"x\">→</span> #gw-roles — which role the spilled requests came from</div>"
+      },
+      {
+       "when": { "textContains": "gateway offline" },
+       "content": "The gateway process is not answering. Routing and the live ledger are unavailable, but the persisted cortex memory still reads from disk — start the service and the ledger resumes.",
+       "expanded": "<div class=\"so-card err\"><div class=\"so-card-label\">✗ Gateway down</div><code>systemctl start sovereign-gatewayd</code>. While it’s down, models still serve (the daemons are independent), but there is no routing layer, no learning loop, and no tripwire — the box is running blind on its sovereignty invariant until it’s back.</div><div class=\"so-xref\"><span class=\"x\">→</span> #gw-memory — what survived on disk</div>"
+      }
+     ]
+    },
+    {
+     "selector": "#gw-roles",
+     "title": "Route ledger — by SRP role",
+     "content": "The gateway’s live routing behavior: how many decisions went to each SRP role, and how its predictions agree with what it commits. This is the M075 topology seen from the routing layer — a healthy box routes most volume to the cheap Conductor tier and escalates only what needs the expensive cards. If the mix looks inverted (most traffic on Oracle), the escalation policy is sending cheap work to the expensive card.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The shape of the box’s traffic</div>Each chip is a role with its decision count from the route ledger. Read the ratio: a box that is routing 90% to Oracle is paying Oracle prices for Conductor work — the profile that assigns models to tiers (D-21) is the lever, and the learned/prediction counts show whether the gateway’s escalation learning is converging (agreements rising toward committed).</div><div class=\"so-xref\"><span class=\"x\">→</span> D-21 orchestration — the profile behind the routing mix<br><span class=\"x\">→</span> #oracle-util — the card that over-routed traffic hits first</div>"
+    },
+    {
+     "selector": "#gw-memory",
+     "title": "Cortex memory (on disk)",
+     "content": "The deterministic memory-OS snapshot the gateway persists at /var/lib/sovereign-os/memory/cortex.json — items hot and cold, readable even while the gateway process is down. This is the box’s long-term memory as a number: it grows as the gateway learns, and it survives restarts because it lives on disk, not in process memory.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Memory that survives the process</div>The gateway’s learning state is persisted, not volatile — a restart loses no memory, only the live ledger counters. The item count is the size of what the box has learned to remember; cold items are archived, not deleted. Reading this number next to the gateway’s uptime tells you how much of the box’s behavior is learned versus fresh.</div><div class=\"so-xref\"><span class=\"x\">→</span> #gw-tripwire — the invariant this memory serves</div>"
     }
    ]
   },

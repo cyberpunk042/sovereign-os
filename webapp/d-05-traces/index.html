@@ -256,6 +256,28 @@ a11y; contract test catches drift.
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
   code{color:var(--accent)}
+  /* — d-05 remaster: trace waterfall + insight chips + OCSF distribution — */
+  .insights{display:flex;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 .9rem}
+  .ins{font:inherit;font-size:.74rem;padding:.22rem .6rem;border-radius:999px;cursor:pointer;
+    background:var(--panel);border:1px solid var(--border);color:var(--fg)}
+  .ins:hover{border-color:var(--accent)}
+  .ins.warn{color:var(--warn);border-color:rgba(224,192,122,.45);background:rgba(224,192,122,.07)}
+  .ins.bad{color:var(--bad);border-color:rgba(255,118,118,.5);background:rgba(255,118,118,.08)}
+  .wf-trace{border:1px solid var(--border);border-radius:8px;padding:.45rem .6rem;margin:.45rem 0;background:rgba(255,255,255,.02)}
+  .wf-trace-head{display:flex;gap:.5rem;align-items:baseline;font-size:.74rem;color:var(--muted);margin-bottom:.3rem;flex-wrap:wrap}
+  .wf-trace-head .tid{font-family:var(--mono);color:var(--accent);font-weight:600}
+  .wf-trace-head .n{margin-left:auto}
+  .wf-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,32%) 62px;gap:.5rem;align-items:center;padding:.13rem .25rem;border-radius:3px;cursor:pointer}
+  .wf-row:hover{background:rgba(155,209,255,.06)}
+  .wf-op{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wf-track{height:.5rem;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden}
+  .wf-bar{display:block;height:100%;border-radius:2px;background:var(--accent)}
+  .wf-bar.warn{background:var(--warn)}
+  .wf-bar.bad{background:var(--bad)}
+  .wf-dur{font-size:.73rem;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ocsf-dist{height:.4rem;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;margin-bottom:.2rem;max-width:150px}
+  .ocsf-dist-fill{display:block;height:100%;background:var(--accent);border-radius:2px;width:0;transition:width .3s}
+  .ocsf-dist-fill.bad{background:var(--bad)}
 </style>
 <link rel="stylesheet" href="/_shared/cockpit-foundations.css">
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
@@ -2156,6 +2178,9 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   <div class="stat"><div class="k">OCSF events</div><div class="v" id="ocsf-count">—</div></div>
 </div>
 
+<h2>what needs attention</h2>
+<div id="trace-insights" class="insights" hidden></div>
+
 <h2>filter</h2>
 <div class="panel">
   <div class="filter-row">
@@ -2188,6 +2213,12 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   <div class="muted" style="font-size:.78rem">M049 13 span fields: trace_id, span_id, parent_span_id, operation, start_ts, duration_ms, severity, attributes, ocsf_class, actor, profile, signature, schema_version</div>
 </div>
 
+<h2>trace waterfall</h2>
+<div class="panel">
+  <div class="muted" style="font-size:.75rem;margin-bottom:.4rem">grouped by trace — spans nested in call order, duration bars scaled to the trace root. click any span for full detail.</div>
+  <div id="waterfall"></div>
+</div>
+
 <h2>spans</h2>
 <div class="panel">
   <table>
@@ -2212,13 +2243,13 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <h2>OCSF 16-event taxonomy (selfdef MS026)</h2>
 <div class="panel">
   <table>
-    <thead><tr><th>class</th><th>name</th><th>typical emitter</th><th>count (window)</th></tr></thead>
+    <thead><tr><th>class</th><th>name</th><th>typical emitter</th><th>shape (window)</th><th>count</th></tr></thead>
     <tbody id="ocsf-tbody">
-      <tr><td>1001</td><td>System Activity</td><td>L0 Observer, kernel events</td><td id="ocsf-1001">—</td></tr>
-      <tr><td>1003</td><td>Audit Activity</td><td>L2 Simulate, gate eval, restore</td><td id="ocsf-1003">—</td></tr>
-      <tr><td>2004</td><td>Detection Finding</td><td>Guardian SIGKILL, declaration mismatch, chain break</td><td id="ocsf-2004">—</td></tr>
-      <tr><td>4001</td><td>Network Activity</td><td>Ring 4 cloud exposure, MS038 grants</td><td id="ocsf-4001">—</td></tr>
-      <tr><td>5001</td><td>Configuration Change</td><td>L5 Commit, L6 Persist, profile transition</td><td id="ocsf-5001">—</td></tr>
+      <tr><td>1001</td><td>System Activity</td><td>L0 Observer, kernel events</td><td><div class="ocsf-dist"><span class="ocsf-dist-fill" id="ocsfbar-1001"></span></div></td><td id="ocsf-1001">—</td></tr>
+      <tr><td>1003</td><td>Audit Activity</td><td>L2 Simulate, gate eval, restore</td><td><div class="ocsf-dist"><span class="ocsf-dist-fill" id="ocsfbar-1003"></span></div></td><td id="ocsf-1003">—</td></tr>
+      <tr><td>2004</td><td>Detection Finding</td><td>Guardian SIGKILL, declaration mismatch, chain break</td><td><div class="ocsf-dist"><span class="ocsf-dist-fill bad" id="ocsfbar-2004"></span></div></td><td id="ocsf-2004">—</td></tr>
+      <tr><td>4001</td><td>Network Activity</td><td>Ring 4 cloud exposure, MS038 grants</td><td><div class="ocsf-dist"><span class="ocsf-dist-fill bad" id="ocsfbar-4001"></span></div></td><td id="ocsf-4001">—</td></tr>
+      <tr><td>5001</td><td>Configuration Change</td><td>L5 Commit, L6 Persist, profile transition</td><td><div class="ocsf-dist"><span class="ocsf-dist-fill" id="ocsfbar-5001"></span></div></td><td id="ocsf-5001">—</td></tr>
     </tbody>
   </table>
 </div>
@@ -2288,6 +2319,92 @@ function renderSpans(spans) {
   `).join('');
   tbody.querySelectorAll('tr[data-trace]').forEach(tr => {
     tr.addEventListener('click', () => openDetail(tr.dataset.trace, tr.dataset.span));
+  });
+}
+
+// Trace waterfall — the same spans regrouped by trace, nested in call order with
+// duration bars scaled to each trace's root. This is the causal path the flat
+// table only implies: where the time went and which child broke the request.
+function renderWaterfall(spans) {
+  const box = $('waterfall');
+  if (!box) return;
+  if (!spans.length) { box.innerHTML = '<div class="muted">no spans to render — adjust the window or clear the filter.</div>'; return; }
+  const byTrace = new Map();
+  for (const s of spans) {
+    if (!byTrace.has(s.trace_id)) byTrace.set(s.trace_id, []);
+    byTrace.get(s.trace_id).push(s);
+  }
+  let html = '';
+  for (const [tid, tspans] of byTrace) {
+    tspans.sort((a, b) => (a.start_ts || 0) - (b.start_ts || 0));
+    const idset = new Set(tspans.map(s => s.span_id));
+    const byParent = {};
+    for (const s of tspans) {
+      const p = (s.parent_span_id && idset.has(s.parent_span_id)) ? s.parent_span_id : null;
+      (byParent[p] = byParent[p] || []).push(s);
+    }
+    const roots = byParent[null] || [];
+    const rootDur = Math.max.apply(null, roots.map(r => r.duration_ms || 0).concat([1]));
+    const tErrs = tspans.filter(s => s.severity === 'error' || s.severity === 'critical').length;
+    const tMax = Math.max.apply(null, tspans.map(s => s.duration_ms || 0).concat([1]));
+    html += '<div class="wf-trace">'
+      + '<div class="wf-trace-head"><span class="tid">' + escapeHtml(tid) + '</span>'
+      + '<span>' + tspans.length + ' span' + (tspans.length > 1 ? 's' : '') + '</span>'
+      + (tErrs ? '<span class="pill bad">' + tErrs + ' error' + (tErrs > 1 ? 's' : '') + '</span>' : '')
+      + '<span class="n">peak ' + fmtDur(tMax) + '</span></div>'
+      + '<div class="wf">';
+    (function renderNodes(parentId, depth) {
+      const kids = (byParent[parentId] || []).slice().sort((a, b) => (a.start_ts || 0) - (b.start_ts || 0));
+      for (const s of kids) {
+        const sev = (s.severity === 'critical' || s.severity === 'error') ? 'bad' : (s.severity === 'warn' ? 'warn' : '');
+        const w = Math.max(1.5, ((s.duration_ms || 0) / rootDur) * 100).toFixed(1);
+        html += '<div class="wf-row" data-trace="' + escapeHtml(tid) + '" data-span="' + escapeHtml(s.span_id) + '">'
+          + '<div class="wf-op" style="padding-left:' + (depth * 1.05) + 'rem"><span class="' + sev + '">' + escapeHtml(s.operation) + '</span><span class="muted" style="font-size:.7rem"> · ' + escapeHtml(s.actor || '—') + '</span></div>'
+          + '<div class="wf-track"><span class="wf-bar ' + sev + '" style="width:' + w + '%"></span></div>'
+          + '<div class="wf-dur">' + fmtDur(s.duration_ms) + '</div>'
+          + '</div>';
+        renderNodes(s.span_id, depth + 1);
+      }
+    })(null, 0);
+    html += '</div></div>';
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('.wf-row').forEach(row => {
+    row.addEventListener('click', () => openDetail(row.dataset.trace, row.dataset.span));
+  });
+}
+
+// Smart trace insights — surface ONLY what in the window deserves an operator
+// response, as clickable chips that open the exact span's detail. Empty = clean.
+function renderTraceInsights(spans) {
+  const box = $('trace-insights');
+  if (!box) return;
+  const chips = [];
+  const add = (cls, text, traceId, spanId) =>
+    chips.push('<button class="ins ' + cls + '" data-trace="' + escapeHtml(traceId) + '" data-span="' + escapeHtml(spanId) + '">' + text + '</button>');
+  const errs = spans.filter(s => s.severity === 'error' || s.severity === 'critical');
+  if (errs.length) add('bad', errs.length + ' error span' + (errs.length > 1 ? 's' : '') + ' in window', errs[0].trace_id, errs[0].span_id);
+  const finds = spans.filter(s => String(s.ocsf_class) === '2004');
+  if (finds.length) add('bad', finds.length + ' detection finding (OCSF 2004) — declaration/chain break', finds[0].trace_id, finds[0].span_id);
+  const net = spans.filter(s => String(s.ocsf_class) === '4001');
+  if (net.length) add('warn', net.length + ' network event (OCSF 4001) — Ring-4 exposure check', net[0].trace_id, net[0].span_id);
+  const slow = spans.slice().sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0))[0];
+  if (slow && (slow.duration_ms || 0) >= 1000) add('warn', 'slowest span ' + fmtDur(slow.duration_ms) + ' — ' + slow.operation, slow.trace_id, slow.span_id);
+  box.innerHTML = chips.join('');
+  box.hidden = chips.length === 0;
+  box.querySelectorAll('.ins').forEach(btn => {
+    btn.addEventListener('click', () => openDetail(btn.dataset.trace, btn.dataset.span));
+  });
+}
+
+// OCSF distribution bars — the shape of the security-event mix across the 5 classes.
+function renderOcsfDist(ocsf) {
+  const ids = ['1001', '1003', '2004', '4001', '5001'];
+  const vals = ids.map(id => +(ocsf[id] || 0));
+  const max = Math.max.apply(null, vals.concat([1]));
+  ids.forEach((id, i) => {
+    const fill = $('ocsfbar-' + id);
+    if (fill) fill.style.width = (vals[i] / max * 100).toFixed(1) + '%';
   });
 }
 
@@ -2368,11 +2485,16 @@ function renderDataSourceBanner(ok, errMsg) {
   function demoActive(){return !!(window.soDemo&&window.soDemo.on());}
 const DEMO_D05 = {
   spans:[
-    {trace_id:'demo-tr-01', span_id:'demo-sp-01', parent_span_id:null, start_ts:'2026-06-30T14:00:00Z', operation:'demo/agent.plan', actor:'demo/Conductor', profile:'careful', duration_ms:1420, ocsf_class:5001, severity:'info', schema_version:'1.0.0', signature:'demo-sig-01', attributes:{model:'demo/k2.6'}, ocsf_payload:{}},
-    {trace_id:'demo-tr-02', span_id:'demo-sp-02', parent_span_id:'demo-sp-01', start_ts:'2026-06-30T14:00:02Z', operation:'demo/tool.exec', actor:'demo/Weaver', profile:'fast', duration_ms:310, ocsf_class:1001, severity:'info', schema_version:'1.0.0', signature:'demo-sig-02', attributes:{}, ocsf_payload:{}},
-    {trace_id:'demo-tr-03', span_id:'demo-sp-03', parent_span_id:'demo-sp-01', start_ts:'2026-06-30T14:00:05Z', operation:'demo/net.request', actor:'demo/Auditor', profile:'careful', duration_ms:90, ocsf_class:4001, severity:'error', schema_version:'1.0.0', signature:'demo-sig-03', attributes:{status:'blocked'}, ocsf_payload:{}}
+    // trace A — a full agent turn (the hero): plan -> model call + tool (-> detection finding) + blocked network
+    {trace_id:'demo-tr-01', span_id:'demo-sp-01', parent_span_id:null, start_ts:'2026-06-30T14:00:00.000Z', operation:'demo/agent.plan', actor:'demo/Conductor', profile:'careful', duration_ms:1420, ocsf_class:5001, severity:'info', schema_version:'1.0.0', signature:'demo-sig-01', attributes:{model:'demo/k2.6'}, ocsf_payload:{}},
+    {trace_id:'demo-tr-01', span_id:'demo-sp-02', parent_span_id:'demo-sp-01', start_ts:'2026-06-30T14:00:00.120Z', operation:'demo/model.call', actor:'demo/Weaver', profile:'careful', duration_ms:980, ocsf_class:1001, severity:'info', schema_version:'1.0.0', signature:'demo-sig-02', attributes:{model:'demo/k2.6',tokens:4096}, ocsf_payload:{}},
+    {trace_id:'demo-tr-01', span_id:'demo-sp-03', parent_span_id:'demo-sp-01', start_ts:'2026-06-30T14:00:01.200Z', operation:'demo/tool.exec', actor:'demo/Weaver', profile:'fast', duration_ms:310, ocsf_class:1001, severity:'warn', schema_version:'1.0.0', signature:'demo-sig-03', attributes:{tool_refs:['fs.read']}, ocsf_payload:{}},
+    {trace_id:'demo-tr-01', span_id:'demo-sp-04', parent_span_id:'demo-sp-03', start_ts:'2026-06-30T14:00:01.210Z', operation:'demo/fs.read', actor:'demo/Auditor', profile:'fast', duration_ms:42, ocsf_class:2004, severity:'error', schema_version:'1.0.0', signature:'demo-sig-04', attributes:{path:'/var/lib/sovereign/plan'}, ocsf_payload:{class_uid:2004,finding:'declaration mismatch'}},
+    {trace_id:'demo-tr-01', span_id:'demo-sp-05', parent_span_id:'demo-sp-01', start_ts:'2026-06-30T14:00:01.550Z', operation:'demo/net.request', actor:'demo/Auditor', profile:'careful', duration_ms:90, ocsf_class:4001, severity:'error', schema_version:'1.0.0', signature:'demo-sig-05', attributes:{status:'blocked',host:'api.example.com'}, ocsf_payload:{class_uid:4001,action:'blocked'}},
+    // trace B — a fast clean route decision (contrast: short and quiet)
+    {trace_id:'demo-tr-02', span_id:'demo-sp-06', parent_span_id:null, start_ts:'2026-06-30T14:00:03.000Z', operation:'demo/route.decide', actor:'demo/Router', profile:'fast', duration_ms:3.1, ocsf_class:5001, severity:'info', schema_version:'1.0.0', signature:'demo-sig-06', attributes:{branch_id:'main'}, ocsf_payload:{}}
   ],
-  summary:{total:3, errors:1, p95_ms:1420, ocsf:{'1001':1,'1003':0,'2004':0,'4001':1,'5001':1}}
+  summary:{total:6, errors:2, p95_ms:1420, ocsf:{'1001':2,'1003':0,'2004':1,'4001':1,'5001':2}}
 };
 async function fetchSpans() {
   if (demoActive()) { const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return DEMO_D05; }
@@ -2407,6 +2529,9 @@ async function refresh() {
   $('ocsf-4001').textContent = ocsf['4001'] || 0;
   $('ocsf-5001').textContent = ocsf['5001'] || 0;
   renderSpans(state.spans || []);
+  renderWaterfall(state.spans || []);
+  renderTraceInsights(state.spans || []);
+  renderOcsfDist(ocsf);
 }
 
 $('apply-btn').addEventListener('click', refresh);
@@ -3199,6 +3324,27 @@ window.SO_ASSIST = {
    ]
   },
   {
+   "icon": "✦",
+   "title": "What needs attention",
+   "content": "The strip that tells you what in the current trace window deserves an operator response, before you read a single row — errored spans, OCSF 2004 detection findings, OCSF 4001 cloud-exposure network events, and the slowest span, each as a clickable chip that jumps straight to that span's full detail. An empty strip is the good news: nothing in the window is failing, finding, or escaping. It is the triage layer that turns ‘scan the whole table’ into ‘here are the N things to open.'",
+   "children": [
+    {
+     "selector": "#trace-insights",
+     "title": "What needs your attention",
+     "content": "The live set of conditions in the filtered span window that warrant a look: red for failures and security findings (errored spans, and OCSF 2004 detection findings — declaration mismatches and signature-chain breaks), amber for exposure and latency pressure (OCSF 4001 network events that may indicate Ring-4 cloud exposure, and the slowest span when it is genuinely slow). Each chip names the condition in plain terms and, when clicked, opens the exact span's detail panel, so the alert and its evidence are one click apart. Hidden entirely when the window is clean.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#trace-insights .ins",
+      "nameSelector": "*",
+      "title": "Insight · {{name}}",
+      "content": "One flagged condition in the trace window — {{name}}. Each chip states the condition in plain terms with its severity (red = a failure or a security finding, amber = exposure or latency to watch) and, on click, opens the full detail of the span it points at.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">{{name}}</div>One flagged trace condition. The chip is a compressed alert: it names what happened and how serious it is, and clicking it opens the span's detail so you go straight to the evidence.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Only what deserves a response</div>A chip appears only when acting on it would change something — a span failed, a security finding fired, a network event hints at cloud exposure, or a span is genuinely slow. So an empty strip is not missing data; it is the confirmation that the window is clean. When chips appear they are ordered by severity and each is a direct jump to its evidence.</div>"
+    }
+   ]
+  },
+  {
    "icon": "⊟",
    "title": "Filter",
    "content": "The query controls — narrow the span search by text, severity, OCSF class, and time window. Tracing is only useful if you can find the one trace you need in millions, so these are the tools that turn a haystack into the specific request you are chasing.",
@@ -3242,6 +3388,27 @@ window.SO_ASSIST = {
    ]
   },
   {
+   "icon": "⌗",
+   "title": "Trace waterfall",
+   "content": "The same spans regrouped by trace — the view tracing is actually for. Each trace is a card with its spans nested in call order, and every span carries a bar proportional to its duration relative to the trace's root, so the shape of a request is visible at a glance: where the time went, which child was the bottleneck, and where it broke (colored by severity). This is the causal path the flat table only implies — click any span for its full detail.",
+   "children": [
+    {
+     "selector": "#waterfall",
+     "title": "Traces, grouped",
+     "content": "The current span window regrouped into trace cards. Each card shows the trace id, its span count, any error count, and the peak duration; inside, spans nest by their parent-child relationship in start-time order, each with a duration bar scaled to the trace's root. The nesting is the story — a model call under a plan, a detection finding under a tool exec — and the bar lengths show where the milliseconds actually went. Clicking a span opens its detail panel.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#waterfall .wf-trace",
+      "nameSelector": ".wf-trace-head .tid",
+      "title": "Trace · {{name}}",
+      "content": "The {{name}} trace — one request reconstructed as a tree of spans. Read it top-down: the root is the entry operation, its children are what it called, and each bar shows how long that step took relative to the whole. A deep or skewed tree is where a slow or failing request hides its cause.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Trace · {{name}}</div>One request, span by span. The nesting shows the call path and the bars show the time split — together they answer ‘what happened and where did it go wrong' for this single trace.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The causal path, not just the list</div>The flat table tells you a span exists; the waterfall tells you where it sat in the request and what it cost. Grouping by trace with proportional duration bars is how you see the bottleneck and the failure point in one glance, instead of reconstructing them from timestamps.</div><div class=\"so-xref\"><span class=\"x\">→</span> #spans-tbody — the same spans, flat<br><span class=\"x\">→</span> #detail-panel — any span's full detail</div>"
+    }
+   ]
+  },
+  {
    "icon": "◫",
    "title": "Spans",
    "content": "The search results — the spans matching your filters, each a step in some request’s trace. This is the list you scan to find the one trace worth opening; a row’s severity and OCSF class tell you at a glance whether it’s the failure you’re hunting. Click a row to open its full detail.",
@@ -3270,7 +3437,7 @@ window.SO_ASSIST = {
     {
      "selector": "#ocsf-tbody",
      "title": "OCSF event counts",
-     "content": "Each row is an OCSF event class and its count in the window — the security-event breakdown. Read it as the shape of what the box did in security terms: mostly benign observer/config events on a quiet box, a spike in detection findings or cloud-exposure events when something notable happened. It’s the security summary the raw spans don’t give you.",
+     "content": "Each row is an OCSF event class and its count in the window — the security-event breakdown, with a small bar showing the class's share of the window's event mix. Read it as the shape of what the box did in security terms: mostly benign observer and config events on a quiet box, a spike in detection findings (2004) or cloud-exposure events (4001, shown red) when something notable happened. It’s the security summary the raw spans don’t give you.",
      "dynamic": true,
      "childTemplate": {
       "selector": "#ocsf-tbody tr",

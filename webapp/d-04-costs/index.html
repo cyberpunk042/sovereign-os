@@ -418,6 +418,19 @@ a11y; contract test catches drift.
   .progress .fill{position:absolute;top:0;left:0;bottom:0;background:var(--good);transition:width .25s ease,background-color .25s ease}
   .progress .fill.warn{background:var(--warn)} .progress .fill.bad{background:var(--bad)}
   .progress .label{position:absolute;top:50%;left:.5rem;transform:translateY(-50%);font-size:.7rem;color:var(--fg);text-shadow:0 0 2px var(--bg)}
+  /* EOD-forecast tick on the budget bar — where the day is heading, not where it is */
+  .forecast-tick{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--fg);opacity:.75;pointer-events:none}
+  /* — cost insight strip: renders only when something needs attention — */
+  .insights{display:flex;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 .9rem}
+  .ins{font:inherit;font-size:.74rem;padding:.22rem .6rem;border-radius:999px;cursor:pointer;
+    background:var(--panel);border:1px solid var(--border);color:var(--fg)}
+  .ins:hover{border-color:var(--accent)}
+  .ins.warn{color:var(--warn);border-color:rgba(224,192,122,.45);background:rgba(224,192,122,.07)}
+  .ins.bad{color:var(--bad);border-color:rgba(255,118,118,.5);background:rgba(255,118,118,.08)}
+  /* most-recent trend bar — the "today" edge of the 30-day window */
+  .trend-now{box-shadow:0 0 0 1px var(--accent,#9bd1ff)}
+  .trend-stats{display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:.5rem;font-size:.75rem}
+  .trend-stats .k{color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;margin-right:.3rem}
   .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.72rem;background:var(--border)}
   .pill.ok{background:#143d14;color:var(--good)} .pill.bad{background:#3d1414;color:var(--bad)} .pill.warn{background:#3d2f14;color:var(--warn)}
   .pill.accent{background:#143d3d;color:var(--accent)}
@@ -2107,7 +2120,7 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
   <div class="stat" style="flex-basis:100%">
     <div class="k">today (UTC)</div>
     <div class="v"><span id="today-spend">—</span><span class="u"> / </span><span id="today-budget">—</span><span class="u"> USD</span></div>
-    <div class="progress"><div class="fill" id="today-fill" style="width:0%"><span class="label" id="today-label">—</span></div></div>
+    <div class="progress"><div class="fill" id="today-fill" style="width:0%"><span class="label" id="today-label">—</span></div><div class="forecast-tick" id="forecast-tick" hidden></div></div>
     <div class="muted" style="font-size:.72rem;margin-top:.3rem">
       operator setting: <code>daily_budget_usd</code> per <code>/etc/sovereign-os/cost-policy.toml</code> (verbatim from dump 9890 R10075)
     </div>
@@ -2132,6 +2145,11 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
     <div class="v" id="eod-forecast">$—</div>
   </div>
 </div>
+
+<!-- Smart insight strip: rendered only when something needs operator attention
+     (budget trajectory, policy posture, spend drift). Clicking a chip jumps to
+     the relevant section. Empty = all quiet. -->
+<div id="cost-insights" class="insights" hidden></div>
 
 <h2>cost by project</h2>
 <div class="panel">
@@ -2170,7 +2188,8 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
   <div id="trend-chart" style="height:160px;display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid var(--border);padding:.3rem">
     <span class="muted" style="margin:auto">loading…</span>
   </div>
-  <div class="muted" style="font-size:.72rem;margin-top:.3rem">each bar = one day; height proportional to spend; hover row for details</div>
+  <div class="muted" style="font-size:.72rem;margin-top:.3rem">each bar = one day; height proportional to spend; hover for the exact day and amount</div>
+  <div id="trend-stats" class="trend-stats"></div>
 </div>
 
 <h2 data-assist="The operator-controlled cost guardrails (cloud_enabled, cloud_requires_approval, …). These are the actual policy values the router honors — shown here read-only; you change them from the profile / router surface, not from this panel.">cost policy (operator-controlled, dump 9885-9930 verbatim)</h2>
@@ -2240,7 +2259,7 @@ function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/[&<
 
 function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
 const DEMO_COSTS = {
-  today: { spend:2.14, budget:10.0, requests:184, avg_req_cost:0.0116, per_request_max:0.42, eod_forecast:3.80 },
+  today: { spend:2.14, budget:10.0, requests:184, avg_req_cost:0.0116, per_request_max:0.42, eod_forecast:11.20 },
   projects: [
     {name:"demo/sovereign-os", today:1.02, "7d":6.44, "30d":22.10, profile:"careful", dominant_route:"k2_6_openrouter"},
     {name:"demo/openfleet", today:0.71, "7d":3.90, "30d":14.02, profile:"fast", dominant_route:"local"},
@@ -2255,7 +2274,11 @@ const DEMO_COSTS = {
     {name:"demo/qwen3-local", role:"local", today:0.0, tokens_in:1400000, tokens_out:380000, usd_per_mtok:0.0},
     {name:"demo/opus-fallback", role:"premium", today:0.70, tokens_in:42000, tokens_out:18000, usd_per_mtok:12.0}
   ],
-  trend30d: [{date:'2026-06-01',spend:3.15},{date:'2026-06-02',spend:2.17},{date:'2026-06-03',spend:1.58},{date:'2026-06-04',spend:2.0},{date:'2026-06-05',spend:2.58},{date:'2026-06-06',spend:2.33},{date:'2026-06-07',spend:1.75},{date:'2026-06-08',spend:1.83},{date:'2026-06-09',spend:2.42},{date:'2026-06-10',spend:2.9},{date:'2026-06-11',spend:1.92},{date:'2026-06-12',spend:1.67},{date:'2026-06-13',spend:2.25},{date:'2026-06-14',spend:2.67},{date:'2026-06-15',spend:2.08},{date:'2026-06-16',spend:1.5},{date:'2026-06-17',spend:2.08},{date:'2026-06-18',spend:2.67},{date:'2026-06-19',spend:2.65},{date:'2026-06-20',spend:1.67},{date:'2026-06-21',spend:1.92},{date:'2026-06-22',spend:2.5},{date:'2026-06-23',spend:2.42},{date:'2026-06-24',spend:1.83},{date:'2026-06-25',spend:1.75},{date:'2026-06-26',spend:2.33},{date:'2026-06-27',spend:2.58},{date:'2026-06-28',spend:2.4},{date:'2026-06-29',spend:1.58},{date:'2026-06-30',spend:2.17}],
+  // 30-day window with RELATIVE dates so the demo never reads as stale.
+  trend30d: Array.from({length: 30}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (29 - i));
+    return {date: d.toISOString().slice(0, 10), spend: [3.15,2.17,1.58,2.0,2.58,2.33,1.75,1.83,2.42,2.9,1.92,1.67,2.25,2.67,2.08,1.5,2.08,2.67,2.65,1.67,1.92,2.5,2.42,1.83,1.75,2.33,2.58,2.4,1.58,2.17][i]};
+  }),
   policy: { cloud_enabled:true, cloud_requires_approval:true, daily_budget_usd:10.0, per_request_max_usd:0.50, private_paths_never_cloud:true, log_prompts:"local_only" }
 };
 async function refresh() {
@@ -2267,6 +2290,13 @@ async function refresh() {
   const p = pct(s.today.spend, s.today.budget);
   const fill = $('today-fill'); fill.style.width = p + '%'; fill.className = 'fill ' + fillCls(p);
   $('today-label').textContent = `${p.toFixed(1)}%`;
+  // EOD-forecast tick on the bar — where the day is heading, not where it is.
+  const tick = $('forecast-tick');
+  if (s.today.eod_forecast != null && s.today.budget > 0) {
+    tick.hidden = false;
+    tick.style.left = Math.min(100, s.today.eod_forecast / s.today.budget * 100).toFixed(1) + '%';
+    tick.title = 'EOD forecast ' + fmtUsd(s.today.eod_forecast);
+  } else tick.hidden = true;
   $('req-count').textContent = fmtNum(s.today.requests);
   $('avg-req-cost').textContent = fmtUsd(s.today.avg_req_cost);
   $('per-req-max').textContent = fmtUsd(s.today.per_request_max);
@@ -2291,30 +2321,45 @@ async function refresh() {
     $('prof-'+key+'-7d').textContent = fmtUsd(d['7d']);
     $('prof-'+key+'-30d').textContent = fmtUsd(d['30d']);
   });
-  // models
+  // models — today's cost is heat-colored: a local model accruing cost is a
+  // drift alarm (red), any paid spend is worth a glance (amber), $0 is quiet.
   const mtbody = $('model-tbody');
   mtbody.innerHTML = (s.models || []).map(m => `
     <tr>
       <td><code>${escapeHtml(m.name)}</code></td>
       <td><span class="muted">${escapeHtml(m.role)}</span></td>
-      <td class="num">${fmtUsd(m.today)}</td>
+      <td class="num ${m.role === 'local' && m.today > 0 ? 'bad' : m.today > 0 ? 'warn' : 'muted'}">${fmtUsd(m.today)}</td>
       <td class="num">${fmtNum(m.tokens_in)}</td>
       <td class="num">${fmtNum(m.tokens_out)}</td>
       <td class="num muted">${m.usd_per_mtok != null ? fmtUsd(m.usd_per_mtok) : '—'}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="muted">no model spend recorded</td></tr>';
-  // trend
+  // trend — bars + shared day axis (labels every 7th day) + today ring + stats
   const t = s.trend30d || [];
   const max = Math.max(...t.map(d => d.spend || 0), 0.01);
   const chart = $('trend-chart');
   if (t.length) {
-    chart.innerHTML = t.map(d => `
+    chart.innerHTML = t.map((d, i) => `
       <div title="${escapeHtml(d.date)}: ${fmtUsd(d.spend)}"
+           class="${i === t.length - 1 ? 'trend-now' : ''}"
            style="flex:1;background:${d.spend >= (s.policy.daily_budget_usd || Infinity) ? 'var(--bad)' : d.spend >= (s.policy.daily_budget_usd || Infinity)*0.7 ? 'var(--warn)' : 'var(--accent)'};
                   height:${(d.spend/max*100).toFixed(1)}%;border-radius:1px 1px 0 0;min-height:1px;cursor:help"></div>
     `).join('');
   } else {
     chart.innerHTML = '<span class="muted" style="margin:auto">no trend data yet — accumulates over 30 days</span>';
   }
+  const tstats = $('trend-stats');
+  if (t.length) {
+    const axis = '<div style="display:flex;gap:2px;padding:0 .3rem;margin-top:.2rem">' +
+      t.map((d, i) => `<span style="flex:1;font-size:.62rem;color:var(--muted);text-align:center;white-space:nowrap">${i % 7 === 0 ? escapeHtml(d.date.slice(5)) : ''}</span>`).join('') + '</div>';
+    const total = t.reduce((a, d) => a + (d.spend || 0), 0);
+    const peak = t.reduce((a, d) => (d.spend || 0) > (a.spend || 0) ? d : a, t[0]);
+    tstats.innerHTML = axis +
+      `<div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:.4rem;font-size:.75rem">` +
+      `<span><span class="k">30d total</span><span style="font-variant-numeric:tabular-nums">${fmtUsd(total)}</span></span>` +
+      `<span><span class="k">avg / day</span><span style="font-variant-numeric:tabular-nums">${fmtUsd(total / t.length)}</span></span>` +
+      `<span><span class="k">peak day</span><span style="font-variant-numeric:tabular-nums">${fmtUsd(peak.spend)} · ${escapeHtml(peak.date)}</span></span>` +
+      `</div>`;
+  } else tstats.innerHTML = '';
   // policy
   const pol = s.policy || {};
   $('pol-cloud').innerHTML = pol.cloud_enabled === true ? '<span class="warn">true</span>' : pol.cloud_enabled === false ? '<span class="ok">false</span>' : '<span class="muted">—</span>';
@@ -2323,6 +2368,50 @@ async function refresh() {
   $('pol-perreq').textContent = pol.per_request_max_usd != null ? fmtUsd(pol.per_request_max_usd) : '—';
   $('pol-private').innerHTML = pol.private_paths_never_cloud === true ? '<span class="ok">true</span>' : '<span class="bad">false</span>';
   $('pol-log').innerHTML = `<code>${escapeHtml(pol.log_prompts || 'local_only')}</code>`;
+  // Smart cost insights — last, so chips reflect the data just rendered.
+  renderInsights(s);
+}
+
+// — Smart cost insights: surface ONLY what deserves an operator response, as
+//   clickable jump-chips. Empty strip = spend is quiet and policy is sound.
+function renderInsights(s) {
+  const box = $('cost-insights');
+  if (!box) return;
+  const chips = [];
+  const add = (cls, text, target) =>
+    chips.push(`<button class="ins ${cls}" data-target="${target}">${text}</button>`);
+  const today = s.today || {}, pol = s.policy || {};
+  // Trajectory first: where the day is heading vs the budget.
+  if (today.eod_forecast != null && today.budget > 0 && today.eod_forecast > today.budget)
+    add('bad', `EOD forecast ${fmtUsd(today.eod_forecast)} over ${fmtUsd(today.budget)} budget`, 'today-spend');
+  else if (today.budget > 0 && (today.spend || 0) >= 0.7 * today.budget)
+    add('warn', `today ${fmtUsd(today.spend)} is ${Math.round(today.spend / today.budget * 100)}% of budget`, 'today-spend');
+  // Per-request ceiling pressure.
+  if (today.per_request_max != null && pol.per_request_max_usd > 0 &&
+      today.per_request_max >= 0.8 * pol.per_request_max_usd)
+    add('warn', `per-request ${fmtUsd(today.per_request_max)} near ${fmtUsd(pol.per_request_max_usd)} cap`, 'per-req-max');
+  // Policy posture: the two invariants that keep spend sovereign.
+  if (pol.cloud_enabled === true && pol.cloud_requires_approval === false)
+    add('bad', 'cloud spend ungated (no approval required)', 'policy-tbody');
+  if (pol.private_paths_never_cloud === false)
+    add('bad', 'private paths may reach cloud — never-cloud broken', 'policy-tbody');
+  // Drift: local models accruing cost, or private-profile projects off-local.
+  (s.models || []).forEach(m => {
+    if (m.role === 'local' && (m.today || 0) > 0)
+      add('warn', `${m.name} (local) accruing ${fmtUsd(m.today)}`, 'model-tbody');
+  });
+  (s.projects || []).forEach(p => {
+    if (p.profile === 'private' && p.dominant_route && p.dominant_route !== 'local')
+      add('bad', `${p.name}: private profile routed via ${p.dominant_route}`, 'project-tbody');
+  });
+  box.innerHTML = chips.join('');
+  box.hidden = chips.length === 0;
+  box.querySelectorAll('.ins').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = $(btn.dataset.target);
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
 }
 
 $('refresh-btn').addEventListener('click', refresh);
@@ -3122,6 +3211,33 @@ refresh();
      "title": "End-of-day forecast",
      "content": "The projected spend by end of day given the trajectory so far. On a local box this projects to zero; a rising forecast is an early warning that today’s spend is trending toward the budget, giving you time to intervene (or halt cloud) before it’s reached rather than after.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Early warning, so you act before the cap</div>A budget you only notice when you hit it is a budget that already cost you. The forecast is the lead time: if spend is trending up, it projects where the day ends, so you can halt cloud or switch profile before the cap rather than discovering the overage after.</div><div class=\"so-xref\"><span class=\"x\">→</span> #halt-btn — the intervention a rising forecast argues fo</div>"
+    },
+    {
+     "selector": "#forecast-tick",
+     "title": "Forecast tick on the budget bar",
+     "content": "A thin marker on the daily-budget bar showing where the end-of-day forecast lands relative to the budget — the trajectory made visible on the same scale as spend. When it sits past the bar's right edge (clamped to the end), the day is on track to over the budget; before the filled edge, spend is still inside it. It turns the bar from 'where you are' into 'where you're going'.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Trajectory on the same scale as the cap</div>Gauges show state; this marker shows intent. Plotted against the budget, the forecast tick answers the operator question in one glance — is today inside the cap or heading out of it — and it moves as the day's spend accumulates, so a tick that starts mid-bar and drifts toward the edge is the drift you intervene on.</div><div class=\"so-xref\"><span class=\"x\">→</span> #eod-forecast — the number this tick plots<br><span class=\"x\">→</span> #halt-btn — the lever when it crosses the edge</div>"
+    }
+   ]
+  },
+  {
+   "icon": "✦",
+   "title": "Cost insights",
+   "content": "The strip that says what deserves an operator response right now — budget trajectory, per-request ceiling pressure, and policy posture, each as a clickable chip that jumps to the section it's about. An empty strip is the good news: spend is quiet and the sovereignty invariants hold, so there is nothing to act on. Chips appear only when a real condition is met — a forecast over budget, a cap under pressure, or a policy invariant broken — never as decoration.",
+   "children": [
+    {
+     "selector": "#cost-insights",
+     "title": "What needs your attention",
+     "content": "The live set of cost conditions worth an operator response. Red chips are invariants broken or budgets projected to be exceeded (forecast over budget, ungated cloud spend, a private path reaching cloud, a private profile routed off-local); amber chips are pressure to watch (spend past 70% of budget, per-request cost near its cap, a local model accruing cost — the drift alarm). Clicking a chip scrolls to the exact section behind it, so insight and evidence are one click apart. Hidden entirely when nothing qualifies.",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#cost-insights .ins",
+      "nameSelector": "*",
+      "title": "Insight · {{name}}",
+      "content": "One cost condition flagged as worth attention — {{name}}. Each chip names the condition in plain terms and carries its severity: red for an invariant broken or a budget projected over, amber for pressure to watch. Clicking it jumps to the section holding the evidence behind the flag.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">{{name}}</div>One flagged cost condition. The chip is a compressed alert: it states the condition and its severity, and clicking it takes you straight to the numbers that prove it — insight and evidence one click apart.</div>"
+     },
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Only what deserves a response</div>The design rule: a chip appears only when acting on it would change something — a budget about to be exceeded, a cap about to be breached, a sovereignty invariant broken. So an empty strip is not missing data, it's the confirmation that spend is quiet and the policy holds. When chips do appear, they're ordered by severity and each one is a jump link to its evidence.</div>"
     }
    ]
   },
@@ -3175,7 +3291,7 @@ refresh();
     {
      "selector": "#model-tbody",
      "title": "Cost by model",
-     "content": "Each row is a model with its tokens-out and dollars-per-million-tokens. The local models show $0 per Mtok — that’s the whole point — so any row with a real price is a cloud model, and its token count is how much you leaned on it. Read it to see exactly which cloud model incurred cost, if any, and how heavily it was used.",
+     "content": "Each row is a model with its tokens-out and dollars-per-million-tokens. The local tiers (Conductor, Logic, Oracle) cost nothing — a $0.00/Mtok row is the point — so any priced row is a cloud model, and its token count is how much you leaned on it. The today-cell is heat-colored as a drift detector: a local model accruing cost is red (it should never cost), any paid spend is amber (worth a glance), and quiet $0 stays muted.",
      "dynamic": true,
      "childTemplate": {
       "selector": "#model-tbody tr",
@@ -3196,8 +3312,14 @@ refresh();
     {
      "selector": "#trend-chart",
      "title": "30-day spend trend",
-     "content": "Spend plotted over the last 30 days. The expected shape is flat-at-zero — a month of free local inference — so the chart is really an exception detector: a spike marks a day something routed to cloud, and a sustained rise means cloud use is creeping in against the doctrine. Read the shape, not the magnitude, since the magnitude should be near nothing.",
-     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A flat line is the success state</div>Most cost charts trend up and you manage the slope. This one is designed to stay flat at zero, and any deviation is the story — a spike is a one-off escalation to explain, a rising trend is the box drifting away from local-only and toward paid cloud, which the cost policies exist to prevent. Flat is the box keeping its $0-is-honest promise.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-cloud — the policy that should keep this flat</div>"
+     "content": "Spend plotted over the last 30 days, with a day axis under the bars (labeled every 7th day) and a ring around the most recent bar so 'today' is unambiguous. The expected shape on a sovereign box is flat-at-zero — a month of free local inference — so the chart doubles as an exception detector: bars turn amber at 70% of the daily budget and red at or over it, a spike marks a day something routed to cloud, and a rising line means cloud use is creeping in against the doctrine. Read the shape, not the magnitude, since the magnitude should be near nothing.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">A flat line is the success state</div>Most cost charts trend up and you manage the slope. This one is designed to stay flat at zero, and any deviation is the story — a spike is a one-off escalation to explain, a rising trend is the box drifting away from local-only and toward paid cloud, which the cost policies exist to prevent. The day axis and the ring on the latest bar keep you oriented; the threshold coloring tells you which deviations already cross a policy line. Flat is the box keeping its $0-is-honest promise.</div><div class=\"so-xref\"><span class=\"x\">→</span> #pol-cloud — the policy that should keep this flat<br><span class=\"x\">→</span> #trend-stats — the month summarized in three numbers</div>"
+    },
+    {
+     "selector": "#trend-stats",
+     "title": "Month in three numbers",
+     "content": "The 30-day trend summarized beneath its own chart: the month's total spend, the average per day, and the peak day with its date. On a quiet local box these are near-zero confirmations; when spend exists they separate a steady background from a one-off spike — a peak day far above the average is an event to find in the ledger, a flat spread is a habit to address with policy.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Shape before magnitude</div>Three numbers that answer 'what kind of month was this' before you read any bar. Total is the headline; the average is the baseline the peak is measured against, and the peak day's date is where you start looking when the answer should have been flat. Together they turn a month of bars into a sentence: steady, spiky, or drifting.</div>"
     }
    ]
   },
