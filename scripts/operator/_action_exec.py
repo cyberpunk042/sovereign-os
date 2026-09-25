@@ -549,6 +549,12 @@ def execute(control_id: str, args: dict[str, str] | None = None, *,
     try:
         proc = subprocess.run(run_argv, cwd=_REPO_ROOT, capture_output=True,
                               text=True, timeout=timeout, check=False)
+        if control_id == 'model-download' and proc.returncode != 0 and 'sudo:' in proc.stderr:
+            _emit_audit(control_id, argv, proc.returncode, actor, dry_run=False)
+            _emit_metric(control_id, 'error')
+            return {'ok': False, 'code': 503, 'control_id': control_id,
+                    'installation_required': True,
+                    'error': 'The privileged model-download grant is not installed. An administrator must install the updated scoped cockpit sudoers policy once; routine downloads then require no terminal setup.'}
         # The profile controls restart heavyweight inference services. A zero
         # exit is insufficient evidence of activation; the marker is the
         # transaction's commit record and must match the selected profile.

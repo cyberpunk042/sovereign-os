@@ -2632,25 +2632,44 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const action = fam === 'generated'
       ? `<button class="p-apply gen" data-act="gen" data-id="${esc(id)}" data-gen="${esc(p.generate_cmd || '')}">Generate profile</button>`
       : missing.length
-        ? `<button class="p-apply" data-act="download" data-id="${esc(id)}" data-missing="${esc(JSON.stringify(missing))}">Copy download plan</button>`
+        ? `<button class="p-apply" data-act="download" data-id="${esc(id)}" data-missing="${esc(JSON.stringify(missing))}">Download / resume missing models</button>`
         : `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}">Apply this profile</button>`;
     el.innerHTML = `<span class="inspector-kicker">Selected profile · ${esc(fam)}</span><h3>${esc(p.name || id)}</h3>
       <p class="inspector-desc">${esc(p.description || 'No profile description supplied.')}</p>
       <div class="inspector-status${missing.length ? ' warn' : ''}">${esc(status)}</div>
+      ${missing.filter(m => m.download && m.download.status).map(m => {
+        const d = m.download;
+        const amount = d.bytes_total ? ' · ' + (Number(d.bytes_done || 0)/1073741824).toFixed(1) + ' / ' + (Number(d.bytes_total)/1073741824).toFixed(1) + ' GiB' : '';
+        return `<div class="inspector-status" role="status">${esc(m.id)}: ${esc(d.status + amount)}${d.error ? ' — ' + esc(d.error) : ''}</div>`;
+      }).join('')}
       <div class="inspector-block"><h4>Declared allocation</h4>${tierHtml}</div>
       <div class="inspector-block"><h4>Change from active profile</h4>${changesHtml}</div>
       <div class="inspector-actions">${action}<span class="p-result muted"></span></div>`;
     const button = el.querySelector('.p-apply[data-act]');
     if (!button) return;
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
       const resultEl = el.querySelector('.p-result');
       if (button.dataset.act === 'gen') {
         copyCmd(button.dataset.gen, 'Materialize this generated combo, then Apply it:');
         setP(resultEl, 'muted', 'generate command copied — run it, then refresh this panel');
       } else if (button.dataset.act === 'download') {
         let planItems = []; try { planItems = JSON.parse(button.dataset.missing || '[]'); } catch (_) {}
-        copyCmd(planItems.map(m => m.download_command).filter(Boolean).join('\n'), 'Download these catalog models, then return here and Apply:');
-        setP(resultEl, 'dry', 'download plan copied — run it, then refresh this panel');
+        button.disabled = true;
+        try {
+          for (const model of planItems) {
+            if (['queued','preflight','downloading','verifying'].includes((model.download || {}).status)) continue;
+            setP(resultEl, 'muted', 'Starting download: ' + model.id);
+            const response = await fetch(EXECUTE_URL, {method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({control_id:'model-download',args:{model:model.id},confirm:true})});
+            const body = await response.json();
+            if (!response.ok || !body.ok) throw new Error(body.error || body.stderr || 'Download service unavailable');
+            if (body.dry_run) { setP(resultEl, 'dry', 'Preview only — privileged download service is not enabled.'); return; }
+          }
+          setP(resultEl, 'ok', 'Downloads accepted. Progress updates below; Apply remains a separate action.');
+          setTimeout(refresh, 1500);
+        } catch (error) { setP(resultEl, 'err', error.message); }
+        finally { button.disabled = false; }
       } else {
         const btn = button;
         applyProfile(btn.dataset.id, btn.dataset.fam, resultEl);
@@ -3219,6 +3238,11 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // SDD-117 — in DEMO mode open NO EventSource (zero network calls); the demo
   // render path is fully client-side. Live mode keeps the SSE + interval refresh.
   if (!demoActive()) {
+    // Downloads progress independently of GPU telemetry/SSE state changes.
+    setInterval(() => {
+      if ((LAST_PROFILES_DATA?.profiles || []).some(p =>
+          (p.missing_models || []).some(m => ['queued','preflight','downloading','verifying'].includes(m.download?.status)))) refresh();
+    }, 5000);
     try {
       const es = new EventSource('/api/lm-orchestration/stream');
       es.addEventListener('state-change', refresh);

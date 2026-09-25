@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 80 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 86 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -11,15 +11,15 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 | Tier | Count | Verified-real | Aspirational |
 |------|-------|---------------|--------------|
 | pulse | 30 | 10 | 14 |
-| logic | 25 | 6 | 7 |
-| oracle | 20 | 9 | 5 |
+| logic | 29 | 9 | 7 |
+| oracle | 22 | 10 | 5 |
 | router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
 
 | Class | Count |
 |-------|-------|
-| `code` — Code-specialised | 5 |
+| `code` — Code-specialised | 11 |
 | `embed` — Embedding | 2 |
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 3 |
@@ -36,16 +36,17 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 26 |
+| `agent` | 32 |
 | `audio` | 3 |
-| `chat` | 42 |
-| `code` | 25 |
+| `autocomplete` | 3 |
+| `chat` | 45 |
+| `code` | 31 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
-| `function-calling` | 9 |
+| `function-calling` | 12 |
 | `multimodal` | 8 |
 | `rag` | 3 |
-| `reasoning` | 32 |
+| `reasoning` | 34 |
 | `reranking` | 1 |
 | `speculation` | 2 |
 | `vision` | 7 |
@@ -673,6 +674,69 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > ternary-quantized 32B Qwen on HF; AWQ 4-bit is the operator
 > substitute. vllm-vulkan engine compatible with the 4090.
 
+### Qwen3.8-27B-Q4_K_M
+
+- **Status:** ? operator-must-confirm
+- **Class:** `code` — Code-specialised
+- **Quantization:** `int4`
+- **Size class:** `xl`
+- **Purpose:** `chat`, `code`, `agent`, `function-calling`, `reasoning`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **Parameters:** 27000.0 M
+- **VRAM minimum (GiB):** 20
+- **Context window (tokens):** 262,144
+- **Master spec:** operator directive 2026-09-24 — dual-GPU qualification
+
+**Operator note:**
+
+> Qualification candidate only. Exact GGUF quantization is in the ID; catalog precision is a coarse schema category. No tool reliability, context fit or speed certification.
+
+### GGML-Qwen3.6-27B-Coder
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `fp8`
+- **Size class:** `l`
+- **Purpose:** `code`, `autocomplete`, `agent`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **HF repo id:** `ggml-org/Qwen3.6-27B-GGUF`
+- **Parameters:** 27000.0 M
+- **VRAM minimum (GiB):** 28
+- **Context window (tokens):** 32,768
+- **Master spec:** operator directive 2026-09-11 — dual-agent autocomplete
+
+**Operator note:**
+
+> Requested exact autocomplete artifact. The repository/artifact revision,
+> FP8 availability, and FIM endpoint behavior must be verified before
+> download and promotion; this row intentionally prevents silent model
+> substitution.
+
+### Qwen3.6-27B-Coder
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `fp8`
+- **Size class:** `l`
+- **Purpose:** `code`, `autocomplete`, `agent`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **HF repo id:** `Qwen/Qwen3.6-27B-FP8`
+- **Parameters:** 27000.0 M
+- **VRAM minimum (GiB):** 28
+- **Context window (tokens):** 32,768
+- **Master spec:** operator directive 2026-09-11 — dual-agent autocomplete
+- **Runtime profiles:** dual-agent-autocomplete
+
+**Operator note:**
+
+> Requested exact autocomplete artifact. The repository/artifact revision,
+> FP8 availability, and FIM endpoint behavior must be verified before
+> download and promotion; this row intentionally prevents silent model
+> substitution.
+
 ### Qwen3-Coder-32B-Instruct
 
 - **Status:** ✓ verified-real
@@ -682,7 +746,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Purpose:** `code`, `agent`, `function-calling`
 - **Engine:** `vllm`
 - **License:** apache-2.0
-- **HF repo id:** `Qwen/Qwen3-Coder-32B-Instruct`
+- **HF repo id:** `Qwen/Qwen3-Coder-30B-A3B-Instruct`
 - **Parameters:** 32500.0 M
 - **VRAM minimum (GiB):** 65
 - **Context window (tokens):** 1,000,000
@@ -788,6 +852,33 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > supplied (community/research adapters land here as they pass
 > operator review). The `base_model` field is REQUIRED for
 > class=lora-adapter per schema 1.1.0.
+
+### Ternary-Bonsai-27B-dspark
+
+- **Status:** ✓ verified-real
+- **Class:** `speculative` — Speculative draft
+- **Quantization:** `bf16`
+- **Size class:** `xs`
+- **Purpose:** `chat`, `code`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **HF repo id:** `prism-ml/Ternary-Bonsai-27B-gguf`
+- **Base model (LoRA):** `Ternary-Bonsai-27B`
+- **Parameters:** 1700.0 M
+- **VRAM minimum (GiB):** 1
+- **Context window (tokens):** 32,768
+- **Master spec:** SDD-717 — speculative draft (DSpark) for Ternary-Bonsai-27B on the dual-Turing node
+- **Runtime profiles:** dual-turing-serving
+
+**Operator note:**
+
+> The `Ternary-Bonsai-27B-dspark-bf16.gguf` the operator named — a small
+> speculative-decoding DRAFT model that drafts tokens the 27B oracle
+> verifies, accelerating decode. On the dual-Turing box it runs via
+> `llama-server --model-draft <draft.gguf>` — the local analogue of
+> SAIN-01's DFlash/DSpark path (M083), which drafts through vLLM
+> `--speculative-config` on the OcuLink eGPU. bf16 → F16 for Turing.
+> operator-must-confirm: real draft weights + an accept-rate smoke pending.
 
 ### Qwen2.5-Coder-14B-Instruct
 
@@ -1134,6 +1225,64 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 ## Oracle tier (master spec § 17)
 
+### Qwen3.8-27B-Q8_0
+
+- **Status:** ? operator-must-confirm
+- **Class:** `code` — Code-specialised
+- **Quantization:** `int8`
+- **Size class:** `xl`
+- **Purpose:** `chat`, `code`, `agent`, `function-calling`, `reasoning`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **Parameters:** 27000.0 M
+- **VRAM minimum (GiB):** 30
+- **Context window (tokens):** 262,144
+- **Master spec:** operator directive 2026-09-24 — dual-GPU qualification
+
+**Operator note:**
+
+> Qualification candidate only. Exact GGUF quantization is in the ID; catalog precision is a coarse schema category. No tool reliability, context fit or speed certification.
+
+### Qwen3-Coder-Next-Q6_K
+
+- **Status:** ? operator-must-confirm
+- **Class:** `code` — Code-specialised
+- **Quantization:** `int8`
+- **Size class:** `xl`
+- **Purpose:** `chat`, `code`, `agent`, `function-calling`
+- **Engine:** `llama.cpp`
+- **License:** apache-2.0
+- **Parameters:** 80000.0 M
+- **VRAM minimum (GiB):** 64
+- **Context window (tokens):** 262,144
+- **Master spec:** operator directive 2026-09-24 — dual-GPU qualification
+
+**Operator note:**
+
+> Qualification candidate only. Exact GGUF quantization is in the ID; catalog precision is a coarse schema category. No tool reliability, context fit or speed certification.
+
+### Qwen3.6-27B-Dense
+
+- **Status:** ✓ verified-real
+- **Class:** `code` — Code-specialised
+- **Quantization:** `bf16`
+- **Size class:** `l`
+- **Purpose:** `code`, `autocomplete`, `agent`
+- **Engine:** `vllm`
+- **License:** apache-2.0
+- **HF repo id:** `Qwen/Qwen3.6-27B`
+- **Parameters:** 27000.0 M
+- **VRAM minimum (GiB):** 28
+- **Context window (tokens):** 32,768
+- **Master spec:** operator directive 2026-09-11 — dual-agent autocomplete
+
+**Operator note:**
+
+> Requested exact autocomplete artifact. The repository/artifact revision,
+> FP8 availability, and FIM endpoint behavior must be verified before
+> download and promotion; this row intentionally prevents silent model
+> substitution.
+
 ### DeepSeek-R1-Distill-Llama-70B-FP16
 
 - **Status:** ✓ verified-real
@@ -1378,32 +1527,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 > 2080 Ti. bf16 → convert to F16 for Turing. operator-must-confirm: real
 > projector weights + a multimodal serving smoke pending.
 
-### Ternary-Bonsai-27B-dspark
-
-- **Status:** ? operator-must-confirm
-- **Class:** `speculative` — Speculative draft
-- **Quantization:** `bf16`
-- **Size class:** `xs`
-- **Purpose:** `chat`, `code`
-- **Engine:** `llama.cpp`
-- **License:** apache-2.0
-- **Base model (LoRA):** `Ternary-Bonsai-27B`
-- **Parameters:** 1700.0 M
-- **VRAM minimum (GiB):** 1
-- **Context window (tokens):** 32,768
-- **Master spec:** SDD-717 — speculative draft (DSpark) for Ternary-Bonsai-27B on the dual-Turing node
-- **Runtime profiles:** dual-turing-serving
-
-**Operator note:**
-
-> The `Ternary-Bonsai-27B-dspark-bf16.gguf` the operator named — a small
-> speculative-decoding DRAFT model that drafts tokens the 27B oracle
-> verifies, accelerating decode. On the dual-Turing box it runs via
-> `llama-server --model-draft <draft.gguf>` — the local analogue of
-> SAIN-01's DFlash/DSpark path (M083), which drafts through vLLM
-> `--speculative-config` on the OcuLink eGPU. bf16 → F16 for Turing.
-> operator-must-confirm: real draft weights + an accept-rate smoke pending.
-
 ### Ternary-Bonsai-27B
 
 - **Status:** ✓ verified-real
@@ -1416,7 +1539,7 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **HF repo id:** `prism-ml/Ternary-Bonsai-27B-gguf`
 - **Parameters:** 27000.0 M
 - **VRAM minimum (GiB):** 11
-- **Context window (tokens):** 32,768
+- **Context window (tokens):** 262,144
 - **Master spec:** operator directive 2026-07-16 (dual-turing serving plan, SDD-714)
 - **Runtime profiles:** dual-turing-serving
 

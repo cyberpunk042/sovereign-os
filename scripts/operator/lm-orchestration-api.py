@@ -107,6 +107,7 @@ def _import_optional(name: str, path: Path):
 # Reuse the SAME shipped data sources (no new model, no drift). model-health
 # is essential (the assignment grid); runtime-modes is optional (Profiles row).
 _core = _import("_modelhealth_core", _REPO_ROOT / "scripts" / "inference" / "model-health.py")
+_downloads = _import("_model_download_jobs", _REPO_ROOT / "scripts/models/download-job.py")
 _rtmodes = _import_optional("_runtimemodes_api", _REPO_ROOT / "scripts" / "operator" / "runtime-modes-api.py")
 
 # The panel's four hardware cells (M075 SRP topology + the sketched Ext-GPU).
@@ -470,13 +471,14 @@ def profiles_view() -> dict[str, Any]:
         missing = []
         for model_id in required:
             entry = catalog.get(model_id, {})
-            if not (_MODELS_DIR / model_id).is_dir():
+            resident, job = _downloads.readiness(model_id, entry, vault=_MODELS_DIR)
+            if not resident:
                 command = (f"SOVEREIGN_OS_MODELS_DIR={shlex.quote(str(_MODELS_DIR))} "
                            f"scripts/models/pull.sh {shlex.quote(model_id)}")
                 if entry.get("status") == "operator-must-confirm":
                     command += " --allow-candidate"
                 missing.append({"id": model_id, "status": entry.get("status", "unknown"),
-                                "download_command": command})
+                                "download_command": command, "download": job})
         p["required_models"] = required
         p["missing_models"] = missing
         p["ready"] = not missing

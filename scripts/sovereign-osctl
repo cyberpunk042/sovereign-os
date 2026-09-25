@@ -2402,6 +2402,10 @@ cmd_models() {
         printf "  %-50s %s\n" "${d##*/}" "${size}"
       done
       ;;
+    download)
+      [ "$#" -eq 1 ] || { log_error "usage: models download <catalog-id>"; return 2; }
+      /usr/bin/python3 "${__REPO_ROOT}/scripts/models/download-job.py" "$1"
+      ;;
     pull)
       local hf_id="${1:?usage: models pull <hf-id> e.g. microsoft/bitnet-b1.58-2B-4T}"
       log_info "pulling ${hf_id} → ${SOVEREIGN_OS_MODELS_DIR}/$(basename "${hf_id}")"

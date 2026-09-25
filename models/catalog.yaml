@@ -185,6 +185,65 @@ catalog:
         ternary-quantized 32B Qwen on HF; AWQ 4-bit is the operator
         substitute. vllm-vulkan engine compatible with the 4090.
 
+    - id: Qwen3.8-27B-Q4_K_M
+      tier: logic
+      engine: llama.cpp
+      class: code
+      quantization: int4
+      size_class: xl
+      purpose: [chat, code, agent, function-calling, reasoning]
+      status: operator-must-confirm
+      license: apache-2.0
+      hf_repo_id: ggml-org/Qwen3.8-27B-GGUF
+      hf_include_patterns: ["Qwen3.8-27B-Q4_K_M.gguf", "README.md"]
+      parameters_millions: 27000
+      vram_gib_min: 20
+      context_window_tokens: 262144
+      master_spec_section: "operator directive 2026-09-24 — dual-GPU qualification"
+      runtime_profile_bindings: []
+      operator_note: "Qualification candidate only. Exact GGUF quantization is in the ID; catalog precision is a coarse schema category. No tool reliability, context fit or speed certification."
+
+    - id: Qwen3.8-27B-Q8_0
+      tier: oracle
+      engine: llama.cpp
+      class: code
+      quantization: int8
+      size_class: xl
+      purpose: [chat, code, agent, function-calling, reasoning]
+      status: operator-must-confirm
+      license: apache-2.0
+      hf_repo_id: ggml-org/Qwen3.8-27B-GGUF
+      hf_include_patterns: ["Qwen3.8-27B-Q8_0.gguf", "README.md"]
+      parameters_millions: 27000
+      vram_gib_min: 30
+      context_window_tokens: 262144
+      master_spec_section: "operator directive 2026-09-24 — dual-GPU qualification"
+      runtime_profile_bindings: []
+      operator_note: "Qualification candidate only. Exact GGUF quantization is in the ID; catalog precision is a coarse schema category. No tool reliability, context fit or speed certification."
+
+    - id: Qwen3-Coder-Next-Q6_K
+      tier: oracle
+      engine: llama.cpp
+      class: code
+      quantization: int8
+      size_class: xl
+      purpose: [chat, code, agent, function-calling]
+      status: operator-must-confirm
+      license: apache-2.0
+      hf_repo_id: Qwen/Qwen3-Coder-Next-GGUF
+      hf_include_patterns:
+        - "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00001-of-00004.gguf"
+        - "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00002-of-00004.gguf"
+        - "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00003-of-00004.gguf"
+        - "Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00004-of-00004.gguf"
+        - "README.md"
+      parameters_millions: 80000
+      vram_gib_min: 64
+      context_window_tokens: 262144
+      master_spec_section: "operator directive 2026-09-24 — dual-GPU qualification"
+      runtime_profile_bindings: []
+      operator_note: "Qualification candidate only. Exact GGUF quantization is in the ID; catalog precision is a coarse schema category. No tool reliability, context fit or speed certification."
+
     - id: GGML-Qwen3.6-27B-Coder
       tier: logic
       engine: llama.cpp

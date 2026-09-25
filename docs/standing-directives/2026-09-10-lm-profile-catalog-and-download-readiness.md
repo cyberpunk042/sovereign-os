@@ -2,6 +2,14 @@
 
 ## Operator words (verbatim)
 
+> okay lets try the increase then
+
+> lets solve this gap
+
+> we need to find something strong and reliable for the two cards and make sure it doen't crash. we need heavy testing to confirm it work and is reliable and also through openclaw\.. we can do research to try multiple language models too. this mean creating or using / activating new profiles. lets not minimize the work. the current oracle doesn't do toolcalls so that wont work.
+
+> we need to find something strong and reliable for the two card and make sure it doen't crash. we need heavy testing to confirm it work and is reliable and also through openclaw\.. we can do research to try multiple language models too
+
 > in sovereign-os we need to fix and have a proper list of Profile Language Model, in page lm orchestration.. I want at least one with Qwythos-9B-Claude-Mythos-5-1M-GGUF, which is in the catalogue and I want a better way to autodownload it if its missing when I apply the profile or to tell me to download it and how first
 
 > yes please

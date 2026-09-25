@@ -605,7 +605,8 @@ def _ensure_profile_primary_model(cfg: dict, profile_id: str,
     6000 Oracle allocation is the profile's explicit agentic/architectural
     role, so it must be OpenClaw's generated primary model.
     """
-    if profile_id not in (DUAL_AGENT_AUTOCOMPLETE_PROFILE, "deepseek-70b-qwen-dual"):
+    if profile_id not in (DUAL_AGENT_AUTOCOMPLETE_PROFILE, "deepseek-70b-qwen-dual",
+                          "qwen38-dual-trial", "qwen-next-dual-trial"):
         return
     defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
     model = defaults.setdefault("model", {})
