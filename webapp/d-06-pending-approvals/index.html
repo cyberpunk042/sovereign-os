@@ -261,6 +261,23 @@ a11y; contract test catches drift.
   .gate-cell.pending{border-color:var(--warn);color:var(--warn)}
   .gate-cell.signed{border-color:var(--good);color:var(--good)}
   .gate-cell.bypassed{border-color:var(--bad);color:var(--bad)}
+  .gate-count{display:inline-block;min-width:1.3em;margin-top:.3rem;font-size:.7rem;font-weight:600;text-align:center;border:1px solid var(--border);border-radius:999px;padding:0 .4rem;color:var(--muted)}
+  .gate-count.hot{color:var(--bad);border-color:rgba(255,118,118,.55)}
+  /* — d-06 remaster: next-decision hero + insight chips + stalled pills — */
+  .insights{display:flex;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 .9rem}
+  .ins{font:inherit;font-size:.74rem;padding:.22rem .6rem;border-radius:999px;cursor:pointer;
+    background:var(--panel);border:1px solid var(--border);color:var(--fg)}
+  .ins:hover{border-color:var(--accent)}
+  .ins.warn{color:var(--warn);border-color:rgba(224,192,122,.45);background:rgba(224,192,122,.07)}
+  .ins.bad{color:var(--bad);border-color:rgba(255,118,118,.5);background:rgba(255,118,118,.08)}
+  #next-decision{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:4px;padding:.85rem 1rem;margin:.5rem 0 .3rem}
+  #next-decision.critical{border-left-color:var(--bad)}
+  #next-decision.high{border-left-color:var(--warn)}
+  #next-decision h3{margin:0 0 .3rem 0;font-size:1rem;font-weight:600;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  #next-decision .meta{color:var(--muted);font-size:.78rem;margin-bottom:.4rem}
+  #next-decision .body{font-size:.85rem;margin:0 0 .55rem}
+  #next-decision .nd-cmd{font-family:var(--mono);font-size:.76rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.32rem .55rem;display:inline-block}
+  #next-decision .nd-cmd .cmt{color:var(--muted)}
 </style>
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
@@ -2166,6 +2183,11 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   .ds-banner .spacer { flex:1; }
 </style>
 
+<h2>your next decision</h2>
+<div id="next-decision" hidden>
+  <div class="muted" style="font-size:.78rem">loading…</div>
+</div>
+
 <h2>queue summary</h2>
 <div class="row">
   <div class="stat">
@@ -2185,15 +2207,16 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     <div class="v" id="oldest-age">—</div>
   </div>
 </div>
+<div id="approval-insights" class="insights" hidden></div>
 
 <h2>five stage gates (M065)</h2>
 <div class="panel">
   <div class="gate-grid" id="gates-grid">
-    <div class="gate-cell" data-gate="SG1">SG1<br><span class="muted" style="font-size:.7rem">after PR 3</span></div>
-    <div class="gate-cell" data-gate="SG2">SG2<br><span class="muted" style="font-size:.7rem">after PR 4</span></div>
-    <div class="gate-cell" data-gate="SG3">SG3<br><span class="muted" style="font-size:.7rem">after PR 6</span></div>
-    <div class="gate-cell" data-gate="SG4">SG4<br><span class="muted" style="font-size:.7rem">after PR 8</span></div>
-    <div class="gate-cell" data-gate="SG5">SG5<br><span class="muted" style="font-size:.7rem">after PR 10</span></div>
+    <div class="gate-cell" data-gate="SG1">SG1<br><span class="muted" style="font-size:.7rem">after PR 3</span><br><span class="gate-count" data-count-for="SG1">0</span></div>
+    <div class="gate-cell" data-gate="SG2">SG2<br><span class="muted" style="font-size:.7rem">after PR 4</span><br><span class="gate-count" data-count-for="SG2">0</span></div>
+    <div class="gate-cell" data-gate="SG3">SG3<br><span class="muted" style="font-size:.7rem">after PR 6</span><br><span class="gate-count" data-count-for="SG3">0</span></div>
+    <div class="gate-cell" data-gate="SG4">SG4<br><span class="muted" style="font-size:.7rem">after PR 8</span><br><span class="gate-count" data-count-for="SG4">0</span></div>
+    <div class="gate-cell" data-gate="SG5">SG5<br><span class="muted" style="font-size:.7rem">after PR 10</span><br><span class="gate-count" data-count-for="SG5">0</span></div>
   </div>
   <div class="muted" style="margin-top:.5rem;font-size:.78rem">"No PR opens past a gate without operator sign-off." (M065 R10882, verbatim from operator)</div>
 </div>
@@ -2267,9 +2290,11 @@ function renderApprovals(approvals) {
     return;
   }
   approvals.sort((a, b) => (SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]) || (new Date(a.ts) - new Date(b.ts)));
-  list.innerHTML = approvals.map(a => `
+  list.innerHTML = approvals.map(a => {
+    const ageMin = (Date.now() - new Date(a.ts).getTime()) / 60000;
+    return `
     <div class="approval-card ${a.severity}" data-id="${a.id}">
-      <h3>${escapeHtml(a.title)} <span class="pill ${a.severity === 'critical' || a.severity === 'high' ? 'bad' : a.severity === 'medium' ? 'warn' : 'muted'}">${a.severity}</span><span class="pill accent">${a.gate || 'L4→L5'}</span></h3>
+      <h3>${escapeHtml(a.title)} <span class="pill ${a.severity === 'critical' || a.severity === 'high' ? 'bad' : a.severity === 'medium' ? 'warn' : 'muted'}">${a.severity}</span><span class="pill accent">${a.gate || 'L4→L5'}</span>${ageMin > 60 ? `<span class="pill warn">stalled ${fmtAge(a.ts)}</span>` : ''}</h3>
       <div class="meta">
         ${escapeHtml(a.actor)} · ${escapeHtml(a.kind)} · profile <span class="ok">${escapeHtml(a.profile)}</span> · ${fmtAge(a.ts)} · trace <code>${escapeHtml(a.trace_id || '—')}</code>
       </div>
@@ -2283,7 +2308,8 @@ function renderApprovals(approvals) {
         <button data-action="inspect" data-id="${a.id}">inspect detail</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   // wire action buttons
   list.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.id));
@@ -2303,6 +2329,69 @@ function renderGates(state) {
     const g = cell.dataset.gate;
     const s = state[g] || 'pending';
     cell.className = `gate-cell ${s}`;
+  });
+}
+
+// d-06 remaster — the single decision in front of the operator (hero).
+function renderNextDecision(approvals) {
+  const box = $('next-decision');
+  if (!box) return;
+  box.hidden = false;
+  if (!approvals.length) {
+    box.className = '';
+    box.innerHTML = `<h3><span class="ok">✓</span> Nothing waiting on you</h3>
+      <div class="body">The queue is empty — the box is at full autonomy and nothing is blocked on your decision.</div>`;
+    return;
+  }
+  const a = approvals.slice().sort((x, y) => (SEVERITY_ORDER[x.severity] - SEVERITY_ORDER[y.severity]) || (new Date(x.ts) - new Date(y.ts)))[0];
+  box.className = a.severity === 'critical' ? 'critical' : a.severity === 'high' ? 'high' : '';
+  const ageMin = (Date.now() - new Date(a.ts).getTime()) / 60000;
+  box.innerHTML = `
+    <h3>${escapeHtml(a.title)} <span class="pill ${a.severity === 'critical' || a.severity === 'high' ? 'bad' : a.severity === 'medium' ? 'warn' : 'muted'}">${a.severity}</span><span class="pill accent">${escapeHtml(a.gate || 'L4→L5')}</span>${ageMin > 60 ? `<span class="pill warn">stalled ${fmtAge(a.ts)}</span>` : ''}</h3>
+    <div class="meta">${escapeHtml(a.actor)} · ${escapeHtml(a.kind)} · profile <span class="ok">${escapeHtml(a.profile)}</span> · ${fmtAge(a.ts)} · ${approvals.length > 1 ? `<span class="warn">+${approvals.length - 1} more in the queue</span>` : 'the only pending decision'}</div>
+    <div class="body">${escapeHtml(a.summary)}</div>
+    <span class="nd-cmd">sovereign approve ${escapeHtml(a.id)} --confirm <span class="cmt">← MS003-signed (sovereign deny / defer ${escapeHtml(a.id)} also work)</span></span>`;
+}
+
+// d-06 remaster — per-gate pending counts on the M065 ladder.
+function renderGateCounts(approvals) {
+  const counts = {};
+  (approvals || []).forEach(a => { if (a.gate) counts[a.gate] = (counts[a.gate] || 0) + 1; });
+  document.querySelectorAll('.gate-count').forEach(el => {
+    const n = counts[el.dataset.countFor] || 0;
+    el.textContent = n;
+    el.classList.toggle('hot', n > 0);
+  });
+}
+
+// d-06 remaster — queue-pressure chips: only the things that deserve a response.
+function renderApprovalInsights(state) {
+  const box = $('approval-insights');
+  if (!box) return;
+  const approvals = state.approvals || [];
+  const chips = [];
+  const push = (cls, text, target) => chips.push({ cls, text, target });
+  if (!approvals.length) {
+    push('', 'queue empty — nothing waiting on you, autonomy fully restored', 'queue summary');
+  } else {
+    const crit = approvals.filter(a => a.severity === 'critical').length;
+    const high = approvals.filter(a => a.severity === 'high').length;
+    if (crit > 0) push('bad', `${crit} critical decision${crit > 1 ? 's' : ''} waiting — the box is throttling its autonomy while these sit (D-09)`, 'approvals-list');
+    const oldest = state.summary && state.summary.oldest_ts;
+    if (oldest && (Date.now() - new Date(oldest).getTime()) / 60000 > 60) push('warn', `oldest request has waited ${fmtAge(oldest)} — whatever it gates has been frozen the whole time (D-01)`, 'approvals-list');
+    const perGate = {};
+    approvals.forEach(a => { if (a.gate) perGate[a.gate] = (perGate[a.gate] || 0) + 1; });
+    const top = Object.entries(perGate).sort((x, y) => y[1] - x[1])[0];
+    if (top && top[1] >= 2) push('warn', `${top[1]} requests sitting at ${top[0]} — that gate is the current bottleneck`, 'gates-grid');
+    if (!crit && high > 0) push('', `${approvals.length} pending, none critical — work down the highs when you have a moment`, 'approvals-list');
+  }
+  box.hidden = chips.length === 0;
+  box.innerHTML = chips.map(c => `<span class="ins ${c.cls}" data-scroll="${c.target}" title="jump to ${c.target}">${c.text}</span>`).join('');
+  box.querySelectorAll('.ins').forEach(el => {
+    el.addEventListener('click', () => {
+      const t = document.getElementById(el.dataset.scroll);
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   });
 }
 
@@ -2354,7 +2443,7 @@ const DEMO_D06 = {
   summary:{pending:3, critical:1, high:1, oldest_ts:null}
 };
 async function refresh() {
-  if (demoActive()) { const s=DEMO_D06; $('pending-count').textContent=s.summary.pending; $('critical-count').textContent=s.summary.critical; $('high-count').textContent=s.summary.high; $('oldest-age').textContent='—'; renderApprovals(s.approvals); renderGates(s.gates); $('batch-approve-btn').disabled=true; const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return; }
+  if (demoActive()) { const s=DEMO_D06; $('pending-count').textContent=s.summary.pending; $('critical-count').textContent=s.summary.critical; $('high-count').textContent=s.summary.high; $('oldest-age').textContent='—'; renderApprovals(s.approvals); renderGates(s.gates); renderNextDecision(s.approvals); renderGateCounts(s.approvals); renderApprovalInsights(s); $('batch-approve-btn').disabled=true; const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return; }
   const state = await fetchPending();
   $('pending-count').textContent = state.summary.pending ?? state.approvals.length;
   $('critical-count').textContent = state.summary.critical ?? state.approvals.filter(a => a.severity === 'critical').length;
@@ -2362,6 +2451,9 @@ async function refresh() {
   $('oldest-age').textContent = state.summary.oldest_ts ? fmtAge(state.summary.oldest_ts) : '—';
   renderApprovals(state.approvals || []);
   renderGates(state.gates || {});
+  renderNextDecision(state.approvals || []);
+  renderGateCounts(state.approvals || []);
+  renderApprovalInsights(state);
   // Batch approve enabled only when profile = autonomous
   $('batch-approve-btn').disabled = state.profile !== 'autonomous';
 }
@@ -3158,6 +3250,27 @@ window.SO_ASSIST = {
    ]
   },
   {
+   "icon": "▶",
+   "title": "Your next decision",
+   "content": "The single most important pending approval, pulled to the top so the panel answers its own question — not 'how much is waiting' but 'what am I being asked to decide right now?'. It's the highest-severity, oldest-first pick from the queue, with the exact MS003-signed command to clear it.",
+   "children": [
+    {
+     "selector": "#next-decision",
+     "title": "Next decision hero",
+     "content": "The one decision in front of you: title, severity, gate, who's asking, how long it's waited, and the signed command to approve it. A stalled badge appears once a request has waited over an hour — age is the signal that something specific has been frozen, not just the queue grown.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The queue's one card, promoted</div>Every approval in the queue is a frozen decision; this is the one you should un-freeze next — highest severity first, oldest breaking ties. The command shown is the real MS003-signed verb (sovereign approve / deny / defer <code>id</code>), staged here but committed only in your terminal under your key.<div class=\"so-tip\">💡 Empty queue = this card flips to 'nothing waiting on you' — the box is at full autonomy and nothing is blocked on you.</div><div class=\"so-xref\"><span class=\"x\">→</span> the queue summary below — the shape of everything else waiting<br><span class=\"x\">→</span> D-01 — the sessions frozen behind these decisions</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#next-decision",
+      "nameSelector": "h3",
+      "title": "Next decision · {{name}}",
+      "content": "The {{name}} decision is the one to clear next — highest severity, oldest first. Read what's being asked, then approve, deny, or defer with the signed CLI.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Next decision · {{name}}</div>The promoted head of the queue — the decision the box most needs from you right now. The card carries the exact signed command; the web stages it, your MS003 key commits it.<div class=\"so-xref\"><span class=\"x\">→</span> D-01 active sessions — the work un-freezes when you sign</div></div>"
+     }
+    }
+   ]
+  },
+  {
    "icon": "▤",
    "title": "Queue summary",
    "content": "How much is waiting, how urgent, and how long the oldest has sat. Read the four together: a rising oldest-age with critical items is a queue you're falling behind on — and sessions are blocked behind it (D-01).",
@@ -3205,6 +3318,27 @@ window.SO_ASSIST = {
    ]
   },
   {
+   "icon": "✦",
+   "title": "Queue pressure",
+   "content": "The things in the queue that deserve a response — nothing else. A healthy queue renders nothing here, so a chip appearing is worth acting on: red = critical decisions are throttling the box's autonomy, amber = age or gate congestion that's freezing work.",
+   "children": [
+    {
+     "selector": "#approval-insights",
+     "title": "Pressure chips",
+     "content": "Computed chips: critical-pending (the D-09 human-gate throttle is live), stalled oldest (work frozen behind an ignored decision), gate bottleneck (requests piling on one M065 stage), and a quiet 'none critical' state. Click a chip to jump to the section it points at.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Attention, not telemetry</div>The rest of the panel shows everything; this strip shows only what deserves a response. It is deliberately sparse — an empty queue renders the single green-state chip, and a queue with no criticals and no stalled items renders nothing at all, so presence means action.<div class=\"so-grid\"><span class=\"k\">red</span><span>critical decisions waiting — autonomy is being throttled (D-09)</span><span class=\"k\">amber</span><span>stalled oldest or a gate bottleneck — work frozen behind a decision</span><span class=\"k\">neutral</span><span>nothing urgent — the queue is workable at your pace</span></div><div class=\"so-xref\"><span class=\"x\">→</span> #next-decision — the one chip's decision, promoted</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#approval-insights .ins",
+      "nameSelector": ".ins",
+      "title": "Pressure · {{name}}",
+      "content": "{{name}} — a queue-pressure signal computed from the live queue. Click it to jump to the section it points at.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pressure · {{name}}</div>A single computed signal from the queue — criticals waiting, age stalling, or a gate congesting. Each chip is one thing worth responding to, not a metric to chart.<div class=\"so-xref\"><span class=\"x\">→</span> D-09 hardware pressure — where the autonomy throttle this drives is read</div></div>"
+     }
+    }
+   ]
+  },
+  {
    "icon": "◈",
    "title": "Five stage gates (M065)",
    "content": "Every pending action passes five gates before it can proceed — the structured path from 'requested' to 'approved'. The gates are why approvals are trustworthy: nothing reaches you unvetted, and nothing proceeds past a gate without your signature.",
@@ -3212,7 +3346,7 @@ window.SO_ASSIST = {
     {
      "selector": "#gates-grid",
      "title": "Stage gates",
-     "content": "The M065 five-gate ladder — SG1 structural foundation, SG2 substrate decision, SG3 schema lock-in, SG4 whitelabel/legal, SG5 foundation-complete. Each pending item sits at a gate; the grid shows where. No PR opens past a gate without your MS003-signed sign-off.",
+     "content": "The M065 five-gate ladder — SG1 structural foundation, SG2 substrate decision, SG3 schema lock-in, SG4 whitelabel/legal, SG5 foundation-complete. Each pending item sits at a gate; the grid shows where, and the count badge under each gate shows how many pending requests are waiting on it (red when non-zero) — a piling badge is the bottleneck made visible. No PR opens past a gate without your MS003-signed sign-off.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why five gates</div>Big decisions aren't one yes/no — they pass through escalating commitment levels, each with its own review.<div class=\"so-grid\"><span class=\"k\">SG1</span><span>structural foundation — is the base sound</span><span class=\"k\">SG2</span><span>substrate decision — the platform choice</span><span class=\"k\">SG3</span><span>schema lock-in — the contracts that are hard to change later</span><span class=\"k\">SG4</span><span>whitelabel / legal — the compliance floor</span><span class=\"k\">SG5</span><span>foundation-complete — the final green light</span></div><div class=\"so-tip\">💡 Each gate is MS003-signed with an M049 trace — so every approval is attributable and auditable.</div></div>"
     }
    ]
@@ -3225,7 +3359,7 @@ window.SO_ASSIST = {
     {
      "selector": "#approvals-list",
      "title": "Pending queue",
-     "content": "Each pending decision with its title, urgency, and context — the concrete 'here's what I want to do, approve it?'. Hover a card for what the action is and what depends on it. Approve, deny, or defer via the signed CLI — never from this view directly.",
+     "content": "Each pending decision with its title, urgency, and context — the concrete 'here's what I want to do, approve it?'. A stalled badge appears on any request that has waited over an hour, because an aged approval is a specific frozen decision, not just queue growth. Hover a card for what the action is and what depends on it; approve, deny, or defer via the signed CLI.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Reading an approval</div>Each card is a proposed action the box escalated rather than took. Your options are approve (it proceeds, signed), deny (it's rejected), or defer (revisit in 24h).<div class=\"so-li\"><span class=\"ok\">✓</span> approve → the action proceeds under your MS003 signature</div><div class=\"so-li\"><span class=\"no\">✗</span> deny → the action is rejected; the session handles the refusal</div><div class=\"so-li\"><span class=\"warn\">▲</span> defer 24h → pushed out a day without deciding now</div><div class=\"so-xref\"><span class=\"x\">→</span> inspect-detail on a card shows the full context + the M049 trace</div></div>",
      "dynamic": true,
      "childTemplate": {

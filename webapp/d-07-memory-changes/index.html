@@ -257,6 +257,16 @@ a11y; contract test catches drift.
   .toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel);border:1px solid var(--accent);color:var(--fg);padding:.5rem .9rem;border-radius:4px;font-size:.78rem;opacity:0;transition:opacity .2s ease;pointer-events:none}
   .toast.show{opacity:1}
   .checkbox-row{display:flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--muted);margin-left:auto}
+  /* — d-07 remaster: memory-pressure chips + full 11-stage ladder — */
+  .insights{display:flex;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 .9rem}
+  .ins{font:inherit;font-size:.74rem;padding:.22rem .6rem;border-radius:999px;cursor:pointer;
+    background:var(--panel);border:1px solid var(--border);color:var(--fg)}
+  .ins:hover{border-color:var(--accent)}
+  .ins.warn{color:var(--warn);border-color:rgba(224,192,122,.45);background:rgba(224,192,122,.07)}
+  .ins.bad{color:var(--bad);border-color:rgba(255,118,118,.5);background:rgba(255,118,118,.08)}
+  .stage.empty{opacity:.42}
+  .stage.empty .count{color:var(--muted)}
+  .stage.other{border-style:dashed}
 </style>
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js}; opt-in, always-badged sample data — SB-077 reconciliation). -->
 <style>
@@ -2159,6 +2169,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   <div class="stat"><div class="k">Reward</div><div class="v" id="t-reward">0</div><div class="u">experience base</div></div>
 </div>
 
+<div id="memory-insights" class="insights" hidden></div>
+
 <h2>11-stage admission lifecycle (M028 E0264)</h2>
 <div class="lifecycle-stages" id="lifecycle">
   <!-- populated by JS -->
@@ -2281,12 +2293,27 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       const el = document.getElementById('t-' + k);
       if (el) el.textContent = Number(v).toLocaleString();
     }
-    // 11-stage lifecycle
+    // 11-stage lifecycle — always render the full canonical ladder (E0264 +
+    // M00471): zero-occupancy stages show muted, and any live label outside the
+    // eleven renders as an extra dashed cell — never dropped.
+    const LC_STAGES = ['observe','classify','quarantine','link','score','store-raw','extract','verify','promote','decay','archive'];
     const lc = document.getElementById('lifecycle');
     lc.innerHTML = '';
-    for (const [label, count] of (state.lifecycle || [])) {
+    const lcMap = {};
+    for (const [label, count] of (state.lifecycle || [])) lcMap[label] = count;
+    for (const label of LC_STAGES) {
+      const count = lcMap[label] || 0;
       const s = document.createElement('div');
-      s.className = 'stage';
+      s.className = 'stage' + (count ? '' : ' empty');
+      s.dataset.stage = label;
+      s.innerHTML = `<span class="count">${count}</span><span class="lbl">${label}</span>`;
+      lc.appendChild(s);
+    }
+    for (const [label, count] of (state.lifecycle || [])) {
+      if (LC_STAGES.includes(label)) continue;
+      const s = document.createElement('div');
+      s.className = 'stage other';
+      s.dataset.stage = label;
       s.innerHTML = `<span class="count">${count}</span><span class="lbl">${escapeHtml(label)}</span>`;
       lc.appendChild(s);
     }
@@ -2367,6 +2394,33 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       entries = Array.isArray(d.entries) ? d.entries : [];
     } catch (e) { /* offline — keep the last-known entries (empty-safe) */ }
     renderEntries();
+    renderMemoryInsights();
+  }
+
+  // d-07 remaster — memory-pressure chips: only the things that deserve a response.
+  function renderMemoryInsights() {
+    const box = document.getElementById('memory-insights');
+    if (!box) return;
+    const chips = [];
+    const push = (cls, text, target) => chips.push({ cls, text, target });
+    const pending = state.pending || [];
+    if (pending.length) push('warn', `${pending.length} memory change${pending.length > 1 ? 's' : ''} awaiting operator sign-off — unsigned changes never persist (rail ↓)`, 'pending-changes');
+    const forgotten = (entries || []).filter(e => e.state === 'forgotten').length;
+    if (forgotten) push('warn', `${forgotten} forgotten entr${forgotten > 1 ? 'ies' : 'y'} in the store — undo restores it${forgotten > 1 ? ' them' : ''} (rail ↓)`, 'memory-entries');
+    const quar = (state.lifecycle || []).find(([l]) => l === 'quarantine');
+    if (quar && quar[1] > 0) push('bad', `${quar[1]} candidate${quar[1] > 1 ? 's' : ''} sitting in quarantine — unproven, held apart from trusted memory`, 'lifecycle');
+    const added = (state.diffs || []).filter(d => d.op === 'added').length;
+    const removed = (state.diffs || []).filter(d => d.op === 'removed').length;
+    if (added || removed) push('', `graph diff: +${added} added / −${removed} removed in the latest window — memory is turning over`, 'diff-stream');
+    if (!chips.length) push('', 'no pending changes, nothing quarantined — memory is quiet', 'pending-changes');
+    box.hidden = chips.length === 0;
+    box.innerHTML = chips.map(c => `<span class="ins ${c.cls}" data-scroll="${c.target}" title="jump to section">${c.text}</span>`).join('');
+    box.querySelectorAll('.ins').forEach(el => {
+      el.addEventListener('click', () => {
+        const t = document.getElementById(el.dataset.scroll);
+        if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
   }
 
   // SDD-068 — the RLM memory navigator (M00472). Read-only GET; renders the composed
@@ -2422,10 +2476,10 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 
     function demoActive(){return !!(window.soDemo&&window.soDemo.on());}
   const DEMO_D07 = {
-    snapshot:{ counts:{total:42, active:30, forgotten:8, pending:4}, profile:'careful',
-      lifecycle:[['captured',12],['promoted',6],['forgotten',8],['contradicted',2]],
+    snapshot:{ counts:{working:6, episodic:18, semantic:94, procedural:12, temporal:77, value:31, kv:142, reward:58}, profile:'careful',
+      lifecycle:[['observe',12],['classify',9],['quarantine',2],['link',7],['score',5],['store-raw',8],['extract',4],['verify',3],['promote',6],['decay',8],['archive',3]],
       diffBase:'demo/base-8fa2', diffHead:'demo/head-3b71',
-      diffs:[{op:'add', text:'demo/ + remembered: operator prefers careful profile'},{op:'del', text:'demo/ - forgotten: stale scratch note'}],
+      diffs:[{op:'added', text:'demo/ + remembered: operator prefers careful profile'},{op:'removed', text:'demo/ - forgotten: stale scratch note'}],
       pending:[{id:'demo-mc-01', op:'forget', mtype:'note', scope:'session', delta:'-1', requester:'demo/janitor'},{id:'demo-mc-02', op:'promote', mtype:'fact', scope:'global', delta:'+1', requester:'demo/operator-key'}] },
     entries:[
       {id:'demo-me-01', type:1, stage:'active', state:'active', summary:'demo/ operator prefers careful profile at the bench', updated:'2026-06-30T14:00:00Z'},
@@ -2434,7 +2488,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     ]
   };
   async function load() {
-    if (demoActive()) { state = Object.assign(state, DEMO_D07.snapshot); entries = DEMO_D07.entries; render(); renderEntries(); const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return; }
+    if (demoActive()) { state = Object.assign(state, DEMO_D07.snapshot); entries = DEMO_D07.entries; render(); renderEntries(); renderMemoryInsights(); const _b=document.getElementById('datasource-banner');if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');}const _l=document.getElementById('ds-state-label');if(_l)_l.textContent='data source: DEMO — sample data';const _d=document.getElementById('ds-state-detail');if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)';if(window.soDemo)window.soDemo.badge(); return; }
     let ok = false, errMsg = '';
     try {
       const r = await fetch('/api/d-07/snapshot', { credentials: 'same-origin' });
@@ -3312,6 +3366,27 @@ window.SO_ASSIST = {
    ]
   },
   {
+   "icon": "✦",
+   "title": "Memory pressure",
+   "content": "The things in memory that deserve a response — nothing else. A quiet store renders one calm chip; when chips appear they point at work: changes waiting on your sign-off, entries already forgotten (undo-able), or candidates stuck in quarantine.",
+   "children": [
+    {
+     "selector": "#memory-insights",
+     "title": "Pressure chips",
+     "content": "Computed chips: pending sign-offs (memory that won't persist until you act), forgotten entries (reversible via the undo control), quarantine occupancy (unproven candidates being held apart from trusted memory), and the latest graph-diff churn. Click a chip to jump to its section.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Attention, not telemetry</div>Memory moves fast — the 11-stage pipeline runs continuously — so a tier count can be a photograph a second old. This strip shows only what deserves a response: a pending change is a decision waiting on you, a forgotten entry is a reversible loss, quarantine is the box being appropriately suspicious. A fully quiet store renders the single 'memory is quiet' chip, so presence always means something.<div class=\"so-grid\"><span class=\"k\">amber</span><span>pending sign-offs or forgotten entries — decisions and undo-able losses</span><span class=\"k\">red</span><span>quarantine occupancy — unproven candidates held from trusted memory</span><span class=\"k\">neutral</span><span>graph churn or quiet state — context, not action</span></div><div class=\"so-xref\"><span class=\"x\">→</span> changes pending operator approval — the sign-off queue this chip points at</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#memory-insights .ins",
+      "nameSelector": ".ins",
+      "title": "Pressure · {{name}}",
+      "content": "{{name}} — a memory-pressure signal computed from the live store. Click it to jump to the section it points at.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Pressure · {{name}}</div>A single computed signal from the memory store — a pending sign-off, a forgotten entry, quarantine occupancy, or diff churn. Each chip is one thing worth responding to, not a metric to chart.<div class=\"so-xref"><span class=\"x\">→</span> the controls rail — where sign-off and undo are actually executed</div></div>"
+     }
+    }
+   ]
+  },
+  {
    "icon": "⇉",
    "title": "11-stage admission lifecycle",
    "content": "Nothing becomes trusted memory in one step. Every candidate walks an 11-stage pipeline — the structured path from 'just observed' to 'durable knowledge' (or 'decayed away'). This is why the box's memory is trustworthy: raw observation and verified fact are never confused.",
@@ -3319,7 +3394,7 @@ window.SO_ASSIST = {
     {
      "selector": "#lifecycle",
      "title": "Admission pipeline (M00471)",
-     "content": "The 11 stages a memory candidate passes: observe → classify → quarantine → link → score → store-raw → extract-facts → verify → promote → decay → archive. An entry's stage tells you how much to trust it — 'quarantine' is unproven, 'promote' is earned, 'decay' is on its way out.",
+     "content": "The 11 stages a memory candidate passes: observe → classify → quarantine → link → score → store-raw → extract → verify → promote → decay → archive. The ladder always shows all eleven — a stage with zero occupancy renders muted rather than disappearing, so you can see the pipeline is intact even when empty, and any live label outside the eleven renders as an extra dashed cell instead of being dropped. An entry's stage tells you how much to trust it — 'quarantine' is unproven, 'promote' is earned, 'decay' is on its way out.",
      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">The stages, and what each buys</div>Each stage is a filter. Quarantine holds the unproven away from trusted memory; verify is the gate to promotion; decay + archive are how stale knowledge leaves without being deleted outright.<div class=\"so-grid\"><span class=\"k\">observe→classify</span><span>seen, then typed into one of the eight tiers</span><span class=\"k\">quarantine</span><span>held apart until proven — untrusted by default</span><span class=\"k\">link→score</span><span>connected to the graph, scored for trust/freshness</span><span class=\"k\">store-raw→extract</span><span>episode kept, facts distilled from it</span><span class=\"k\">verify→promote</span><span>proven, then moved into a trusted tier</span><span class=\"k\">decay→archive</span><span>staleness lowers it, then it's archived not erased</span></div><div class=\"so-tip\">💡 Admission only stores when a candidate's trigger count reaches 8 — transient, low-trust, duplicate, noisy, or unverified inputs are ignored (M00470).</div></div>"
     }
    ]
