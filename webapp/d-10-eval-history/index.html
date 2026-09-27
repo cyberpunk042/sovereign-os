@@ -2159,6 +2159,18 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   </div>
 </div>
 
+<style>
+  /* d-10 remaster — 'evals that need you' strip */
+  .insights{display:flex;flex-wrap:wrap;gap:.45rem;margin:.6rem 0 .9rem}
+  .ins{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .65rem;border-radius:4px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .ins:hover{border-color:var(--accent)}
+  .ins::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:var(--muted);flex:0 0 auto}
+  .ins.warn{border-color:var(--warn);color:var(--warn)} .ins.warn::before{background:var(--warn)}
+  .ins.bad{border-color:var(--bad);color:var(--bad)} .ins.bad::before{background:var(--bad)}
+</style>
+
+<div id="eval-insights" class="insights" hidden></div>
+
 <h2>benchmark suites (M078 HölderPO targets + M080 HRM TRM)</h2>
 <div class="panel">
   <table>
@@ -2344,10 +2356,9 @@ async function fetchEvals() {
 }
 
 async function refresh() {
-  // SDD-120 DEMO short-circuit: badged sample evals, ZERO network calls.
-  if (demoActive() && $('data-source-banner')) {
-    $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
-  }
+  // SDD-120 DEMO: canonical banner state (the old branch targeted a non-existent
+  // #data-source-banner id, so the banner was stuck on 'data source: ?').
+  if (demoActive()) { const _b=document.getElementById('datasource-banner'); if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');} const _l=document.getElementById('ds-state-label'); if(_l)_l.textContent='data source: DEMO — sample data'; const _d=document.getElementById('ds-state-detail'); if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)'; }
   const s = demoActive() ? DEMO_EVALS : await fetchEvals();
   if (demoActive() && window.soDemo) window.soDemo.badge();
   $('total-runs').textContent = s.summary.total_runs ?? '—';
@@ -2418,6 +2429,45 @@ async function refresh() {
       // (adapter-decide, SDD-051; now also rendered on D-10). The MS041 triple-gate
       // is enforced engine-side. Web itself never mutates (R10212).
       jumpToControl('adapter-decide');
+    });
+  });
+  renderEvalInsights(s);
+}
+
+// d-10 remaster — the strip answers 'what do evals need from me?': adapters
+// waiting on promotion sign-off (amber — a decision is parked), suites that
+// are regressing over the window (amber), the bb/wb class gap when it gets
+// wide (amber), and the strongest mover as neutral context. Nothing waiting
+// and nothing moving down renders one calm chip instead of silence.
+function renderEvalInsights(s) {
+  const box = document.getElementById('eval-insights');
+  if (!box) return;
+  const chips = [];
+  const push = (cls, text, target) => chips.push({ cls, text, target });
+  for (const c of (s.candidates || [])) {
+    if (c.gate_status === 'ready') push('warn', `${c.adapter_id} promotion-ready (+${Number(c.eval_gain_pct).toFixed(1)}% eval gain) — sign-off waits in the candidates table ↓`, 'candidates-tbody');
+  }
+  const suites = s.suites || {};
+  let best = null;
+  for (const [key, data] of Object.entries(suites)) {
+    const cur = Number(data.current_pct); const tr = data.trend || [];
+    const first = Number(tr[0]);
+    if (!Number.isFinite(cur) || !Number.isFinite(first) || tr.length < 2) continue;
+    if (cur < first) push('warn', `${key} regressing — ${first.toFixed(1)}% → ${cur.toFixed(1)}% across the window`, 'math-cur');
+    else if (!best || (cur - first) > (best.cur - best.first)) best = { key, cur, first, n: tr.length };
+  }
+  const bb = Number(s.summary?.bb_pass_pct), wb = Number(s.summary?.wb_pass_pct);
+  if (Number.isFinite(bb) && Number.isFinite(wb) && Math.abs(bb - wb) >= 10) {
+    push('warn', `${bb >= wb ? 'bb' : 'wb'} pass ${Math.max(bb, wb).toFixed(1)}% vs ${Math.min(bb, wb).toFixed(1)}% — ${Math.abs(bb - wb).toFixed(1)} pt gap between intervention classes`, 'tasks-tbody');
+  }
+  if (best) push('', `${best.key} up +${(best.cur - best.first).toFixed(1)} pts across ${best.n} runs — strongest mover`, 'math-cur');
+  if (!chips.length) push('', 'no candidates waiting, no regressions — evals are holding', 'candidates-tbody');
+  box.hidden = chips.length === 0;
+  box.innerHTML = chips.map(c => `<span class="ins ${c.cls}" data-scroll="${c.target}" title="jump to section">${c.text}</span>`).join('');
+  box.querySelectorAll('.ins').forEach(el => {
+    el.addEventListener('click', () => {
+      const t = document.getElementById(el.dataset.scroll);
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   });
 }
@@ -3137,6 +3187,27 @@ window.SO_ASSIST = {
   "content": "The box's report card. Every model and adapter is measured against named benchmark suites (M078 HölderPO targets, M080 HRM/TRM) — MATH, ALFWorld, ARC, Sudoku, steerability — and this panel is where you read whether it is actually getting better, not just changing. Black-box pass (outcome only) is the number that cannot be gamed; white-box credits reasoning.\n\nThe per-task and per-model trends turn a single accuracy figure into a diagnosis — which model regressed on which task — and the promotion-candidates list is the bridge to D-11: adapters that cleared the eval bar and could be promoted, still subject to the triple-gate. Read-only: running a suite is a signed compute job."
  },
  "nodes": [
+  {
+   "icon": "✦",
+   "title": "Evals that need you",
+   "content": "The one-line answer to 'what do evals need from me right now?'. Amber chips are parked decisions and moving-against-you signals: adapters waiting on promotion sign-off, suites regressing over the window, and a wide bb/wb class gap. One neutral chip carries the strongest mover as context so you see what's improving, not just what's wrong. Click a chip to jump to the table behind it.",
+   "children": [
+    {
+     "selector": "#eval-insights",
+     "title": "Decision strip",
+     "content": "Computed from the same snapshot the tables render: every candidate with gate_status 'ready' (the MS041 triple-gate has cleared — only your signature is missing), every suite whose current score is below the first point of its trend window, the bb/wb pass-rate gap when it reaches 10 points, and the suite with the largest gain as the strongest mover.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a strip and not just the candidates table</div>The tables answer 'what are the numbers'. This strip answers 'what should I act on' — a ready adapter is money on the table (a validated gain that only becomes real when promoted), a regressing suite is a silent quality leak, and the strongest mover is the reminder that the loop works when nothing is wrong. Only decision-changing facts earn a chip; a quiet, holding box renders one calm chip instead of silence.<div class=\"so-grid\"><span class=\"k\">amber</span><span>ready adapter, regressing suite, ≥ 10 pt bb/wb gap</span><span class=\"k\">neutral</span><span>strongest mover — context, not action</span></div><div class=\"so-xref\"><span class=\"x\">→</span> the adapter-promotion candidates table — where the sign-off actually happens</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#eval-insights .ins",
+      "nameSelector": ".ins",
+      "title": "Evals · {{name}}",
+      "content": "{{name}} — one computed eval signal from the live snapshot. Click it to jump to the table behind it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Evals · {{name}}</div>One computed signal from the live eval snapshot — a parked decision, a regression, or the strongest mover. Each chip exists because it changes what you would approve next.<div class=\"so-xref\"><span class=\"x\">→</span> the adapter-promotion candidates table — promotion executes via the signed control rail</div></div>"
+     }
+    }
+   ]
+  },
   {
    "icon": "◆",
    "title": "Data source",

@@ -2116,6 +2116,18 @@ function fmtNum(v) { return v == null ? '—' : Number(v).toLocaleString(); }
   <div class="stat"><div class="k">total VRAM (loaded)</div><div class="v" id="vram-total">—</div></div>
 </div>
 
+<style>
+  /* d-11 remaster — 'adapters that need you' strip */
+  .insights{display:flex;flex-wrap:wrap;gap:.45rem;margin:.6rem 0 .9rem}
+  .ins{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .65rem;border-radius:4px;font-size:.78rem;background:var(--panel);border:1px solid var(--border);cursor:pointer;user-select:none}
+  .ins:hover{border-color:var(--accent)}
+  .ins::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:var(--muted);flex:0 0 auto}
+  .ins.warn{border-color:var(--warn);color:var(--warn)} .ins.warn::before{background:var(--warn)}
+  .ins.bad{border-color:var(--bad);color:var(--bad)} .ins.bad::before{background:var(--bad)}
+</style>
+
+<div id="adapter-insights" class="insights" hidden></div>
+
 <h2>active adapters by base model (M046 LoRA Foundry)</h2>
 <div class="panel">
   <div class="filter-row">
@@ -2311,10 +2323,9 @@ async function fetchAdapters() {
 }
 
 async function refresh() {
-  // SDD-120 DEMO short-circuit: badged sample adapter inventory, ZERO network calls.
-  if (demoActive() && $('data-source-banner')) {
-    $('data-source-banner').innerHTML = '<strong>DEMO mode</strong> — sample data, not a live daemon. Disable it in Personalization.';
-  }
+  // SDD-120 DEMO: canonical banner state (the old branch targeted a non-existent
+  // #data-source-banner id, so the banner was stuck on 'data source: ?').
+  if (demoActive()) { const _b=document.getElementById('datasource-banner'); if(_b){_b.classList.remove('online','offline','unknown');_b.classList.add('unknown');} const _l=document.getElementById('ds-state-label'); if(_l)_l.textContent='data source: DEMO — sample data'; const _d=document.getElementById('ds-state-detail'); if(_d)_d.innerHTML='DEMO mode — sample data, not real telemetry (SB-077)'; }
   const s = demoActive() ? DEMO_ADAPTERS : await fetchAdapters();
   if (demoActive() && window.soDemo) window.soDemo.badge();
   $('total-adapters').textContent = s.summary.total ?? s.adapters.length;
@@ -2418,6 +2429,42 @@ async function refresh() {
     const installed = hrm[variant === 'canon' ? 'canonical_27m' : variant === 'text-1b' ? 'text_1b' : 'trm_7m']?.installed;
     $(`hrm-${variant}-status`).innerHTML = installed ? '<span class="pill ok">installed</span>' : '<span class="pill muted">not installed</span>';
   }
+  renderAdapterInsights(s);
+}
+
+// d-11 remaster — the strip answers 'what do adapters need from me?': an adapter
+// that FAILED a gate (red — do not promote; demote or retrain), one that cleared
+// eval and is waiting on the oracle/human gate (amber — the decision is yours),
+// VRAM crowding the cards (amber), and the serving summary as neutral context.
+function renderAdapterInsights(s) {
+  const box = document.getElementById('adapter-insights');
+  if (!box) return;
+  const chips = [];
+  const push = (cls, text, target) => chips.push({ cls, text, target });
+  for (const a of (s.adapters || [])) {
+    const g = a.gates || {};
+    const failed = Object.entries(g).find(([, v]) => v === 'fail');
+    if (failed) {
+      const gainTxt = a.eval_gain_pct != null ? ` (eval ${a.eval_gain_pct > 0 ? '+' : ''}${Number(a.eval_gain_pct).toFixed(1)}%)` : '';
+      push('bad', `${a.id} — ${failed[0]} gate FAILED${gainTxt} — demote or retrain, don't promote`, 'gates-tbody');
+    } else if ((g.oracle_or_human === 'pending' || g.human === 'pending') && g.snapshot === 'pass' && g.test_eval === 'pass') {
+      push('warn', `${a.id} cleared snapshot + test-eval — waiting on the oracle/human gate (your decision)`, 'gates-tbody');
+    }
+  }
+  const vram = Number(s.summary?.vram_loaded_bytes);
+  if (Number.isFinite(vram) && vram >= 40e9) push('warn', `${fmtBytes(vram)} VRAM loaded — consider consolidating or pruning adapters`, 'vram-total');
+  if (!chips.length) {
+    const promoted = s.summary?.promoted ?? (s.adapters || []).filter(a => a.status === 'active').length;
+    push('', `${promoted} active adapter${promoted === 1 ? '' : 's'} serving${Number.isFinite(vram) ? ` · ${fmtBytes(vram)} VRAM loaded` : ''} — no gate failures, nothing waiting on you`, 'adapters-tbody');
+  }
+  box.hidden = chips.length === 0;
+  box.innerHTML = chips.map(c => `<span class="ins ${c.cls}" data-scroll="${c.target}" title="jump to section">${c.text}</span>`).join('');
+  box.querySelectorAll('.ins').forEach(el => {
+    el.addEventListener('click', () => {
+      const t = document.getElementById(el.dataset.scroll);
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
 }
 
 // SDD-051 — scroll to a functional control in the rail + highlight it. The
@@ -3155,6 +3202,27 @@ window.SO_ASSIST = {
   "content": "The box's learned specializations. A LoRA adapter (M046 Foundry) is a small low-rank layer stacked on a base model — a skill, not a new model — and NVFP4 (M077) stores it at 4 bits so dozens coexist in the VRAM one fp16 fine-tune would need. This panel is the inventory: what exists, what is live, what is waiting.\n\nBecause promoting an adapter can change how the box actually behaves, promotion runs MS041's high-risk triple-gate — three independent checks (eval, safety, signed intent), all of which must pass. That is why an adapter can ace evals and still be pending. The HRM class (M080) sits apart: a fourth architecture that is not LoRA-compatible. Read-only: training and promotion are signed acts."
  },
  "nodes": [
+  {
+   "icon": "✦",
+   "title": "Adapters that need you",
+   "content": "The one-line answer to 'what do adapters need from me?'. Red means an adapter FAILED a triple-gate check — it must not be promoted (demote or retrain instead). Amber means the decision is yours: an adapter cleared snapshot + test-eval and is waiting on the oracle/human gate, or VRAM is crowding the cards. When nothing is wrong, one neutral chip carries the serving summary so the strip always says something true. Click a chip to jump to the table behind it.",
+   "children": [
+    {
+     "selector": "#adapter-insights",
+     "title": "Gate strip",
+     "content": "Computed from the same inventory the tables render: any adapter with a 'fail' gate value (with its eval gain, so you can see whether the failure is quality or noise), any adapter that passed snapshot + test-eval but sits at a pending oracle/human gate, total loaded VRAM past 40 GB, and the active-adapter serving summary as context.",
+     "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Why a strip and not just the gates table</div>The triple-gate table lists every pending adapter with every check. This strip separates the two states that need different behavior: a FAILED gate is a stop sign (promoting over it is how bad adapters reach production), while a pending human gate is a decision parked in your queue. The neutral serving line keeps the panel honest on quiet days — 'nothing waiting on you' is itself information.<div class=\"so-grid\"><span class=\"k\">red</span><span>a gate FAILED — demote or retrain, don't promote</span><span class=\"k\">amber</span><span>oracle/human gate pending (your decision) · VRAM ≥ 40 GB loaded</span><span class=\"k\">neutral</span><span>serving summary — context, not action</span></div><div class=\"so-xref\"><span class=\"x\">→</span> the triple-gate table — every check for every pending adapter</div></div>",
+     "dynamic": true,
+     "childTemplate": {
+      "selector": "#adapter-insights .ins",
+      "nameSelector": ".ins",
+      "title": "Adapters · {{name}}",
+      "content": "{{name}} — one computed adapter signal from the live inventory. Click it to jump to the table behind it.",
+      "expanded": "<div class=\"so-card info\"><div class=\"so-card-label\">Adapters · {{name}}</div>One computed signal from the live adapter inventory — a failed gate, a parked human decision, VRAM pressure, or the serving summary. Each chip exists because it changes what you would approve next.<div class=\"so-xref\"><span class=\"x\">→</span> the triple-gate table + the adapter-decide control rail (promotion is signed)</div></div>"
+     }
+    }
+   ]
+  },
   {
    "icon": "◆",
    "title": "Data source",
