@@ -4,12 +4,16 @@ function sovereignMeasuredBoundary(message, index) {
   if (message?.role !== "assistant" || message.provider !== "sovereign" ||
       message.api !== "openai-completions" || message.stopReason === "error" ||
       message.stopReason === "aborted" || u?.contextUsage !== undefined ||
-      !Number.isFinite(u?.input) || u.input <= 0 ||
+      !Number.isFinite(u?.input) || u.input < 0 ||
       !Number.isFinite(u?.output) || u.output < 0) return;
-  // Sovereign's OpenAI adapter exposes prompt_tokens as input, including
-  // cached prompt tokens. Do not add cacheRead again. Completion tokens include
-  // the assistant tool-call payload which is now part of the transcript.
-  return { index, totalTokens: Math.ceil(u.input + u.output), includesSystemPrompt: true };
+  // OpenClaw normalizes input to UNCACHED tokens. Cached prompt tokens still
+  // occupy context; include each normalized bucket exactly once.
+  const cached = u.cacheRead ?? 0;
+  const written = u.cacheWrite ?? 0;
+  if (!Number.isFinite(cached) || cached < 0 ||
+      !Number.isFinite(written) || written < 0 ||
+      u.input + cached + written <= 0) return;
+  return { index, totalTokens: Math.ceil(u.input + cached + written + u.output), includesSystemPrompt: true };
 }
 
 function sovereignRecoveryProgress(input) {

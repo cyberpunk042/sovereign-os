@@ -31,6 +31,10 @@ for (let cycle=0;cycle<20;cycle++) {
  assert.ok(fits.estimatedPromptTokens<90000);
  messages[0].usage.input=125000;
  assert.notEqual(check(params).route,'fits'); // real pressure still guarded
+ messages[0].usage={input:52,output:225,cacheRead:117763};
+ const cached=check(params);
+ assert.ok(cached.estimatedPromptTokens>=118040);
+ assert.notEqual(cached.route,'fits'); // cached history must trigger pressure
 }
 '''.replace('MODULE', json.dumps(paths[0].as_uri()))
         result = subprocess.run(["node", "--input-type=module", "-e", program], capture_output=True, text=True)
@@ -42,7 +46,11 @@ const assert = require('node:assert/strict');
 const m = {role:'assistant',provider:'sovereign',api:'openai-completions',
  stopReason:'toolUse',usage:{input:75211,output:60,cacheRead:1000}};
 assert.deepEqual(sovereignMeasuredBoundary(m, 4),
- {index:4,totalTokens:75271,includesSystemPrompt:true});
+ {index:4,totalTokens:76271,includesSystemPrompt:true});
+assert.equal(sovereignMeasuredBoundary({...m,usage:{input:52,output:225,cacheRead:117763}},0).totalTokens,118040);
+assert.equal(sovereignMeasuredBoundary({...m,usage:{input:0,output:2,cacheRead:1000}},0).totalTokens,1002);
+assert.equal(sovereignMeasuredBoundary({...m,usage:{input:0,output:2}},0),undefined);
+assert.equal(sovereignMeasuredBoundary({...m,usage:{input:1,output:2,cacheRead:-1}},0),undefined);
 assert.equal(sovereignMeasuredBoundary({...m,provider:'other'},0),undefined);
 assert.equal(sovereignMeasuredBoundary({...m,stopReason:'error'},0),undefined);
 assert.equal(sovereignMeasuredBoundary({...m,usage:{input:NaN,output:0}},0),undefined);
@@ -87,7 +95,13 @@ console.log('measured accounting and bounded recovery: OK');
             self.assertEqual(helpers.read_text(), original)
             self.assertTrue(patch(dist, False, lambda _: None))
             self.assertFalse(patch(dist, False, lambda _: None))
-            self.assertEqual(helpers.with_suffix('.js.sovereign-context-v1.bak').read_text(), original)
+            self.assertEqual(helpers.with_suffix('.js.sovereign-context-v2.bak').read_text(), original)
+            # Installed v1 migration must replace the helper, not skip its marker.
+            helpers.write_text(helpers.read_text().replace(MODULE['MARKER'], '// sovereign-context-accounting-v1', 1))
+            embedded.write_text(embedded.read_text().replace(MODULE['MARKER'], '// sovereign-context-accounting-v1', 1))
+            self.assertTrue(patch(dist, False, lambda _: None))
+            self.assertEqual(helpers.read_text().count('function sovereignMeasuredBoundary'), 1)
+            self.assertFalse(patch(dist, False, lambda _: None))
             embedded.write_text('async function recoverEmbeddedRunOverflow(input) {}')
             with self.assertRaises(RuntimeError):
                 patch(dist, False, lambda _: None)

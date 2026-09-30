@@ -6,7 +6,7 @@ after package updates only when the exact supported source is still present.
 """
 from pathlib import Path
 
-MARKER = "// sovereign-context-accounting-v1"
+MARKER = "// sovereign-context-accounting-v2"
 
 
 def patch_runtime(dist: Path, dry_run=False, log=print):
@@ -34,6 +34,17 @@ def patch_runtime(dist: Path, dry_run=False, log=print):
             source = path.read_text()
             if MARKER in source:
                 continue
+            legacy = "// sovereign-context-accounting-v1\n"
+            if source.startswith(legacy):
+                end = "\n  state.sovereignCompacted = false;\n}\n"
+                if source.count(end) != 1:
+                    raise RuntimeError(f"unsupported legacy helper in {path.name}")
+                source = source.split(end, 1)[1].lstrip('\n')
+                for old, new in replacements:
+                    if source.count(new) != 1:
+                        raise RuntimeError(f"unsupported legacy runtime shape in {path.name}")
+                pending.append((path, MARKER + "\n" + helper + "\n" + source))
+                continue
             for old, new in replacements:
                 if source.count(old) != 1:
                     raise RuntimeError(f"unsupported OpenClaw runtime shape in {path.name}")
@@ -43,7 +54,7 @@ def patch_runtime(dist: Path, dry_run=False, log=print):
         log(f"{'would repair' if dry_run else 'repairing'} context accounting: {path.name}")
         if dry_run:
             continue
-        backup = path.with_suffix(path.suffix + ".sovereign-context-v1.bak")
+        backup = path.with_suffix(path.suffix + ".sovereign-context-v2.bak")
         if not backup.exists():
             backup.write_bytes(path.read_bytes())
             backup.chmod(0o600)

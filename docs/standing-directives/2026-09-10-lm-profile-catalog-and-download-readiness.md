@@ -2,6 +2,8 @@
 
 ## Operator words (verbatim)
 
+> can we solve the bug
+
 > its not a trial anymore... rename me this and lets work on doing heavytesting
 
 > okay it is a good profile, lets give it an appropriate name and make sure I can re-activate it later
