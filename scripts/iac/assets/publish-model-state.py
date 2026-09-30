@@ -157,6 +157,42 @@ def _resident_context(model: dict[str, Any], props: dict[str, Any] | None) -> in
     return None
 
 
+def _detect_model_from_process(port: int) -> str | None:
+    """Find the process whose command line carries `--port <port>` and extract
+    the -m model path. Returns the parent directory name (the model folder =
+    the catalog ID). This is the ground-truth fallback when the tier's
+    /v1/models alias (e.g. `gpu-oracle`) matches no catalog ID.
+
+    Works for llama.cpp (`-m /path/to/model.gguf --port 8083`) and any
+    server whose command line carries both the port and the model path.
+    Scans /proc/*/cmdline (world-readable) — no fd access needed, so it
+    works even when the target process is root-owned.
+    Returns None when no matching process or model path is found."""
+    import re as _re
+    port_str = str(port)
+    for pid_dir in Path('/proc').iterdir():
+        if not pid_dir.name.isdigit():
+            continue
+        try:
+            cmdline = (pid_dir / 'cmdline').read_bytes().decode(
+                'utf-8', 'replace').replace('\x00', ' ').strip()
+        except (OSError, PermissionError):
+            continue
+        if not cmdline:
+            continue
+        # Must have --port <port> in its command line
+        if not _re.search(rf'(?:^|\s)--port\s+{port_str}\b', cmdline):
+            continue
+        # Extract -m <path> (llama.cpp) or --model <path>
+        m = _re.search(r'(?:^|\s)(?:-m|--model|--model-path)\s+(\S+)', cmdline)
+        if m:
+            model_path = m.group(1)
+            parent = Path(model_path).parent.name
+            if parent and parent != '.' and parent != '/':
+                return parent
+    return None
+
+
 def _probe_tier(endpoint: str) -> dict[str, Any]:
     """The backend is the witness for aliases and resident context."""
     doc = _json_endpoint(endpoint, "/v1/models")
@@ -259,11 +295,14 @@ def _read_state() -> dict[str, Any]:
 
 
 def _atomic_write(path: Path, obj: Any) -> None:
+    # 0644 so the lm-status-operability-api (running as the operator user)
+    # can read the file. Root-only 0600 made the panels fall back to catalog.
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".ms-", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(obj, fh, indent=2)
+        os.chmod(tmp, 0o644)
         os.replace(tmp, path)
     except BaseException:
         try:
@@ -301,7 +340,20 @@ def collect(tiers: str, index: dict[str, dict[str, Any]]) -> tuple[dict[str, lis
         # specific matching catalog id so the panel retains the selected
         # Qwythos-…-GGUF identity rather than collapsing it to the BF16 parent.
         actual_id = next((mid for mid in sorted(index, key=len, reverse=True)
-                          if mid in served_id), catalog_id)
+                          if mid in served_id), None)
+        # Fallback 1: the alias matched no catalog ID — ask the process what
+        # model file it actually loaded (llama.cpp -m flag → parent dir name).
+        if actual_id is None:
+            try:
+                port = int(endpoint.rsplit(':', 1)[1])
+            except (IndexError, ValueError):
+                port = None
+            if port:
+                actual_id = _detect_model_from_process(port)
+        # Fallback 2: process detection also failed — use the configured
+        # catalog_id (the IaC default; may be stale after a model swap).
+        if actual_id is None:
+            actual_id = catalog_id
         # The catalog row when the id is known, else a bare entry — a model that
         # is genuinely serving should appear even if it is not catalogued.
         row = dict(index.get(actual_id) or {"id": actual_id, "precision": None})
