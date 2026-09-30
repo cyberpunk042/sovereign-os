@@ -2,6 +2,14 @@
 
 ## Operator words (verbatim)
 
+> on the oracle can I not use much more context ?
+
+> lets do it
+
+> okay do we have room for more context then ?
+
+> go
+
 > can we solve the bug
 
 > its not a trial anymore... rename me this and lets work on doing heavytesting

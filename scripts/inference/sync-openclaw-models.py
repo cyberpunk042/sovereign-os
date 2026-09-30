@@ -606,7 +606,7 @@ def _ensure_profile_primary_model(cfg: dict, profile_id: str,
     role, so it must be OpenClaw's generated primary model.
     """
     if profile_id not in (DUAL_AGENT_AUTOCOMPLETE_PROFILE, "deepseek-70b-qwen-dual",
-                          "qwen38-dual-agent", "qwen-next-dual-trial"):
+                          "qwen38-dual-agent", "qwen38-dual-agent-long", "qwen38-dual-agent-256k", "qwen-next-dual-trial"):
         return
     defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
     model = defaults.setdefault("model", {})

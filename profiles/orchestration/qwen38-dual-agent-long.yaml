@@ -1,0 +1,18 @@
+schema_version: "1.0.0"
+orchestration_profile:
+  id: qwen38-dual-agent-long
+  name: Qwen 3.8 Dual Agent — 128K / 192K
+  description: Extended-context dual-agent configuration. Logic RTX 5090 uses Qwen 3.8 27B Q4_K_M at 128K; Oracle RTX PRO 6000 uses Q8_0 at 192K. Qualification pending; original qwen38-dual-agent remains the rollback profile. RTX 4090 allocations preserved.
+  intent: coding
+  hardware_profile_compat: [sain-01]
+  readiness: ready
+  prerequisites:
+    - "Download only the selected quantizations and verify all artifact checksums."
+    - "128K Logic / 192K Oracle are test targets, not certified context or throughput claims."
+  allocations:
+    - {agent_id: qwen38_logic, tier: logic, role: logic, target_hardware: "cuda:1", engine: llama.cpp, model: Qwen3.8-27B-Q4_K_M, model_path: /mnt/vault/models/Qwen3.8-27B-Q4_K_M/Qwen3.8-27B-Q4_K_M.gguf, port: 8082, vram_limit_bytes: 30064771072, max_model_len: 131072, extra_args: "--alias gpu-logic --jinja --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --split-mode none --parallel 1", max_output_tokens: 4096, active: true}
+    - {agent_id: qwen_oracle_trial, tier: oracle, role: oracle, target_hardware: "cuda:0", engine: llama.cpp, model: Qwen3.8-27B-Q8_0, model_path: /mnt/vault/models/Qwen3.8-27B-Q8_0/Qwen3.8-27B-Q8_0.gguf, port: 8083, vram_limit_bytes: 85899345920, max_model_len: 196608, extra_args: "--alias gpu-oracle --jinja --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --split-mode none --parallel 1", max_output_tokens: 8192, active: true}
+    - {agent_id: embed_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
+    - {agent_id: rerank_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
+  context_budget:
+    initial_tokens: {"cuda:0": 196608, "cuda:1": 131072, "cuda:2": 8192}
