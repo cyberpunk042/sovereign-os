@@ -264,58 +264,67 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     cmd = args.cmd or "run"
 
-    status = warp_status()
-    payload: dict[str, Any] = dict(status)
+    # --json must be machine-parseable on stdout (SB-077). Warp prints its init
+    # banner + JIT "load on device" lines to stdout; when --json, route stdout to
+    # stderr for the run so the JSON below is the only thing on fd 1.
+    real_stdout = sys.stdout
+    if getattr(args, "json", False):
+        sys.stdout = sys.stderr
+    try:
+        status = warp_status()
+        payload: dict[str, Any] = dict(status)
 
-    if cmd == "status":
-        if getattr(args, "json", False):
-            print(json.dumps(payload, indent=2))
-        else:
-            print(render_human(payload))
-        return 0
+        if cmd == "status":
+            if getattr(args, "json", False):
+                print(json.dumps(payload, indent=2), file=real_stdout)
+            else:
+                print(render_human(payload))
+            return 0
 
-    # cmd == "run"
-    if not status["installed"]:
-        # Graceful degrade: not installed is a clean exit (0), not a failure.
-        payload["device"] = None
-        payload["sim"] = None
+        # cmd == "run"
+        if not status["installed"]:
+            # Graceful degrade: not installed is a clean exit (0), not a failure.
+            payload["device"] = None
+            payload["sim"] = None
+            if getattr(args, "emit_metrics", False):
+                emit_metrics(payload)
+            if args.json:
+                print(json.dumps(payload, indent=2), file=real_stdout)
+            else:
+                print(render_human(payload))
+            return 0
+
+        cfg = load_config(getattr(args, "config", None))
+        if getattr(args, "particles", None):
+            cfg["num_particles"] = args.particles
+        if getattr(args, "steps", None):
+            cfg["steps"] = args.steps
+        pref = getattr(args, "device", None) or cfg["device_preference"]
+        device = select_device(pref, status)
+
+        try:
+            sim = run_sim(cfg, device)
+        except Exception as exc:  # warp present but sim raised → domain error
+            payload["device"] = device
+            payload["sim"] = None
+            payload["error"] = f"{type(exc).__name__}: {exc}"
+            if args.json:
+                print(json.dumps(payload, indent=2), file=real_stdout)
+            else:
+                print(render_human(payload) + f"\n  ERROR: {payload['error']}", file=sys.stderr)
+            return 1
+
+        payload["device"] = device
+        payload["sim"] = sim
         if getattr(args, "emit_metrics", False):
             emit_metrics(payload)
         if args.json:
-            print(json.dumps(payload, indent=2))
+            print(json.dumps(payload, indent=2), file=real_stdout)
         else:
             print(render_human(payload))
         return 0
-
-    cfg = load_config(getattr(args, "config", None))
-    if getattr(args, "particles", None):
-        cfg["num_particles"] = args.particles
-    if getattr(args, "steps", None):
-        cfg["steps"] = args.steps
-    pref = getattr(args, "device", None) or cfg["device_preference"]
-    device = select_device(pref, status)
-
-    try:
-        sim = run_sim(cfg, device)
-    except Exception as exc:  # warp present but sim raised → domain error
-        payload["device"] = device
-        payload["sim"] = None
-        payload["error"] = f"{type(exc).__name__}: {exc}"
-        if args.json:
-            print(json.dumps(payload, indent=2))
-        else:
-            print(render_human(payload) + f"\n  ERROR: {payload['error']}", file=sys.stderr)
-        return 1
-
-    payload["device"] = device
-    payload["sim"] = sim
-    if getattr(args, "emit_metrics", False):
-        emit_metrics(payload)
-    if args.json:
-        print(json.dumps(payload, indent=2))
-    else:
-        print(render_human(payload))
-    return 0
+    finally:
+        sys.stdout = real_stdout
 
 
 if __name__ == "__main__":

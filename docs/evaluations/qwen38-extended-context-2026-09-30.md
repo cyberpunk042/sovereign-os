@@ -29,3 +29,46 @@ Observed VRAM: Logic 23223 MiB / 32607; Oracle 34348 MiB / 97887.
 The large-input tests are synthetic, not near-full OpenClaw sessions or sustained
 soak certification. Do not interpret model load success or ample VRAM as proving
 interactive latency at the full window. Original profile remains the fallback.
+
+## Oracle 256K extension
+
+Saved and activated `qwen38-dual-agent-256k`, display name
+**Qwen 3.8 Dual Agent — 128K / 256K**. Logic remains at 131072;
+Oracle is 262144. Worker embedding/reranking allocations are unchanged.
+The earlier profiles remain available for rollback. The authorized profile
+switch exited zero; Oracle reported both n_ctx and n_ctx_train as 262144.
+
+Direct Oracle test, with three distinct markers at the start, middle and end:
+
+| Check | Actual prompt tokens | Seconds | Result |
+|---|---:|---:|---|
+| Retrieve all markers through structured record_codes call | 230337 | 193.77 | Exact arguments, passed |
+| Consume tool result and return exact receipt | 230442 | 0.66 | VERIFIED-256K, passed |
+
+The continuation reused 230404 cached tokens. Peak sampled Oracle VRAM was
+36844 MiB, peak temperature 84 C (96 samples). This measures synthetic retrieval
+and a tool round-trip, not broad reasoning accuracy at 230K.
+
+OpenClaw session `context256-20260930-oracle` completed in 13092 ms:
+status=ok, contextTokens=262144, fallbackUsed=false. Read-only SQLite transcript
+inspection confirmed one session_status toolCall and one matching non-error
+toolResult. This OpenClaw probe was short, not a full-window OpenClaw workload.
+
+Verification outputs:
+
+```text
+pytest -q tests/lint/test_qwen_trial_profiles.py tests/test_openclaw_context_compat.py tests/test_openclaw_compaction_defaults.py
+9 passed in 0.96s
+
+systemctl show sovereign-logic-engine sovereign-oracle-core -p ActiveState -p NRestarts
+ActiveState=active
+NRestarts=0
+ActiveState=active
+NRestarts=0
+```
+
+The capacity and bounded tool checks passed, but this is not sustained stability
+certification. A fresh 230K input took over three minutes; single-slot queueing
+can still exceed client deadlines. Cached continuation speed does not guarantee
+every subsequent request will retain its cache. No beyond-native-window scaling
+was enabled, and no workstation restart was required.

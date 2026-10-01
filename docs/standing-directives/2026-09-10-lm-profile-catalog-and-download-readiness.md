@@ -2,6 +2,14 @@
 
 ## Operator words (verbatim)
 
+> okay, go
+
+> we continue
+
+> lets find the fine-tuning we can find online for this model, like llama custom args and such
+
+> lets do so
+
 > on the oracle can I not use much more context ?
 
 > lets do it

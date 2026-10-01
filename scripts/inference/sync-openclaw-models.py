@@ -594,6 +594,24 @@ def _ensure_qwen_logic_request_params(cfg: dict, allocs: dict[str, dict],
         )
 
 
+def _ensure_qwen38_sampling(cfg: dict, allocs: dict, changes: list[str]) -> None:
+    """Fill missing Qwen 3.8 sampler values without replacing operator overrides."""
+    for tier in ('logic', 'oracle'):
+        if not str(allocs.get(tier, {}).get('model', '')).startswith('Qwen3.8-27B-'):
+            continue
+        params = cfg.setdefault('agents', {}).setdefault('defaults', {}).setdefault('models', {}).setdefault(f'sovereign/gpu-{tier}', {}).setdefault('params', {})
+        body = params.setdefault('extra_body', {})
+        thinking = body.get('chat_template_kwargs', {}).get('enable_thinking', True)
+        values = {'temperature': 1.0 if thinking else 0.7,
+                  'top_p': 0.95 if thinking else 0.8, 'top_k': 20,
+                  'min_p': 0.0, 'presence_penalty': 0.0 if thinking else 1.5,
+                  'repeat_penalty': 1.0}
+        for key, value in values.items():
+            if key not in body and key not in params:
+                body[key] = value
+                changes.append(f'sovereign/gpu-{tier}: default Qwen 3.8 {key}={value}')
+
+
 def _ensure_profile_primary_model(cfg: dict, profile_id: str,
                                   changes: list[str]) -> None:
     """Keep OpenClaw's full agent on the tier assigned to agentic chat.
@@ -695,6 +713,7 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_qwythos_worker(cfg, models, allocs, cat, profile_id, changes)
     _ensure_local_memory(cfg, profile_id, changes)
     _ensure_qwen_logic_request_params(cfg, allocs, changes)
+    _ensure_qwen38_sampling(cfg, allocs, changes)
     _ensure_profile_primary_model(cfg, profile_id, changes)
     _ensure_compaction_defaults(cfg, changes)
     # OpenClaw materializes provider metadata per agent.  Keep those catalogs
