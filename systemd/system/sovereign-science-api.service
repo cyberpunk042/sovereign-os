@@ -45,6 +45,15 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
+# CUDA/NVIDIA driver enumerates GPU devices via mbind/set_mempolicy (strace: 24
+# calls per warp init); @resources strips them, so the science warp-status
+# subprocess was SIGSYS-killed (rc -31) -> panel showed "not installed".
+# Surgical re-allow of only the two required syscalls (SDD-300, 2026-10-01).
+# NOTE: a bare line is ADDITIVE/union in this systemd. Do NOT use the "+mbind"
+# additive prefix -- systemd 259 silently drops it ("System call +mbind is not
+# known, ignoring") and the seccomp kill would persist. Verified end-to-end via
+# a user-unit harness running science.py status --json under this exact filter.
+SystemCallFilter=mbind set_mempolicy
 
 [Install]
 WantedBy=multi-user.target

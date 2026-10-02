@@ -42,7 +42,7 @@ function record(row) {
     if (!enabled()) return;
     if (fs.existsSync(logfile)) {
       const st = fs.lstatSync(logfile);
-      if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.getuid()) return;
+      if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.getuid() || (st.mode & 0o077) !== 0) return;
       if (st.size > 5 * 1024 * 1024) fs.renameSync(logfile, logfile + '.previous');
     }
     const fd = fs.openSync(logfile, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);

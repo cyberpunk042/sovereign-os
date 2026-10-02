@@ -209,10 +209,20 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 })();
 </script>
 <style>
-/* SDD-126 — light-theme var override (parity with the panels that already had it). */
+/* SDD-126 — light-theme var override (parity with the panels that already had it).
+   Completed 2026-10-01: remap the state tokens so status badges/dots read on a
+   light background (palette matches the app-shell light-modal colors:
+   ok #25702c, warn #8a6413, err #ab3535). Accent is handled per-element below:
+   the theme resolver inlines --accent (a light brand blue) on <html>, which wins
+   over a token-level remap, and the filled accent actions keep that light accent
+   + dark text (already legible). Only the accent-coloured TEXT is darkened here. */
 html[data-theme="light"] {
   --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
+  --good:#25702c; --warn:#8a6413; --bad:#ab3535;
 }
+html[data-theme="light"] h2,
+html[data-theme="light"] .standing-rule { color:#1d4ed8; }
+html[data-theme="light"] button:hover { color:#1d4ed8; border-color:#1d4ed8; }
 </style>
 <!-- A11Y:BEGIN M060 -->
 <!-- ─────────────────────────────────────────────────────────────────

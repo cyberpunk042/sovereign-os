@@ -23,9 +23,10 @@ def request(path, body=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mtp', action='store_true', help='Test MTP separately at microbatch 512')
-    parser.add_argument('--cache-check', action='store_true', help='Compare changing versus stable system prefixes')
-    parser.add_argument('--long-context', action='store_true', help='Compare 512/1024 at approximately 128K and 230K tokens')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--mtp', action='store_true', help='Test MTP separately at microbatch 512')
+    mode.add_argument('--cache-check', action='store_true', help='Compare changing versus stable system prefixes')
+    mode.add_argument('--long-context', action='store_true', help='Compare 512/1024 at approximately 128K and 230K tokens')
     args = parser.parse_args()
     with socket.socket() as guard:
         guard.bind(('127.0.0.1', 18083))  # Refuse to probe an unrelated existing server.

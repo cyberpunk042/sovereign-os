@@ -21,8 +21,19 @@ def patch(text):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--dist', type=Path, required=True)
+    parser.add_argument('--dist', type=Path)
+    parser.add_argument('--disable', action='store_true', help='Stop recording immediately; no gateway restart required')
     args = parser.parse_args()
+    directory = Path.home() / '.openclaw/diagnostics'
+    if args.disable:
+        (directory / 'request-hashes.enabled').unlink(missing_ok=True)
+        print('Request diagnostics disabled; existing metadata retained.')
+        return
+    if args.dist is None:
+        parser.error('--dist is required for installation')
+    directory.mkdir(mode=0o700, exist_ok=True)
+    if directory.is_symlink() or directory.stat().st_mode & 0o077:
+        raise ValueError('Diagnostics directory must be private and not a symlink')
     matches = [p for p in args.dist.glob('extra-params-*.js') if 'function createOpenAICompletionsExtraBodyWrapper(' in p.read_text()]
     if len(matches) != 1:
         raise ValueError('Expected exactly one matching OpenClaw bundle')
@@ -34,10 +45,6 @@ def main():
         backup.write_text(original)
     (args.dist / 'sovereign-request-diagnostics.mjs').write_text(Path(__file__).with_name('openclaw-request-diagnostics.mjs').read_text())
     target.write_text(updated)
-    directory = Path.home() / '.openclaw/diagnostics'
-    directory.mkdir(mode=0o700, exist_ok=True)
-    if directory.is_symlink() or directory.stat().st_mode & 0o077:
-        raise ValueError('Diagnostics directory must be private and not a symlink')
     (directory / 'request-hashes.enabled').touch(mode=0o600)
     print(f'Installed opt-in metadata diagnostics in {target.name}; restart gateway to load.')
 

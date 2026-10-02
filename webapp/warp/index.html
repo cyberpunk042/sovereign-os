@@ -119,6 +119,13 @@
   :root{
     --bg:#0b0d10; --panel:#12151a; --line:#232a33; --ink:#d7dee7; --dim:#8b98a8;
     --accent:#7fb2ff; --accent2:#9be7c4; --warn:#e7c07f; --chip:#1b222c;
+    /* Canonical aliases — the shared app-shell menu + SDD-045 control-surface consume
+       the canonical names --fg/--muted/--border/--mono. This panel was authored with a
+       private token set (--ink/--dim/--line), so without the aliases those components
+       fall back to dark defaults and wash out (menu text, card badge/verb contrast)
+       in light theme. Aliased to the warp tokens so they flip per theme automatically. */
+    --fg:var(--ink); --muted:var(--dim); --border:var(--line);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -164,20 +171,36 @@
     padding:3px 9px;font:inherit;cursor:pointer;margin-right:4px}
   .btn:hover{border-color:var(--accent);color:#fff}
   .btn.bench{border-color:#4e5a3a}
+  .scene-run{min-width:150px}
+  .scene-run .btn{margin-right:0;margin-top:0}
   .err{color:var(--warn)}
   .flash{animation:fl 1.2s ease}
   @keyframes fl{0%{box-shadow:0 0 0 2px var(--accent)}100%{box-shadow:none}}
   footer{color:var(--dim);font-size:12px;margin-top:20px;border-top:1px solid var(--line);padding-top:10px}
   @media (prefers-color-scheme:light){
-    :root{--bg:#f5f7fa;--panel:#fff;--line:#dde3ea;--ink:#1c2430;--dim:#5a6675;--chip:#eef2f7}
+    :root{--bg:#f5f7fa;--panel:#fff;--line:#dde3ea;--ink:#1c2430;--dim:#5a6675;--chip:#eef2f7;--accent2:#0f7a5a;--warn:#8a6413}
     #graph{background:#eef2f7}.edge{stroke:#c4cfda}.libnode circle{fill:#e2ecf6;stroke:#a9bccf}
   }
   /* Explicit light override for the app-shell theme toggle (html[data-theme="light"]),
-     which must win over the dark :root default regardless of OS preference. */
-  html[data-theme="light"]{--bg:#f5f7fa;--panel:#fff;--line:#dde3ea;--ink:#1c2430;--dim:#5a6675;--chip:#eef2f7}
+     which must win over the dark :root default regardless of OS preference.
+     Completed 2026-10-01: remap accent2/warn (were unset in light, so stat numbers,
+     lib names, and error text washed out); .btn was authored dark-on-dark for the
+     dark theme (now a light control); accent-coloured text is darkened per-element
+     because the theme resolver inlines --accent on <html>, which wins over a token. */
+  html[data-theme="light"]{--bg:#f5f7fa;--panel:#fff;--line:#dde3ea;--ink:#1c2430;--dim:#5a6675;--chip:#eef2f7;--accent2:#0f7a5a;--warn:#8a6413}
   html[data-theme="light"] #graph{background:#eef2f7}
   html[data-theme="light"] .edge{stroke:#c4cfda}
   html[data-theme="light"] .libnode circle{fill:#e2ecf6;stroke:#a9bccf}
+  html[data-theme="light"] .btn{background:#fff;color:#1c2430;border-color:#c9d3de}
+  html[data-theme="light"] .btn:hover{color:#1d4ed8;border-color:#1d4ed8}
+  html[data-theme="light"] .btn.bench{border-color:#7a8a5a}
+  /* .controls input/select (.q search + #libsel) were authored dark-on-dark: base
+     rule hardcodes background:#0e1116, so in light theme --ink (#1c2430) sat on a
+     dark field and washed out. Give them a light control face like .btn. */
+  html[data-theme="light"] .controls input,
+  html[data-theme="light"] .controls select{background:#fff;color:#1c2430;border-color:#c9d3de}
+  html[data-theme="light"] a{color:#1d4ed8}
+  html[data-theme="light"] .chip:hover{border-color:#1d4ed8}
 </style>
 <!-- SDD-116/119 shared demo-mode helper (inlined verbatim from webapp/_shared/demo-mode.{css,js};
      opt-in, always-badged sample data — SB-077). window.soDemo + the DEMO badge in <head>. -->
@@ -2349,9 +2372,11 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       return '<tr><td class="name">'+esc(s.name)+(s.multi?' <span class="sum">(multi)</span>':'')+'</td>'+
         '<td>'+chips+'</td>'+
         '<td class="sum">'+esc(s.summary)+'</td>'+
-        '<td style="white-space:nowrap">'+
-          '<button class="btn" data-run="render" data-scene="'+esc(s.name)+'">Render</button>'+
-          '<button class="btn bench" data-run="bench" data-scene="'+esc(s.name)+'">Bench</button>'+
+        '<td class="scene-run">'+
+          '<button class="btn" data-run="render" data-scene="'+esc(s.name)+'">Render</button> '+
+          '<button class="btn bench" data-run="bench" data-scene="'+esc(s.name)+'">Bench</button> '+
+          '<div class="so-exec-result" data-sres="render"></div>'+
+          '<div class="so-exec-result" data-sres="bench"></div>'+
         '</td></tr>';
     }).join("");
     Array.prototype.forEach.call(tb.querySelectorAll(".chip"), function(c){
@@ -2359,26 +2384,52 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         document.getElementById("libsel").value=selLib; syncGraphSel(); renderRows(); });
     });
     Array.prototype.forEach.call(tb.querySelectorAll("[data-run]"), function(b){
-      b.addEventListener("click", function(){ fillControl(b.getAttribute("data-run"), b.getAttribute("data-scene")); });
+      b.addEventListener("click", function(){
+        var verb=b.getAttribute("data-run"), scene=b.getAttribute("data-scene");
+        var res=b.closest("td").querySelector('[data-sres="'+verb+'"]');
+        warpExec(verb==="bench" ? "warp-bench" : "warp-render", {scene:scene}, res);
+      });
     });
   }
 
-  // Deep-link a per-scene button into the sanctioned control-surface card:
-  // set the card's <scene> input + scroll/flash it. The operator then Executes
-  // (the shared component is the ONLY mutating path). Falls back to copy.
-  function fillControl(verb, scene){
-    var cid = verb==="bench" ? "warp-bench" : "warp-render";
-    var card = document.querySelector('#control-surface [data-cid="'+cid+'"]');
-    if(card){
-      var inp = card.querySelector('input.cs-arg[data-argkey="scene"]') || card.querySelector('input.cs-arg');
-      if(inp){ inp.value = scene; inp.dispatchEvent(new Event("input",{bubbles:true})); }
-      card.scrollIntoView({behavior:"smooth",block:"center"});
-      card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
-      return;
+  // One-click Render/Bench: execute through the SAME sanctioned control-exec rail
+  // (POST /api/control/execute, {control_id,args,confirm}) with the same dry-run /
+  // type-to-Confirm gating as the shared control-surface card — but the result
+  // renders inline in the scene row, so it behaves like a real button instead of
+  // deep-linking + scrolling to the card. soExec lives IIFE-scoped in the managed
+  // app-shell region, so this mirrors its response contract verbatim (SDD-045).
+  function warpExec(controlId, args, res){
+    if(!res) return;
+    var argsList = Object.keys(args).map(function(k){ return args[k]; });
+    function paint(cls, text){ res.className = "so-exec-result so-exec-"+cls; res.textContent = text; }
+    function post(confirmed){
+      return fetch("/api/control/execute", {method:"POST",
+        headers:{'Content-Type':'application/json', Accept:'application/json'},
+        body: JSON.stringify({control_id:controlId, args:args, confirm:!!confirmed})})
+        .then(function(r){ return r.json().then(function(j){ return {status:r.status, body:j||{}}; },
+                     function(){ return {status:r.status, body:{}}; }); },
+              function(){ return {status:0, body:{}}; });
     }
-    // fallback: copy the exact gated command
-    var cmd = "sovereign-osctl warp "+verb+" "+scene;
-    if(navigator.clipboard) navigator.clipboard.writeText(cmd);
+    function render(r, confirmed){
+      var b = r.body || {};
+      if(r.status===200){
+        if(b.dry_run) paint('dry', 'dry-run \u2713 would run: '+((b.would_run||[]).join(' ') || (controlId+' '+argsList.join(' '))));
+        else paint('ok', 'applied \u2713 '+controlId+' \u2192 '+argsList.join(' ')+(b.exit_code!=null?(' (exit '+b.exit_code+')'):''));
+      } else if(r.status===403 && !confirmed){
+        paint('warn', 'privileged \u2014 Confirm to apply: ');
+        var btn = document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply'; btn.textContent='Confirm';
+        res.appendChild(btn);
+        btn.addEventListener('click', function(){ post(true).then(function(x){ render(x, true); }); });
+      } else if(r.status===403){ paint('warn', b.error || 'not permitted (operator key required)'); }
+      else if(r.status===0 || r.status===502){ paint('err', 'control-exec-api unreachable (:8130) \u2014 start sovereign-control-exec-api'); }
+      else if(r.status===404){ paint('err', b.error || 'unknown control'); }
+      else if(r.status===400){ paint('warn', b.error || 'invalid argument'); }
+      else if(r.status===409){ paint('warn', b.error || (b.compat ? 'compat gate refused \u2014 open the \u2696 pane' : 'execution not available on this origin (R10212)')); }
+      else if(r.status===405){ paint('warn', 'execution not available on this origin (R10212)'); }
+      else paint('err', 'error '+r.status);
+    }
+    paint('muted', 'executing\u2026');
+    post(false).then(function(r){ render(r, false); });
   }
 
   function boot(){
