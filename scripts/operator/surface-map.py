@@ -141,7 +141,7 @@ SURFACE_IDS = [s["id"] for s in SURFACES]
 # ship on with operator-named rationale.
 MODULE_COVERAGE = {
     "science": {
-        "shipped_in": "R558 (SDD-070) — science-tools catalog + NVIDIA Warp particle-sim: core (config/science-tools.yaml) + cli (sovereign-osctl science) + api (read-only REST + systemd service) + mcp (science-list / science-status) + webapp",
+        "shipped_in": "R558 (SDD-070) — science-tools catalog + NVIDIA Warp particle-sim: core (config/science-tools.yaml) + cli (sovereign-osctl science) + api (read-only REST + systemd service) + mcp (science-list / science-status / science-history) + webapp; SDD-301 — live instrument: exec-rail execution (control science-sim), run history, per-tool readiness + download plans, GPU context",
         "surfaces": ["core", "cli", "api", "mcp", "service", "webapp"],
         "waivers": {
             "tui":       "not applicable — science is a read-only catalog + a warp status probe (a cockpit-style data surface like models-catalog / cpu-features); `science status` + the webapp panel are the interactive surfaces, a refresh-loop TUI would only reprint them",

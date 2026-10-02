@@ -120,6 +120,12 @@ LOCAL_TOOLS = [
         "categories": ["science", "simulation", "warp"],
     },
     {
+        "name": "science-history",
+        "summary": "Warp sample-sim run history (SDD-301) — recent runs (device, workload, wall_ms) + per-device median wall_ms. Read-only.",
+        "argv": ["sovereign-osctl", "science", "history", "--limit", "20", "--json"],
+        "categories": ["science", "simulation", "warp", "history"],
+    },
+    {
         "name": "memory-profile",
         "summary": "Memory posture + XMP/EXPO detection.",
         "argv": ["sovereign-osctl", "memory-profile", "--json"],

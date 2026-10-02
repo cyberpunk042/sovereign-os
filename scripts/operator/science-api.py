@@ -13,7 +13,8 @@ control-surface.
 
 Endpoints:
   GET  /                 — the science webapp (single file)
-  GET  /science.json     — { tools, integrated_tools, warp } assembled live
+  GET  /science.json     — { tools, integrated_tools, warp, tools_status,
+                             recent_runs, run_stats, gpu } assembled live
   GET  /version          — service version + module identity
   GET  /healthz          — liveness (always 200)
   GET  /control-systems  — the shared control-surface registry (same-origin)
@@ -33,7 +34,7 @@ from pathlib import Path
 
 API_BIND = os.environ.get("SCIENCE_API_BIND", "127.0.0.1")
 API_PORT = int(os.environ.get("SCIENCE_API_PORT", "8134"))
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 REPO = Path(__file__).resolve().parents[2]
 WEBAPP_ROOT = REPO / "webapp"
@@ -65,11 +66,45 @@ def _science(*args: str) -> dict:
 def assemble_science() -> dict:
     cat = _science("list")
     st = _science("status")
+    hist = _science("history", "--json", "--limit", "30")
     return {
         "tools": cat.get("tools", []),
         "integrated_tools": st.get("integrated_tools", []),
         "warp": st.get("warp", {}),
+        "tools_status": st.get("tools_status", []),
+        "recent_runs": hist.get("runs", []),
+        "run_stats": hist.get("stats", {}),
+        "gpu": gpu_context(),
     }
+
+
+def gpu_context() -> dict:
+    """Per-GPU capacity/utilisation from nvidia-smi (the hardware truth),
+    honestly degraded when the driver/CLI is absent (dev/CI box). NOTE: warp's
+    cuda:N device order is NOT nvidia-smi's index order on multi-GPU hosts —
+    the panel shows both, each labelled with its source; they are never
+    conflated (SB-077)."""
+    try:
+        r = subprocess.run(
+            ["nvidia-smi",
+             "--query-gpu=index,name,memory.total,memory.free,utilization.gpu",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5, check=False)
+        if r.returncode != 0:
+            return {"available": False,
+                    "reason": (r.stderr.strip() or "nvidia-smi failed")[:200]}
+        gpus = []
+        for line in r.stdout.splitlines():
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) < 5:
+                continue
+            gpus.append({"index": int(parts[0]), "name": parts[1],
+                         "memory_total_mib": int(float(parts[2])),
+                         "memory_free_mib": int(float(parts[3])),
+                         "utilization_pct": int(float(parts[4]))})
+        return {"available": True, "gpus": gpus}
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return {"available": False, "reason": "nvidia-smi unavailable"}
 
 
 def load_control_systems() -> dict:
@@ -138,6 +173,11 @@ def main():
             "integrated_tools": d.get("integrated_tools", []),
             "warp_installed": bool(warp.get("installed")),
             "warp_cuda_available": bool(warp.get("cuda_available")),
+            "tools_status_count": len(d.get("tools_status", [])),
+            "recent_runs": len(d.get("recent_runs", [])),
+            "run_stats_count": (d.get("run_stats") or {}).get("count", 0),
+            "gpu_available": bool((d.get("gpu") or {}).get("available")),
+            "gpu_count": len((d.get("gpu") or {}).get("gpus", [])),
         }, indent=2))
         return
     httpd = ThreadingHTTPServer((API_BIND, API_PORT), Handler)

@@ -26,6 +26,16 @@ CLI:
   warp-runner.py run --emit-metrics       write Layer B .prom textfile
   warp-runner.py run --device cpu         force a device (cpu|cuda|auto)
   warp-runner.py run --particles N --steps M
+  warp-runner.py history [--limit N]      the run history (newest first)
+  warp-runner.py history --json           machine-readable history + per-device stats
+
+Run history (SDD-301): every run that actually advanced the sim (success or
+domain error) appends one JSONL record to the run store —
+SOVEREIGN_OS_SCIENCE_RUNS env override, default
+~/.local/state/sovereign-os/science-runs.jsonl. Bounded to the last
+1000 records. History writing is best-effort and never changes the run's exit
+code. The graceful-degrade path (warp not installed) records nothing — there is
+no sim to remember.
 
 Exit codes:
   0  clean — sim ran (GPU or CPU), OR warp not installed (graceful degrade)
@@ -39,6 +49,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +74,13 @@ DEFAULT_METRICS_PATH = Path(
 
 # Sim defaults (overridden by config + CLI).
 DEFAULTS = {"num_particles": 100_000, "steps": 200, "dt": 0.01, "device_preference": "auto"}
+
+# Run history (SDD-301) — where `run` results accumulate so the panel/CLI can
+# show what ran, where, and how fast. Env-overridable (test + operator layout);
+# mirrors the SDD-300 warp-renders store convention (user-local state).
+RUNS_ENV = "SOVEREIGN_OS_SCIENCE_RUNS"
+DEFAULT_RUNS_PATH = Path("~/.local/state/sovereign-os/science-runs.jsonl")
+MAX_RUN_RECORDS = 1000
 
 
 def resolve_config_path(explicit: str | None) -> Path | None:
@@ -196,6 +214,95 @@ def run_sim(cfg: dict[str, Any], device: str) -> dict[str, Any]:
     }
 
 
+# ── run history (SDD-301) ─────────────────────────────────────────────────────
+
+def runs_path() -> Path:
+    env = os.environ.get(RUNS_ENV, "").strip()
+    return Path(env).expanduser() if env else DEFAULT_RUNS_PATH.expanduser()
+
+
+def record_run(payload: dict[str, Any]) -> None:
+    """Append one JSONL history record for a sim that actually ran (or raised).
+    Best-effort: any failure is swallowed — the run's exit code is unchanged."""
+    sim = payload.get("sim") or {}
+    rec = {
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "tool": "warp-lang",
+        "sim": "particle-drop",
+        "device": payload.get("device"),
+        "num_particles": sim.get("num_particles"),
+        "steps": sim.get("steps"),
+        "dt": sim.get("dt"),
+        "wall_ms": sim.get("wall_ms"),
+        "mean_final_height": sim.get("mean_final_height"),
+        "settled": sim.get("settled"),
+        "warp_version": payload.get("version"),
+    }
+    if payload.get("error"):
+        rec["error"] = str(payload["error"])
+    try:
+        p = runs_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        lines = [l for l in p.read_text().splitlines()] if p.exists() else []
+        lines.append(json.dumps(rec))
+        if len(lines) > MAX_RUN_RECORDS:
+            lines = lines[-MAX_RUN_RECORDS:]
+        tmp = p.with_suffix(".jsonl.tmp")
+        tmp.write_text("\n".join(lines) + "\n")
+        tmp.replace(p)
+    except (OSError, ValueError):
+        pass  # history is observability, never a run gate
+
+
+def read_history(limit: int | None) -> list[dict[str, Any]]:
+    """Read the run store, newest first. Malformed lines are skipped (the store
+    is an append log, not a contract)."""
+    p = runs_path()
+    if not p.exists():
+        return []
+    out: list[dict[str, Any]] = []
+    try:
+        for line in p.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(rec, dict):
+                out.append(rec)
+    except OSError:
+        return []
+    out.reverse()  # newest first (file is append-oldest-first)
+    return out[:limit] if limit else out
+
+
+def _median(ws: list[float]) -> float:
+    s = sorted(ws)
+    n = len(s)
+    mid = n // 2
+    return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2
+
+
+def history_stats(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Per-device aggregates over the (newest-first) runs: count + median
+    wall_ms. The GPU-vs-CPU comparison strip on the panel reads this."""
+    by_device: dict[str, list[float]] = {}
+    for r in runs:
+        w = r.get("wall_ms")
+        dev = r.get("device")
+        if isinstance(w, (int, float)) and dev:
+            by_device.setdefault(str(dev), []).append(float(w))
+    return {
+        "count": len(runs),
+        "by_device": {
+            dev: {"count": len(ws), "median_wall_ms": round(_median(ws), 3)}
+            for dev, ws in sorted(by_device.items())
+        },
+    }
+
+
 # ── metrics ──────────────────────────────────────────────────────────────────
 
 def emit_metrics(payload: dict[str, Any]) -> bool:
@@ -261,6 +368,9 @@ def main(argv: list[str] | None = None) -> int:
             sp.add_argument("--device", choices=["auto", "cuda", "cpu"])
             sp.add_argument("--particles", type=int)
             sp.add_argument("--steps", type=int)
+    sp_hist = sub.add_parser("history")
+    sp_hist.add_argument("--json", action="store_true")
+    sp_hist.add_argument("--limit", type=int)
     args = p.parse_args(argv)
     cmd = args.cmd or "run"
 
@@ -271,6 +381,25 @@ def main(argv: list[str] | None = None) -> int:
     if getattr(args, "json", False):
         sys.stdout = sys.stderr
     try:
+        # history is pure store-reading: handle it BEFORE the warp probe so the
+        # verb stays stdlib-fast and works on a box where warp is broken.
+        if cmd == "history":
+            runs = read_history(getattr(args, "limit", None))
+            if getattr(args, "json", False):
+                print(json.dumps({"runs": runs, "stats": history_stats(runs)},
+                                 indent=2), file=real_stdout)
+            else:
+                print("── R558 (SDD-301) science · run history ──")
+                if not runs:
+                    print("  (no recorded runs yet)")
+                for r in runs[:30]:
+                    w = r.get("wall_ms")
+                    err = r.get("error")
+                    print(f"  {r.get('ts', '?'):<26} {str(r.get('device')):<8} "
+                          f"{r.get('num_particles')}×{r.get('steps')} → "
+                          f"{('ERR ' + err[:40]) if err else (str(w) + ' ms')}")
+            return 0
+
         status = warp_status()
         payload: dict[str, Any] = dict(status)
 
@@ -308,6 +437,7 @@ def main(argv: list[str] | None = None) -> int:
             payload["device"] = device
             payload["sim"] = None
             payload["error"] = f"{type(exc).__name__}: {exc}"
+            record_run(payload)
             if args.json:
                 print(json.dumps(payload, indent=2), file=real_stdout)
             else:
@@ -316,6 +446,7 @@ def main(argv: list[str] | None = None) -> int:
 
         payload["device"] = device
         payload["sim"] = sim
+        record_run(payload)
         if getattr(args, "emit_metrics", False):
             emit_metrics(payload)
         if args.json:

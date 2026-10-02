@@ -38,6 +38,9 @@ catalog:
       status: integrated
       source: "https://github.com/NVIDIA/warp"
       license: "Apache-2.0"
+      run_cmd: "sovereign-osctl science run"
+      docs: "https://github.com/NVIDIA/warp"
+      detect: {method: import, ref: warp}
       notes: |
         NVIDIA Warp — a Python framework for high-performance / differentiable
         simulation (warp.sim: particles / cloth / rigid-body). NOT an LLM. The
@@ -45,6 +48,9 @@ catalog:
         driver; runs on CPU when no CUDA GPU is present. On SAIN-01 the host
         targets the RTX PRO 6000 (cuda:0). The RTX 4090 is the OcuLink eGPU
         (host-resident by default; VFIO-isolated only when opted in, SDD-993).
+        SDD-301: the panel executes the sample sim through the exec-rail
+        (control `science-sim`) and keeps a bounded run history
+        (~/.local/state/sovereign-os/science-runs.jsonl).
 
     # ── DNA / genomics ──────────────────────────────────────────────────
     - id: evo-arc-institute
@@ -56,7 +62,16 @@ catalog:
       cpu_capable: false
       status: cataloged
       source: "https://huggingface.co/arcinstitute/evo2_7b"
-      notes: "Genomics foundation model. Verified on HF 2026-07-02. Alternative: HyenaDNA."
+      license: "Apache-2.0"
+      size_gb: 13.77
+      docs: "https://github.com/ArcInstitute/evo2"
+      detect: {method: hf, ref: "arcinstitute/evo2_7b"}
+      notes: |
+        Evo 2 (arcinstitute/evo2_7b) — autoregressive DNA language model trained
+        on trillions of DNA tokens, up to 1M sequence length (7B params, 32
+        layers; a 40B sibling exists). Weights on HF (13.77 GB, verified
+        2026-10-02); code at github.com/ArcInstitute/evo2. Alternative:
+        HyenaDNA.
 
     - id: hyenadna
       name: "HyenaDNA"
@@ -67,7 +82,17 @@ catalog:
       cpu_capable: false
       status: cataloged
       source: "https://huggingface.co/LongSafari/hyenadna-medium-450k-seqlen-hf"
-      notes: "Long-range genomics model; lighter alternative to Evo. Verified on HF 2026-07-02."
+      size_gb: 0.11
+      vram_gb: 16
+      docs: "https://github.com/HazyResearch/hyena-dna"
+      detect: {method: hf, ref: "LongSafari/hyenadna-medium-450k-seqlen-hf"}
+      notes: |
+        Long-range genomics foundation model (HazyResearch), context up to 1M
+        tokens at single-nucleotide resolution. The medium-450k checkpoint is
+        small in weight (112.65 MB, verified 2026-10-02 — the long context
+        comes from the Hyena operator, not parameter count); the HF page's
+        suggested minimum for INFERENCE is a T4 (16 GB VRAM), fine-tune wants
+        an A100-40GB. Lighter alternative to Evo.
 
     - id: rosettafold-all-atom
       name: "RoseTTAFold All-Atom (RFAA)"
@@ -78,7 +103,16 @@ catalog:
       cpu_capable: false
       status: cataloged
       source: "https://github.com/baker-laboratory/RoseTTAFold-All-Atom"
-      notes: "Baker Lab all-atom structure prediction. GitHub-distributed — NOT an HF model repo (2026-07-02)."
+      size_gb: 1.34
+      docs: "https://github.com/baker-laboratory/RoseTTAFold-All-Atom"
+      detect: {method: checkout, ref: "/opt/RoseTTAFold-All-Atom"}
+      notes: |
+        Baker Lab all-atom structure prediction. GitHub-distributed — NOT an HF
+        model repo (2026-07-02). Weights RFAA_paper_weights.pt = 1.34 GB
+        (verified 2026-10-02), but the official README also requires the MSA
+        databases UniRef30 (46 GB) + BFD (272 GB) — a ~320 GB working set —
+        plus a conda environment and a licensed SignalP-6.0. Heaviest rung;
+        rtx-pro tier reflects that.
 
     # ── protein folding ─────────────────────────────────────────────────
     - id: esmfold
@@ -90,7 +124,15 @@ catalog:
       cpu_capable: false
       status: cataloged
       source: "https://huggingface.co/facebook/esmfold_v1"
-      notes: "Fast single-sequence protein folding; cheapest rung. Verified on HF 2026-07-02."
+      size_gb: 8.44
+      docs: "https://github.com/facebookresearch/esm"
+      detect: {method: hf, ref: "facebook/esmfold_v1", import_module: esm}
+      notes: |
+        Fast single-sequence protein folding; cheapest rung. Weights on HF
+        (8.44 GB, verified 2026-10-02); inference code is the ESM suite
+        (`pip install esm`, facebookresearch/esm). No MSA / database lookup
+        required — the fastest folding path on the box. Verified on HF
+        2026-07-02.
 
     - id: openfold
       name: "OpenFold"
@@ -101,7 +143,15 @@ catalog:
       cpu_capable: false
       status: cataloged
       source: "https://github.com/aqlaboratory/openfold"
-      notes: "AQ Laboratory reproduction of AlphaFold2. GitHub-distributed — NOT an HF model repo (2026-07-02)."
+      license: "Apache-2.0"
+      docs: "https://openfold.readthedocs.io"
+      detect: {method: checkout, ref: "/opt/openfold"}
+      notes: |
+        AQ Laboratory PyTorch reproduction of AlphaFold2 (trainable, unlike the
+        original JAX code). GitHub-distributed — NOT an HF model repo
+        (2026-07-02). The install script downloads DeepMind's pretrained
+        parameters (CC BY 4.0) into openfold/resources/params. Docs live at
+        openfold.readthedocs.io.
 
     - id: alphafold3
       name: "AlphaFold3"
@@ -112,4 +162,13 @@ catalog:
       cpu_capable: false
       status: cataloged
       source: "https://github.com/google-deepmind/alphafold3"
-      notes: "DeepMind — highest-accuracy rung. Code + weights DeepMind-distributed — NOT an HF model repo (2026-07-02)."
+      size_gb: 1.02
+      docs: "https://github.com/google-deepmind/alphafold3"
+      detect: {method: checkout, ref: "/opt/alphafold3"}
+      notes: |
+        DeepMind — highest-accuracy rung. Inference pipeline code on GitHub;
+        model parameters are gated by Google's terms of use and downloaded
+        from storage.googleapis.com/alphafold3/af3.bin.zst (1.02 GB compressed,
+        verified 2026-10-02) — NOT an HF model repo (2026-07-02). Code+
+        parameters are DeepMind-distributed; a non-commercial hosted option is
+        alphafoldserver.com.

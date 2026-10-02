@@ -136,6 +136,63 @@ grep -q "R558" "${OSCTL}" && ok "osctl science bridge cites R558" || ko "R558 ci
 grep -q "slug: science" "${__REPO_ROOT}/config/dashboard-catalog.yaml" \
   && ok "dashboard-catalog has the science entry" || ko "dashboard-catalog entry missing"
 
+# ---------- SDD-301 — live instrument: history, documented run syntax, new API keys ----------
+set +e
+out="$("${PYTHON3}" "${SCIENCE}" history --json 2>/dev/null)"; rc=$?
+set -e
+if [ "${rc}" -eq 0 ] && echo "${out}" | grep -q '"runs"' && echo "${out}" | grep -q '"stats"'; then
+  ok "science history --json is structured (runs + stats)"
+else
+  ko "science history broken (rc=${rc}): ${out}"
+fi
+
+# The documented `science run --device … --particles … --steps …` syntax must
+# parse (SDD-301 fixed the REMAINDER regression). Use a tiny workload so the
+# test is fast on GPU and clean on the warp-less CI box (exit-0 invariant).
+set +e
+out="$("${PYTHON3}" "${SCIENCE}" run --device cpu --particles 100 --steps 5 --json 2>/dev/null)"; rc=$?
+set -e
+[ "${rc}" -eq 0 ] && ok "science run documented syntax exits 0" || ko "science run --device rc=${rc}: ${out}"
+
+set +e
+out="$("${PYTHON3}" "${API}" --self-check 2>/dev/null)"; rc=$?
+set -e
+sc_ok=1
+for k in tools_status_count recent_runs run_stats_count gpu_available gpu_count; do
+  echo "${out}" | grep -q "\"${k}\"" || sc_ok=0
+
+done
+{ [ "${rc}" -eq 0 ] && [ "${sc_ok}" = "1" ]; } \
+  && ok "science-api --self-check reports the SDD-301 keys" || ko "self-check missing SDD-301 keys"
+
+# /science.json carries the new keys on the ephemeral port (re-serve briefly)
+PORT=$(( (RANDOM % 2000) + 18600 ))
+SCIENCE_API_PORT="${PORT}" "${PYTHON3}" "${API}" >/tmp/sci-panel-api.$$ 2>&1 &
+apipid=$!
+served=0
+for _ in $(seq 1 15); do
+  if grep -q "science-api on" /tmp/sci-panel-api.$$ 2>/dev/null; then served=1; break; fi
+  sleep 0.2
+done
+if [ "${served}" = "1" ]; then
+  jtmp="/tmp/sci-panel-json.$$"
+  curl -fsS "127.0.0.1:${PORT}/science.json" -o "${jtmp}" 2>/dev/null || true
+  jok=1
+  for k in recent_runs run_stats gpu tools_status; do
+    grep -q "\"${k}\"" "${jtmp}" 2>/dev/null || jok=0
+  done
+  [ "${jok}" = "1" ] && ok "/science.json carries the SDD-301 keys" || ko "/science.json missing SDD-301 keys"
+  rm -f "${jtmp}"
+else
+  ko "science-api (2nd serve) failed to bind on 127.0.0.1:${PORT}"
+fi
+kill "${apipid}" 2>/dev/null || true
+wait "${apipid}" 2>/dev/null || true
+rm -f /tmp/sci-panel-api.$$
+
+grep -q "id: science-sim" "${__REPO_ROOT}/config/control-systems.yaml" \
+  && ok "control-systems.yaml carries the science-sim control" || ko "science-sim control missing"
+
 # ---------- result ----------
 echo
 total=$((pass + fail))

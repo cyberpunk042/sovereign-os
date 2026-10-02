@@ -122,6 +122,54 @@ $defs:
         description: "Free-text operator-facing note (provenance, caveats, alternatives)."
         type: string
 
+      # ── SDD-301 live-instrument fields (all optional) ──
+      size_gb:
+        description: |
+          Approximate total artifact size in GB (HF repo file sum, or the
+          distribution size). Grounded in the project/HF page at authoring time;
+          omitted when it cannot be verified.
+        type: number
+        minimum: 0
+
+      vram_gb:
+        description: |
+          Minimum working VRAM in GB at the tool's lowest listed tier (official
+          docs / paper / verified figures). Omitted when it cannot be verified.
+        type: number
+        minimum: 0
+
+      run_cmd:
+        description: "Canonical run/invocation command for an INTEGRATED tool."
+        type: string
+
+      docs:
+        description: "Best documentation link (docs site, paper, or repo README)."
+        type: string
+
+      detect:
+        description: |
+          Live readiness check (SDD-301). `method` names the PRIMARY artifact
+          check performed by `science.py status`: import = python module
+          importable (ref = module name); pip = pip-installable (ref = package
+          or module); hf = HF model artifacts resident in the HF hub cache or
+          the sovereign model vault (ref = org/name); checkout = a source tree
+          resident at ref (a filesystem path, or a git URL whose default
+          checkout path is known to the operator). Optional import_module adds
+          a code-side check for hf tools (weights + importable code = installed).
+          Detection failures report `unknown`, never a fake `installed`.
+        type: object
+        required: [method, ref]
+        additionalProperties: false
+        properties:
+          method:
+            type: string
+            enum: [import, pip, hf, checkout]
+          ref:
+            type: string
+            minLength: 1
+          import_module:
+            type: string
+
     # Rules that keep the catalog honest.
     allOf:
       # An INTEGRATED tool must be CPU-capable so it degrades on a GPU-less

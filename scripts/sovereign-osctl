@@ -293,8 +293,14 @@ COMMANDS:
   science list [--json]        R558 (SDD-070): science-tools catalog by domain
                                (DNA / protein / particles) — non-LLM compute tools
   science status [--json]      NVIDIA Warp installed? + device (cuda:0 or CPU) + version
-  science run [--device cpu|cuda] [--particles N] [--steps M] [--json]
-                               Run the Warp differentiable particle sim (GPU or CPU)
+                               + per-tool live readiness (SDD-301)
+  science run [--device auto|cuda|cpu] [--particles N] [--steps M]
+              [--config FILE] [--emit-metrics] [--json]
+                               Run the Warp differentiable particle sim (GPU or CPU);
+                               records one line to the run history (SDD-301)
+  science history [--limit N] [--json]
+                               The Warp run history (newest first) + per-device
+                               median wall_ms — the panel's comparison strip
   science info <id> [--json]   Full detail for one science tool
   science install [--json]     How each integrated tool is obtained (advisory)
 

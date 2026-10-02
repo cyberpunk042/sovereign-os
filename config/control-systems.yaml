@@ -921,6 +921,34 @@ systems:
     applies_to: [warp]
     refs: [SDD-300, config/warp-catalog.yaml]
 
+  # ── Science tools — run the Warp sample particle sim (SDD-301) ──
+  # The Science panel's Run card executes this control through the exec-rail.
+  # User-level compute (the SDD-300 warp-render precedent): retain validation +
+  # audit, but no sudo and no redundant confirmation. The sim is short by
+  # design (100k×200 ≈ 1 s on GPU; even 1M×500 stays inside the rail's 30 s
+  # default). --json keeps the machine payload on stdout so the panel can
+  # render structured metrics (warp's init banner goes to stderr).
+  - id: science-sim
+    kind: lifecycle
+    scope: scoped
+    label: "Science — run sample sim"
+    description: >-
+      Run the NVIDIA Warp differentiable particle sample sim (drop-and-bounce,
+      N particles × M steps) on the selected device. Dispatched as the cockpit
+      service user by `sovereign-osctl science run --device {auto|cuda|cpu}
+      --particles N --steps M --json`, without elevation or a redundant
+      confirmation. Records one line to the run history
+      (~/.local/state/sovereign-os/science-runs.jsonl) that the panel's
+      Recent-runs table and per-device comparison strip read.
+    options: [100000, 10000, 1000, 200, 100]
+    options_cli: "sovereign-osctl science list"
+    state_cli: "sovereign-osctl science status"
+    change_cli: "sovereign-osctl science run --device {auto|cuda|cpu} --particles <particles> --steps <steps> --json"
+    state_path: "~/.local/state/sovereign-os/science-runs.jsonl (run history) + warp status"
+    privileged: false
+    applies_to: [science]
+    refs: [SDD-301, config/science-tools.yaml]
+
   # ── Cockpit hotswaps (SDD-600) — surfaced in the top-right settings pane ──
   # The settings pane copies each control's change_cli (the shell never mutates
   # privileged state — R10212); these controls ALSO render live on their home

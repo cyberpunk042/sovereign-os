@@ -1,11 +1,14 @@
 """R558 (SDD-070) — Science-tools MCP surface contract lint.
 
 The science module's MCP surface is exposed via the R286 aggregator
-(scripts/interop/mcp-aggregate.py LOCAL_TOOLS registry) as two read-only tool
-entries — each delegates to a `sovereign-osctl science <verb> --json` invocation.
+(scripts/interop/mcp-aggregate.py LOCAL_TOOLS registry) as three read-only
+tool entries — each delegates to a `sovereign-osctl science <verb> --json`
+invocation (SDD-301 adds `science-history` — the run history is read-only
+observability, same policy as status).
 
-Two discrete tools (list / status). `run` is execution-shaped (launches a sim)
-and is intentionally NOT exposed at the MCP surface per operator §17; `info`
+Three discrete tools (list / status / history). `run` is execution-shaped
+(launches a sim) and is intentionally NOT exposed at the MCP surface per
+operator §17 — it is the exec-rail's job (control `science-sim`); `info`
 takes a runtime `<id>` argument and LOCAL_TOOLS uses fixed argv, so it is not
 exposed either. This keeps the science MCP surface read-only.
 """
@@ -18,7 +21,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MCP_AGGREGATE = REPO_ROOT / "scripts" / "interop" / "mcp-aggregate.py"
 
-REQUIRED_TOOLS = {"science-list", "science-status"}
+REQUIRED_TOOLS = {"science-list", "science-status", "science-history"}
 
 
 def _manifest() -> dict:

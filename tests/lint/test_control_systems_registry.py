@@ -36,6 +36,7 @@ EXPECTED_IDS = {
     "profiles-generate-runtime", "peace-check",
     "profile-compose",
     "warp-render", "warp-bench",
+    "science-sim",
     "frontend",
     "openclaw-backend", "open-computer-backend",
     "claude-code-backend", "vscode-backend",
