@@ -2,6 +2,12 @@
 
 ## Operator words (verbatim)
 
+> i think it worked "applied ✓ warp-render → ai\_training (exit 0)" but at the same time I see nothing in the cockpit about the element I asked for render. lets finish the loop
+
+> I tried a render and it asked for a random confirmation I dont want and then I got error 500
+
+> FIX it
+
 > okay, go
 
 > we continue

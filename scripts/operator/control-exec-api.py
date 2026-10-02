@@ -242,6 +242,12 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"service": "control-exec-api", "version": API_VERSION,
                                   "standing_rule": "We do not minimize anything."})
             return
+        if path == "/api/control/warp-render-result":
+            # Read only generated artifacts owned by this operator service.
+            import runpy
+            reader = runpy.run_path(str(Path(__file__).resolve().parents[1] / "warp" / "warp_manage.py"))
+            self._send_json(200, {"latest_render": reader["latest_render"]()})
+            return
         if path == "/api/control/registry":
             self._send_json(200, _registry_payload())
             return

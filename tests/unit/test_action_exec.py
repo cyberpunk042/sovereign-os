@@ -29,6 +29,16 @@ def _load():
 AE = _load()
 
 
+def test_warp_render_is_user_level_without_extra_confirmation(monkeypatch):
+    monkeypatch.setattr(AE, 'operator_key_loaded', lambda: False)
+    monkeypatch.setattr(AE, '_compat_pre_change', lambda *args: None)
+    result = AE.execute('warp-render', {'scene': 'canyon'}, confirm=False, dry_run=True)
+    assert result['code'] == 200
+    assert result['would_run'] == result['argv']
+    assert result['argv'][-3:] == ['warp', 'render', 'canyon']
+    assert AE.load_registry()['warp-bench']['privileged'] is True
+
+
 # ── registry + classification ────────────────────────────────────────────────
 
 def test_registry_loads_all_controls():

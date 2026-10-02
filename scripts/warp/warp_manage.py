@@ -31,6 +31,9 @@ Exit codes: 0 clean, 2 usage / unknown scene, 3 checkout absent (render/bench).
 from __future__ import annotations
 
 import argparse
+import base64
+import uuid
+from datetime import datetime, timezone
 import json
 import os
 import re
@@ -46,6 +49,28 @@ CATALOG_FILE = REPO_ROOT / "config" / "warp-catalog.yaml"
 # whitespace, no shell metacharacters, no path traversal). Scene names are
 # [A-Za-z0-9][A-Za-z0-9_-]*.
 _SAFE_SCENE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
+
+def render_store() -> Path:
+    return Path.home() / '.local/state/sovereign-os/warp-renders'
+
+
+def latest_render() -> dict | None:
+    """Read only our generated PNG; never accept a path from the manifest."""
+    try:
+        store = render_store()
+        info = json.loads((store / 'latest.json').read_text())
+        if not re.fullmatch(r'[0-9a-f]{32}', info.get('id', '')):
+            return None
+        image = store / (info['id'] + '.png')
+        if image.is_symlink() or image.stat().st_size > 16 * 1024 * 1024:
+            return None
+        data = image.read_bytes()
+        if not data.startswith(b'\x89PNG\r\n\x1a\n'):
+            return None
+        return {**info, 'image_url': 'data:image/png;base64,' + base64.b64encode(data).decode(),
+                'bytes': len(data)}
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
 
 # Candidate checkout locations, in priority order. WARP_SHADERS_ROOT wins.
 _DEFAULT_ROOTS = (
@@ -179,6 +204,7 @@ def cmd_status(json_out: bool) -> int:
         "checkout_resident": root is not None,
         "checkout_path": str(root) if root else None,
         "warp_installed": warp_installed(),
+        "latest_render": latest_render(),
     }
     if json_out:
         print(json.dumps(payload, indent=2))
@@ -240,7 +266,27 @@ def cmd_render(scene: str, json_out: bool, extra: list[str]) -> int:
     if err:
         print(f"error: {err}", file=sys.stderr)
         return 2
-    return _run_runner("render.py", ["--scene", scene, *extra], json_out, "render", scene)
+    if extra:  # Explicit CLI outputs/animations retain their original semantics.
+        return _run_runner("render.py", ["--scene", scene, *extra], json_out, "render", scene)
+    if shaders_root() is None:
+        return _absent_banner('render', scene, json_out)
+    store = render_store()
+    store.mkdir(parents=True, exist_ok=True, mode=0o700)
+    identity = uuid.uuid4().hex
+    output = store / (identity + '.png')
+    rc = _run_runner('render.py', ['--scene', scene, '--out', str(output)], json_out, 'render', scene)
+    if rc:
+        return rc
+    if not output.is_file() or not output.read_bytes().startswith(b'\x89PNG\r\n\x1a\n'):
+        print('Render returned success but produced no valid PNG.', file=sys.stderr)
+        return 4
+    metadata = {'id': identity, 'scene': scene, 'created_at': datetime.now(timezone.utc).isoformat(),
+                'filename': scene + '-' + identity[:8] + '.png'}
+    pending = store / (identity + '.json')
+    pending.write_text(json.dumps(metadata))
+    pending.replace(store / 'latest.json')
+    print('Render saved; preview available in the Warp cockpit.')
+    return 0
 
 
 def cmd_bench(scene: str, json_out: bool, extra: list[str]) -> int:

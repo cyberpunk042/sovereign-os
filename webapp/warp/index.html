@@ -2244,6 +2244,17 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 
   <div class="strip" id="strip"><div class="stat"><b>…</b><span>loading</span></div></div>
 
+  <section id="warp-render-result" aria-label="Latest render">
+    <h2>Latest render</h2>
+    <p id="warp-render-message" role="status">Loading render results…</p>
+    <figure id="warp-render-figure" hidden style="margin:0">
+      <img id="warp-render-image" alt="" style="display:block;max-width:100%;max-height:65vh;object-fit:contain;margin:auto;border-radius:8px">
+      <figcaption id="warp-render-caption" style="margin:12px 0"></figcaption>
+      <a id="warp-render-download">Download PNG</a>
+    </figure>
+  </section>
+  <script src="/_shared/warp-render-results.js" defer></script>
+
   <section>
     <h2>Relations <small>— lib → lib dependency graph (node size ∝ scenes using it); click a lib to filter</small></h2>
     <svg id="graph" viewBox="0 0 1000 440" preserveAspectRatio="xMidYMid meet"></svg>
@@ -2268,7 +2279,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 
   <section>
     <h2>Execute <small>— render / bench through the sanctioned control-exec rail</small></h2>
-    <p class="sub" style="margin:0 0 10px">Pick a scene (or use a per-scene <b>Render</b>/<b>Bench</b> button above — it fills the card below), then Execute. Where this panel is not fronted by the exec daemon, the command is copied instead. Rendering is real GPU/CPU compute (privileged: operator-key + type-to-confirm).</p>
+    <p class="sub" style="margin:0 0 10px">Render a scene to see its image above and download the PNG. Render runs under your user account without an extra confirmation. Bench retains its separate approval policy.</p>
     <div id="control-surface" class="cs-grid"><div class="cs-empty">loading controls…</div></div>
   </section>
 
