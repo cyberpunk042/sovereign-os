@@ -37,6 +37,7 @@ EXPECTED_IDS = {
     "profile-compose",
     "warp-render", "warp-bench",
     "science-sim",
+    "science-download", "science-verify",
     "frontend",
     "openclaw-backend", "open-computer-backend",
     "claude-code-backend", "vscode-backend",

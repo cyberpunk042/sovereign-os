@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (242 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (243 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -139,6 +139,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (242 total), by number.
 - [SDD-207 — The Sovereign Compute Plane (Phase 1: VRAM-fit job placement)](../sdd/207-compute-plane.md)
 - [SDD-300 — Warp management panel (warp-solar-system-shaders: catalog, relations & execution)](../sdd/300-warp-management-panel.md)
 - [SDD-301 — Science panel: from static catalog to live instrument](../sdd/301-science-panel-live-instrument.md)
+- [SDD-302 — Science tools: download + verify (a real instrument, not a catalog)](../sdd/302-science-tools-download-and-verify.md)
 - [SDD-400 — ChromoFold compressed-domain integration (DESIGN / positioning)](../sdd/400-chromofold-compressed-domain-integration.md)
 - [SDD-401 — ChromoFold GPU hotswap: fold-the-model decode-in-GEMM + folded KV (DESIGN)](../sdd/401-chromofold-gpu-hotswap-fold-the-model.md)
 - [SDD-402 — ChromoFold weight decode-in-GEMM C ABI export contract (Q-401-A) (DESIGN)](../sdd/402-chromofold-weight-gemm-abi-export-contract.md)

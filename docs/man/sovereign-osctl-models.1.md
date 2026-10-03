@@ -176,6 +176,12 @@ The default resident-model directory is `/mnt/vault/models`; override it with `S
 **sovereign-osctl science install [--json]**
 :   How each integrated tool is obtained (advisory)
 
+**sovereign-osctl science download <id> [--json]**
+:   SDD-302: download a cataloged science tool as a resumable background job (pip / HF snapshot / git clone, per the catalog's install method), then verify it. Spawn-and-return; track via `science status`.
+
+**sovereign-osctl science verify <id> [--json]**
+:   SDD-302: "test the download" — re-check a tool's artifact (present AND usable). A present-but-incomplete artifact reports `artifacts-present`, never a fake `installed`.
+
 ## warp
 
 **sovereign-osctl warp list|libs|relations|info <scene>|status [--json]**

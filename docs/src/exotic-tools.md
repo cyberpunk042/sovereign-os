@@ -16,6 +16,7 @@ Where a domain already has an operator API / osctl surface, it's noted.
 |---|---|---|
 | `scripts/science/science.py` | The operator-facing science catalog CLI (DNA / protein / particle tools). The front door. | `python3 scripts/science/science.py --help` |
 | `scripts/science/warp-runner.py` | R558 (SDD-070) — the one Warp-importing backend that runs the differentiable particle sim on GPU (`--device auto/cuda/cpu`), emits metrics (`--emit-metrics`, `--json`). Driven by `science.py` / `scripts/operator/science-api.py`, not run by hand normally. | `python3 scripts/science/warp-runner.py --help` |
+| `scripts/science/science-download.py` | SDD-302 — the science-tools **download + verify** background job. A detached worker (spawn-and-return, survives the exec-rail's 30 s window) that pulls a cataloged tool per its install method (`pip` / HF snapshot / `git clone`) into a user dir, then verifies it (artifact present + a canonical import / weight-file check — never a fake `installed`, SB-077). State at `~/.local/state/sovereign-os/science-downloads/`. Driven by `science.py download/verify` + the panel's Download/Verify buttons via the exec-rail. | `python3 scripts/science/science-download.py --help` |
 
 **Already surfaced:** `scripts/operator/science-api.py` (loopback API) + the science catalog card. This page documents the backend so the pair is discoverable.
 

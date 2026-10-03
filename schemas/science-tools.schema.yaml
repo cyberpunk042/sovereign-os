@@ -170,6 +170,24 @@ $defs:
           import_module:
             type: string
 
+      verify:
+        description: |
+          Deliberate, re-checkable post-download check (SDD-302 "test the
+          download") — distinct from the passive `detect` readiness. `weight_file`
+          is a single grounded weight/parameter filename whose presence (under the
+          checkout or inside the snapshot) proves a complete artifact; `import_module`
+          is a canonical python import that proves the code is usable. Both optional.
+          A present-but-incomplete artifact (missing separate weight / failed import)
+          verifies as `artifacts-present`, never `installed` (SB-077).
+        type: object
+        additionalProperties: false
+        properties:
+          weight_file:
+            type: string
+            minLength: 1
+          import_module:
+            type: string
+
     # Rules that keep the catalog honest.
     allOf:
       # An INTEGRATED tool must be CPU-capable so it degrades on a GPU-less

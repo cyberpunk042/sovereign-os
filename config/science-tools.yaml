@@ -41,6 +41,7 @@ catalog:
       run_cmd: "sovereign-osctl science run"
       docs: "https://github.com/NVIDIA/warp"
       detect: {method: import, ref: warp}
+      verify: {import_module: warp}
       notes: |
         NVIDIA Warp — a Python framework for high-performance / differentiable
         simulation (warp.sim: particles / cloth / rigid-body). NOT an LLM. The
@@ -66,12 +67,19 @@ catalog:
       size_gb: 13.77
       docs: "https://github.com/ArcInstitute/evo2"
       detect: {method: hf, ref: "arcinstitute/evo2_7b"}
+      verify: {weight_file: "evo2_7b.pt", import_module: evo2}
       notes: |
         Evo 2 (arcinstitute/evo2_7b) — autoregressive DNA language model trained
         on trillions of DNA tokens, up to 1M sequence length (7B params, 32
         layers; a 40B sibling exists). Weights on HF (13.77 GB, verified
         2026-10-02); code at github.com/ArcInstitute/evo2. Alternative:
         HyenaDNA.
+        Download+verify (SDD-302, grounded 2026-10-02): the weight file is
+        `evo2_7b.pt` (13.77 GB). The weights are NOT runnable alone — the code
+        is `pip install evo2` (7B light install, no Transformer Engine; needs
+        CUDA ≥12.1, cuDNN ≥9.3, Python 3.11/3.12, Torch 2.6/2.7). Verify
+        imports `evo2`; a present-but-codeless download is reported
+        `artifacts-present`, never `installed` (SB-077).
 
     - id: hyenadna
       name: "HyenaDNA"
@@ -86,6 +94,7 @@ catalog:
       vram_gb: 16
       docs: "https://github.com/HazyResearch/hyena-dna"
       detect: {method: hf, ref: "LongSafari/hyenadna-medium-450k-seqlen-hf"}
+      verify: {weight_file: "model.safetensors"}
       notes: |
         Long-range genomics foundation model (HazyResearch), context up to 1M
         tokens at single-nucleotide resolution. The medium-450k checkpoint is
@@ -93,6 +102,10 @@ catalog:
         comes from the Hyena operator, not parameter count); the HF page's
         suggested minimum for INFERENCE is a T4 (16 GB VRAM), fine-tune wants
         an A100-40GB. Lighter alternative to Evo.
+        Download+verify (SDD-302, grounded 2026-10-02): the weight file is
+        `model.safetensors` (112.65 MB). No separate pip code — it loads via
+        `transformers.AutoModel(..., trust_remote_code=True)` (the repo ships
+        `modeling_hyena.py`). Verify = weight present (no import rung).
 
     - id: rosettafold-all-atom
       name: "RoseTTAFold All-Atom (RFAA)"
@@ -106,6 +119,7 @@ catalog:
       size_gb: 1.34
       docs: "https://github.com/baker-laboratory/RoseTTAFold-All-Atom"
       detect: {method: checkout, ref: "/opt/RoseTTAFold-All-Atom"}
+      verify: {weight_file: "RFAA_paper_weights.pt", import_module: rf2aa}
       notes: |
         Baker Lab all-atom structure prediction. GitHub-distributed — NOT an HF
         model repo (2026-07-02). Weights RFAA_paper_weights.pt = 1.34 GB
@@ -113,6 +127,15 @@ catalog:
         databases UniRef30 (46 GB) + BFD (272 GB) — a ~320 GB working set —
         plus a conda environment and a licensed SignalP-6.0. Heaviest rung;
         rtx-pro tier reflects that.
+        Download+verify (SDD-302, grounded 2026-10-02): the code is a git
+        clone (the `rf2aa` package, `import rf2aa` after `setup.py install`);
+        the weights `RFAA_paper_weights.pt` (1.34 GB) are a SEPARATE wget from
+        files.ipd.uw.edu — a clone alone is NOT runnable, so verify reports the
+        weight as "not yet fetched" (honest, not `installed`). The full working
+        set is ~400 GB once the 81 GB structure-template DB (pdb100_2021Mar03)
+        is added (correcting the ~320 GB figure above, which omits templates).
+        Also needs a Mamba conda env + a licensed SignalP-6.0 + a post-download
+        rename (distilled_model_signalp6.pt → ensemble_model_signalp6.pt).
 
     # ── protein folding ─────────────────────────────────────────────────
     - id: esmfold
@@ -127,12 +150,18 @@ catalog:
       size_gb: 8.44
       docs: "https://github.com/facebookresearch/esm"
       detect: {method: hf, ref: "facebook/esmfold_v1", import_module: esm}
+      verify: {weight_file: "pytorch_model.bin", import_module: esm}
       notes: |
         Fast single-sequence protein folding; cheapest rung. Weights on HF
         (8.44 GB, verified 2026-10-02); inference code is the ESM suite
         (`pip install esm`, facebookresearch/esm). No MSA / database lookup
         required — the fastest folding path on the box. Verified on HF
         2026-07-02.
+        Download+verify (SDD-302, grounded 2026-10-02): the weight file is
+        `pytorch_model.bin` (8.44 GB). GOTCHA: the code's PyPI name is
+        `fair-esm` (import is `esm`), NOT `esm` — `pip install fair-esm`. A
+        weights-only download verifies as `artifacts-present` until the code is
+        installed (SB-077). ~415 M params ≈ ~1 GB in fp32 — fits rtx-4090.
 
     - id: openfold
       name: "OpenFold"
@@ -152,6 +181,13 @@ catalog:
         (2026-07-02). The install script downloads DeepMind's pretrained
         parameters (CC BY 4.0) into openfold/resources/params. Docs live at
         openfold.readthedocs.io.
+        Download+verify (SDD-302, grounded 2026-10-02): the download is a git
+        clone — a completed clone verifies as `installed` (the code artifact is
+        present). The DeepMind AF2 params are a SEPARATE multi-file fetch
+        (`./scripts/download_alphafold_params.sh openfold/resources`, CC BY 4.0)
+        — a documented operator step, NOT auto-fetched (no single grounded
+        sentinel file to verify, so no `verify.weight_file` is pinned here;
+        Stage-N). A clone without params is present but not runnable.
 
     - id: alphafold3
       name: "AlphaFold3"
@@ -165,6 +201,7 @@ catalog:
       size_gb: 1.02
       docs: "https://github.com/google-deepmind/alphafold3"
       detect: {method: checkout, ref: "/opt/alphafold3"}
+      verify: {weight_file: "af3.bin.zst"}
       notes: |
         DeepMind — highest-accuracy rung. Inference pipeline code on GitHub;
         model parameters are gated by Google's terms of use and downloaded
@@ -172,3 +209,8 @@ catalog:
         verified 2026-10-02) — NOT an HF model repo (2026-07-02). Code+
         parameters are DeepMind-distributed; a non-commercial hosted option is
         alphafoldserver.com.
+        Download+verify (SDD-302, grounded 2026-10-02): the download is a git
+        clone; the weight `af3.bin.zst` (1.02 GB) is a SEPARATE fetch from
+        storage.googleapis.com (gated by Google's terms). A clone alone
+        verifies as `installed` (checkout present) but is not runnable until
+        the weight is fetched (documented, not auto-fetched — Stage-N).

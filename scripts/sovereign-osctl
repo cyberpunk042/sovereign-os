@@ -303,6 +303,12 @@ COMMANDS:
                                median wall_ms — the panel's comparison strip
   science info <id> [--json]   Full detail for one science tool
   science install [--json]     How each integrated tool is obtained (advisory)
+  science download <id> [--json]
+                               SDD-302: download a cataloged tool as a resumable
+                               background job (pip / HF snapshot / git clone), then
+                               verify it. Spawn-and-return; track via `science status`.
+  science verify <id> [--json] SDD-302: "test the download" — re-check a tool's
+                               artifact (present AND usable). Never fakes `installed`.
 
   warp list|libs|relations|info <scene>|status [--json]
                                SDD-300: Warp management — the warp-solar-system-shaders

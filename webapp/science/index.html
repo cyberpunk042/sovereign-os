@@ -41,6 +41,38 @@
   th{color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase}
   .pill{font-size:.68rem;border:1px solid var(--border);border-radius:10px;padding:0 .45rem;white-space:nowrap}
   .pill.integrated{color:var(--good);border-color:var(--good)} .pill.cataloged{color:var(--muted)}
+  /* SDD-301 — live instrument (execute + remember + readiness + context). Monochrome: only --good/--warn/--bad vars. */
+  .pill.installed{color:var(--good);border-color:var(--good)} .pill.artifacts-present{color:var(--good);border-color:var(--good)}
+  .pill.downloadable{color:var(--warn);border-color:var(--warn)} .pill.unknown{color:var(--muted)}
+  .pill.ok{color:var(--good);border-color:var(--good)} .pill.error{color:var(--bad);border-color:var(--bad)}
+  .pill.downloading{color:var(--accent);border-color:var(--accent)}
+  .dl-actions{margin-top:.5rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+  .dl-result{margin-top:.4rem;font-size:.72rem;line-height:1.4;word-break:break-word}
+  .dl-result.ok{color:var(--good)} .dl-result.warn{color:var(--warn)} .dl-result.err{color:var(--bad)} .dl-result.muted{color:var(--muted)} .dl-result.dry{color:var(--accent)}
+  .tier-chip{font-size:.68rem;border:1px solid var(--border);border-radius:10px;padding:0 .45rem;white-space:nowrap;color:var(--muted)}
+  .tier-chip.this-box{color:var(--accent);border-color:var(--accent)}
+  #sim-card input[type=number]{font-family:var(--mono);font-size:.8rem;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:.25rem .4rem;width:9ch}
+  #sim-card select{font-family:var(--mono);font-size:.8rem;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:.3rem .4rem}
+  .metric-chip{display:inline-block;font-size:.74rem;border:1px solid var(--border);border-radius:4px;padding:.15rem .5rem;margin:.15rem .3rem .15rem 0;background:var(--bg)}
+  .sim-result-line{font-size:.72rem;line-height:1.4;word-break:break-word}
+  .sim-result-line.ok{color:var(--good)} .sim-result-line.dry{color:var(--accent)} .sim-result-line.warn{color:var(--warn)} .sim-result-line.err{color:var(--bad)} .sim-result-line.muted{color:var(--muted)}
+  #sim-raw{margin-top:.35rem}
+  #sim-raw pre{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.5rem .6rem;font-size:.72rem;white-space:pre-wrap;word-break:break-word;margin:0}
+  .tool-row{border:1px solid var(--border);border-radius:4px;padding:.5rem .7rem;margin:.35rem 0;cursor:pointer}
+  .tool-row:hover{border-color:var(--accent)}
+  .tool-head{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .tool-name{font-weight:600}
+  .tool-id{color:var(--muted);font-size:.72rem;margin-left:.4rem;font-weight:400}
+  .tool-hint{color:var(--muted);font-size:.74rem}
+  .tool-detail{display:none;margin-top:.5rem;border-top:1px solid var(--border);padding-top:.5rem;font-size:.8rem;line-height:1.55}
+  .tool-row.open .tool-detail{display:block}
+  .tool-detail pre.notes{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.5rem .6rem;font-size:.74rem;margin:.3rem 0}
+  .domain-head{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;border:1px solid var(--border);border-radius:4px;padding:.5rem .7rem;margin:.8rem 0 .3rem 0;background:var(--bg)}
+  .domain-head h3{margin:0;font-size:.9rem;font-weight:600;color:var(--accent)}
+  #tier-matrix th.this-box,#tier-matrix td.this-box{color:var(--accent);border-color:var(--accent)}
+  .gpu-bar{height:5px;border-radius:3px;background:var(--bg);border:1px solid var(--border);overflow:hidden;min-width:80px;flex:1}
+  .gpu-bar i{display:block;height:100%;background:var(--accent)}
+  a{color:var(--accent)}
   button{font-family:var(--mono);font-size:.8rem;background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:.35rem .7rem;cursor:pointer}
   button:hover{border-color:var(--accent);color:var(--accent)}
   footer{margin-top:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);padding-top:.8rem}
@@ -2245,19 +2277,70 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   </div>
 </div>
 
-<h2>science-tools catalog</h2>
-<div class="panel">
-  <table>
-    <thead>
-      <tr><th>tool</th><th>domain</th><th>kind</th><th>install</th><th>tiers</th><th>status</th></tr>
-    </thead>
-    <tbody id="catalog"><tr><td colspan="6" class="muted">loading…</td></tr></tbody>
-  </table>
+<h2>Run sample sim</h2>
+<div class="panel" id="sim-card">
+  <div class="row" style="margin-bottom:.3rem">
+    <span class="muted" style="font-size:.74rem">device</span>
+    <span id="sim-device" class="cs-verbs" role="group" aria-label="device">
+      <button type="button" class="cs-verb" data-val="auto" aria-pressed="true">auto</button><button type="button" class="cs-verb" data-val="cuda" aria-pressed="false">cuda</button><button type="button" class="cs-verb" data-val="cpu" aria-pressed="false">cpu</button>
+    </span>
+  </div>
+  <div class="row" style="margin-bottom:.3rem">
+    <span class="muted" style="font-size:.74rem">workload</span>
+    <select id="sim-preset" aria-label="workload preset">
+      <option value="light">light · 10,000 × 100</option>
+      <option value="standard" selected>standard · 100,000 × 200</option>
+      <option value="heavy">heavy · 1,000,000 × 500</option>
+      <option value="custom">custom…</option>
+    </select>
+    <span class="muted" style="font-size:.74rem">particles</span>
+    <input id="sim-particles" type="number" min="1" step="1" value="100000" aria-label="particle count">
+    <span class="muted" style="font-size:.74rem">steps</span>
+    <input id="sim-steps" type="number" min="1" step="1" value="200" aria-label="step count">
+    <button id="sim-exec" type="button">Execute</button>
+  </div>
+  <div id="sim-result" class="status" role="status" aria-live="polite"></div>
   <div class="muted" style="font-size:.74rem;margin-top:.4rem">
-    ● integrated = install + runner + panel · ○ cataloged = declared for a future round ·
-    catalog: <code>config/science-tools.yaml</code>
+    copy-run fallback (the same sanctioned rail, from your shell):
+    <code id="run-cmd">sovereign-osctl science run</code>
+    <button id="copy-run" type="button" aria-label="copy the run command">copy</button>
+    <span id="copy-note" class="status" aria-live="polite"></span>
   </div>
 </div>
+
+<h2>recent runs</h2>
+<div class="panel">
+  <table id="recent-runs">
+    <thead><tr><th>time</th><th>device</th><th>workload</th><th>wall_ms</th><th>ms/M</th><th>settled</th><th>status</th></tr></thead>
+    <tbody id="recent-runs-body"><tr><td colspan="7" class="muted">loading…</td></tr></tbody>
+  </table>
+  <div class="stats" id="device-compare"></div>
+</div>
+
+<h2>science-tools catalog</h2>
+<div class="panel">
+  <div id="readiness-strip" class="muted" style="font-size:.78rem;margin-bottom:.5rem">loading…</div>
+  <div id="tool-domains"></div>
+  <div class="muted" style="font-size:.74rem;margin-top:.4rem">
+    ● integrated = install + runner + panel · ○ cataloged = declared for a future round ·
+    live state per tool: installed / artifacts-present / downloadable / unknown (honest detection, never faked) ·
+    click a tool for its download plan · catalog: <code>config/science-tools.yaml</code>
+  </div>
+</div>
+
+<h2>tier readiness</h2>
+<div class="panel">
+  <table id="tier-matrix"></table>
+  <div class="muted" style="font-size:.74rem;margin-top:.4rem">what THIS box can run (cpu/rtx-4090/rtx-pro are the declared tiers of this host)</div>
+</div>
+
+<h2>compute context</h2>
+<div class="panel" id="gpu-strip"></div>
+
+<div class="panel" id="warp-engine-link">
+  NVIDIA Warp is also the 217-scene simulation engine — manage scenes, render &amp; bench them → <a href="../warp/">Warp Management panel</a>
+</div>
+
 
 <h2>controls</h2>
 <!-- SDD-045 control-surface — renders config/control-systems.yaml (served at
@@ -2816,60 +2899,267 @@ function statBox(k, v, small, cls){
   var vv=el("div","v"); vv.textContent=(v==null?"—":String(v)); if(small){ var sm=el("small"," "+small); vv.appendChild(sm);} s.appendChild(vv); return s;
 }
 
+/* SDD-302 — live-instrument render. The old render() only filled the warp strip
+ * and then crashed on a removed element (the flat #catalog table → renamed to
+ * #tool-domains in the SDD-301 layout), so the readiness / recent-runs / tool /
+ * tier / GPU sections were stuck at their "loading…" placeholder. This rewrites
+ * render() to populate every section the layout declares, and adds the SDD-302
+ * Download + Verify buttons. Those hit the sanctioned exec-rail on :8130 (the
+ * science-api daemon is read-only and 405s on POST — the d-21 model-download
+ * pattern). DRY_RUN by default → the button reports "preview only" until the
+ * operator enables the LIVE drop-in. */
+var EXEC_URL = "http://127.0.0.1:8130/api/control/execute";
+var TIERS = ["cpu", "rtx-4090", "rtx-pro"];
+var DL_RESULTS = {}; // tool_id -> {cls,text}: per-tool button feedback, kept across the 5s poll
+
+function g(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function gb(n){ return (n/1073741824).toFixed(2); }
+function stateFor(ts, id){ for(var i=0;i<(ts||[]).length;i++){ if(ts[i].id===id) return ts[i]; } return null; }
+function installCmd(t){
+  if(!t.install) return "";
+  var m=t.install.method, ref=t.install.ref;
+  if(m==="pip") return "pip install "+ref;
+  if(m==="hf") return "hf download "+ref;
+  if(m==="github") return "git clone "+ref;
+  return m+": "+ref;
+}
+function thisBoxTiers(gpu){
+  var set={cpu:true};
+  (gpu&&gpu.gpus||[]).forEach(function(c){ var n=(c.name||"").toLowerCase();
+    if(n.indexOf("4090")>=0) set["rtx-4090"]=true; if(n.indexOf("pro")>=0) set["rtx-pro"]=true; });
+  return set;
+}
+
 function render(d){
-  var warp = d.warp || {};
-  var st = document.getElementById("status");
-  var dot = document.getElementById("warp-dot");
-  var state = document.getElementById("warp-state");
-  var ver = document.getElementById("warp-version");
-  if(warp.installed){
-    dot.className="dot on"; state.textContent = warp.cuda_available ? "installed · CUDA available" : "installed · CPU fallback";
-    ver.textContent = "warp-lang v"+(warp.version||"?");
-    st.textContent="live"; st.className="status ok";
-  } else {
-    dot.className="dot off"; state.textContent="NOT installed";
-    ver.textContent="";
-    st.textContent="warp not installed"; st.className="status warn";
+  d=d||{};
+  renderWarp(d.warp||{});
+  renderRecentRuns(d.recent_runs||[], d.run_stats||{});
+  renderReadiness(d.tools_status||[]);
+  renderToolDomains(d.tools||[], d.tools_status||[], d.download_jobs||{});
+  renderTierMatrix(d.tools||[], thisBoxTiers(d.gpu));
+  renderGpu(d.gpu||{}, d.warp||{});
+}
+
+function renderWarp(warp){
+  var st=g("status"), dot=g("warp-dot"), state=g("warp-state"), ver=g("warp-version");
+  if(dot&&state&&ver){
+    if(warp.installed){
+      dot.className="dot on"; state.textContent=warp.cuda_available?"installed · CUDA available":"installed · CPU fallback";
+      ver.textContent="warp-lang v"+(warp.version||"?");
+      if(st){ st.textContent="live"; st.className="status ok"; }
+    } else {
+      dot.className="dot off"; state.textContent="NOT installed"; ver.textContent="";
+      if(st){ st.textContent="warp not installed"; st.className="status warn"; }
+    }
   }
-  var stats=document.getElementById("warp-stats"); stats.textContent="";
+  var stats=g("warp-stats"); if(!stats) return; stats.textContent="";
   stats.appendChild(statBox("installed", warp.installed?"yes":"no", null, warp.installed?"good":"warn"));
   stats.appendChild(statBox("cuda", warp.cuda_available?"available":"—", null, warp.cuda_available?"good":null));
   stats.appendChild(statBox("cuda devices", (warp.cuda_device_count!=null?warp.cuda_device_count:"—")));
   stats.appendChild(statBox("devices", (warp.devices&&warp.devices.length?warp.devices.join(", "):"—")));
+}
 
-  var tb=document.getElementById("catalog"); tb.textContent="";
-  var order={particles:0,dna:1,protein:2};
-  var tools=(d.tools||[]).slice().sort(function(a,b){ return (order[a.domain]-order[b.domain]) || a.id.localeCompare(b.id); });
-  if(!tools.length){ var tr=el("tr"); var td=el("td","muted","no tools in catalog"); td.setAttribute("colspan","6"); tr.appendChild(td); tb.appendChild(tr); return; }
+function renderRecentRuns(runs, statsObj){
+  var body=g("recent-runs-body"); if(!body) return; body.textContent="";
+  if(!runs.length){ var tr=el("tr"); var td=el("td","muted","no recorded runs yet — run a sample sim above"); td.setAttribute("colspan","7"); tr.appendChild(td); body.appendChild(tr); }
+  else runs.forEach(function(r){
+    var tr=el("tr");
+    tr.appendChild(el("td","muted", (r.ts||"").replace("T"," ").replace(/\..*/,"")));
+    tr.appendChild(el("td",null, r.device||"—"));
+    tr.appendChild(el("td","muted", (r.num_particles!=null? r.num_particles+"×"+r.steps : "—")));
+    tr.appendChild(el("td",null, r.wall_ms!=null? r.wall_ms : "—"));
+    var pm = (r.wall_ms!=null && r.num_particles) ? (r.wall_ms*1e6/r.num_particles) : null;
+    tr.appendChild(el("td","muted", pm!=null? pm.toFixed(1) : "—"));
+    tr.appendChild(el("td","muted", r.settled!=null? r.settled : "—"));
+    var sc=el("td"); sc.appendChild(el("span","pill "+(r.error?"error":"ok"), r.error?"error":"ok")); tr.appendChild(sc);
+    body.appendChild(tr);
+  });
+  var cmp=g("device-compare"); if(!cmp) return; cmp.textContent="";
+  var byDev=(statsObj||{}).by_device||{};
+  Object.keys(byDev).forEach(function(dev){
+    cmp.appendChild(statBox("median · "+dev, byDev[dev].median_wall_ms+" ms", byDev[dev].count+" runs"));
+  });
+}
+
+function renderReadiness(ts){
+  var strip=g("readiness-strip"); if(!strip) return;
+  if(!ts.length){ strip.textContent=""; return; }
+  var resident=ts.filter(function(s){return s.state==="installed"||s.state==="artifacts-present";}).length;
+  var download=ts.filter(function(s){return s.state==="downloadable";});
+  strip.textContent = ts.length+" cataloged · "+resident+" resident · "+download.length+" downloadable"
+    + (download.length? " — not yet present: "+download.map(function(s){return s.id;}).join(", "):"");
+}
+
+function renderToolDomains(tools, ts, jobs){
+  var host=g("tool-domains"); if(!host) return; host.textContent="";
+  var byDomain={};
+  tools.forEach(function(t){ (byDomain[t.domain]=byDomain[t.domain]||[]).push(t); });
+  ["particles","dna","protein"].forEach(function(domain){
+    var ds=byDomain[domain]; if(!ds||!ds.length) return;
+    var integ=ds.filter(function(t){return t.status==="integrated";}).length;
+    var dh=el("div","domain-head");
+    dh.innerHTML="<h3>"+domain+"</h3><span class='pill'>"+ds.length+" tools</span><span class='muted tool-hint'>"+integ+" integrated · "+(ds.length-integ)+" cataloged</span>";
+    host.appendChild(dh);
+    ds.forEach(function(t){ host.appendChild(toolCard(t, ts, jobs)); });
+  });
+  if(!tools.length) host.appendChild(el("div","muted","no tools in catalog"));
+}
+
+function jobLineHtml(job){
+  var prog = job.bytes_total ? " · "+gb(job.bytes_done||0)+" / "+gb(job.bytes_total)+" GB" : "";
+  var st = job.status||"?";
+  var cls = (st==="complete")?"ok":(st==="failed"||st==="interrupted"?"err":"downloading");
+  return "<div class='dl-result "+cls+">⬇ "+esc(st)+esc(prog)+(job.error? " — "+esc(job.error):"")+"</div>";
+}
+
+function toolCard(t, ts, jobs){
+  var s=stateFor(ts, t.id)||{};
+  var state=s.state||(t.status==="integrated"?"unknown":"downloadable");
+  var job=jobs[t.id];
+  var row=el("div","tool-row");
+  var hint=[];
+  if(s.size_gb!=null) hint.push("~"+s.size_gb+" GB");
+  if(s.vram_gb!=null) hint.push("≥"+s.vram_gb+" GB VRAM");
+  var dlres = DL_RESULTS[t.id];
+  var dlresHtml = dlres ? "<div class='dl-result "+esc(dlres.cls)+"' data-role='dlres'>"+esc(dlres.text)+"</div>" : "<div class='dl-result' data-role='dlres'></div>";
+  row.innerHTML =
+    "<div class='tool-head'>"+
+      "<span class='tool-name'>"+(t.status==="integrated"?"● ":"○ ")+esc(t.name)+"</span>"+
+      "<span class='tool-id'>"+esc(t.id)+"</span>"+
+      "<span class='pill "+esc(state)+"'>"+esc(state)+"</span>"+
+      (hint.length? "<span class='tool-hint'>"+esc(hint.join(" · "))+"</span>" : "")+
+      "<span style='flex:1'></span>"+
+      "<button type='button' data-act='download'>Download</button>"+
+      "<button type='button' data-act='verify'>Verify</button>"+
+    "</div>"+
+    (job? jobLineHtml(job) : "")+
+    dlresHtml+
+    "<div class='tool-detail'>"+
+      (t.notes? "<pre class='notes'>"+esc((t.notes||"").trim())+"</pre>" : "")+
+      "<div class='muted tool-hint'>kind: "+esc(t.kind||"—")+" · tiers: "+esc((t.tiers||[]).join(", "))+"</div>"+
+      "<div class='dl-actions'>"+
+        "<code class='muted' data-role='cmd'>"+esc(installCmd(t))+"</code>"+
+        "<button type='button' data-act='copy'>copy</button>"+
+      "</div>"+
+      ((t.source||t.docs)? "<div class='tool-hint muted'>"+(t.source?"<a href='"+esc(t.source)+"'>source</a>":"")+(t.source&&t.docs?" · ":"")+(t.docs?"<a href='"+esc(t.docs)+"'>docs</a>":"")+"</div>":"")+
+    "</div>";
+  row.addEventListener("click", function(e){
+    var btn=e.target.closest? e.target.closest("[data-act]") : null;
+    if(btn){ handleAct(btn, row, t, e); return; }
+    if(e.target.tagName==="A") return;
+    row.classList.toggle("open");
+  });
+  return row;
+}
+
+function setDl(row, t, cls, text){
+  var res=row.querySelector("[data-role='dlres']");
+  if(res){ res.className="dl-result "+cls; res.textContent=text; }
+  if(t) DL_RESULTS[t.id]={cls:cls, text:text};
+}
+
+function handleAct(btn, row, t, e){
+  e.preventDefault(); e.stopPropagation();
+  var act=btn.dataset.act;
+  if(act==="copy"){
+    var cmdEl=row.querySelector("[data-role='cmd']");
+    var cmd=cmdEl?cmdEl.textContent:"";
+    (navigator.clipboard?navigator.clipboard.writeText(cmd):Promise.reject())
+      .then(function(){ setDl(row,t,"ok","copied: "+cmd); })
+      .catch(function(){ setDl(row,t,"warn","copy manually: "+cmd); });
+    return;
+  }
+  if(act!=="download"&&act!=="verify") return;
+  btn.disabled=true;
+  var cid = act==="download"?"science-download":"science-verify";
+  setDl(row,t,"muted", act==="download"?"starting download…":"verifying…");
+  fetch(EXEC_URL,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},
+    body:JSON.stringify({control_id:cid,args:{id:t.id},confirm:true})})
+    .then(function(r){ return r.json().then(function(b){return {status:r.status, ok:r.ok, body:b};}); })
+    .then(function(x){
+      var b=x.body||{};
+      if(!x.ok){ setDl(row,t,"err", b.error||b.stderr||("exec-rail error (HTTP "+x.status+")")); return; }
+      if(b.dry_run){ setDl(row,t,"dry","preview only — download service not LIVE (enable the SOVEREIGN_OS_ACTION_EXEC_LIVE drop-in). CLI: sovereign-osctl science "+act+" "+esc(t.id)); return; }
+      if(act==="verify"){
+        var out=(b.stdout||"").trim();
+        if(out) setDl(row,t, out.indexOf("✗")>=0?"warn":"ok", out);
+        else setDl(row,t,"warn", b.error||b.stderr||"no verify output");
+        return;
+      }
+      if(b.ok===false){ setDl(row,t,"err", b.error||b.stderr||"download rejected"); return; }
+      setDl(row,t,"ok","download accepted — progress below (auto-refresh)");
+      setTimeout(load, 1500);
+    })
+    .catch(function(err){ setDl(row,t,"err","exec-rail unreachable ("+err+")"); })
+    .then(function(){ btn.disabled=false; });
+}
+
+function renderTierMatrix(tools, thisBox){
+  var tb=g("tier-matrix"); if(!tb) return; tb.textContent="";
+  var head=el("tr"); head.appendChild(el("th",null,"tool"));
+  TIERS.forEach(function(t){ head.appendChild(el("th", thisBox[t]?"this-box":"", t)); });
+  tb.appendChild(head);
   tools.forEach(function(t){
     var tr=el("tr");
-    var name=el("td"); name.appendChild(el("span",null,(t.status==="integrated"?"● ":"○ ")+t.name));
-    var idl=el("div","muted"); idl.style.fontSize=".72rem"; idl.textContent=t.id; name.appendChild(idl);
-    tr.appendChild(name);
-    tr.appendChild(el("td",null,t.domain));
-    tr.appendChild(el("td","muted",t.kind));
-    var ins=el("td","muted"); ins.textContent=(t.install?(t.install.method+": "+t.install.ref):"—"); tr.appendChild(ins);
-    tr.appendChild(el("td","muted",(t.tiers||[]).join(", ")));
-    var sc=el("td"); var pill=el("span","pill "+(t.status||""),t.status||"—"); sc.appendChild(pill); tr.appendChild(sc);
+    tr.appendChild(el("td","muted", t.id));
+    TIERS.forEach(function(tier){
+      var td=el("td", thisBox[tier]?"this-box":"");
+      td.textContent = (t.tiers||[]).indexOf(tier)>=0 ? "●" : "·";
+      tr.appendChild(td);
+    });
     tb.appendChild(tr);
   });
+}
+
+function renderGpu(gpu, warp){
+  var host=g("gpu-strip"); if(!host) return; host.textContent="";
+  if(!gpu.available){
+    host.appendChild(el("div","muted","GPU context unavailable"+(gpu.reason? " — "+gpu.reason:"")+" (nvidia-smi absent, dev/CI box)"));
+    if(warp.devices&&warp.devices.length) host.appendChild(el("div","muted","warp devices (runner truth): "+warp.devices.join(", ")));
+    return;
+  }
+  (gpu.gpus||[]).forEach(function(c){
+    var card=el("div","stat");
+    card.innerHTML = "<div class='k'>"+esc(c.name)+" · GPU "+c.index+"</div>"+
+      "<div class='v' style='font-size:1.05rem'>"+gb((c.memory_free_mib||0)*1048576)+" / "+gb((c.memory_total_mib||0)*1048576)+" GiB free</div>"+
+      "<div class='gpu-bar' title='"+c.utilization_pct+"% util'><i style='width:"+(c.utilization_pct||0)+"%'></i></div>"+
+      "<div class='muted' style='font-size:.72rem;margin-top:.25rem'>"+(c.utilization_pct||0)+"% util now</div>";
+    host.appendChild(card);
+  });
+  host.appendChild(el("div","muted","science runs draw from the same VRAM budget inference uses (D-09). warp device order (runner truth) is NOT nvidia-smi index order on multi-GPU hosts — both shown, never conflated (SB-077)."+(warp.devices&&warp.devices.length?" · warp devices: "+warp.devices.join(", "):"")));
 }
 
 
 const DEMO_SCIENCE = {
   warp:{installed:true, cuda_available:true, version:'demo-1.3.0', cuda_device_count:1, devices:['cuda:0']},
+  gpu:{available:true, gpus:[{index:0,name:"NVIDIA GeForce RTX 4090",memory_total_mib:24564,memory_free_mib:22000,utilization_pct:12}]},
+  tools_status:[
+    {id:"demo-t1",state:"installed",size_gb:2.1},
+    {id:"demo-t2",state:"artifacts-present",size_gb:8.4,vram_gb:24},
+    {id:"demo-t3",state:"downloadable",size_gb:0.5,vram_gb:16}
+  ],
+  download_jobs:{ "demo-t3": {tool_id:"demo-t3",status:"downloading",method:"hf",bytes_done:210000000,bytes_total:500000000,dest:"~/.cache/huggingface/hub/models--demo--bwa",error:null,updated_at:Date.now()/1000} },
+  recent_runs:[
+    {ts:"2026-10-02T14:11:00+00:00",device:"cuda:0",num_particles:100000,steps:200,wall_ms:2.2,settled:100000},
+    {ts:"2026-10-02T14:09:00+00:00",device:"cpu",num_particles:100000,steps:200,wall_ms:1840.5,settled:100000}
+  ],
+  run_stats:{count:2, by_device:{"cuda:0":{count:1,median_wall_ms:2.2},"cpu":{count:1,median_wall_ms:1840.5}}},
   tools:[
-    {id:'demo-t1', name:'demo/GROMACS', domain:'particles', kind:'md', status:'integrated', install:{method:'pip', ref:'demo/gromacs'}, tiers:['tier-a']},
-    {id:'demo-t2', name:'demo/AlphaFold', domain:'protein', kind:'fold', status:'integrated', install:{method:'container', ref:'demo/alphafold'}, tiers:['tier-b']},
-    {id:'demo-t3', name:'demo/BWA', domain:'dna', kind:'align', status:'available', install:{method:'apt', ref:'demo/bwa'}, tiers:['tier-c']} ] };
+    {id:"demo-t1", name:"demo/GROMACS", domain:"particles", kind:"md", status:"integrated", install:{method:"pip", ref:"demo/gromacs"}, tiers:["cpu","rtx-4090"], notes:"demo particle-sim (DEMO data)"},
+    {id:"demo-t2", name:"demo/AlphaFold", domain:"protein", kind:"fold", status:"cataloged", install:{method:"hf", ref:"demo/alphafold"}, tiers:["rtx-4090"], size_gb:8.4, vram_gb:24, notes:"demo folding model (DEMO data)", source:"https://example.com", docs:"https://example.com/docs"},
+    {id:"demo-t3", name:"demo/BWA", domain:"dna", kind:"align", status:"cataloged", install:{method:"hf", ref:"demo/bwa"}, tiers:["rtx-4090"], size_gb:0.5, vram_gb:16, notes:"demo genomics aligner (DEMO data)"}
+  ]
+};
 function demoActive() { return !!(window.soDemo && window.soDemo.on()); }
 async function load(){
+  var st=g("status");
   try{
-    if (demoActive()) { render(DEMO_SCIENCE); document.getElementById("status").textContent="DEMO — sample data"; document.getElementById("status").className="status ok"; if(window.soDemo)window.soDemo.badge(); return; }
+    if (demoActive()) { render(DEMO_SCIENCE); if(st){st.textContent="DEMO — sample data"; st.className="status ok";} if(window.soDemo)window.soDemo.badge(); return; }
     var d = await (await fetch("/science.json", { headers:{ Accept:"application/json" } })).json();
     render(d);
   }catch(e){
-    var st=document.getElementById("status"); st.textContent="fetch error"; st.className="status bad";
+    if(st){ st.textContent="render/fetch error: "+e; st.className="status bad"; }
   }
 }
 

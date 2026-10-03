@@ -40,6 +40,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_FILE = REPO_ROOT / "config" / "science-tools.yaml"
 WARP_RUNNER = REPO_ROOT / "scripts" / "science" / "warp-runner.py"
+SCIENCE_DOWNLOAD = REPO_ROOT / "scripts" / "science" / "science-download.py"
 
 # Model-vault location for artifact detection — the same convention as
 # scripts/models/pull.sh (SOVEREIGN_OS_MODELS_DIR, default /mnt/vault/models).
@@ -91,6 +92,39 @@ def warp_stream(extra: list[str], json_out: bool) -> int:
         return subprocess.run(cmd, cwd=str(REPO_ROOT), check=False).returncode
     except OSError as exc:
         print(f"error: cannot launch warp-runner: {exc}", file=sys.stderr)
+        return 1
+
+
+def download_capture(*args: str) -> dict[str, Any]:
+    """Shell science-download.py <args> --json and parse the result. Never raises.
+    SDD-302: the download/verify background job. Returns {} on any failure so the
+    status surface degrades gracefully instead of 500ing."""
+    try:
+        r = subprocess.run(
+            [sys.executable, str(SCIENCE_DOWNLOAD), *args, "--json"],
+            capture_output=True, text=True, timeout=60, cwd=str(REPO_ROOT), check=False,
+        )
+        if r.stdout.strip():
+            return json.loads(r.stdout)
+        return {"error": r.stderr.strip()[:200] or "no output", "returncode": r.returncode}
+    except (subprocess.TimeoutExpired, OSError, json.JSONDecodeError) as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def download_stream(tool_id: str, action: str, json_out: bool) -> int:
+    """Delegate a download/verify action straight to science-download.py, streaming
+    its output and returning its exit code (0 accepted/ok, 1 verify-fail, 2 usage)."""
+    cmd = [sys.executable, str(SCIENCE_DOWNLOAD)]
+    if action == "verify":
+        cmd += ["--verify", tool_id]
+    else:  # download
+        cmd += ["start", tool_id]
+    if json_out:
+        cmd.append("--json")
+    try:
+        return subprocess.run(cmd, cwd=str(REPO_ROOT), check=False).returncode
+    except OSError as exc:
+        print(f"error: cannot launch science-download: {exc}", file=sys.stderr)
         return 1
 
 
@@ -215,7 +249,9 @@ def cmd_list(json_out: bool) -> int:
 def cmd_status(json_out: bool) -> int:
     warp = warp_capture("status")
     integrated = [t["id"] for t in tools() if t.get("status") == "integrated"]
-    payload = {"integrated_tools": integrated, "warp": warp, "tools_status": tools_status()}
+    download_jobs = download_capture("status").get("jobs", {})
+    payload = {"integrated_tools": integrated, "warp": warp, "tools_status": tools_status(),
+               "download_jobs": download_jobs}
     if json_out:
         print(json.dumps(payload, indent=2))
         return 0
@@ -236,6 +272,13 @@ def cmd_status(json_out: bool) -> int:
             extra.append(f"≥{s['vram_gb']} GB VRAM")
         tail = ("  [" + ", ".join(extra) + "]") if extra else ""
         print(f"    {s['state']:<17} {s['id']}{tail}")
+    if download_jobs:
+        print("\n  download jobs (SDD-302):")
+        for tid in sorted(download_jobs, key=lambda k: download_jobs[k].get("updated_at", 0), reverse=True):
+            j = download_jobs[tid]
+            prog = f"  {j['bytes_done'] / 1024**3:.1f}/{j['bytes_total'] / 1024**3:.1f} GB" if j.get("bytes_total") else ""
+            err = f"  err={j['error']}" if j.get("error") else ""
+            print(f"    {j.get('status', '?'):<13} {tid}{prog}{err}")
     return 0
 
 
@@ -282,6 +325,20 @@ def cmd_info(tool_id: str, json_out: bool) -> int:
     return 0
 
 
+def cmd_download(tool_id: str, json_out: bool) -> int:
+    """SDD-302: start a background download job (spawn-and-return). Delegates to
+    science-download.py; the heavy work (pip/hf/git) runs detached, well under the
+    exec-rail window. `--json` prints the accepted-job record."""
+    return download_stream(tool_id, "download", json_out)
+
+
+def cmd_verify(tool_id: str, json_out: bool) -> int:
+    """SDD-302: 'test the download' — re-check a tool's artifact (presence + a
+    canonical import where one is declared) and report the verify contract.
+    Exit 0 when the tool is usable (installed), 1 when not, 2 on a bad id."""
+    return download_stream(tool_id, "verify", json_out)
+
+
 def cmd_history(json_out: bool, limit: int | None) -> int:
     """Delegate the run history to warp-runner.py (single source for the store
     path + bound). Stdlib-only surface; never imports warp."""
@@ -321,6 +378,13 @@ def main(argv: list[str] | None = None) -> int:
     sp_hist = sub.add_parser("history")
     sp_hist.add_argument("--json", action="store_true")
     sp_hist.add_argument("--limit", type=int)
+    # SDD-302: download + verify (the "get it" + "test the download" core).
+    sp_dl = sub.add_parser("download")
+    sp_dl.add_argument("id")
+    sp_dl.add_argument("--json", action="store_true")
+    sp_verify = sub.add_parser("verify")
+    sp_verify.add_argument("id")
+    sp_verify.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
     cmd = args.cmd or "list"
 
@@ -347,6 +411,10 @@ def main(argv: list[str] | None = None) -> int:
         return warp_stream(extra, args.json)
     if cmd == "history":
         return cmd_history(args.json, args.limit)
+    if cmd == "download":
+        return cmd_download(args.id, args.json)
+    if cmd == "verify":
+        return cmd_verify(args.id, args.json)
     p.print_help()
     return 2
 

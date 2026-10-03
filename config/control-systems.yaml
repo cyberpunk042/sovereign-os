@@ -949,6 +949,51 @@ systems:
     applies_to: [science]
     refs: [SDD-301, config/science-tools.yaml]
 
+  # SDD-302: the "get it" + "test the download" pair for the science catalog.
+  # Both are USER-LEVEL (no sudo): downloads go to user dirs (pip --user / the
+  # HF hub cache / a git clone under ~/.local/share). `science download <id>`
+  # spawns a DETACHED background worker (a large hf/git pull outlives the
+  # exec-rail's 30 s window) and returns immediately; the panel reads progress
+  # from /science.json's download_jobs on its 5 s refresh. `science verify <id>`
+  # is the deliberate re-check (a bare directory is never `installed` — SB-077).
+  - id: science-download
+    kind: lifecycle
+    scope: scoped
+    label: "Science — download tool"
+    description: >-
+      Download and verify a cataloged science tool as a resumable background job
+      (pip / HF snapshot / git clone, per the catalog's install method). User-level:
+      dispatched as the cockpit service user by `sovereign-osctl science download
+      <tool-id>` without elevation or a redundant confirmation. Progress + the
+      verify result are rendered from /science.json's download_jobs.
+    options: [warp-lang, evo-arc-institute, hyenadna, rosettafold-all-atom, esmfold, openfold, alphafold3]
+    options_cli: "sovereign-osctl science list"
+    state_cli: "sovereign-osctl science status"
+    change_cli: "sovereign-osctl science download <tool-id>"
+    state_path: "~/.local/state/sovereign-os/science-downloads (per-tool job state)"
+    privileged: false
+    applies_to: [science]
+    refs: [SDD-302, config/science-tools.yaml]
+
+  - id: science-verify
+    kind: lifecycle
+    scope: scoped
+    label: "Science — verify tool (test the download)"
+    description: >-
+      Re-check a downloaded science tool: artifact present AND usable (a
+      canonical import where one is declared, else the exact weight file).
+      User-level, dispatched by `sovereign-osctl science verify <tool-id>`.
+      A present-but-incomplete artifact (missing separate weight / failed import)
+      reports `artifacts-present`, never a fake `installed` (SB-077).
+    options: [warp-lang, evo-arc-institute, hyenadna, rosettafold-all-atom, esmfold, openfold, alphafold3]
+    options_cli: "sovereign-osctl science list"
+    state_cli: "sovereign-osctl science status"
+    change_cli: "sovereign-osctl science verify <tool-id>"
+    state_path: "~/.local/state/sovereign-os/science-downloads (per-tool job state)"
+    privileged: false
+    applies_to: [science]
+    refs: [SDD-302, config/science-tools.yaml]
+
   # ── Cockpit hotswaps (SDD-600) — surfaced in the top-right settings pane ──
   # The settings pane copies each control's change_cli (the shell never mutates
   # privileged state — R10212); these controls ALSO render live on their home
