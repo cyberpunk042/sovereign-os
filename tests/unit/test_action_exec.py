@@ -32,11 +32,26 @@ AE = _load()
 def test_warp_render_is_user_level_without_extra_confirmation(monkeypatch):
     monkeypatch.setattr(AE, 'operator_key_loaded', lambda: False)
     monkeypatch.setattr(AE, '_compat_pre_change', lambda *args: None)
-    result = AE.execute('warp-render', {'scene': 'canyon'}, confirm=False, dry_run=True)
+    result = AE.execute('warp-render', {'scene': 'canyon', 'device': 'cuda',
+                                        'quality': 'high', 'look': 'cinematic',
+                                        'time': '0'}, confirm=False, dry_run=True)
     assert result['code'] == 200
     assert result['would_run'] == result['argv']
-    assert result['argv'][-3:] == ['warp', 'render', 'canyon']
+    assert result['argv'][-9:] == ['canyon', '--device', 'cuda', '--quality', 'high',
+                                   '--look', 'cinematic', '--time', '0']
     assert AE.load_registry()['warp-bench']['privileged'] is True
+    assert AE.load_registry()['warp-sync']['privileged'] is True
+
+
+def test_warp_render_rejects_bad_option_tokens():
+    """SDD-303 placeholders stay _SAFE_VALUE-clean at the rail; the CLI
+    whitelists them on top (defense in depth, never either layer alone)."""
+    bad = AE.execute('warp-render', {'scene': 'canyon', 'device': 'cuda; rm -rf /',
+                                     'quality': 'high', 'look': 'clean', 'time': '0'},
+                     confirm=False, dry_run=True)
+    assert bad['code'] == 400
+    missing = AE.execute('warp-render', {'scene': 'canyon'}, confirm=False, dry_run=True)
+    assert missing['code'] == 400
 
 
 # ── registry + classification ────────────────────────────────────────────────

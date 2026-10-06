@@ -1,6 +1,6 @@
 # SDD-301 — Science panel: from static catalog to live instrument
 
-> Status: draft — implementing (operator directive 2026-10-02)
+> Status: shipped (2026-10-06 audit: panel render + backend live on-host)
 > Owner: operator-supervised; agent-authored
 > Last updated: 2026-10-02
 > Closes findings: E11.M301 (science-tools band, SDD-100)

@@ -217,6 +217,20 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_bytes(self, status: int, data: bytes, ctype: str) -> None:
+        """Serve a validated binary artifact (SDD-303 render gallery). Never
+        carries CORS headers — <img> loads are enough, and the rail's write
+        posture stays untouched."""
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("X-Sovereign-Module", "control-exec-api")
+        self.send_header("X-Sovereign-Version", API_VERSION)
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_OPTIONS(self) -> None:  # noqa: N802
         """CORS preflight for the D-21 -> control-exec loopback bridge."""
         origin = self.headers.get("Origin", "")
@@ -247,6 +261,35 @@ class ControlExecAPIHandler(BaseHTTPRequestHandler):
             import runpy
             reader = runpy.run_path(str(Path(__file__).resolve().parents[1] / "warp" / "warp_manage.py"))
             self._send_json(200, {"latest_render": reader["latest_render"]()})
+            return
+        if path == "/api/control/warp-renders":
+            # SDD-303 gallery: metadata for every saved cockpit render (newest
+            # first). Image bytes come from warp-render-image, never a path.
+            import runpy
+            reader = runpy.run_path(str(Path(__file__).resolve().parents[1] / "warp" / "warp_manage.py"))
+            qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            try:
+                limit = max(1, min(200, int((qs.get("limit") or ["48"])[0])))
+            except ValueError:
+                limit = 48
+            renders = reader["list_renders"](limit)
+            self._send_json(200, {"renders": renders, "count": len(renders)})
+            return
+        if path == "/api/control/warp-render-image":
+            # One saved PNG by 32-hex id (manifested renders) or strict gallery
+            # name (legacy manifest-less PNGs) — validation lives inside
+            # warp_manage (id/name regexes, symlink + containment + PNG magic).
+            qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            import runpy
+            reader = runpy.run_path(str(Path(__file__).resolve().parents[1] / "warp" / "warp_manage.py"))
+            if qs.get("name"):
+                data = reader["render_image_by_name"](qs["name"][0])
+            else:
+                data = reader["render_image"]((qs.get("id") or [""])[0])
+            if data is None:
+                self._send_json(404, {"error": "no such saved render"})
+                return
+            self._send_bytes(200, data, "image/png")
             return
         if path == "/api/control/registry":
             self._send_json(200, _registry_payload())

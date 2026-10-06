@@ -42,6 +42,13 @@ properties:
       source:
         type: string
         pattern: "^https?://"
+      source_git_rev:
+        description: >-
+          Commit the catalog was generated from (SDD-303 freshness marker);
+          compared live against the resident checkout's HEAD so the panel can
+          report FRESH / STALE / UNKNOWN instead of guessing.
+        type: string
+        pattern: "^[0-9a-f]{40}$"
       engine:
         type: string
       description:

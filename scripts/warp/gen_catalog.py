@@ -32,12 +32,30 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
+import subprocess
 import os
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUT_FILE = REPO_ROOT / "config" / "warp-catalog.yaml"
+
+
+def _git_rev(root: Path) -> str | None:
+    """The commit the catalog was generated from (SDD-303 freshness marker).
+
+    `warp status` compares it against the resident checkout's HEAD so the panel
+    can report FRESH / STALE / UNKNOWN without reparsing the tree. Returns None
+    (key then omitted) when the checkout isn't a git repo or git is unavailable
+    — the panel reports UNKNOWN, never a guess (SB-077)."""
+    try:
+        r = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
+                           capture_output=True, text=True, timeout=10, check=False)
+        rev = r.stdout.strip()
+        return rev if re.fullmatch(r"[0-9a-f]{40}", rev) else None
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 # Core modules that are the registry/plumbing, not a "lib" a scene depends on.
 _NOT_A_LIB = {"scene", "scenes", "__init__", "__pycache__"}
@@ -170,6 +188,8 @@ def build_catalog(shaders_root: Path) -> dict:
             "version": "1.0.0",
             "project": "warp-solar-system-shaders",
             "source": "https://github.com/cyberpunk042/warp-solar-system-shaders",
+            **({"source_git_rev": _git_rev(shaders_root)}
+               if _git_rev(shaders_root) else {}),
             "engine": "NVIDIA Warp (warp-lang)",
             "description": (
                 "Catalog of the warp-solar-system-shaders project — an NVIDIA-Warp "
@@ -204,9 +224,10 @@ def _dump(catalog: dict) -> str:
         "#   WARP_SHADERS_ROOT=<checkout> python3 scripts/warp/gen_catalog.py\n"
         "#\n"
         "# scenes[].libs and libs[].depends_on ARE the relation graph the panel\n"
-        "# draws (scene→lib, lib→lib). The shaders project is not resident on the\n"
-        "# host, so this committed catalog is the panel's source of truth — the\n"
-        "# same pattern config/science-tools.yaml uses.\n"
+        "# draws (scene→lib, lib→lib). This committed catalog is the CI-safe source\n"
+        "# of truth (same pattern config/science-tools.yaml uses); a resident\n"
+        "# checkout (canonical /opt/warp-solar-system-shaders via `warp sync`,\n"
+        "# SDD-303) supplies execution + the source_git_rev freshness marker.\n"
         "#\n"
         "# Schema: schemas/warp-catalog.schema.yaml\n"
         "#         (tests/schema/test_warp_catalog_schema_conformance.py)\n\n"

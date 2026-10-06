@@ -891,17 +891,42 @@ systems:
     label: "Warp Render"
     description: >-
       Render one scene of the warp-solar-system-shaders NVIDIA-Warp engine to an
-      image using the renderer's device selection. Dispatched as the cockpit
-      service user by `sovereign-osctl warp render <scene>`, without elevation
-      or a redundant confirmation. Requires a resident shaders checkout.
+      image with real runner controls — device (auto/cuda/cpu), quality
+      (auto/low/medium/high/ultra), look (clean/cinematic/film/dreamy/crisp)
+      and scene time — saved into the shared render store the gallery reads
+      (SDD-303). Dispatched as the cockpit service user by
+      `sovereign-osctl warp render <scene> --device … --quality … --look … --time …`,
+      without elevation or a redundant confirmation. The CLI whitelists every
+      option; anything unrecognized stays the legacy passthrough. Requires a
+      resident shaders checkout (`warp sync`).
     options: [neutron_star, black_hole, aurora, big_bang, cosmic_web, binary_bh, comet, atom, cornell_box, alien]
     options_cli: "sovereign-osctl warp list"
     state_cli: "sovereign-osctl warp status"
-    change_cli: "sovereign-osctl warp render <scene>"
-    state_path: "config/warp-catalog.yaml (scene registry) + WARP_SHADERS_ROOT checkout"
+    change_cli: "sovereign-osctl warp render <scene> --device <device> --quality <quality> --look <look> --time <time>"
+    state_path: "config/warp-catalog.yaml (scene registry) + checkout at /opt/warp-solar-system-shaders or WARP_SHADERS_ROOT"
     privileged: false
     applies_to: [warp]
-    refs: [SDD-300, config/warp-catalog.yaml]
+    refs: [SDD-300, SDD-303, config/warp-catalog.yaml]
+
+  - id: warp-sync
+    kind: lifecycle
+    scope: scoped
+    label: "Warp Sync"
+    description: >-
+      Clone (or fast-forward) the canonical warp-solar-system-shaders checkout
+      at /opt/warp-solar-system-shaders — the ProtectHome-visible location both
+      the read daemon and the user-level exec-rail agree on (SDD-300 Q-300-D:
+      vendor-by-checkout, answered by SDD-303). Writes under /opt, so it is
+      elevated: operator key + type-to-confirm apply. Regenerate the catalog
+      after a sync — the status strip's freshness badge says when it is owed.
+    options: [/opt/warp-solar-system-shaders]
+    options_cli: "sovereign-osctl warp status"
+    state_cli: "sovereign-osctl warp status"
+    change_cli: "sovereign-osctl warp sync"
+    state_path: "/opt/warp-solar-system-shaders (canonical checkout) + catalog source_git_rev (freshness)"
+    privileged: true
+    applies_to: [warp]
+    refs: [SDD-303, SDD-300]
 
   - id: warp-bench
     kind: lifecycle

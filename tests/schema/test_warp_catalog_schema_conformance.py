@@ -3,8 +3,10 @@
 `config/warp-catalog.yaml` MUST validate against
 `schemas/warp-catalog.schema.yaml`. The catalog is a GENERATED snapshot of the
 warp-solar-system-shaders project (scenes + libs + the scene→lib / lib→lib
-relation graph) that the Warp management panel surfaces. It is the panel's
-source of truth because the shaders project is not resident on the host.
+relation graph) that the Warp management panel surfaces. It is the committed
+CI-safe source of truth; a resident checkout (canonical home
+/opt/warp-solar-system-shaders via `warp sync`, SDD-303) supplies execution and
+the freshness marker `source_git_rev` compared against the checkout HEAD.
 
 Beyond raw schema validation this pins the invariants the panel + exec-rail
 rely on: counts match the arrays, scene→lib edges reference declared libs, and
@@ -54,6 +56,16 @@ def test_catalog_validates_against_schema():
     schema = _load_yaml(SCHEMA_FILE)
     doc = _load_yaml(CATALOG_FILE)
     jsonschema.validate(instance=doc, schema=schema)
+
+
+def test_freshness_marker_present():
+    """SDD-303: the committed catalog carries the 40-hex rev it was generated
+    from — the marker `warp status` compares against the checkout HEAD."""
+    import re
+    cat = _catalog()
+    rev = cat.get("source_git_rev")
+    assert rev and re.fullmatch(r"[0-9a-f]{40}", rev), \
+        "regenerate with gen_catalog.py from a git checkout (freshness marker missing)"
 
 
 def test_counts_match_arrays():

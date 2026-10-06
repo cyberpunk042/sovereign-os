@@ -166,6 +166,14 @@
   .chip{display:inline-block;background:var(--chip);border:1px solid var(--line);
     border-radius:12px;padding:1px 8px;margin:1px 2px;font-size:11px;color:var(--ink);cursor:pointer}
   .chip:hover{border-color:var(--accent)}
+  .rendopt{display:inline-flex;flex-direction:column;gap:2px;margin:0 10px 6px 0;font-size:11px;color:var(--dim)}
+  .rendopt select,.rendopt input{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;padding:4px 6px;font-size:12px}
+  #gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+  .thumb{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .thumb img{display:block;width:100%;height:110px;object-fit:cover;cursor:zoom-in}
+  .thumb figcaption{padding:6px 8px;font-size:11px;color:var(--ink)}
+  .badge-fresh{color:#7ad17a}.badge-stale{color:#e8b93e}.badge-unknown{color:var(--dim)}
   .sum{color:var(--dim)}
   .btn{background:#16202c;color:var(--ink);border:1px solid #3a4a5e;border-radius:6px;
     padding:3px 9px;font:inherit;cursor:pointer;margin-right:4px}
@@ -2240,12 +2248,23 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 <div class="wrap">
   <h1>Warp Management</h1>
   <p class="sub">The <code>warp-solar-system-shaders</code> NVIDIA-Warp engine —
-     scenes, libs, their relations, and per-scene execution. (SDD-300)</p>
+     scenes, libs, their relations, real render controls (device / quality / look /
+     time), and a saved-render gallery. (SDD-300 + SDD-303)</p>
 
   <div class="strip" id="strip"><div class="stat"><b>…</b><span>loading</span></div></div>
 
   <section id="warp-render-result" aria-label="Latest render">
-    <h2>Latest render</h2>
+    <h2>Latest render <small>— options below apply to every Render click (SDD-303)</small></h2>
+    <div id="render-opts" role="group" aria-label="Render options">
+      <label class="rendopt">device
+        <select id="opt-device"><option>auto</option><option>cuda</option><option>cpu</option></select></label>
+      <label class="rendopt">quality
+        <select id="opt-quality"><option>auto</option><option>low</option><option>medium</option><option selected>high</option><option>ultra</option></select></label>
+      <label class="rendopt">look
+        <select id="opt-look"><option selected>clean</option><option>cinematic</option><option>film</option><option>dreamy</option><option>crisp</option></select></label>
+      <label class="rendopt">time (s)
+        <input id="opt-time" type="number" min="0" step="0.5" value="0" style="width:70px"></label>
+    </div>
     <p id="warp-render-message" role="status">Loading render results…</p>
     <figure id="warp-render-figure" hidden style="margin:0">
       <img id="warp-render-image" alt="" style="display:block;max-width:100%;max-height:65vh;object-fit:contain;margin:auto;border-radius:8px">
@@ -2254,6 +2273,11 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     </figure>
   </section>
   <script src="/_shared/warp-render-results.js" defer></script>
+
+  <section id="warp-gallery" aria-label="Render gallery">
+    <h2>Render gallery <small id="gallery-count">—</small></h2>
+    <div id="gallery-grid"></div>
+  </section>
 
   <section>
     <h2>Relations <small>— lib → lib dependency graph (node size ∝ scenes using it); click a lib to filter</small></h2>
@@ -2304,13 +2328,49 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   function renderStrip(){
     var st = DATA.status || {}, c = DATA.counts || {};
     var resident = st.checkout_resident;
+    var fresh = st.catalog_freshness || "unknown";
+    var freshTxt = {fresh: "fresh", stale: "STALE — regenerate", unknown: "unknown"}[fresh];
     var el = document.getElementById("strip");
     el.innerHTML =
       stat(c.scenes!=null?c.scenes:DATA.scenes.length, "scenes") +
       stat(c.libs!=null?c.libs:DATA.libs.length, "libs") +
       stat(resident ? "resident" : "absent", "shaders checkout") +
-      stat(st.warp_installed ? "installed" : "absent", "warp-lang");
+      stat(st.warp_installed ? "installed" : "absent", "warp-lang") +
+      '<div class="stat"><b class="badge-'+esc(fresh)+'">'+esc(freshTxt)+'</b><span>catalog vs checkout HEAD</span></div>' +
+      stat(st.renders!=null?st.renders:(DATA.renders||[]).length, "saved renders");
+    if(!resident) el.innerHTML += '<div class="stat"><b>sync</b><span>sovereign-osctl warp sync</span></div>';
+    if(fresh==="stale") el.innerHTML += '<div class="stat"><b>refresh</b><span>WARP_SHADERS_ROOT='+esc(st.checkout_path||'')+' python3 scripts/warp/gen_catalog.py</span></div>';
   }
+
+  // ── SDD-303 gallery: saved cockpit renders, newest first ──
+  function renderCounts(){
+    var m={}; (DATA.renders||[]).forEach(function(r){ if(r.scene) m[r.scene]=(m[r.scene]||0)+1; });
+    return m;
+  }
+  function renderGallery(){
+    var host=document.getElementById("gallery-grid"); if(!host) return;
+    var rs=DATA.renders||[];
+    document.getElementById("gallery-count").textContent =
+      rs.length ? rs.length+" saved (newest first)" : "none yet";
+    if(!rs.length){ host.innerHTML='<span class="sum">No saved renders yet — click Render on any scene; it lands here with the options that made it.</span>'; return; }
+    host.innerHTML = rs.map(function(r){
+      var opts = r.opts ? Object.keys(r.opts).map(function(k){return k+"="+r.opts[k];}).join(" · ") : "";
+      var u = r.id_partial
+        ? "/api/control/warp-render-image?name="+encodeURIComponent(r.filename)
+        : "/api/control/warp-render-image?id="+encodeURIComponent(r.id);
+      return '<figure class="thumb"><a href="'+u+'" target="_blank" rel="noopener"><img loading="lazy" alt="render of '+esc(r.scene)+'" src="'+u+'"></a><figcaption>'+esc(r.scene)+
+        (opts?' · '+esc(opts):'')+'<br><span class="sum">'+esc(new Date(r.created_at).toLocaleString())+
+        ' · '+Math.round((r.bytes||0)/1024)+' KB</span></figcaption></figure>';
+    }).join("");
+  }
+  // warp-render-results.js calls this after an applied render so the gallery
+  // and per-scene counts re-paint without a page reload.
+  window.__warpRefreshGallery = function(){
+    fetch("/warp/renders", {headers:{Accept:"application/json"}})
+      .then(function(r){ return r.ok ? r.json() : {renders:[]}; })
+      .then(function(d){ DATA.renders = d.renders || []; renderGallery(); renderRows(); })
+      .catch(function(){ /* the old gallery stays; nothing was deleted */ });
+  };
   function stat(v,l){ return '<div class="stat"><b>'+esc(v)+'</b><span>'+esc(l)+'</span></div>'; }
 
   // ── relation graph: 20 libs on a circle, sized by scene_count, lib→lib edges ──
@@ -2376,10 +2436,12 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       return true;
     });
     document.getElementById("scount").textContent = rows.length+" / "+DATA.scenes.length+" scenes";
+    var rc = renderCounts();
     var tb=document.getElementById("rows");
     if(!rows.length){ tb.innerHTML='<tr><td colspan="4" class="sum">no scenes match</td></tr>'; return; }
     tb.innerHTML = rows.map(function(s){
       var chips=(s.libs||[]).map(function(l){return '<span class="chip" data-lib="'+esc(l)+'">'+esc(l)+'</span>';}).join("");
+      if(rc[s.name]) chips += '<span class="chip" title="saved renders of this scene">▣ '+rc[s.name]+' rendered</span>';
       return '<tr><td class="name">'+esc(s.name)+(s.multi?' <span class="sum">(multi)</span>':'')+'</td>'+
         '<td>'+chips+'</td>'+
         '<td class="sum">'+esc(s.summary)+'</td>'+
@@ -2398,9 +2460,17 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       b.addEventListener("click", function(){
         var verb=b.getAttribute("data-run"), scene=b.getAttribute("data-scene");
         var res=b.closest("td").querySelector('[data-sres="'+verb+'"]');
-        warpExec(verb==="bench" ? "warp-bench" : "warp-render", {scene:scene}, res);
+        if(verb==="bench"){ warpExec("warp-bench", {scene:scene}, res); return; }
+        warpExec("warp-render", {scene:scene, device:renderOpt("opt-device"),
+          quality:renderOpt("opt-quality"), look:renderOpt("opt-look"), time:renderOpt("opt-time")}, res);
       });
     });
+  }
+
+  function renderOpt(id){
+    var el=document.getElementById(id);
+    var v=(el && el.value!=null) ? String(el.value).trim() : "";
+    return v || "auto";
   }
 
   // One-click Render/Bench: execute through the SAME sanctioned control-exec rail
@@ -2425,7 +2495,8 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       var b = r.body || {};
       if(r.status===200){
         if(b.dry_run) paint('dry', 'dry-run \u2713 would run: '+((b.would_run||[]).join(' ') || (controlId+' '+argsList.join(' '))));
-        else paint('ok', 'applied \u2713 '+controlId+' \u2192 '+argsList.join(' ')+(b.exit_code!=null?(' (exit '+b.exit_code+')'):''));
+        else { paint('ok', 'applied \u2713 '+controlId+' \u2192 '+argsList.join(' ')+(b.exit_code!=null?(' (exit '+b.exit_code+')'):''));
+               if(controlId==='warp-render' && window.__warpRefreshGallery) window.__warpRefreshGallery(); }
       } else if(r.status===403 && !confirmed){
         paint('warn', 'privileged \u2014 Confirm to apply: ');
         var btn = document.createElement('button'); btn.type='button'; btn.className='so-set-mini so-apply'; btn.textContent='Confirm';
@@ -2456,9 +2527,9 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         DATA = {
           scenes:d.scenes||[], libs:d.libs||[],
           relations:d.relations||{scene_to_lib:[],lib_to_lib:[]},
-          status:d.status||{}, counts:d.counts||{}
+          status:d.status||{}, counts:d.counts||{}, renders:d.renders||[]
         };
-        renderStrip(); renderGraph(); renderLibSelect(); renderRows();
+        renderStrip(); renderGraph(); renderLibSelect(); renderGallery(); renderRows();
       })
       .catch(function(e){
         document.getElementById("rows").innerHTML =

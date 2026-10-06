@@ -20,6 +20,7 @@ Endpoints:
   GET  /warp/scenes      — scenes[] only
   GET  /warp/libs        — libs[] only
   GET  /warp/relations   — { scene_to_lib, lib_to_lib }
+  GET  /warp/renders     — saved cockpit renders (gallery metadata, SDD-303)
   GET  /version          — service version + module identity
   GET  /healthz          — liveness (always 200)
   GET  /control-systems  — the shared control-surface registry (same-origin)
@@ -73,6 +74,7 @@ def assemble_warp() -> dict:
     libs = _warp("libs")
     rel = _warp("relations")
     status = _warp("status")
+    renders = _warp("renders", "--limit", "24")
     return {
         "status": status,
         "counts": {"scenes": scenes.get("count", 0), "libs": libs.get("count", 0)},
@@ -82,6 +84,7 @@ def assemble_warp() -> dict:
             "scene_to_lib": rel.get("scene_to_lib", []),
             "lib_to_lib": rel.get("lib_to_lib", []),
         },
+        "renders": renders.get("renders", []),
     }
 
 
@@ -121,6 +124,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(_warp("libs")))
         if path == "/warp/relations":
             return self._send(200, json.dumps(_warp("relations")))
+        if path == "/warp/renders":
+            return self._send(200, json.dumps(_warp("renders")))
         if path in ("/control-systems", "/control-systems.json"):
             return self._send(200, json.dumps(load_control_systems()))
         if path == "/":

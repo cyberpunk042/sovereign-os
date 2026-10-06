@@ -1,6 +1,6 @@
 # SDD-302 — Science tools: download + verify (a real instrument, not a catalog)
 
-> Status: draft — implementing (operator directive 2026-10-02)
+> Status: shipped (2026-10-06 audit: download + verify live on-host)
 > Owner: operator-supervised; agent-authored
 > Last updated: 2026-10-02
 > Closes findings: operator directive 2026-10-02 — *"download button and test the download"*

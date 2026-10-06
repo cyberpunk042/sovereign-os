@@ -1,6 +1,6 @@
 # SDD-300 — Warp management panel (warp-solar-system-shaders: catalog, relations & execution)
 
-> Status: draft
+> Status: shipped (SDD-303 closed the resident-checkout premise; see 303)
 > Owner: operator-supervised; agent-authored
 > Last updated: 2026-07-16
 > Closes findings: E11.M300 (mandate decomposition — science-tools band)
@@ -115,6 +115,6 @@ Prometheus counter + OCSF-5001 audit span for free.
 | Q-300-A | Both phases (catalog+relations AND execution) in a single PR? | **answered** (operator `/goal`, 2026-07-16) |
 | Q-300-B | Cross-repo dependency = a committed generated catalog + runtime checkout via `WARP_SHADERS_ROOT` (vs submodule / hard pip dep)? | **answered** (chose the SDD-070 committed-catalog pattern — no host residency required, CI-safe) |
 | Q-300-C | Dedicated `webapp/warp/` panel (vs extending the science panel)? | **answered** (dedicated panel — "real management" surface distinct from the 7-tool science catalog) |
-| Q-300-D | Vendor the shaders project (submodule) so the host can render without a manual checkout. | proposed (Stage N) |
+| Q-300-D | Vendor the shaders project (submodule) so the host can render without a manual checkout. | **answered** (SDD-303: vendor-by-checkout at /opt via the `warp sync` verb + `warp-sync` control — ProtectHome-visible to both daemons; no submodule) |
 | Q-300-E | The tui / mcp rungs + a per-scene thumbnail gallery (render output served back). | proposed (Stage N) |
 | Q-300-F | Flip the SDD-070 wiki `warp-lang` entry to reference this management surface (cross-repo; SDD-001 boundary). | proposed (Stage N) |

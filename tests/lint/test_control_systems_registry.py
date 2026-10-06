@@ -35,7 +35,7 @@ EXPECTED_IDS = {
     "approvals-request", "memory-request",
     "profiles-generate-runtime", "peace-check",
     "profile-compose",
-    "warp-render", "warp-bench",
+    "warp-render", "warp-bench", "warp-sync",
     "science-sim",
     "science-download", "science-verify",
     "frontend",
