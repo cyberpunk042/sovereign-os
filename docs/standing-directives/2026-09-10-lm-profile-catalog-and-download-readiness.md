@@ -2,6 +2,18 @@
 
 ## Operator words (verbatim)
 
+> you may interupt yes
+
+> can we not have more context room ? its not usable like this
+
+> lets investigate and make sure it ifinish and load
+
+> okay lets add the profile and test it then
+
+> lets investigate the make and make sure it doesn't repeat. we take the time
+
+> continue
+
 > i think it worked "applied ✓ warp-render → ai\_training (exit 0)" but at the same time I see nothing in the cockpit about the element I asked for render. lets finish the loop
 
 > I tried a render and it asked for a random confirmation I dont want and then I got error 500

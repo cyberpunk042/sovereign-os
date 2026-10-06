@@ -221,6 +221,28 @@ catalog:
       runtime_profile_bindings: []
       operator_note: "Qualification candidate only. Exact GGUF quantization is in the ID; catalog precision is a coarse schema category. No tool reliability, context fit or speed certification."
 
+    - id: Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S
+      tier: oracle
+      engine: llama.cpp
+      class: code
+      quantization: int4
+      size_class: xl
+      purpose: [chat, code, agent, function-calling, reasoning]
+      status: operator-must-confirm
+      license: other
+      hf_repo_id: ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+      hf_revision: ed59f92082b1e93c0e96d60a8b11aab089b52f09
+      hf_include_patterns:
+        - "IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf"
+        - "IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf"
+        - "README.md"
+      parameters_millions: 177000
+      vram_gib_min: 60
+      context_window_tokens: 262144
+      master_spec_section: "operator directive 2026-10-05 — Flash-Next dual-agent qualification"
+      runtime_profile_bindings: []
+      operator_note: "Candidate, not certified. Mixed IQ3_S GSQ-RCO (~3.5 bpw); int4 is the catalog's coarse precision category. Both shards required: publisher lists 54.8GB transformer weights + 28.8GB n-gram lookup. Use mmap/lazy loading; VRAM minimum is an estimate including headroom, not a tested context guarantee. Base model lists Qwen Community license while quant metadata says Apache-2.0; retain other pending clarification. Text-only qualification; no vision projector selected."
+
     - id: Qwen3-Coder-Next-Q6_K
       tier: oracle
       engine: llama.cpp

@@ -171,21 +171,29 @@ def worker(model_id):
                 raise ValueError('Insufficient vault space, including 2 GiB safety margin')
             state.update(status='downloading', revision=info.sha, bytes_total=total,
                          files=files, repo=row['hf_repo_id'])
+            use_http = previous.get('transport') == 'http-range' or previous.get('error_type') == 'ConnectionError'
+            if use_http:
+                state['transport'] = 'http-range'
             def progress():
                 while not stop.is_set():
                     done = sum(min(f['size'], (target / f['path']).stat().st_size)
                                for f in files if (target / f['path']).is_file())
-                    done += sum(p.stat().st_size for p in target.rglob('*.incomplete')
+                    pattern = f'*.{info.sha}.http.incomplete' if use_http else '*.incomplete'
+                    done += sum(p.stat().st_size for p in target.rglob(pattern)
                                 if p.is_file())
                     state['bytes_done'] = min(total, done)
                     write_state(model_id, state)
                     stop.wait(2)
             monitor = threading.Thread(target=progress, daemon=True)
             monitor.start()
-            snapshot_download(repo_id=row['hf_repo_id'], revision=info.sha,
-                              allow_patterns=[f['path'] for f in files],
-                              local_dir=str(target), token=token, max_workers=2,
-                              force_download=previous.get('error_stage') == 'verifying')
+            if use_http:
+                fallback = runpy.run_path(str(ROOT / 'scripts/models/http-range-download.py'))
+                fallback['download'](row['hf_repo_id'], info.sha, files, target, token)
+            else:
+                snapshot_download(repo_id=row['hf_repo_id'], revision=info.sha,
+                                  allow_patterns=[f['path'] for f in files],
+                                  local_dir=str(target), token=token, max_workers=2,
+                                  force_download=previous.get('error_stage') == 'verifying')
             stop.set()
             monitor.join()
             state['status'] = 'verifying'
@@ -204,6 +212,10 @@ def worker(model_id):
         # No exception text: HTTP diagnostics can contain credential-bearing URLs.
         state.update(error_stage=state['status'], status='failed', error_type=type(exc).__name__,
                      error='Download failed. Check disk space, HF access/token and artifact integrity; retry resumes partial files.')
+        response = getattr(exc, 'response', None)
+        status_code = getattr(response, 'status_code', None)
+        if isinstance(status_code, int):
+            state['http_status'] = status_code  # Never serialize headers/URLs/tokens.
     finally:
         stop.set()
         if monitor:

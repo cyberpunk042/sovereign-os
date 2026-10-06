@@ -1,0 +1,19 @@
+schema_version: "1.0.0"
+orchestration_profile:
+  id: qwen38-flash-next-256k
+  name: Qwen Flash-Next + 27B — 256K / 128K
+  description: Flash-Next GSQ-RCO IQ3_S on the RTX PRO 6000 at 256K context, with Qwen 3.8 27B Q4_K_M Logic at 128K. Passed 128K/230K retrieval and post-expansion OpenClaw tool checks on 2026-10-06. Cold long-context ingestion takes minutes; sustained coding-task reliability is not certified. Keep qwen38-flash-next-dual for 64K rollback. RTX 4090 allocations unchanged.
+  intent: coding
+  hardware_profile_compat: [sain-01]
+  readiness: ready
+  prerequisites:
+    - "Download and checksum-verify both IQ3_S GGUF shards; other quantizations are not needed."
+    - "Runtime must support qwen4exp, mixed quantization, and mmap/lazy n-gram embeddings."
+    - "256K Oracle passed bounded long-context and OpenClaw checks; see docs/evaluations/qwen38-flash-next-256k-2026-10-06.md for limits."
+  allocations:
+    - {agent_id: qwen38_logic, tier: logic, role: logic, target_hardware: "cuda:1", engine: llama.cpp, model: Qwen3.8-27B-Q4_K_M, model_path: /mnt/vault/models/Qwen3.8-27B-Q4_K_M/Qwen3.8-27B-Q4_K_M.gguf, port: 8082, vram_limit_bytes: 30064771072, max_model_len: 131072, extra_args: "--alias gpu-logic --jinja --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --split-mode none --parallel 1", max_output_tokens: 4096, active: true}
+    - {agent_id: flash_next_oracle, tier: oracle, role: oracle, target_hardware: "cuda:0", engine: llama.cpp, model: Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S, model_path: /mnt/vault/models/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S/IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf, port: 8083, vram_limit_bytes: 90194313216, max_model_len: 262144, extra_args: "--alias gpu-oracle --jinja --flash-attn on --load-mode mmap --lazy-mode on --cache-type-k f16 --cache-type-v f16 --split-mode none --parallel 1", max_output_tokens: 8192, active: true}
+    - {agent_id: embed_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
+    - {agent_id: rerank_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
+  context_budget:
+    initial_tokens: {"cuda:0": 262144, "cuda:1": 131072, "cuda:2": 8192}

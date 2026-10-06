@@ -482,6 +482,8 @@ def _patch_openclaw_compaction_budget(config_owner_uid: int, dry_run: bool) -> b
         import runpy
         compat = runpy.run_path(str(Path(__file__).with_name("openclaw_context_compat.py")))
         context_changed = compat["patch_runtime"](dist, dry_run, _log)
+        completion = runpy.run_path(str(Path(__file__).with_name("openclaw_completion_compat.py")))
+        context_changed = completion["patch_runtime"](dist, dry_run, _log) or context_changed
     else:
         context_changed = False
     candidates = sorted(dist.glob("agent-compaction-constants-*.js"))
@@ -597,7 +599,7 @@ def _ensure_qwen_logic_request_params(cfg: dict, allocs: dict[str, dict],
 def _ensure_qwen38_sampling(cfg: dict, allocs: dict, changes: list[str]) -> None:
     """Fill missing Qwen 3.8 sampler values without replacing operator overrides."""
     for tier in ('logic', 'oracle'):
-        if not str(allocs.get(tier, {}).get('model', '')).startswith('Qwen3.8-27B-'):
+        if not str(allocs.get(tier, {}).get('model', '')).startswith(('Qwen3.8-27B-', 'Qwen3.8-Flash-Next-')):
             continue
         params = cfg.setdefault('agents', {}).setdefault('defaults', {}).setdefault('models', {}).setdefault(f'sovereign/gpu-{tier}', {}).setdefault('params', {})
         body = params.setdefault('extra_body', {})
@@ -612,6 +614,34 @@ def _ensure_qwen38_sampling(cfg: dict, allocs: dict, changes: list[str]) -> None
                 changes.append(f'sovereign/gpu-{tier}: default Qwen 3.8 {key}={value}')
 
 
+def _ensure_local_agent_completion(cfg: dict, allocs: dict, changes: list[str]) -> None:
+    """Reserve output for answers and allow a bounded local parent wake.
+
+    reasoning_effort is not a hard token budget in llama.cpp. A thinking-only
+    8192-token response also defeated OpenClaw's isolated summary recovery.
+    Keep explicit operator overrides; do not change context or GPU allocations.
+    """
+    if not any(str(allocs.get(tier, {}).get('model', '')).startswith(('Qwen3.8-27B-', 'Qwen3.8-Flash-Next-'))
+               for tier in ('oracle', 'logic')):
+        return
+    defaults = cfg.setdefault('agents', {}).setdefault('defaults', {})
+    matched = False
+    for tier in ('oracle', 'logic'):
+        if not str(allocs.get(tier, {}).get('model', '')).startswith(('Qwen3.8-27B-', 'Qwen3.8-Flash-Next-')):
+            continue
+        matched = True
+        params = defaults.setdefault('models', {}).setdefault(f'sovereign/gpu-{tier}', {}).setdefault('params', {})
+        body = params.setdefault('extra_body', {})
+        if not any(key in body for key in ('reasoning_budget_tokens', 'thinking_budget_tokens')):
+            body['reasoning_budget_tokens'] = 2048 if tier == 'oracle' else 0
+            changes.append(f'sovereign/gpu-{tier}: bounded reasoning budget={body["reasoning_budget_tokens"]}')
+    if matched:
+        subagents = defaults.setdefault('subagents', {})
+        if 'announceTimeoutMs' not in subagents:
+            subagents['announceTimeoutMs'] = 600000
+            changes.append('local sub-agent parent wake timeout: 600000ms (bounded; upstream default was 120000ms)')
+
+
 def _ensure_profile_primary_model(cfg: dict, profile_id: str,
                                   changes: list[str]) -> None:
     """Keep OpenClaw's full agent on the tier assigned to agentic chat.
@@ -624,7 +654,7 @@ def _ensure_profile_primary_model(cfg: dict, profile_id: str,
     role, so it must be OpenClaw's generated primary model.
     """
     if profile_id not in (DUAL_AGENT_AUTOCOMPLETE_PROFILE, "deepseek-70b-qwen-dual",
-                          "qwen38-dual-agent", "qwen38-dual-agent-long", "qwen38-dual-agent-256k", "qwen-next-dual-trial"):
+                          "qwen38-dual-agent", "qwen38-dual-agent-long", "qwen38-dual-agent-256k", "qwen-next-dual-trial", "qwen38-flash-next-dual", "qwen38-flash-next-256k"):
         return
     defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
     model = defaults.setdefault("model", {})
@@ -714,6 +744,7 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_local_memory(cfg, profile_id, changes)
     _ensure_qwen_logic_request_params(cfg, allocs, changes)
     _ensure_qwen38_sampling(cfg, allocs, changes)
+    _ensure_local_agent_completion(cfg, allocs, changes)
     _ensure_profile_primary_model(cfg, profile_id, changes)
     _ensure_compaction_defaults(cfg, changes)
     # OpenClaw materializes provider metadata per agent.  Keep those catalogs
