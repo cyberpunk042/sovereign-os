@@ -373,3 +373,43 @@ def test_features_and_profiles_sections_never_collapse_when_offline():
     assert "profiles unavailable" in body, (
         "the Profiles section must show an honest placeholder when offline, not collapse"
     )
+
+
+def test_activation_tracker_modal():
+    """SDD-150 — the Profile activation & download tracker modal: one surface
+    tracking the WHOLE bring-up — catalog download job states (including the
+    hidden backend phases + byte counts), the signed apply, and every declared
+    tier's language model becoming RESIDENT. Reads only the panel's read-only
+    endpoints; writes stay on the sanctioned exec rail (R10212). A completed
+    apply is never treated as load-complete — only resident-per-device binding
+    is (the deck's own doctrine)."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    assert 'id="so-act-modal"' in body and 'aria-modal="true"' in body, (
+        "the activation tracker must be a real modal (dialog chrome, Escape/backdrop close)"
+    )
+    # The modal CSS must live in a real <style> element OUTSIDE the byte-identical
+    # APP-SHELL block — bare CSS text after APP-SHELL:END renders as literal page
+    # text (the 2026-10-07 breakage) and panel CSS inside the block breaks every
+    # adopted panel's identical-embed contract.
+    assert '<style id="so-act-style">' in body, "tracker CSS must be a proper <style> element"
+    shell = body.split("<!-- APP-SHELL:END M067 -->")[0]
+    assert "#so-act-modal{" not in shell.split("<!-- APP-SHELL:BEGIN M067 -->")[1], (
+        "tracker CSS must not enter the APP-SHELL block"
+    )
+    for stage in ("so-act-stage-dl", "so-act-stage-apply", "so-act-stage-load"):
+        assert f'id="{stage}"' in body, f"tracker stage {stage} missing"
+    # The hidden backend phases are surfaced, not hidden: the download-job
+    # state machine (scripts/models/download-job.py) is named verbatim.
+    for phase in ("queued", "preflight", "downloading", "verifying", "interrupted"):
+        assert phase in body, f"download phase {phase} must be surfaced in the tracker"
+    # Writes reuse ONLY the sanctioned exec rail controls — no new surface.
+    assert "control_id:'model-download'" in body
+    assert "applyProfile(ACT.id, ACT.fam, $('so-act-result'))" in body, (
+        "the modal's Apply must route the same signed trinity profile switch rail"
+    )
+    # Load-complete requires residency, not apply success.
+    assert "st.apply.state === 'active'" in body and "t.resident === t.want" in body, (
+        "completion = active marker AND declared model resident per tier"
+    )
+    # Every non-generated profile card/inspector can open the tracker directly.
+    assert 'data-act="track"' in body

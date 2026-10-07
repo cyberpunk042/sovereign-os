@@ -148,6 +148,15 @@ def test_d21_lm_orchestration_demo():
     assert re.search(r"if \(!demoActive\(\)\) \{[\s\S]*?try \{[\s\S]*?const es = new EventSource", body), (
         "D-21 must open NO EventSource in DEMO mode"
     )
+    # SDD-150 — the activation tracker modal: in DEMO it renders the badged
+    # sample pipeline (demo/ ids) and opens NO poll timer (zero network).
+    assert "actDemoState" in body and "demo/" in body, (
+        "the tracker must show badged sample pipeline states in DEMO"
+    )
+    m2 = re.search(r"function actOpen\(id, fam\)\{(.*?)\n  \}", body, re.DOTALL)
+    assert m2 and "if (demoActive()) return;" in m2.group(1) and "fetchJson(" not in m2.group(1), (
+        "actOpen must return before starting any poll in DEMO mode (SB-077 / R10212)"
+    )
 
 
 def test_d22_lm_status_operability_demo():

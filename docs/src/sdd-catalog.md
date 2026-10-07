@@ -5,7 +5,7 @@
 > page drifts from `docs/sdd/`, so the published book can never freeze behind the
 > design record again (F-2026-033).
 
-Every Spec-Driven-Development design doc in `docs/sdd/` (244 total), by number.
+Every Spec-Driven-Development design doc in `docs/sdd/` (245 total), by number.
 
 - [SDD-000 — Project charter](../sdd/000-charter.md)
 - [SDD-001 — Cross-repo boundaries: contract between sovereign-os, info-hub, selfdef](../sdd/001-cross-repo-boundaries.md)
@@ -129,6 +129,7 @@ Every Spec-Driven-Development design doc in `docs/sdd/` (244 total), by number.
 - [SDD-147 — Oracle NVFP4/BF16 default-selection tests: hermetic runtime-profile isolation](../sdd/147-oracle-nvfp4-test-hermetic-isolation.md)
 - [SDD-148 — test_trinity profile-switch assertions: reconcile stale wording drift](../sdd/148-trinity-profile-wording-drift.md)
 - [SDD-149 — dashboard serve.py `--once`: fix the empty-reply race (killed daemon worker)](../sdd/149-dashboard-serve-once-empty-reply.md)
+- [SDD-150 — D-21 profile activation & download tracker modal (whole-pipeline progress)](../sdd/150-d21-activation-download-tracker.md)
 - [SDD-200 — Cockpit Assistant gold-data content system (hardcoded hover intel, LLM optional)](../sdd/200-cockpit-assistant-gold-data.md)
 - [SDD-201 — Cockpit Assistant gold-standard per-element coverage](../sdd/201-cockpit-assistant-gold-standard-per-element.md)
 - [SDD-202 — Cockpit Assistant gold-standard rebuild (full-height, context-cascade, state-aware)](../sdd/202-cockpit-assistant-gold-standard-rebuild.md)

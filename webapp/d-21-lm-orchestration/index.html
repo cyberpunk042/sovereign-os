@@ -2246,6 +2246,70 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 </script>
 <!-- APP-SHELL:END M067 -->
 
+<!-- SDD-150: the activation-tracker styles. Deliberately AFTER the APP-SHELL
+     block (panels embed that block byte-identical — panel-specific CSS must not
+     enter it; test_app_shell_contract) and inside a real <style> element (bare
+     CSS text in <body> renders as literal page text — the 2026-10-07 breakage). -->
+<style id="so-act-style">
+  /* SDD-150: profile activation & download tracker modal — the whole bring-up
+     pipeline in one surface: catalog model downloads (queued → preflight →
+     downloading → verifying → complete, with byte counts + the hidden backend
+     phase meanings), the signed apply (trinity profile switch via the exec
+     rail), and each declared tier's language model becoming resident. Same
+     modal chrome as the provider/notification modals (same posture). */
+  #so-act-modal{position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+  #so-act-modal[hidden]{display:none;}
+  #so-act-modal .so-act-card{width:780px; max-width:94vw; max-height:88vh; overflow:auto; background:#151515; color:#f2f2f2; border:1px solid #2e2e2e; border-radius:10px; box-shadow:0 18px 50px rgba(0,0,0,.45);}
+  #so-act-modal .so-act-h{display:flex; align-items:center; justify-content:space-between; gap:.6rem; font-weight:600; padding:.6rem .9rem; border-bottom:1px solid #2e2e2e;}
+  #so-act-modal .so-act-x{background:#1e1e1e; color:#e6e6e6; border:1px solid #333; border-radius:6px; padding:.2rem .6rem; font:inherit; font-size:.72rem; cursor:pointer;}
+  #so-act-modal .so-act-sub{color:#9a9a9a; font-size:.72rem; line-height:1.5; padding:.5rem .9rem 0;}
+  #so-act-modal .so-act-sub code{color:#c9e3ff;}
+  #so-act-modal .so-act-stage{margin:.6rem .9rem; border:1px solid #262626; border-radius:8px; padding:.5rem .7rem .55rem;}
+  #so-act-modal .so-act-st-h{display:flex; align-items:center; gap:.5rem; font-weight:600; font-size:.78rem;}
+  #so-act-modal .so-act-st-h small{color:#9a9a9a; font-weight:400; font-size:.68rem;}
+  #so-act-modal .so-act-row{display:flex; align-items:center; gap:.55rem; padding:.34rem 0; border-top:1px solid #232323; font-size:.72rem; flex-wrap:wrap;}
+  #so-act-modal .so-act-mid{flex:1 1 38%; min-width:0; font-family:var(--mono); word-break:break-word;}
+  #so-act-modal .so-act-phase{flex:1 1 100%; color:#9a9a9a; font-size:.68rem;}
+  #so-act-modal .so-act-num{color:#c9e3ff; font-family:var(--mono); font-size:.68rem;}
+  #so-act-modal .so-act-bar{flex:0 1 30%; min-width:8rem; height:6px; background:#242424; border-radius:4px; overflow:hidden;}
+  #so-act-modal .so-act-bar i{display:block; height:100%; background:#9bd1ff;}
+  #so-act-modal .so-act-chip{flex:0 0 auto; border:1px solid #333; border-radius:99px; padding:.06rem .5rem; font-size:.66rem; text-transform:lowercase;}
+  #so-act-modal .so-act-chip.s-wait{color:#9a9a9a;}
+  #so-act-modal .so-act-chip.s-run{color:#9bd1ff; border-color:#2b4658;}
+  #so-act-modal .so-act-chip.s-ok{color:#5fae66; border-color:#1f4d1f;}
+  #so-act-modal .so-act-chip.s-warn{color:#c79b3f; border-color:#4d431a;}
+  #so-act-modal .so-act-chip.s-err{color:#d06868; border-color:#5a2626;}
+  #so-act-modal .so-act-err{flex:1 1 100%; color:#d06868; font-size:.68rem;}
+  #so-act-modal .so-act-acts{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; padding:.45rem 0 .1rem;}
+  #so-act-modal .so-act-acts .p-apply{border:1px solid #9bd1ff; background:transparent; color:#9bd1ff; border-radius:5px; padding:.28rem .6rem; font:inherit; font-size:.72rem; cursor:pointer;}
+  #so-act-modal .so-act-acts .p-apply:disabled{opacity:.45; cursor:default;}
+  #so-act-modal .p-result{font-size:.72rem; line-height:1.4;}
+  #so-act-modal .p-result.ok{color:var(--good,#7ad17a);} #so-act-modal .p-result.dry{color:var(--accent);}
+  #so-act-modal .p-result.warn{color:var(--warn,#e6c062);} #so-act-modal .p-result.err{color:var(--bad,#ff7676);}
+  #so-act-modal .p-result.muted{color:var(--muted,#8a8a8a);}
+  #so-act-modal .so-act-complete{margin:.2rem .9rem .7rem; border:1px solid #1f4d1f; border-radius:8px; padding:.5rem .7rem; color:#5fae66; font-size:.75rem;}
+  html[data-theme="light"] #so-act-modal{background:rgba(20,20,20,.35);}
+  html[data-theme="light"] #so-act-modal .so-act-card{background:#ffffff; color:#1c1c1c; border-color:#d5d5d5; box-shadow:0 18px 50px rgba(0,0,0,.25);}
+  html[data-theme="light"] #so-act-modal .so-act-h{border-bottom-color:#e2e2e2; color:#161616;}
+  html[data-theme="light"] #so-act-modal .so-act-x{background:#f4f4f4; color:#1c1c1c; border-color:#c9c9c9;}
+  html[data-theme="light"] #so-act-modal .so-act-sub{color:#5f5f5f;}
+  html[data-theme="light"] #so-act-modal .so-act-sub code{color:#1d4ed8;}
+  html[data-theme="light"] #so-act-modal .so-act-stage{border-color:#e2e2e2;}
+  html[data-theme="light"] #so-act-modal .so-act-row{border-top-color:#ececec;}
+  html[data-theme="light"] #so-act-modal .so-act-phase{color:#5f5f5f;}
+  html[data-theme="light"] #so-act-modal .so-act-num{color:#1d4ed8;}
+  html[data-theme="light"] #so-act-modal .so-act-bar{background:#e8e8e8;}
+  html[data-theme="light"] #so-act-modal .so-act-chip.s-wait{color:#6a6a6a;}
+  html[data-theme="light"] #so-act-modal .so-act-chip.s-run{color:#1d4ed8; border-color:#b9d2ea;}
+  html[data-theme="light"] #so-act-modal .so-act-chip.s-ok{color:#25702c; border-color:#b6d8b8;}
+  html[data-theme="light"] #so-act-modal .so-act-chip.s-warn{color:#8a6413; border-color:#dcc99a;}
+  html[data-theme="light"] #so-act-modal .so-act-chip.s-err{color:#ab3535; border-color:#e2b3b3;}
+  html[data-theme="light"] #so-act-modal .so-act-err{color:#ab3535;}
+  html[data-theme="light"] #so-act-modal .so-act-acts .p-apply{border-color:#1d4ed8; color:#1d4ed8;}
+  html[data-theme="light"] #so-act-modal .so-act-complete{border-color:#b6d8b8; color:#25702c;}
+</style>
+
+
 <header>
   <h1>D-21 · Language Model Orchestration
     <span class="sub">profiles · model→hardware assignment grid · capabilities (M075 SRP · M076 profiles)</span></h1>
@@ -2289,6 +2353,24 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
       <aside class="profile-inspector" id="profile-inspector" aria-live="polite">Select a profile to inspect its allocation.</aside>
     </div>
   </section>
+
+  <!-- SDD-150: profile activation & download tracker modal. One surface for the
+       whole bring-up: catalog model downloads (with the hidden backend phase
+       names + byte counts), the signed apply, and each declared tier's
+       language model becoming resident. Reads only /api/lm-orchestration/*;
+       every write goes through the signed exec rail (R10212). -->
+  <div id="so-act-modal" role="dialog" aria-modal="true" aria-label="Profile activation and download progress" hidden>
+    <div class="so-act-card">
+      <div class="so-act-h"><b id="so-act-title">Activation tracker</b><button id="so-act-close" class="so-act-x" aria-label="Close activation tracker">✕ close</button></div>
+      <div class="so-act-sub" id="so-act-sub"></div>
+      <div id="so-act-stage-dl" class="so-act-stage" role="status"></div>
+      <div id="so-act-stage-apply" class="so-act-stage" role="status"></div>
+      <div id="so-act-stage-load" class="so-act-stage" role="status"></div>
+      <div id="so-act-complete" class="so-act-complete" hidden></div>
+      <div class="so-act-acts" id="so-act-acts"></div>
+      <div style="padding:0 .9rem .7rem"><span id="so-act-result" class="p-result muted"></span></div>
+    </div>
+  </div>
 
   <section class="so-section" aria-labelledby="s-grid">
     <div class="so-section-heading"><div><span class="so-section-kicker">What is actually resident now</span><h2 id="s-grid">Hardware deployment <button id="edit-models-btn" class="edit-toggle" title="Load a specific model onto a device through the signed rail">✎ Edit models</button></h2></div><div class="so-section-summary">Live resident models are compared with the selected profile above.</div></div>
@@ -2654,6 +2736,11 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       : missing.length
         ? `<button class="p-apply" data-act="download" data-id="${esc(id)}" data-missing="${esc(JSON.stringify(missing))}">Download / resume missing models</button>`
         : `<button class="p-apply" data-act="apply" data-id="${esc(id)}" data-fam="${esc(fam)}">Apply this profile</button>`;
+    // SDD-150: every non-generated profile also carries the whole-pipeline
+    // tracker (downloads → signed apply → per-tier model resident), openable
+    // any time, not just at act time.
+    const track = fam === 'generated' ? ''
+      : ` <button class="p-apply" data-act="track" data-id="${esc(id)}" data-fam="${esc(fam)}" title="Whole-pipeline progress: catalog downloads, signed apply, per-tier language-model loading">Progress tracker</button>`;
     el.innerHTML = `<span class="inspector-kicker">Selected profile · ${esc(fam)}</span><h3>${esc(p.name || id)}</h3>
       <p class="inspector-desc">${esc(p.description || 'No profile description supplied.')}</p>
       <div class="inspector-status${missing.length ? ' warn' : ''}">${esc(status)}</div>
@@ -2664,7 +2751,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       }).join('')}
       <div class="inspector-block"><h4>Declared allocation</h4>${tierHtml}</div>
       <div class="inspector-block"><h4>Change from active profile</h4>${changesHtml}</div>
-      <div class="inspector-actions">${action}<span class="p-result muted"></span></div>`;
+      <div class="inspector-actions">${action}${track}<span class="p-result muted"></span></div>`;
     const button = el.querySelector('.p-apply[data-act]');
     if (!button) return;
     button.addEventListener('click', async () => {
@@ -2672,7 +2759,10 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       if (button.dataset.act === 'gen') {
         copyCmd(button.dataset.gen, 'Materialize this generated combo, then Apply it:');
         setP(resultEl, 'muted', 'generate command copied — run it, then refresh this panel');
+      } else if (button.dataset.act === 'track') {
+        actOpen(id, fam);
       } else if (button.dataset.act === 'download') {
+        actOpen(id, fam);
         let planItems = []; try { planItems = JSON.parse(button.dataset.missing || '[]'); } catch (_) {}
         button.disabled = true;
         try {
@@ -2692,6 +2782,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         finally { button.disabled = false; }
       } else {
         const btn = button;
+        actOpen(btn.dataset.id, btn.dataset.fam);
         applyProfile(btn.dataset.id, btn.dataset.fam, resultEl);
       }
     });
@@ -2711,6 +2802,235 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     readiness.addEventListener('change', applyFilter);
   }
   wireProfileFilters();
+
+  // ── SDD-150: profile activation & download tracker modal ──────────────────
+  // One surface for the whole bring-up of a profile: catalog model downloads
+  // (queued → preflight → downloading → verifying → complete, byte counts and
+  // what each hidden backend phase actually does), the signed apply (the
+  // trinity profile switch through the exec rail), and each declared tier's
+  // language model becoming RESIDENT (declared vs actually bound — an apply is
+  // not evidence the model loaded; only the grid is). Live state comes from the
+  // panel's own read-only endpoints, polled only while the modal is open.
+  // DEMO mode: badged sample pipeline, zero network (SDD-116/117 posture).
+  const ACT = { open:false, id:null, fam:null, apply:null, timer:null,
+                poll:{ profiles: LAST_PROFILES_DATA, grid: LAST_GRID, error: '' } };
+  const actModal = document.getElementById('so-act-modal');
+  const ACT_PHASE = {
+    'not-started': 'no download job yet — Start downloads queues a resumable privileged job',
+    queued: 'waiting for the serialized transfer lock (one large transfer at a time)',
+    preflight: 'listing the HF repo, selecting catalog artifacts, checking vault disk space',
+    downloading: 'streaming artifacts into the model vault (partial files resume)',
+    verifying: 'SHA-256 + size verification of every selected artifact',
+    complete: 'verified artifacts resident in the vault',
+    failed: 'job stopped — Start downloads resumes from partial files, then re-verifies',
+    interrupted: 'worker died (reboot/crash) — Start downloads resumes from partial files',
+  };
+  function actOpen(id, fam){
+    ACT.open = true; ACT.id = id; ACT.fam = fam;
+    ACT.poll = { profiles: LAST_PROFILES_DATA, grid: LAST_GRID, error: '' };
+    if (!ACT.apply || ACT.apply.id !== id) ACT.apply = null;
+    actModal.hidden = false;
+    const x = document.getElementById('so-act-close'); if (x) x.focus();
+    actRender();
+    if (demoActive()) return; // DEMO: zero network (SDD-116/117 posture)
+    if (!ACT.timer) ACT.timer = setInterval(actPoll, 2000);
+  }
+  function actClose(){
+    ACT.open = false; actModal.hidden = true;
+    if (ACT.timer){ clearInterval(ACT.timer); ACT.timer = null; }
+    refresh();
+  }
+  async function actPoll(){
+    if (!ACT.open || demoActive()) return;
+    try {
+      const [profiles, grid] = await Promise.all([
+        fetchJson('/api/lm-orchestration/profiles'),
+        fetchJson('/api/lm-orchestration/grid'),
+      ]);
+      ACT.poll = { profiles, grid, error: '' };
+      LAST_GRID = grid;
+      renderProfilesIfChanged(profiles);
+      if (!EDIT_MODELS) renderGrid(grid);
+    } catch (e) {
+      ACT.poll = { profiles: ACT.poll.profiles, grid: ACT.poll.grid, error: e.message || String(e) };
+    }
+    actRender();
+  }
+  function actChip(status){
+    const cls = ({queued:'s-wait', preflight:'s-run', downloading:'s-run', verifying:'s-run',
+                  complete:'s-ok', active:'s-ok', live:'s-ok', applied:'s-ok',
+                  waiting:'s-wait', 'not-started':'s-wait', unknown:'s-wait',
+                  posting:'s-run', dry:'s-run', loading:'s-run',
+                  interrupted:'s-warn', conflict:'s-warn', ready:'s-warn',
+                  blocked:'s-err', denied:'s-err', error:'s-err', unreachable:'s-err',
+                  ro:'s-warn', failed:'s-err'})[status] || 's-wait';
+    return `<span class="so-act-chip ${cls}">${esc(status)}</span>`;
+  }
+  function actDemoState(){
+    return { demo: true,
+      downloads: [
+        { id:'demo/qwen3-32b-q4', status:'downloading', bytes_done:12.4e9, bytes_total:21.7e9 },
+        { id:'demo/glm-4-9b-q4',  status:'complete',    bytes_done:6.1e9,  bytes_total:6.1e9 },
+        { id:'demo/deepseek-r1-70b', status:'not-started' },
+      ],
+      apply: { state:'waiting', msg:'' },
+      tiers: [
+        { tier:'logic',     want:'demo/qwen3-32b-q4',    resident:'demo/qwen3-coder-14b' },
+        { tier:'oracle',    want:'demo/deepseek-r1-70b', resident:'' },
+        { tier:'conductor', want:'demo/bitnet-2b',       resident:'demo/bitnet-2b' },
+      ] };
+  }
+  function actState(){
+    if (demoActive()) return actDemoState();
+    const data = ACT.poll.profiles;
+    const p = (data && data.profiles || []).find(x => (x.id || x.mode_id) === ACT.id)
+           || PROFILES.find(x => (x.id || x.mode_id) === ACT.id);
+    const downloads = ((p && p.missing_models) || []).map(m => ({
+      id: m.id,
+      status: (m.download && m.download.status) || 'not-started',
+      bytes_done: m.download && m.download.bytes_done,
+      bytes_total: m.download && m.download.bytes_total,
+      err: m.download && m.download.error,
+      stage: m.download && m.download.error_stage,
+      etype: m.download && m.download.error_type,
+      command: m.download_command || ('sovereign-osctl models download ' + m.id),
+    }));
+    const active = !!(p && p.active);
+    const apply = ACT.apply && ACT.apply.id === ACT.id
+      ? { state: active ? 'active' : ACT.apply.state, msg: active ? '' : (ACT.apply.msg || '') }
+      : { state: active ? 'active' : 'waiting', msg: '' };
+    const expected = {};
+    ((p && p.tiers) || []).forEach(t => { if (t.active !== false) expected[String(t.tier || '').toLowerCase()] = t.model; });
+    const cells = ((ACT.poll.grid && ACT.poll.grid.cells) || []).filter(c => c.present !== false && c.role);
+    const tiers = cells.map(c => {
+      const role = String(c.role).toLowerCase();
+      const want = expected[role] || (role === 'router' ? (expected.embed || expected.rerank) : null);
+      const resident = (c.models || []).map(m => m.id).find(Boolean) || '';
+      return { tier: role, want, resident };
+    }).filter(t => t.want);
+    return { demo: false, profile: p, downloads, apply, tiers, pollError: ACT.poll.error };
+  }
+  function actRender(){
+    if (!ACT.open) return;
+    const st = actState();
+    const p = st.demo ? null : st.profile;
+    const pid = ACT.id || '';
+    $('so-act-title').textContent = 'Activation tracker — ' + ((p && (p.name || p.id || p.mode_id)) || pid);
+    $('so-act-sub').innerHTML = st.demo
+      ? '<strong>DEMO mode</strong> — sample pipeline data, not a live daemon. Disable it in Personalization.'
+      : 'Reads <code>/api/lm-orchestration/profiles</code> + <code>/api/lm-orchestration/grid</code> every 2 s while open. Every write goes through the signed control-exec rail; a completed apply is not evidence the models became resident — stage 3 is.'
+        + (st.pollError ? ' <span class="so-act-err">daemon unreachable: ' + esc(st.pollError) + '</span>' : '');
+    // ① Catalog model downloads — job states + byte counts + hidden phases.
+    let dl = '<div class="so-act-st-h">① Catalog model downloads ';
+    const anyRun = st.downloads.some(d => ['queued','preflight','downloading','verifying'].includes(d.status));
+    const anyFail = st.downloads.some(d => d.status === 'failed' || d.status === 'interrupted');
+    const dlDone = st.downloads.length === 0 || st.downloads.every(d => d.status === 'complete');
+    dl += actChip(dlDone ? 'complete' : anyRun ? 'running' : anyFail ? 'needs resume' : 'not started') + ' <small>only catalog-selected artifacts; resumable background jobs</small></div>';
+    if (!st.downloads.length) dl += '<div class="so-act-row"><span class="so-act-mid">All declared models are resident and verified</span>';
+    else st.downloads.forEach(d => {
+      const pct = d.bytes_total ? Math.min(100, 100 * Number(d.bytes_done || 0) / Number(d.bytes_total)) : 0;
+      dl += `<div class="so-act-row"><span class="so-act-mid">${esc(d.id)}</span>${actChip(d.status)}`;
+      if (['queued','preflight','downloading','verifying'].includes(d.status) && d.bytes_total)
+        dl += `<span class="so-act-bar"><i style="width:${pct.toFixed(1)}%"></i></span><span class="so-act-num">${(Number(d.bytes_done||0)/1073741824).toFixed(1)} / ${(Number(d.bytes_total)/1073741824).toFixed(1)} GiB</span>`;
+      else if (d.status === 'complete' && d.bytes_total)
+        dl += `<span class="so-act-num">${(Number(d.bytes_total)/1073741824).toFixed(1)} GiB verified</span>`;
+      dl += `<span class="so-act-phase">${esc(ACT_PHASE[d.status] || d.status)}</span>`;
+      if (d.err) dl += `<span class="so-act-err">${esc(d.err)}${d.stage ? ' (stage: ' + esc(d.stage) + ')' : ''}${d.etype ? ' (' + esc(d.etype) + ')' : ''}</span>`;
+      dl += '</div>';
+    });
+    $('so-act-stage-dl').innerHTML = dl;
+    // ② Signed apply — trinity profile switch through the exec rail.
+    let ap = '<div class="so-act-st-h">② Signed profile apply '
+      + actChip(st.apply.state)
+      + ' <small><code>sovereign-osctl trinity profile switch ' + esc(pid) + '</code> via the sudoer rail</small></div>';
+    const apNote = { waiting: 'not applied yet — the active marker will move when the rail accepts it',
+                     posting: 'the exec rail is running the switch (operator key + step-up gated)',
+                     dry: 'dry-run only — the privileged switch service is not enabled on this origin',
+                     applied: 'rail applied the switch; waiting for the active marker to move',
+                     active: 'active-runtime-profile marker names this profile',
+                     conflict: 'another apply is in flight — retry once it clears',
+                     blocked: 'prerequisites not met — finish the downloads above first',
+                     denied: 'operator key not loaded — apply from a signed session',
+                     unreachable: 'exec rail unreachable (:8130) — copy the command below',
+                     ro: 'read-only origin — copy the command below and run it',
+                     error: 'rail refused the switch' }[st.apply.state] || st.apply.state;
+    ap += `<div class="so-act-row"><span class="so-act-phase">${esc(apNote)}${st.apply.msg ? ' — ' + esc(st.apply.msg) : ''}</span></div>`;
+    $('so-act-stage-apply').innerHTML = ap;
+    // ③ Language model loading — declared per tier vs actually bound+active.
+    let ld = '<div class="so-act-st-h">③ Language model loading ';
+    if (!st.tiers.length) ld += actChip('not prescribed') + ' <small>this posture does not prescribe catalog models — the grid shows what serves</small></div>';
+    else {
+      const allLive = st.tiers.every(t => t.resident === t.want);
+      ld += actChip(allLive ? 'live' : anyRun || st.apply.state !== 'active' ? 'pending' : 'loading') + ' <small>declared model per tier vs the model actually bound on the device</small></div>';
+      st.tiers.forEach(t => {
+        const live = t.resident === t.want;
+        const cell = st.demo ? { mode: 'active · ' + t.tier }
+          : ((ACT.poll.grid && ACT.poll.grid.cells) || []).find(c => String(c.role||'').toLowerCase() === t.tier && c.present !== false) || {};
+        const serving = String(cell.mode || '').includes('active');
+        const state = live ? (serving ? 'live' : 'loading') : (st.apply.state === 'active' ? 'loading' : 'pending');
+        ld += `<div class="so-act-row"><span class="so-act-mid">${esc(t.tier)} → ${esc(t.want)}</span>${actChip(state)}`
+          + `<span class="so-act-num">resident: ${esc(t.resident || 'no model loaded')}</span></div>`;
+      });
+    }
+    $('so-act-stage-load').innerHTML = ld;
+    // Completion banner + actions.
+    const allDownloadsComplete = st.downloads.every(d => d.status === 'complete');
+    const allLive = st.tiers.length && st.tiers.every(t => t.resident === t.want);
+    const complete = !st.demo && st.apply && st.apply.state === 'active' && (st.tiers.length ? allLive : true);
+    const doneEl = $('so-act-complete');
+    doneEl.hidden = !complete;
+    if (complete) doneEl.innerHTML = 'Profile ' + esc(p && (p.name || p.id) || pid) + ' is active and every declared model is resident on its device. The deployment deck above shows the same evidence at a glance.';
+    const acts = $('so-act-acts');
+    acts.innerHTML = '';
+    if (st.demo) {
+      const note = document.createElement('span'); note.className = 'so-act-phase';
+      note.textContent = 'DEMO — sample pipeline; no daemon to act on. Buttons disabled.';
+      acts.appendChild(note);
+    } else {
+      if (st.downloads.some(d => d.status === 'not-started' || d.status === 'failed' || d.status === 'interrupted')) {
+        const b = document.createElement('button'); b.className = 'p-apply';
+        b.textContent = 'Start / resume downloads';
+        b.disabled = anyRun;
+        b.addEventListener('click', actStartDownloads);
+        acts.appendChild(b);
+      }
+      if (st.apply.state === 'waiting' || st.apply.state === 'blocked' || st.apply.state === 'conflict' || st.apply.state === 'error' || st.apply.state === 'unreachable' || st.apply.state === 'dry') {
+        const b = document.createElement('button'); b.className = 'p-apply';
+        b.textContent = 'Apply profile (signed rail)';
+        b.addEventListener('click', () => applyProfile(ACT.id, ACT.fam, $('so-act-result')));
+        acts.appendChild(b);
+      }
+      const c = document.createElement('button'); c.className = 'p-apply'; c.textContent = 'Copy exact commands';
+      c.addEventListener('click', () => copyCmd('sovereign-osctl trinity profile switch ' + pid +
+        (allDownloadsComplete || !st.downloads.length ? '' : '\n' + st.downloads.filter(d => d.status !== 'complete').map(d => d.command).join('\n')),
+        'The sanctioned CLI for this pipeline (downloads first, then the switch):'));
+      acts.appendChild(c);
+    }
+    // Stop polling once the pipeline is settled (active + resident, or nothing
+    // in flight at all) — the modal stays open as an evidence surface.
+    if (!st.demo && complete && ACT.timer){ clearInterval(ACT.timer); ACT.timer = null; }
+  }
+  async function actStartDownloads(){
+    const st = actState();
+    if (st.demo) return;
+    setP($('so-act-result'), 'muted', 'starting downloads…');
+    try {
+      for (const d of st.downloads) {
+        if (['queued','preflight','downloading','verifying','complete'].includes(d.status)) continue;
+        const response = await fetch(EXECUTE_URL, {method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({control_id:'model-download',args:{model:d.id},confirm:true})});
+        const body = await response.json();
+        if (!response.ok || !body.ok) throw new Error(body.error || body.stderr || 'Download service unavailable');
+        if (body.dry_run) { setP($('so-act-result'), 'dry', 'Preview only — privileged download service is not enabled.'); return; }
+      }
+      setP($('so-act-result'), 'ok', 'Downloads accepted — stage ① updates live below.');
+    } catch (error) { setP($('so-act-result'), 'err', error.message); }
+    actPoll();
+  }
+  actModal.addEventListener('click', function(e){ if (e.target === actModal) actClose(); });
+  document.getElementById('so-act-close').addEventListener('click', actClose);
+  document.addEventListener('keydown', function(e){ if (actModal && !actModal.hidden && e.key === 'Escape') actClose(); });
 
   // The old panel represented profile declaration and resident runtime in
   // separate, far-apart sections. This deck reconciles them on every refresh:
@@ -2787,6 +3107,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 
   async function applyProfile(id, fam, resultEl) {
     setP(resultEl, 'muted', 'applying…');
+    if (ACT.open && ACT.id === id) ACT.apply = { id, state: 'posting', msg: 'applying through the signed rail…' };
     try {
       // Route to the RIGHT signed control: the §18 runtime family and the
       // orchestration/user family are separate pick-one enums (both keyed 'verb').
@@ -2817,8 +3138,13 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       } else {
         setP(resultEl, 'err', body.error || ('HTTP ' + res.status));
       }
+      const st = res.status === 200 ? (body.dry_run ? 'dry' : 'applied')
+        : res.status === 422 ? 'blocked' : res.status === 409 ? 'conflict'
+        : res.status === 403 ? 'denied' : res.status === 405 ? 'ro' : 'error';
+      if (ACT.open && ACT.id === id) ACT.apply = { id, state: st, msg: body.error || '' };
     } catch (e) {
       setP(resultEl, 'muted', 'exec rail unreachable — run: sovereign-osctl trinity profile switch ' + id);
+      if (ACT.open && ACT.id === id) ACT.apply = { id, state: 'unreachable', msg: e.message || String(e) };
     }
   }
 
