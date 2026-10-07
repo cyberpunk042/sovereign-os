@@ -2963,13 +2963,17 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       const allLive = st.tiers.every(t => t.resident === t.want);
       ld += actChip(allLive ? 'live' : anyRun || st.apply.state !== 'active' ? 'pending' : 'loading') + ' <small>declared model per tier vs the model actually bound on the device</small></div>';
       st.tiers.forEach(t => {
-        const live = t.resident === t.want;
+        const bound = t.resident === t.want;
         const cell = st.demo ? { mode: 'active · ' + t.tier }
           : ((ACT.poll.grid && ACT.poll.grid.cells) || []).find(c => String(c.role||'').toLowerCase() === t.tier && c.present !== false) || {};
         const serving = String(cell.mode || '').includes('active');
-        const state = live ? (serving ? 'live' : 'loading') : (st.apply.state === 'active' ? 'loading' : 'pending');
+        // RESIDENCE is the load-complete evidence; GPU utilization is TRAFFIC,
+        // not load state — the grid's mode reads idle whenever util is 0, so
+        // gating live on it left an idle-but-correctly-bound oracle/logic pair
+        // stuck at "loading" forever (operator report 2026-10-07).
+        const state = bound ? 'live' : (st.apply.state === 'active' ? 'loading' : 'pending');
         ld += `<div class="so-act-row"><span class="so-act-mid">${esc(t.tier)} → ${esc(t.want)}</span>${actChip(state)}`
-          + `<span class="so-act-num">resident: ${esc(t.resident || 'no model loaded')}</span></div>`;
+          + `<span class="so-act-num">resident: ${esc(t.resident || 'no model loaded')}${bound ? (serving ? ' · serving' : ' · bound, route idle') : ''}</span></div>`;
       });
     }
     $('so-act-stage-load').innerHTML = ld;

@@ -75,6 +75,13 @@ with action buttons disabled — zero network, never confusable with live.
 - SB-077: no fabricated progress — byte counts come from the job's own
   progress monitor; the load stage is inferred ONLY from declared-vs-resident
   grid data, labeled per state.
+- **Residence ≠ traffic (2026-10-07 addendum, operator report):** an early
+  revision gated the per-tier `live` chip on the grid's `mode` field — which
+  is `util_pct > 0`, i.e. TRAFFIC — so an idle-but-correctly-bound oracle and
+  logic pair sat at `loading` forever. Load-complete is exactly one fact:
+  `resident == want` (the binding). Utilization now only decorates the row
+  (`· serving` vs `· bound, route idle`). Pinned both ways in the contract
+  lint (required expression + banned util-gated form).
 - An interrupted download job (rebooted worker) is surfaced as `interrupted`
   with resume guidance, never a permanent spinner (the job file's own PID
   liveness rule is what feeds it).

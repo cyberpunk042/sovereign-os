@@ -407,9 +407,17 @@ def test_activation_tracker_modal():
     assert "applyProfile(ACT.id, ACT.fam, $('so-act-result'))" in body, (
         "the modal's Apply must route the same signed trinity profile switch rail"
     )
-    # Load-complete requires residency, not apply success.
+    # Load-complete requires residency, not apply success — and NOT GPU
+    # traffic either: the grid's mode is util>0 (traffic), so gating "live" on
+    # it strands an idle-but-bound model at "loading" (2026-10-07 report).
     assert "st.apply.state === 'active'" in body and "t.resident === t.want" in body, (
         "completion = active marker AND declared model resident per tier"
+    )
+    assert "bound ? 'live' : (st.apply.state === 'active' ? 'loading' : 'pending')" in body, (
+        "per-tier load state must gate on RESIDENCE; serving/util is informational only"
+    )
+    assert "serving ? 'live' : 'loading'" not in body, (
+        "util-based gating of the load chip is the bug that stuck idle tiers at loading"
     )
     # Every non-generated profile card/inspector can open the tracker directly.
     assert 'data-act="track"' in body
