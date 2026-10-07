@@ -3,9 +3,10 @@
 //! count on one corpus, three ways, honest timing:
 //! - HOST     : `HostFmSearch::count` — full per-call marshalling (upload query, download result).
 //! - DEVICE   : `DeviceFmIndex::count_into` — query uploaded ONCE (excluded), timed loop is
-//!              kernel + `stream.sync()` only, result kept on device (the device-resident-consumer
-//!              scenario). This is the P5 hot loop.
+//!   kernel + `stream.sync()` only, result kept on device (the device-resident-consumer
+//!   scenario). This is the P5 hot loop.
 //! - CPU      : `FmIndex::count` — K sequential CPU counts (single-threaded reference).
+//!
 //! Index build/load and the one-time device upload are EXCLUDED from the timed region (P9).
 //!
 //! Run (this box):

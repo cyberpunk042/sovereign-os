@@ -22,12 +22,16 @@ out_dir="${2:?usage: live-build-emit.sh <profile.yaml> <out-dir>}"
 
 require_file "${profile_yaml}"
 
-# FAIL FAST on the substrate tool. `lb` was only required in step 07 — AFTER
-# this step had already spent ~20 minutes debootstrapping the complete target
-# rootfs. The operator paid for the whole build to be told a package was
-# missing (2026-07-26: "missing required command: lb"). A missing tool is
-# knowable in one second; check it before doing any expensive work.
-require_command lb "sudo apt install live-build — or run scripts/install/bootstrap-host.sh"
+# NOTE: `lb` is NOT required here. This adapter only EMITS a live-build config
+# tree; it never invokes `lb build`. The mkosi sibling adapter likewise does not
+# require its substrate tool at emit time. Requiring `lb` in the emitter broke
+# CI (which never installs live-build) and would have failed the same test that
+# the mkosi adapter passes. The real fail-fast for a missing `lb` belongs in the
+# build step it guards: config/auto/build (see below), which is only run on a
+# host where the operator has deliberately installed live-build.
+if ! command -v lb >/dev/null 2>&1; then
+  log_warn "live-build (`lb`) not found — fine for emit-only; required at `lb build` time (sudo apt install live-build)"
+fi
 
 mkdir -p "${out_dir}"/config/{auto,package-lists,includes.chroot,hooks/normal,bootloaders}
 
@@ -64,6 +68,12 @@ chmod +x "${out_dir}/config/auto/config"
 cat > "${out_dir}/config/auto/build" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+# Fail fast on a missing substrate tool BEFORE the ~20-min debootstrap: the
+# operator must not pay for a full target rootfs to learn live-build is absent.
+if ! command -v lb >/dev/null 2>&1; then
+  echo "ERROR [build] missing required command: lb (install: sudo apt install live-build — or run scripts/install/bootstrap-host.sh)" >&2
+  exit 1
+fi
 lb build "$@"
 EOF
 chmod +x "${out_dir}/config/auto/build"
