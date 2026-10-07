@@ -1373,7 +1373,14 @@ impl<'a, F: FnMut(&str)> StreamGuard<'a, F> {
 /// chat template. Shared by the safetensors + GGUF load paths (F-2026-085).
 fn load_tokenizer_and_template(
     dir: &str,
-) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>, Option<u32>), String> {
+) -> Result<
+    (
+        sovereign_hf_tokenizer::HfBpeTokenizer,
+        Option<String>,
+        Option<u32>,
+    ),
+    String,
+> {
     let tok_bytes = std::fs::read(format!("{dir}/tokenizer.json"))
         .map_err(|e| format!("read tokenizer.json: {e}"))?;
     let tokenizer = sovereign_hf_tokenizer::HfBpeTokenizer::from_tokenizer_json(&tok_bytes)
@@ -1434,7 +1441,14 @@ fn parse_gguf_precision(v: Option<&str>) -> sovereign_safetensors_loader::Precis
 fn load_gguf_tokenizer_or_sidecar(
     dir: &str,
     gguf_bytes: &[u8],
-) -> Result<(sovereign_hf_tokenizer::HfBpeTokenizer, Option<String>, Option<u32>), String> {
+) -> Result<
+    (
+        sovereign_hf_tokenizer::HfBpeTokenizer,
+        Option<String>,
+        Option<u32>,
+    ),
+    String,
+> {
     if std::path::Path::new(&format!("{dir}/tokenizer.json")).exists() {
         return load_tokenizer_and_template(dir);
     }
@@ -2368,9 +2382,7 @@ impl GatewayServer {
         // through the guard's Arc, and a concurrent reload only swaps the Arc.
         let neural = self.neural_handle();
         match self.corpus.read() {
-            Ok(guard) => {
-                rag_augment_with(guard.as_deref(), neural.as_deref(), prompt, rag_top_k())
-            }
+            Ok(guard) => rag_augment_with(guard.as_deref(), neural.as_deref(), prompt, rag_top_k()),
             Err(_) => prompt.to_string(),
         }
     }
@@ -2714,7 +2726,11 @@ impl GatewayServer {
     /// before contacting llama.cpp.
     #[must_use]
     pub fn proxy_input_fits(&self, model: &str, prompt_chars: usize) -> Option<bool> {
-        let window = self.proxies.read().ok().and_then(|m| m.get(model).and_then(|p| p.max_model_len))?;
+        let window = self
+            .proxies
+            .read()
+            .ok()
+            .and_then(|m| m.get(model).and_then(|p| p.max_model_len))?;
         Some(prompt_chars / 3 + 64 + 256 <= window)
     }
 
@@ -4063,7 +4079,10 @@ mod tests {
             redact_pii: false,
         };
         let out = r.push(&"\u{2019}".repeat(100)); // must NOT panic
-        assert!(out.is_empty(), "nothing to release before a whitespace boundary");
+        assert!(
+            out.is_empty(),
+            "nothing to release before a whitespace boundary"
+        );
         // non-breaking hyphens + emoji straddling the boundary must also be safe
         let out2 = r.push(&format!("{}1\u{fe0f}\u{20e3} x", "\u{2011}".repeat(120)));
         let _ = out2; // must NOT panic
@@ -4081,7 +4100,10 @@ mod tests {
             let mut sink = |t: &str| out.push_str(t);
             let mut sg = StreamGuard::new(&mut sink, true, false, false);
             sg.push(&"\u{2019}".repeat(100)); // 300 bytes of a 3-byte char
-            sg.push(&format!("{}1\u{fe0f}\u{20e3} tail ", "\u{2011}".repeat(120)));
+            sg.push(&format!(
+                "{}1\u{fe0f}\u{20e3} tail ",
+                "\u{2011}".repeat(120)
+            ));
             let _ = sg.finish(); // must NOT panic
         }
         assert!(out.contains('\u{2019}') || out.contains('\u{2011}'));
@@ -4948,7 +4970,10 @@ mod tests {
             ("lex2".into(), "alpha beta epsilon".into()),
             ("lex3".into(), "alpha gamma zeta".into()),
             // Shares NOT ONE term with the query — invisible to coverage rerank.
-            ("dense-only".into(), "an entirely different vocabulary here".into()),
+            (
+                "dense-only".into(),
+                "an entirely different vocabulary here".into(),
+            ),
         ];
         let query = "alpha beta gamma";
 
@@ -5185,13 +5210,17 @@ mod tests {
             Some("gpu-a"),
             "auto follows the designated default"
         );
-        assert_eq!(s.expand_alias(Some("")).as_deref(), Some("gpu-a"),
-            "an empty model id means the same as an omitted one");
+        assert_eq!(
+            s.expand_alias(Some("")).as_deref(),
+            Some("gpu-a"),
+            "an empty model id means the same as an omitted one"
+        );
 
         // Background points elsewhere; the two must not bleed into each other.
         s.set_background(Some("gpu-b"));
         assert_eq!(
-            s.expand_alias(Some(GatewayServer::BACKGROUND_ALIAS)).as_deref(),
+            s.expand_alias(Some(GatewayServer::BACKGROUND_ALIAS))
+                .as_deref(),
             Some("gpu-b")
         );
         assert_eq!(
@@ -5212,7 +5241,10 @@ mod tests {
 
         // Clearing restores the primary meaning.
         s.set_default_model(Some("gpu-b"));
-        assert_eq!(s.expand_alias(Some(GatewayServer::AUTO_ALIAS)).as_deref(), Some("gpu-b"));
+        assert_eq!(
+            s.expand_alias(Some(GatewayServer::AUTO_ALIAS)).as_deref(),
+            Some("gpu-b")
+        );
         s.set_default_model(None);
         assert_eq!(s.expand_alias(Some(GatewayServer::AUTO_ALIAS)), None);
 

@@ -126,7 +126,6 @@ def test_the_direct_install_path_installs_the_units_too():
         "the direct path must install the sovereign units where systemd looks"
     )
     # ...and must not switch any of them on.
-    import re
     for l in code:
         if "systemctl" in l and "sovereign-" in l:
             assert not re.search(r"systemctl\s+(enable|start)\s+sovereign-", l), (

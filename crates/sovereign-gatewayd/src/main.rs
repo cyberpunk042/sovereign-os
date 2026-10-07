@@ -1431,9 +1431,7 @@ fn clamp_max_tokens(server: &GatewayServer, model: &str, oai: &mut serde_json::V
     let Some(requested) = oai.get("max_tokens").and_then(serde_json::Value::as_u64) else {
         return;
     };
-    let prompt_chars = oai
-        .get("messages")
-        .map_or(0, |m| m.to_string().len());
+    let prompt_chars = oai.get("messages").map_or(0, |m| m.to_string().len());
     let Some(allowed) = server.proxy_max_tokens(model, prompt_chars) else {
         return;
     };
@@ -1467,9 +1465,15 @@ fn stream_proxy_chat_completions(
     oai["model"] = serde_json::Value::String(resolved_model.to_string());
     let prompt_chars = oai.get("messages").map_or(0, |m| m.to_string().len());
     if server.proxy_input_fits(resolved_model, prompt_chars) == Some(false) {
-        return write_http(writer, &http::err(413, format!(
-            "context admission rejected: rendered request exceeds resident context for {resolved_model}; start a new task or reduce workspace/tool context"
-        )));
+        return write_http(
+            writer,
+            &http::err(
+                413,
+                format!(
+                    "context admission rejected: rendered request exceeds resident context for {resolved_model}; start a new task or reduce workspace/tool context"
+                ),
+            ),
+        );
     }
     clamp_max_tokens(server, resolved_model, &mut oai);
     let (mut reader, up_status, chunked) =

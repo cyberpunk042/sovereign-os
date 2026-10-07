@@ -129,7 +129,11 @@ impl NeuralIndex {
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| a.1.cmp(b.1))
         });
-        scored.into_iter().take(k).map(|(_, id)| id.clone()).collect()
+        scored
+            .into_iter()
+            .take(k)
+            .map(|(_, id)| id.clone())
+            .collect()
     }
 }
 
@@ -157,7 +161,10 @@ fn embed(endpoint: &str, model: &str, texts: &[&str]) -> Result<Vec<Vec<f32>>, S
     }
     let (status, resp) = crate::http::proxy_forward(endpoint, "/v1/embeddings", &body.to_string())?;
     if status != 200 {
-        return Err(format!("embedder {endpoint} returned {status}: {}", resp.trim()));
+        return Err(format!(
+            "embedder {endpoint} returned {status}: {}",
+            resp.trim()
+        ));
     }
     let doc: serde_json::Value =
         serde_json::from_str(&resp).map_err(|e| format!("embedder reply is not JSON: {e}"))?;

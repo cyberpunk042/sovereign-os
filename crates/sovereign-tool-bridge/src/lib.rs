@@ -357,7 +357,10 @@ mod tests {
         // `tool:` dropped, `|` replaced by `:` — so no call parsed and it
         // fabricated an answer instead. The example must therefore round-trip
         // through the parser the loop actually uses, not merely look right.
-        assert!(p.contains("Example: [[tool:a|"), "preamble must show an example");
+        assert!(
+            p.contains("Example: [[tool:a|"),
+            "preamble must show an example"
+        );
         assert!(
             !p.contains("your argument here"),
             "the example argument must be a concrete literal — a small model \

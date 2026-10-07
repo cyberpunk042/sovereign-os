@@ -1,4 +1,6 @@
 # scripts/build/lib/kernel-debs.sh — where the custom kernel .debs are.
+# shellcheck shell=bash   # sourced library — no shebang by design (SC2148,
+                          # same pattern as selfdef-tune.sh)
 #
 # ONE resolution order, shared by every substrate builder.
 #

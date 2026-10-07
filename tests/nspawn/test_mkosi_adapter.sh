@@ -224,10 +224,23 @@ if SOVEREIGN_OS_DISTRO=ubuntu \
   else
     ko "ubuntu render: Debian-only packages leaked:${_leaked}"
   fi
-  case "${uconf}" in
-    *nvidia-driver-*-open*) ok "ubuntu render: the versioned -open driver is installed" ;;
-    *) ko "ubuntu render: no nvidia-driver-<ver>-open package" ;;
-  esac
+  # The versioned -open driver must appear ONLY when the profile actually
+  # carries the NVIDIA stack (sain-01 yes; minimal/developer/headless no).
+  # Asserting it unconditionally made non-GPU profiles fail a check about a
+  # driver they never declare (CI, 2026-10-07). The Debian render above is
+  # the source of truth for whether the profile carries nvidia at all — and
+  # a GPU-less Ubuntu render must NOT gain one out of nowhere.
+  if grep -qE 'nvidia-(driver|open-kernel-dkms|smi)' "${tmpdir}"/mkosi.conf.d/*.conf 2>/dev/null; then
+    case "${uconf}" in
+      *nvidia-driver-*-open*) ok "ubuntu render: the versioned -open driver is installed" ;;
+      *) ko "ubuntu render: no nvidia-driver-<ver>-open package" ;;
+    esac
+  else
+    case "${uconf}" in
+      *nvidia-driver*) ko "ubuntu render: GPU-less profile gained an nvidia driver" ;;
+      *) ok "ubuntu render: GPU-less profile carries no nvidia driver" ;;
+    esac
+  fi
 else
   ko "ubuntu render: mkosi-emit failed outright"
 fi

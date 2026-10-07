@@ -942,7 +942,10 @@ mod tests {
             "zfs outranks criu when both are present"
         );
         // The real detector still has to agree with the rule on THIS host.
-        assert_eq!(detect_persist_backend(), detect_persist_backend_with(on_path));
+        assert_eq!(
+            detect_persist_backend(),
+            detect_persist_backend_with(on_path)
+        );
         assert_eq!(snapshot_command(PersistBackend::File, "x", "y"), None);
         // the ZFS/CRIU command construction is pure + exact
         assert_eq!(

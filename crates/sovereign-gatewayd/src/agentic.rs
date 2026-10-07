@@ -276,7 +276,8 @@ impl GatewayResponder<'_> {
             "messages": [{"role": "user", "content": prompt}],
         })
         .to_string();
-        let (status, resp) = sovereign_gatewayd::http::proxy_forward(endpoint, "/v1/chat/completions", &body)?;
+        let (status, resp) =
+            sovereign_gatewayd::http::proxy_forward(endpoint, "/v1/chat/completions", &body)?;
         if status != 200 {
             return Err(format!("proxy upstream {status}: {}", resp.trim()));
         }
@@ -430,7 +431,11 @@ mod tests {
     #[test]
     fn recall_tool_present_only_with_a_cortex_and_queries_memory() {
         // No cortex → no recall tool.
-        assert!(builtin_registry(None, None, None).call("recall", "x").is_err());
+        assert!(
+            builtin_registry(None, None, None)
+                .call("recall", "x")
+                .is_err()
+        );
         // With a cortex handle → recall queries it (empty store → the note).
         let cx = Arc::new(Mutex::new(Cortex::default()));
         let r = builtin_registry(Some(cx), None, None);
@@ -469,7 +474,11 @@ mod tests {
     fn search_tool_present_only_with_a_corpus_and_retrieves() {
         use sovereign_retrieval::HybridStore;
         // No corpus → no search tool (and it's absent from the specs).
-        assert!(builtin_registry(None, None, None).call("search", "x").is_err());
+        assert!(
+            builtin_registry(None, None, None)
+                .call("search", "x")
+                .is_err()
+        );
         assert!(
             !builtin_specs(true, false)
                 .iter()

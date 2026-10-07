@@ -514,7 +514,9 @@ fn spawn_mock_openai_echo_model_upstream() -> String {
                 .unwrap_or("<none>")
                 .to_string();
             let frames = [
-                format!(r#"data: {{"choices":[{{"delta":{{"content":"got:{got}"}},"finish_reason":"stop"}}]}}"#),
+                format!(
+                    r#"data: {{"choices":[{{"delta":{{"content":"got:{got}"}},"finish_reason":"stop"}}]}}"#
+                ),
                 "data: [DONE]".to_string(),
             ];
             let mut body = String::new();
@@ -571,7 +573,10 @@ fn proxy_forwards_the_resolved_model_not_the_alias() {
         })
         .to_string();
         let (status, body) = http_request(&d.addr, "POST", "/v1/chat/completions", &req);
-        assert!(status.starts_with("HTTP/1.1 200"), "alias {alias:?}: {status}");
+        assert!(
+            status.starts_with("HTTP/1.1 200"),
+            "alias {alias:?}: {status}"
+        );
         assert!(
             body.contains("got:gpu-x"),
             "alias {alias:?} must be forwarded as the resolved id, not verbatim; sse:\n{body}"
@@ -666,7 +671,10 @@ fn embeddings_route_relays_and_asserts_the_upstream_model() {
         "/v1/embeddings",
         &serde_json::json!({"model": "auto"}).to_string(),
     );
-    assert!(status.starts_with("HTTP/1.1 400"), "missing input: {status}");
+    assert!(
+        status.starts_with("HTTP/1.1 400"),
+        "missing input: {status}"
+    );
 
     // A known route with the wrong verb is 405, not 404.
     let (status, _) = http_request(&d.addr, "GET", "/v1/embeddings", "");
@@ -840,7 +848,9 @@ fn http_survives_a_malicious_upstream_chunk_size() {
         // nothing. The probe is answered with no `max_model_len`, which is also
         // the "upstream does not report one" path — nothing is clamped.
         for _ in 0..2 {
-            let Ok((mut sock, _)) = listener.accept() else { break };
+            let Ok((mut sock, _)) = listener.accept() else {
+                break;
+            };
             let mut buf = [0u8; 2048];
             let _ = sock.read(&mut buf);
             if String::from_utf8_lossy(&buf).starts_with("GET /v1/models") {

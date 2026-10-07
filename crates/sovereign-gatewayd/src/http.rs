@@ -1219,15 +1219,14 @@ fn corpus_search(server: &GatewayServer, body: &str) -> HttpReply {
             return err(
                 400,
                 format!("unknown stage {other:?} — expected fused, hybrid or dense"),
-            )
+            );
         }
     };
     let neural = server.neural_handle();
     if stage == crate::RetrievalStage::Dense && neural.is_none() {
         return err(
             503,
-            "no dense index — embeddings unconfigured, unreachable, or still building"
-                .to_string(),
+            "no dense index — embeddings unconfigured, unreachable, or still building".to_string(),
         );
     }
     let hits = crate::corpus_retrieve_staged(&corpus, neural.as_deref(), query, k, stage);
@@ -1394,11 +1393,10 @@ fn models_default(server: &GatewayServer, body: &str) -> HttpReply {
 /// read: asking a tier what it serves and how large a window it holds.
 pub fn proxy_forward_get(endpoint: &str, path: &str) -> Result<(u16, String), String> {
     use std::io::{Read, Write};
-    let mut stream = std::net::TcpStream::connect(endpoint)
-        .map_err(|e| format!("connect {endpoint}: {e}"))?;
+    let mut stream =
+        std::net::TcpStream::connect(endpoint).map_err(|e| format!("connect {endpoint}: {e}"))?;
     let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(10)));
-    let request =
-        format!("GET {path} HTTP/1.1\r\nHost: {endpoint}\r\nConnection: close\r\n\r\n");
+    let request = format!("GET {path} HTTP/1.1\r\nHost: {endpoint}\r\nConnection: close\r\n\r\n");
     stream
         .write_all(request.as_bytes())
         .map_err(|e| e.to_string())?;
@@ -1672,13 +1670,20 @@ fn proxy_message(
     oai_req["model"] = serde_json::Value::String(model.to_string());
     let prompt_chars = oai_req.get("messages").map_or(0, |m| m.to_string().len());
     if server.proxy_input_fits(model, prompt_chars) == Some(false) {
-        return anthropic_err(413, "invalid_request_error", format!(
-            "context admission rejected: rendered request exceeds resident context for {model}; start a new task or reduce workspace/tool context"
-        ));
+        return anthropic_err(
+            413,
+            "invalid_request_error",
+            format!(
+                "context admission rejected: rendered request exceeds resident context for {model}; start a new task or reduce workspace/tool context"
+            ),
+        );
     }
     // Same clamp the streaming relays apply — a non-streaming caller can overflow
     // the backend's window exactly as easily.
-    if let Some(requested) = oai_req.get("max_tokens").and_then(serde_json::Value::as_u64) {
+    if let Some(requested) = oai_req
+        .get("max_tokens")
+        .and_then(serde_json::Value::as_u64)
+    {
         if let Some(allowed) = server.proxy_max_tokens(model, prompt_chars) {
             if (requested as usize) > allowed {
                 oai_req["max_tokens"] = serde_json::Value::from(allowed as u64);
@@ -1904,8 +1909,14 @@ fn anthropic_message(server: &GatewayServer, body: &str) -> HttpReply {
         let grounded_req = ground_anthropic_request(server, &req);
         let grounded_body = grounded_req.to_string();
         let t0 = std::time::Instant::now();
-        let mut reply =
-            proxy_message(server, &endpoint, &dialect, &model, &grounded_req, &grounded_body);
+        let mut reply = proxy_message(
+            server,
+            &endpoint,
+            &dialect,
+            &model,
+            &grounded_req,
+            &grounded_body,
+        );
         // Close the redaction bypass: proxy-relayed output never passes through
         // the local generate path's safety spine, so redact secrets/PII from the
         // relayed body here. No-op when the spine (or both passes) is off.
@@ -2893,12 +2904,15 @@ mod tests {
         let handle = std::thread::spawn(move || {
             let mut seen = String::new();
             for _ in 0..2 {
-                let Ok((mut sock, _)) = listener.accept() else { break };
+                let Ok((mut sock, _)) = listener.accept() else {
+                    break;
+                };
                 let mut buf = [0u8; 4096];
                 let _ = sock.read(&mut buf);
                 let req = String::from_utf8_lossy(&buf).to_string();
                 let payload = if req.starts_with("GET /v1/models") {
-                    r#"{"object":"list","data":[{"id":"gpu-llama","max_model_len":4096}]}"#.to_string()
+                    r#"{"object":"list","data":[{"id":"gpu-llama","max_model_len":4096}]}"#
+                        .to_string()
                 } else {
                     seen = req;
                     r#"{"choices":[{"message":{"role":"assistant","content":"translated OpenAI reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":3}}"#.to_string()

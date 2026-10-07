@@ -15,11 +15,37 @@ this is the tool used to diagnose everything else.
 """
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OSCTL = REPO_ROOT / "scripts" / "sovereign-osctl"
+
+
+def _pkg_installed(pkg: str) -> bool:
+    dpkg = shutil.which("dpkg")
+    if dpkg is None:
+        return False
+    return subprocess.run([dpkg, "-s", pkg], capture_output=True).returncode == 0
+
+
+def _host_is_a_sddm_workstation() -> bool:
+    """The two EXECUTION tests below assert host facts this lint was written
+    for — sddm + X drivers installed on the operator's workstation, verified
+    by the 2026-07-27 false-MISSING bug it guards. A headless CI runner
+    honestly reports those packages MISSING; asserting them there produced
+    false failures (2026-10-07). They run where the facts hold, and skip
+    with a stated reason where they cannot."""
+    return _pkg_installed("sddm") and _pkg_installed("xserver-xorg-video-fbdev")
+
+
+HOST_SDDM = pytest.mark.skipif(
+    not _host_is_a_sddm_workstation(),
+    reason="asserts workstation facts (sddm + X drivers installed); not a headless runner's state",
+)
 
 
 def test_from_is_optional():
@@ -48,6 +74,7 @@ def test_it_warns_once_when_sudo_is_unavailable():
     )
 
 
+@HOST_SDDM
 def test_the_local_report_actually_runs_and_is_accurate():
     """Execute it. The packages checked are installed on this machine."""
     out = subprocess.run([str(OSCTL), "install", "logs"],
@@ -82,6 +109,7 @@ def test_unprivileged_reads_come_first():
         assert "_try" in line, f"{probe} is still read via sudo first: {line.strip()!r}"
 
 
+@HOST_SDDM
 def test_the_report_names_the_display_manager_on_this_machine():
     """Execute it: this machine has sddm registered, so the report must say so."""
     out = subprocess.run([str(OSCTL), "install", "logs"],

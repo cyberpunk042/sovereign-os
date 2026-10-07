@@ -1010,7 +1010,10 @@ mod tests {
                 b.forward_prefill(t).unwrap();
             }
         }
-        assert_eq!(ref_logits, got_logits, "skipping the head must not change the final logits");
+        assert_eq!(
+            ref_logits, got_logits,
+            "skipping the head must not change the final logits"
+        );
 
         // And end to end, the generated sequences must match exactly.
         let out_a = mixed_model(8, Sampler::new(SamplerConfig::default()))
@@ -1019,14 +1022,20 @@ mod tests {
         let out_b = mixed_model(8, Sampler::new(SamplerConfig::default()))
             .generate_masked_until_with(&prompt, 6, 3, &mask, &[], |_| {})
             .unwrap();
-        assert_eq!(out_a, out_b, "generation is unchanged by head-skipping prefill");
+        assert_eq!(
+            out_a, out_b,
+            "generation is unchanged by head-skipping prefill"
+        );
     }
 
     #[test]
     fn forward_prefill_rejects_out_of_range_tokens_like_forward() {
         let mut m = mixed_model(8, Sampler::new(SamplerConfig::default()));
         let v = m.vocab;
-        assert!(m.forward_prefill(v).is_err(), "out-of-range must still error");
+        assert!(
+            m.forward_prefill(v).is_err(),
+            "out-of-range must still error"
+        );
     }
 
     #[test]
@@ -1206,7 +1215,11 @@ mod tests {
         let a = m
             .generate_masked_until_with(&[1, 2, 3], 4, 0, &mask, &[], |_| {})
             .unwrap();
-        assert_eq!(m.last_prefill_len(), 3, "cold cache prefills the whole prompt");
+        assert_eq!(
+            m.last_prefill_len(),
+            3,
+            "cold cache prefills the whole prompt"
+        );
 
         // Identical prompt: everything but the final token is reused. The final
         // one is always recomputed — generation needs its logits, and logits are
@@ -1214,14 +1227,22 @@ mod tests {
         let b = m
             .generate_masked_until_with(&[1, 2, 3], 4, 0, &mask, &[], |_| {})
             .unwrap();
-        assert_eq!(m.last_prefill_len(), 1, "repeat prompt ⇒ only the last token");
+        assert_eq!(
+            m.last_prefill_len(),
+            1,
+            "repeat prompt ⇒ only the last token"
+        );
         assert_eq!(a, b, "reuse must not change the output");
 
         // Shares a 2-token prefix with what the cache holds, then diverges.
         let c = m
             .generate_masked_until_with(&[1, 2, 7], 4, 0, &mask, &[], |_| {})
             .unwrap();
-        assert_eq!(m.last_prefill_len(), 1, "shared [1,2] reused, [7] forwarded");
+        assert_eq!(
+            m.last_prefill_len(),
+            1,
+            "shared [1,2] reused, [7] forwarded"
+        );
         assert_eq!(c, fresh_run(&[1, 2, 7]), "a reused prefix must be exact");
 
         // No shared prefix at all ⇒ full prefill, no false reuse.
