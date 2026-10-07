@@ -59,8 +59,16 @@ def test_it_is_idempotent_and_keeps_a_backup(tmp_path: Path):
     """Run it twice against a throwaway grub file."""
     grub = tmp_path / "grub"
     grub.write_text('GRUB_TIMEOUT=2\nGRUB_CMDLINE_LINUX_DEFAULT="quiet"\n', encoding="utf-8")
+    # Hermetic boot state: the script refuses to add nomodeset on a host whose
+    # LIVE /proc/cmdline runs nvidia-drm.modeset=1 (the guard is correct for a
+    # real box — and this dev host IS one). The contract under test is the
+    # repair on a throwaway grub file for a framebuffer machine, so point the
+    # /proc/cmdline read at a fixture, same technique as the DEFAULT/root/
+    # update-grub substitutions below (2026-10-07).
+    (tmp_path / "proc-cmdline").write_text("quiet splash\n", encoding="utf-8")
     src = (SCRIPT.read_text(encoding="utf-8")
            .replace("DEFAULT=/etc/default/grub", f"DEFAULT={grub}")
+           .replace("/proc/cmdline", str(tmp_path / "proc-cmdline"))
            .replace('[ "$(id -u)" -eq 0 ] || { echo "must run as root: sudo $0" >&2; exit 1; }', "")
            .replace("\nupdate-grub\n", "\n:\n"))
     first = subprocess.run(["sh"], input=src, capture_output=True, text=True)

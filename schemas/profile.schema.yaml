@@ -320,6 +320,11 @@ properties:
       supported_substrate:
         type: array
         items: { type: string }
+      supported_distro:
+        # added by 1d204351 (Ubuntu 26.04 LTS support); consumed by
+        # tests/lint/test_every_distro_installs_a_complete_system.py
+        type: array
+        items: { type: string }
       supported_kernel:
         type: array
         items: { type: string }
@@ -404,6 +409,13 @@ properties:
           scope:
             type: string
             enum: [host, container]   # container = enforce only in non-host mount namespaces
+          armed:
+            # 1cf2247d — disarmed posture for operator desktops: the policy is
+            # written but NOT loaded into the daemon. INTEGER 0/1 only: the
+            # hook reads it via profile_field, and YAML `false` serializes to
+            # "False" which the hook's lowercase case would miss → armed.
+            type: integer
+            enum: [0, 1]
           extra_allowed_binaries:
             type: array
             items: { type: string }   # ABSOLUTE binary paths appended to the base 4-binary allowlist

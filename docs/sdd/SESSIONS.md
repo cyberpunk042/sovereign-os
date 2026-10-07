@@ -28,6 +28,7 @@
 | cockpit-hotswap | 600–699 | E11.M600–M699 | `claude/sovereign-os-test-perf-*` | top-right settings-pane hotswaps — frontend/GUI · provider/origin · AVX modes (design-lock) | active |
 | control-bits | 500–599 | E11.M500–M599 | `claude/glm-colibri-sovereign-os-*` | M002 bit-machine per-token integration — token-law logit mask (SDD-500) · multi-plane grammar∧policy composition (SDD-501) | active |
 | chromofold-integration | 400–499 | E11.M400–M499 | `claude/*chromofold*` | ChromoFold (from `warp-solar-system-shaders`) — GPU-resident searchable compression, opt-in complementary capability via native C ABI (SDD-400, design-lock) | active |
+| openclaw-integrity | 1000–1099 | E12.M1000–M1099 | `claude/openclaw-*` | OpenClaw context/workspace/takeover integrity (SDD-1000) | active |
 
 > **No shared catch-all band.** Every new unassigned session claims its **own
 > disjoint 100-wide block** and adds a row here BEFORE taking numbers (`800–899` +

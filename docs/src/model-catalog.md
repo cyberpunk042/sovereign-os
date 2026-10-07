@@ -2,7 +2,7 @@
 
 # Model catalog — Genesis Trinity (master spec § 17)
 
-Canonical declaration of the 86 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
+Canonical declaration of the 87 models this system intends to host across Pulse / Logic / Oracle / Router tiers, spanning the full R212 taxonomy (class × quantization × size_class × purpose).
 
 This doc is regenerated from `models/catalog.yaml` on every invocation of `scripts/models/render-catalog-md.py`. The same YAML drives `scripts/models/pull.sh` (operator-driven pull) and `scripts/models/verify.sh` (resident integrity check), so the doc, the puller, and the verifier can never drift.
 
@@ -12,14 +12,14 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 |------|-------|---------------|--------------|
 | pulse | 30 | 10 | 14 |
 | logic | 29 | 9 | 7 |
-| oracle | 22 | 10 | 5 |
+| oracle | 23 | 10 | 5 |
 | router | 5 | 4 | 0 |
 
 ## Catalog by class (R212 taxonomy)
 
 | Class | Count |
 |-------|-------|
-| `code` — Code-specialised | 11 |
+| `code` — Code-specialised | 12 |
 | `embed` — Embedding | 2 |
 | `llm` — LLM (general) | 1 |
 | `lora-adapter` — LoRA adapter | 3 |
@@ -36,17 +36,17 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 
 | Purpose | Count |
 |---------|-------|
-| `agent` | 32 |
+| `agent` | 33 |
 | `audio` | 3 |
 | `autocomplete` | 3 |
-| `chat` | 45 |
-| `code` | 31 |
+| `chat` | 46 |
+| `code` | 32 |
 | `distillation-base` | 1 |
 | `embedding` | 2 |
-| `function-calling` | 12 |
+| `function-calling` | 13 |
 | `multimodal` | 8 |
 | `rag` | 3 |
-| `reasoning` | 34 |
+| `reasoning` | 35 |
 | `reranking` | 1 |
 | `speculation` | 2 |
 | `vision` | 7 |
@@ -728,7 +728,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 28
 - **Context window (tokens):** 32,768
 - **Master spec:** operator directive 2026-09-11 — dual-agent autocomplete
-- **Runtime profiles:** dual-agent-autocomplete
 
 **Operator note:**
 
@@ -1242,6 +1241,24 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 **Operator note:**
 
 > Qualification candidate only. Exact GGUF quantization is in the ID; catalog precision is a coarse schema category. No tool reliability, context fit or speed certification.
+
+### Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S
+
+- **Status:** ? operator-must-confirm
+- **Class:** `code` — Code-specialised
+- **Quantization:** `int4`
+- **Size class:** `xl`
+- **Purpose:** `chat`, `code`, `agent`, `function-calling`, `reasoning`
+- **Engine:** `llama.cpp`
+- **License:** other
+- **Parameters:** 177000.0 M
+- **VRAM minimum (GiB):** 60
+- **Context window (tokens):** 262,144
+- **Master spec:** operator directive 2026-10-05 — Flash-Next dual-agent qualification
+
+**Operator note:**
+
+> Candidate, not certified. Mixed IQ3_S GSQ-RCO (~3.5 bpw); int4 is the catalog's coarse precision category. Both shards required: publisher lists 54.8GB transformer weights + 28.8GB n-gram lookup. Use mmap/lazy loading; VRAM minimum is an estimate including headroom, not a tested context guarantee. Base model lists Qwen Community license while quant metadata says Apache-2.0; retain other pending clarification. Text-only qualification; no vision projector selected.
 
 ### Qwen3-Coder-Next-Q6_K
 

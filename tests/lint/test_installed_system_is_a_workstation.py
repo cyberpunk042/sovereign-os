@@ -149,6 +149,15 @@ def test_shared_packages_all_exist_in_the_archive():
     import shutil
     if not shutil.which("apt-cache"):
         return
+    # The list holds DEBIAN names; the host apt cache is only a valid oracle
+    # on Debian (Ubuntu 26.04 shows Candidate: (none) for firmware-amd-graphics
+    # et al. — a false failure, 2026-10-07 ai-workstation).
+    try:
+        osrel = Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        osrel = ""
+    if not re.search(r"^ID=debian$", osrel, re.M):
+        return
     missing = []
     for pkg in _vars()["packages"].split():
         out = subprocess.run(["apt-cache", "policy", pkg],

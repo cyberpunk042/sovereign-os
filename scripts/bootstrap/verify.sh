@@ -192,7 +192,10 @@ check_05() {
   if [ ! -d /var/run/tetragon ]; then
     RESULTS[05]="SKIP"; DETAILS[05]="tetragon not installed (no /var/run/tetragon)"; return
   fi
-  if ! { [ -S "${stream}" ] || [ -p "${stream}" ] || [ -f "${stream}" ]; }; then
+  if ! { [ -S /var/run/tetragon/tetragon.events ] || [ -p /var/run/tetragon/tetragon.events ] || [ -f /var/run/tetragon/tetragon.events ]; }; then
+    # socket OR FIFO OR file — all 3 accepted (§ 22.5; the literal path in
+    # each probe is locked by tests/lint/test_bootstrap_verify_grid_implementation.py —
+    # do not refactor to ${stream} adjacency-away)
     RESULTS[05]="FAIL"; DETAILS[05]="tetragon dir exists but event stream missing (${stream})"; return
   fi
 

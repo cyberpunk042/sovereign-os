@@ -19,8 +19,15 @@ REPO = Path(__file__).resolve().parents[2]
 CORE = REPO / "scripts" / "lifecycle" / "rollback-points.py"
 
 
-def _apply(*args: str, dry_env: bool = False) -> dict:
+def _apply(*args: str, dry_env: bool = False, hide_zfs: bool = False) -> dict:
     env = {"SOVEREIGN_OS_DRY_RUN": "1"} if dry_env else {}
+    if hide_zfs:
+        # Hermetic empty-inventory: the without-zfs contract must be DETERMINISTIC.
+        # On a ZFS dev host (ai-workstation, 2026-10-07) the old assumption
+        # ("CI has no zfs") inverted: the test resolved a REAL latest snapshot and
+        # EXECUTED `zfs rollback -r` live — it only failed on root permissions.
+        # An empty PATH guarantees the no-zfs path here and in CI alike.
+        env["PATH"] = "/nonexistent"
     import os
     r = subprocess.run(
         [sys.executable, str(CORE), "apply", *args],
@@ -45,9 +52,9 @@ def test_apply_confirm_forced_dry_by_env():
 
 
 def test_apply_confirm_without_zfs_does_not_claim_success():
-    """--confirm with no resolvable snapshot (no zfs in CI) must NOT rollback —
-    it reports an honest failure, never a silent no-op success."""
-    d = _apply("--to", "latest", "--confirm")
+    """--confirm with no resolvable snapshot (zfs hidden from PATH) must NOT
+    rollback — it reports an honest failure, never a silent no-op success."""
+    d = _apply("--to", "latest", "--confirm", hide_zfs=True)
     # CI has no zfs → empty inventory → cannot resolve `latest`
     assert d.get("dry_run") is not True
     assert d["ok"] is False

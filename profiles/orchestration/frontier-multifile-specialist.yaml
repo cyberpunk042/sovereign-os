@@ -12,7 +12,7 @@ orchestration_profile:
     - "64K and 128K context admission benchmarks with recorded VRAM headroom."
   allocations:
     - {agent_id: frontier_oracle_6000, tier: oracle, role: oracle, target_hardware: "cuda:0", engine: llama.cpp, model: MiniMax-M3, port: 8083, vram_limit_bytes: 85899345920, max_output_tokens: 8192, active: false}
-    - {agent_id: frontier_kv_5090, tier: logic, role: kv-cache, target_hardware: "cuda:1", engine: llama.cpp, model: MiniMax-M3, port: 8082, vram_limit_bytes: 25769803776, max_output_tokens: 8192, active: false}
+    - {agent_id: frontier_kv_5090, tier: logic, role: logic, target_hardware: "cuda:1", engine: llama.cpp, model: MiniMax-M3, port: 8082, vram_limit_bytes: 25769803776, max_output_tokens: 8192, active: false}
     - {agent_id: embed_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
     - {agent_id: rerank_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
   context_budget:

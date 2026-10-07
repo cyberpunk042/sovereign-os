@@ -43,6 +43,16 @@ SPECIAL_PREFIXES = {"/api/node-exporter"}
 # Superseded by the unified networking-api (F-2026-070). Their prefixes
 # are served by the unified daemon; registering them here would collide.
 SUPERSEDED = {"network-edge-api", "edge-firewall-api", "rules-mirror-api"}
+# Prefixes DELIBERATELY served same-origin by more than one daemon. The shared
+# quant-picker (webapp/_shared/quant-picker.js, pinned by
+# test_quant_picker_contract.py) fetches /api/models-catalog/by-base relative
+# to whichever panel hosts the page, so lm-orchestration-api mirrors it to keep
+# the D-21 Load-Model control live when the daemon hosts the page STANDALONE
+# (no hub, no proxy). The hub route table must attribute the prefix to its
+# canonical owner (models-catalog-api:8123); the mirror needs no route entry.
+# Skipped at attribution only — every other prefix keeps the hard collision
+# guard (a real collision is resolved, never papered over).
+MIRROR_PREFIXES = {"lm-orchestration-api": {"/api/models-catalog"}}
 
 _PORT_RE = re.compile(r'_PORT",\s*"(\d+)"')
 _PREFIX_RE = re.compile(r'"(/api/[a-z0-9][a-z0-9-]*)')
@@ -69,6 +79,8 @@ def build_routes() -> dict[str, dict]:
         for prefix in sorted(set(_PREFIX_RE.findall(src))):
             if prefix in HUB_LOCAL_PREFIXES or prefix in SPECIAL_PREFIXES:
                 continue
+            if prefix in MIRROR_PREFIXES.get(f.stem, ()):
+                continue  # deliberate same-origin mirror; owner keeps the route
             existing = routes.get(prefix)
             if existing and existing["port"] != port:
                 collisions.append(

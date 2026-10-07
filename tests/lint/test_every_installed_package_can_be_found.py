@@ -27,6 +27,28 @@ PROFILES = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "profiles"
 BUILD = REPO_ROOT / "scripts" / "build" / "installer-cdd" / "build.sh"
 
 
+def _host_apt_is_debian() -> bool:
+    """These names are DEBIAN archive names; the host's apt cache is only a
+    valid oracle when the host IS Debian. On Ubuntu, Debian-only names
+    (firmware-nvidia-graphics, installation-guide-amd64, libc-l10n) resolve
+    to nothing, and Debian names that are unavailable in Ubuntu's enabled
+    components show Candidate: (none) — false failures (seen 2026-10-07 on
+    the Ubuntu 26.04 ai-workstation). Ubuntu hits could equally be false
+    POSITIVES for a Debian build, so validating off-Debian helps nobody."""
+    try:
+        osrel = Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return re.search(r"^ID=debian$", osrel, re.M) is not None
+
+
+NEEDS_DEBIAN = pytest.mark.skipif(
+    shutil.which("apt-cache") is None or not _host_apt_is_debian(),
+    reason="archive resolution is only valid on a Debian host (Debian names "
+           "cannot resolve against an Ubuntu apt cache)",
+)
+
+
 def install_list(name: str) -> list[str]:
     text = (PROFILES / name).read_text(encoding="utf-8")
     m = re.search(r'^d-i pkgsel/include string ((?:.*\\\n)*.*)$', text, re.M)
@@ -46,7 +68,7 @@ def locally_built() -> set[str]:
     return names
 
 
-@pytest.mark.skipif(shutil.which("apt-cache") is None, reason="no apt-cache")
+@NEEDS_DEBIAN
 @pytest.mark.parametrize("name", ("default.preseed", "sovereign.preseed"))
 def test_every_package_resolves_somewhere(name: str):
     local = locally_built()
@@ -74,7 +96,7 @@ def test_the_locally_built_names_are_actually_produced():
     )
 
 
-@pytest.mark.skipif(shutil.which("apt-cache") is None, reason="no apt-cache")
+@NEEDS_DEBIAN
 def test_the_mirror_list_resolves_too():
     """sovereign.packages drives what is MIRRORED; a bad name there fails the
     same way, just earlier."""

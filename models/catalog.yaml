@@ -300,7 +300,7 @@ catalog:
       vram_gib_min: 28
       context_window_tokens: 32768
       master_spec_section: "operator directive 2026-09-11 — dual-agent autocomplete"
-      runtime_profile_bindings: [dual-agent-autocomplete]
+      runtime_profile_bindings: []
       operator_note: |
         Requested exact autocomplete artifact. The repository/artifact revision,
         FP8 availability, and FIM endpoint behavior must be verified before

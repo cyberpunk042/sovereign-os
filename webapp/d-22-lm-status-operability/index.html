@@ -98,7 +98,7 @@
   /* SDD-137: minmax(0,…) so the table-bearing columns shrink instead of overflowing;
      collapse also on body.so-assist-open (viewport-keyed media query alone won't fire
      when the assistant steals ~360px of #so-content). */
-  .devgrid { display:grid; grid-template-columns:1fr; gap:.65rem; align-items:start; }
+  .devgrid { display:grid; grid-template-columns:minmax(0,1fr); gap:.65rem; align-items:start; }
   .hs-cols { display:grid; grid-template-columns:1fr; gap:.55rem; min-width:0; }
   .hs-col { border:1px solid var(--border); border-radius:6px; background:var(--panel); padding:.5rem .7rem; min-height:120px; min-width:0; overflow-x:auto; }
   .hs-head { font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 .4rem; border-bottom:1px solid var(--border); padding-bottom:.25rem; }
@@ -120,7 +120,7 @@
   button.selbtn:disabled { opacity:.4; cursor:not-allowed; }
   @media (max-width:1080px) { #devices { grid-template-columns:repeat(2,minmax(0,1fr)); } .operability-deck { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   @media (max-width:700px) { #devices, .operability-deck { grid-template-columns:1fr; } }
-  body.so-assist-open .devgrid { grid-template-columns:1fr; } /* SDD-137 */
+  body.so-assist-open .devgrid { grid-template-columns:minmax(0,1fr); } /* SDD-137 */
   .selected-bar { margin:.5rem 0; }
   .chip {
     display:inline-block; padding:.15rem .5rem; margin-right:.35rem;

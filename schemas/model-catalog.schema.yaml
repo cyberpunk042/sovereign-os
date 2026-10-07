@@ -220,6 +220,7 @@ $defs:
             - rag
             - speculation
             - reranking
+            - autocomplete   # operator directive 2026-09-11 — dual-agent autocomplete (FIM-served code models)
             - distillation-base
 
       vram_gib_min:
