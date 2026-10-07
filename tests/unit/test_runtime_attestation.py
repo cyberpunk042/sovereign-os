@@ -22,6 +22,55 @@ def test_qwythos_worker_is_added_only_for_the_active_three_card_profile():
     )
 
 
+def test_nested_quant_subdir_resolves_to_the_catalog_id(monkeypatch):
+    """2026-10-07 D-21 bug: sharded HF repos store GGUFs at
+    <vault>/<catalog-id>/<QUANT>/<shard>.gguf (Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S
+    lives under an inner IQ3_S/). The old immediate-parent rule published
+    'IQ3_S' as the resident model id; the publisher must resolve to the vault
+    catalog directory."""
+    monkeypatch.setattr(publisher, "_probe_tier", lambda endpoint: {
+        "endpoint": endpoint, "reachable": True,
+        # llama.cpp answers /v1/models with its --alias, which matches no catalog id
+        "models": [{"id": "gpu-oracle", "resident_context_tokens": 262144}],
+    })
+    monkeypatch.setattr(publisher, "_model_path_from_process", lambda port:
+        "/mnt/vault/models/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S/IQ3_S/"
+        "Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf")
+    index = {"Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S": {
+        "id": "Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S", "precision": None}}
+
+    loaded, _observations = publisher.collect("oracle@127.0.0.1:8083@gpt-oss-120b", index)
+
+    assert loaded["oracle"][0]["id"] == "Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S"
+    assert loaded["oracle"][0]["served_as"] == "gpu-oracle"
+
+    # STALE deployed catalog (the 2026-10-07 reality: /opt predates the model) —
+    # the vault first level (SOVEREIGN_OS_MODELS_DIR default /mnt/vault/models)
+    # is still the catalog directory, so the quant subfolder never wins.
+    loaded_stale, _ = publisher.collect("oracle@127.0.0.1:8083@gpt-oss-120b", {})
+    assert loaded_stale["oracle"][0]["id"] == "Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S"
+
+
+def test_flat_vault_layout_still_resolves_and_unknown_stays_honest(monkeypatch):
+    """The plain <vault>/<catalog-id>/<file>.gguf case keeps working, and a
+    genuinely non-catalogued model publishes its parent dir name (bare row),
+    never a configured-but-stale fallback id."""
+    monkeypatch.setattr(publisher, "_probe_tier", lambda endpoint: {
+        "endpoint": endpoint, "reachable": True,
+        "models": [{"id": "gpu-logic", "resident_context_tokens": 131072}],
+    })
+    monkeypatch.setattr(publisher, "_model_path_from_process", lambda port:
+        "/mnt/vault/models/Qwen3.8-27B-Q4_K_M/Qwen3.8-27B-Q4_K_M.gguf")
+    loaded, _ = publisher.collect("logic@127.0.0.1:8082@Stale-Id",
+                                  {"Qwen3.8-27B-Q4_K_M": {"id": "Qwen3.8-27B-Q4_K_M"}})
+    assert loaded["logic"][0]["id"] == "Qwen3.8-27B-Q4_K_M"
+
+    monkeypatch.setattr(publisher, "_model_path_from_process", lambda port:
+        "/home/operator/experiments/mystery/mystery-00001-of-00002.gguf")
+    loaded, _ = publisher.collect("logic@127.0.0.1:8082@Stale-Id", {})
+    assert loaded["logic"][0]["id"] == "mystery"  # parent-dir fallback, honest bare row
+
+
 def test_attestation_requires_backend_context_and_matching_openclaw_entry(monkeypatch):
     monkeypatch.setattr(publisher, "_profile_revision", lambda _: "profile-sha")
     runtime = {

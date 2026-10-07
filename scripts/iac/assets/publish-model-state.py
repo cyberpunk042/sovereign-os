@@ -83,6 +83,13 @@ OPENCLAW_CATALOG_REVISION = Path(os.environ.get(
     "SOVEREIGN_OS_OPENCLAW_CATALOG_REVISION",
     "/etc/sovereign-os/openclaw-catalog-revision.json",
 ))
+# The model vault: models live at `<vault>/<catalog-id>/…` (same env + default
+# as scripts/models/pull.sh, lm-orchestration-api, and sovereign-osctl models).
+# Needed because a STALE deployed catalog (an old /opt tree) can lack a
+# freshly-added model row — the vault directory name is then the authority,
+# where an index-only ancestor walk would wrongly fall through to a HF quant
+# subfolder name.
+VAULT_MODELS_DIR = Path(os.environ.get("SOVEREIGN_OS_MODELS_DIR", "/mnt/vault/models"))
 
 
 def _load_model_health() -> Any | None:
@@ -157,11 +164,14 @@ def _resident_context(model: dict[str, Any], props: dict[str, Any] | None) -> in
     return None
 
 
-def _detect_model_from_process(port: int) -> str | None:
+def _model_path_from_process(port: int) -> str | None:
     """Find the process whose command line carries `--port <port>` and extract
-    the -m model path. Returns the parent directory name (the model folder =
-    the catalog ID). This is the ground-truth fallback when the tier's
-    /v1/models alias (e.g. `gpu-oracle`) matches no catalog ID.
+    the -m model path verbatim. The caller resolves that path to a catalog id
+    (`_catalog_id_from_model_path`) — the GGUF's immediate parent is NOT
+    reliably the catalog folder: HF repos with quant subfolders store shards at
+    `<vault>/<catalog-id>/<QUANT>/<shard>.gguf` (e.g. `…/IQ3_S/…-00001-of-00002.gguf`).
+    This is the ground-truth fallback when the tier's /v1/models alias (e.g.
+    `gpu-oracle`) matches no catalog ID.
 
     Works for llama.cpp (`-m /path/to/model.gguf --port 8083`) and any
     server whose command line carries both the port and the model path.
@@ -186,11 +196,34 @@ def _detect_model_from_process(port: int) -> str | None:
         # Extract -m <path> (llama.cpp) or --model <path>
         m = _re.search(r'(?:^|\s)(?:-m|--model|--model-path)\s+(\S+)', cmdline)
         if m:
-            model_path = m.group(1)
-            parent = Path(model_path).parent.name
-            if parent and parent != '.' and parent != '/':
-                return parent
+            return m.group(1)
     return None
+
+
+def _catalog_id_from_model_path(model_path: str,
+                                index: dict[str, dict[str, Any]]) -> str | None:
+    """Resolve a loaded model path to its catalog id by walking the ancestor
+    directories deepest-first and taking the FIRST that names a catalogued
+    model. The vault layout is `<vault>/<catalog-id>/…`, but sharded HF repos
+    with a quant subfolder nest one level deeper (`…/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S/IQ3_S/…gguf`)
+    — the old immediate-parent rule published `IQ3_S` as if it were the model
+    (the 2026-10-07 D-21 deck bug). No ancestor matches → fall back to the
+    immediate parent name (the plain model-folder case, honest for
+    non-catalogued models)."""
+    parents = Path(model_path).parents
+    for parent in parents:
+        if parent.name and parent.name in index:
+            return parent.name
+    # Index miss (e.g. a STALE deployed catalog that predates the model):
+    # the first vault level is the catalog directory by convention, so use it
+    # before ever falling back to an HF quant subfolder name.
+    try:
+        rel = Path(model_path).relative_to(VAULT_MODELS_DIR)
+        if rel.parts and rel.parts[0]:
+            return rel.parts[0]
+    except ValueError:
+        pass
+    return parents[0].name if parents and parents[0].name else None
 
 
 def _probe_tier(endpoint: str) -> dict[str, Any]:
@@ -265,7 +298,8 @@ def _catalog_revision() -> dict[str, Any] | None:
 
 
 def _effective_tiers(tiers: str, profile_id: str | None,
-                     runtime: dict[str, dict[str, Any]]) -> str:
+                     runtime: dict[str, dict[str, Any]],
+                     index: dict[str, dict[str, Any]] | None = None) -> str:
     """Add the profile-owned third card without changing IAC's base env file."""
     records = [record.strip() for record in tiers.split(",") if record.strip()]
     if profile_id != "qwythos-three-card":
@@ -278,7 +312,8 @@ def _effective_tiers(tiers: str, profile_id: str | None,
     worker = runtime.get("worker") or {}
     try:
         endpoint = f"127.0.0.1:{int(worker['port'])}"
-        catalog_id = str(worker.get("catalog_id") or Path(str(worker["model_path"])).parent.name)
+        catalog_id = str(worker.get("catalog_id")
+                         or _catalog_id_from_model_path(str(worker["model_path"]), index or {}))
     except (KeyError, TypeError, ValueError):
         return ",".join(records)
     if not any(record.split("@", 2)[1:2] == [endpoint] for record in records):
@@ -342,14 +377,18 @@ def collect(tiers: str, index: dict[str, dict[str, Any]]) -> tuple[dict[str, lis
         actual_id = next((mid for mid in sorted(index, key=len, reverse=True)
                           if mid in served_id), None)
         # Fallback 1: the alias matched no catalog ID — ask the process what
-        # model file it actually loaded (llama.cpp -m flag → parent dir name).
+        # model file it actually loaded (llama.cpp -m flag → deepest ancestor
+        # directory that names a catalogued model; quant subfolders under the
+        # vault catalog dir must not masquerade as the id).
         if actual_id is None:
             try:
                 port = int(endpoint.rsplit(':', 1)[1])
             except (IndexError, ValueError):
                 port = None
             if port:
-                actual_id = _detect_model_from_process(port)
+                model_path = _model_path_from_process(port)
+                if model_path:
+                    actual_id = _catalog_id_from_model_path(model_path, index)
         # Fallback 2: process detection also failed — use the configured
         # catalog_id (the IaC default; may be stale after a model swap).
         if actual_id is None:
@@ -436,8 +475,9 @@ def main() -> int:
     profile_id = _active_profile_id()
     runtime = _runtime_records()
     mh = _load_model_health()
+    index = _catalog_index(mh)
     loaded, observations = collect(
-        _effective_tiers(TIERS, profile_id, runtime), _catalog_index(mh)
+        _effective_tiers(TIERS, profile_id, runtime, index), index
     )
 
     state = _read_state()
