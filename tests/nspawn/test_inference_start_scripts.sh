@@ -37,11 +37,14 @@ rm -f /etc/sovereign-os/active-runtime-profile \
 
 # ----------- start-pulse ---------------
 
-# bitnet-cli isn't on the runner; require_command would fail. The
-# script's require_command path is hit BEFORE DRY_RUN check though,
-# so we need bitnet-cli to exist as a fake binary for the test.
+# Neither llama-server nor bitnet-cli is on the runner, and require_command
+# fires BEFORE the DRY_RUN check — so both must exist as fake binaries.
+# start-pulse.sh drives llama-server by default since 9144a0bd (bitnet-cli is
+# CLI-only and rejects --host/--port); this test predated that switch and only
+# faked bitnet-cli — which is why start-pulse failed rc=1 in CI.
 mkdir -p "${tmp}/fakebin"
 ln -sf /bin/true "${tmp}/fakebin/bitnet-cli"
+ln -sf /bin/true "${tmp}/fakebin/llama-server"
 export PATH="${tmp}/fakebin:${PATH}"
 
 set +e

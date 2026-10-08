@@ -304,20 +304,54 @@ def test_bootstrap_installs_both_substrates():
 def test_substrate_tool_is_checked_before_expensive_work():
     """A missing tool is knowable in one second; don't charge 20 minutes for it.
 
-    `require_command lb` lived only in step 07 — after step 05 had already
-    debootstrapped the entire target rootfs.
+    History: `require_command lb` lived only in step 07 — after step 05 had
+    already debootstrapped the entire target rootfs (operator, 2026-07-26).
+    Fixed 2026-10-07 (273264f4): the emit adapter is EMIT-ONLY — it writes a
+    config tree and never runs `lb build` (the mkosi sibling likewise does not
+    require its tool at emit time; requiring lb in the emitter broke CI, which
+    never installs live-build). The fail-fast now lives in BOTH places that
+    do expensive work: the EMITTED config/auto/build wrapper (the README
+    path — the operator runs `sudo lb build` directly in the tree) and step
+    07, before it runs the lb stages. This test pins that shape in both
+    directions: removing the guard re-charges the 20 minutes; putting the
+    guard back in the emitter re-breaks CI.
     """
     emit = LB_EMIT.read_text(encoding="utf-8")
-    assert "require_command lb" in emit, (
-        "live-build-emit must verify `lb` exists before it starts building"
+
+    # The emitter itself must NOT fail-fast on lb — it only writes files.
+    assert "require_command lb" not in emit, (
+        "live-build-emit is emit-only; requiring lb here re-breaks CI — "
+        "the fail-fast belongs in the build step it guards"
     )
-    i_check = emit.index("require_command lb")
-    i_work = emit.index("building the complete target rootfs")
+
+    # The wrapper it EMITS must fail fast BEFORE invoking lb build, and the
+    # error must name the package AND the one command that installs it.
+    w_start = emit.index('cat > "${out_dir}/config/auto/build"')
+    w_end = emit.index('chmod +x "${out_dir}/config/auto/build"')
+    wrapper = emit[w_start:w_end]
+    assert "command -v lb" in wrapper, (
+        "the emitted config/auto/build must check lb before building"
+    )
+    assert wrapper.index("command -v lb") < wrapper.index("lb build"), (
+        "the check must come BEFORE the ~20-minute build, not after"
+    )
+    guard = wrapper[wrapper.index("command -v lb"):wrapper.index("exit 1")]
+    assert "live-build" in guard and "bootstrap-host" in guard, (
+        "the error must name the package AND the one command that installs it"
+    )
+
+    # Step 07 — the orchestrator path — must verify lb, with the same fix-it
+    # message, before running the lb stages.
+    build = IMAGE_BUILD.read_text(encoding="utf-8")
+    assert "require_command lb" in build, (
+        "step 07 must verify `lb` exists before it runs the build"
+    )
+    i_check = build.index("require_command lb")
+    i_work = build.index("running 'lb config'")
     assert i_check < i_work, (
-        "the tool check must come BEFORE the ~20-minute rootfs build, not after"
+        "the tool check must come BEFORE the lb config/build stages, not after"
     )
-    # and the message must say how to fix it
-    line = emit[i_check:emit.index("\n", i_check)]
+    line = build[i_check:build.index("\n", i_check)]
     assert "live-build" in line and "bootstrap-host" in line, (
         "the error must name the package AND the one command that installs it"
     )

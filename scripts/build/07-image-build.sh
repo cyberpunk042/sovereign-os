@@ -454,7 +454,7 @@ case "${SOVEREIGN_OS_SUBSTRATE}" in
       state_step_dry_run "${STEP_ID}"
       exit 0
     fi
-    require_command lb
+    require_command lb "sudo apt install live-build — or run scripts/install/bootstrap-host.sh"
     # live-build has TWO stages: `lb config` materializes the config tree (runs
     # config/auto/config), then `lb build` bootstraps + builds. Running only
     # `lb build` fails at the chroot stage ("the following stage is required to
