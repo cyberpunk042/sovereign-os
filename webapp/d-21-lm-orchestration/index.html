@@ -11,7 +11,7 @@
 <script>
   (function(){
     var KEY = 'sovereign-os.personalization', SCHEMA_V = 1;
-    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#9bd1ff', font_scale: 1 };
+    var DEF = { schema: SCHEMA_V, theme: 'auto', accent: '#93c9ff', font_scale: 1 };
     var p;
     try {
       var raw = localStorage.getItem(KEY);
@@ -30,12 +30,12 @@
 <style>
   :root {
     --bg:#0e0e0e; --fg:#e6e6e6; --muted:#888; --panel:#171717;
-    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#9bd1ff; --good:#7ad17a; --warn:#e6c062;
+    --border:#262626; --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --accent:#93c9ff; --good:#7ad17a; --warn:#e6c062;
     --bad:#ff7676; --font-scale:1;
   }
   html[data-theme="light"] {
     --bg:#f6f6f6; --fg:#0e0e0e; --muted:#555; --panel:#ffffff; --border:#d8d8d8;
-    /* The default accent (#9bd1ff) is tuned for the dark theme and is nearly
+    /* The default accent (#93c9ff) is tuned for the dark theme and is nearly
        illegible on white (~1.6:1). Force a readable darker blue on the light
        theme (~5.8:1). !important so it wins over the app-shell's inline --accent
        (an inline normal value that a stylesheet !important overrides). */
@@ -286,7 +286,7 @@ adoption pattern.
   summary:focus-visible,
   [role="button"]:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid var(--accent, #9bd1ff);
+    outline: 2px solid var(--accent, #93c9ff);
     outline-offset: 2px;
     border-radius: 3px;
   }
@@ -294,7 +294,7 @@ adoption pattern.
   /* The palette input had `outline: none` for design reasons; the
      visible focus ring above resupplies the a11y requirement. */
   .so-palette-input:focus-visible {
-    outline: 2px solid var(--accent, #9bd1ff);
+    outline: 2px solid var(--accent, #93c9ff);
     outline-offset: -2px;
   }
 
@@ -315,7 +315,7 @@ adoption pattern.
     width: auto;
     height: auto;
     padding: 0.5rem 1rem;
-    background: var(--accent, #9bd1ff);
+    background: var(--accent, #93c9ff);
     color: var(--bg, #0e0e0e);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-weight: 600;
@@ -464,7 +464,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   .so-palette-backdrop.open { display: flex; }
   .so-palette-box {
     width: min(560px, 90vw); background: var(--panel, #171717);
-    border: 1px solid var(--accent, #9bd1ff); border-radius: 6px;
+    border: 1px solid var(--accent, #93c9ff); border-radius: 6px;
     box-shadow: 0 8px 32px rgba(0,0,0,.6); overflow: hidden;
   }
   .so-palette-input {
@@ -483,7 +483,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     background: rgba(155,209,255,.10);
   }
   .so-palette-row .id {
-    font-weight: 600; color: var(--accent, #9bd1ff);
+    font-weight: 600; color: var(--accent, #93c9ff);
     min-width: 3.5rem; font-size: .82rem;
   }
   .so-palette-row .lbl { flex: 1; }
@@ -2251,62 +2251,144 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
      enter it; test_app_shell_contract) and inside a real <style> element (bare
      CSS text in <body> renders as literal page text — the 2026-10-07 breakage). -->
 <style id="so-act-style">
-  /* SDD-150: profile activation & download tracker modal — the whole bring-up
-     pipeline in one surface: catalog model downloads (queued → preflight →
-     downloading → verifying → complete, with byte counts + the hidden backend
-     phase meanings), the signed apply (trinity profile switch via the exec
-     rail), and each declared tier's language model becoming resident. Same
-     modal chrome as the provider/notification modals (same posture). */
-  #so-act-modal{position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+  /* SDD-150: profile activation & download tracker modal — high-UX redesign pass
+     (2026-10-08). Same doctrine, same data: catalog model downloads (queued →
+     preflight → downloading → verifying → complete, byte counts + the hidden
+     backend phase meanings surfaced), the signed apply (trinity profile switch
+     via the exec rail), and each declared tier's language model becoming
+     resident. Presentation: a pipeline stepper up top, state-colored stage
+     rails, animated progress, dot-chips, refined chrome — dark + light themes,
+     reduced-motion honored. Lives OUTSIDE the byte-identical APP-SHELL block
+     (test_app_shell_contract) inside a real <style> element (the 2026-10-07
+     bare-CSS-text breakage). */
+  #so-act-modal{
+    --m-card:#101318; --m-top:#161a21; --m-surf:#171c24; --m-hover:#1b212b; --m-border:#262c38; --m-hair:#20252e;
+    --m-fg:#eef1f6; --m-dim:#9aa4b4; --m-accent:#93c9ff; --m-accent-soft:rgba(147,201,255,.13);
+    --m-good:#63d19e; --m-good-soft:rgba(99,209,158,.12);
+    --m-warn:#e6c062; --m-warn-soft:rgba(230,192,98,.12);
+    --m-bad:#ff8f8f; --m-bad-soft:rgba(255,143,143,.10);
+    --m-line:#2c333f;
+    position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; padding:1rem;
+    background:rgba(5,7,11,.62); backdrop-filter:blur(7px) saturate(.92); -webkit-backdrop-filter:blur(7px) saturate(.92);
+  }
   #so-act-modal[hidden]{display:none;}
-  #so-act-modal .so-act-card{width:780px; max-width:94vw; max-height:88vh; overflow:auto; background:#151515; color:#f2f2f2; border:1px solid #2e2e2e; border-radius:10px; box-shadow:0 18px 50px rgba(0,0,0,.45);}
-  #so-act-modal .so-act-h{display:flex; align-items:center; justify-content:space-between; gap:.6rem; font-weight:600; padding:.6rem .9rem; border-bottom:1px solid #2e2e2e;}
-  #so-act-modal .so-act-x{background:#1e1e1e; color:#e6e6e6; border:1px solid #333; border-radius:6px; padding:.2rem .6rem; font:inherit; font-size:.72rem; cursor:pointer;}
-  #so-act-modal .so-act-sub{color:#9a9a9a; font-size:.72rem; line-height:1.5; padding:.5rem .9rem 0;}
-  #so-act-modal .so-act-sub code{color:#c9e3ff;}
-  #so-act-modal .so-act-stage{margin:.6rem .9rem; border:1px solid #262626; border-radius:8px; padding:.5rem .7rem .55rem;}
-  #so-act-modal .so-act-st-h{display:flex; align-items:center; gap:.5rem; font-weight:600; font-size:.78rem;}
-  #so-act-modal .so-act-st-h small{color:#9a9a9a; font-weight:400; font-size:.68rem;}
-  #so-act-modal .so-act-row{display:flex; align-items:center; gap:.55rem; padding:.34rem 0; border-top:1px solid #232323; font-size:.72rem; flex-wrap:wrap;}
+  #so-act-modal .so-act-card{
+    width:min(840px,96vw); max-height:88vh; overflow:auto; overscroll-behavior:contain;
+    background:linear-gradient(180deg,var(--m-top) 0,var(--m-card) 140px);
+    color:var(--m-fg); border:1px solid var(--m-border); border-radius:16px;
+    box-shadow:0 30px 80px -10px rgba(0,0,0,.65), 0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.045);
+    animation:so-act-in .22s cubic-bezier(.2,.8,.25,1);
+  }
+  @keyframes so-act-in{from{opacity:0; transform:translateY(10px) scale(.985);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion:reduce){
+    #so-act-modal .so-act-card{animation:none;}
+    #so-act-modal *{animation:none !important; transition:none !important;}
+  }
+  /* — header — */
+  #so-act-modal .so-act-h{display:flex; align-items:flex-start; gap:.9rem; justify-content:space-between;
+    padding:.95rem 1.15rem .35rem;}
+  #so-act-modal .so-act-h .so-act-kicker{display:block; margin:0 0 .18rem; color:var(--m-accent);
+    font-size:.6rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; opacity:.85;}
+  #so-act-modal .so-act-h b#so-act-title{font-size:.95rem; font-weight:600; letter-spacing:.01em;}
+  #so-act-modal .so-act-x{flex:0 0 auto; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center;
+    border-radius:9px; border:1px solid var(--m-border); background:transparent; color:var(--m-dim);
+    font:inherit; font-size:.85rem; cursor:pointer; transition:background .15s,color .15s,border-color .15s;}
+  #so-act-modal .so-act-x:hover{color:var(--m-fg); border-color:var(--m-line); background:var(--m-hover);}
+  #so-act-modal .so-act-x:focus-visible,#so-act-modal .p-apply:focus-visible{outline:2px solid var(--m-accent); outline-offset:2px;}
+  #so-act-modal .so-act-sub{color:var(--m-dim); font-size:.7rem; line-height:1.55; padding:0 1.15rem;}
+  #so-act-modal .so-act-sub code{color:var(--m-accent); font-size:.68rem;}
+  /* — pipeline stepper — */
+  #so-act-modal .so-act-steps{display:flex; align-items:center; gap:.4rem; margin:.85rem 1.15rem .15rem;}
+  #so-act-modal .so-act-step{display:flex; align-items:center; gap:.45rem; flex:1 1 0; min-width:0;
+    font-size:.68rem; font-weight:600; color:var(--m-dim);}
+  #so-act-modal .so-act-step i{flex:0 0 auto; width:1.35rem; height:1.35rem; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center; font-style:normal; font-size:.68rem;
+    border:1.5px solid var(--m-line); background:var(--m-surf); color:var(--m-dim);}
+  #so-act-modal .so-act-step b{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #so-act-modal .so-act-step.st-run{color:var(--m-fg);}
+  #so-act-modal .so-act-step.st-run i{border-color:var(--m-accent); color:var(--m-accent);
+    background:var(--m-accent-soft); animation:so-act-pulse 1.6s ease-in-out infinite;}
+  #so-act-modal .so-act-step.st-done{color:var(--m-fg);}
+  #so-act-modal .so-act-step.st-done i{border-color:var(--m-good); color:var(--m-good); background:var(--m-good-soft);}
+  #so-act-modal .so-act-step.st-err i{border-color:var(--m-bad); color:var(--m-bad); background:var(--m-bad-soft);}
+  @keyframes so-act-pulse{0%,100%{box-shadow:0 0 0 0 rgba(147,201,255,.35);} 50%{box-shadow:0 0 0 5px rgba(147,201,255,0);}}
+  #so-act-modal .so-act-link{flex:1 1 1.2rem; height:2px; min-width:.8rem; max-width:3rem; border-radius:2px;
+    background:var(--m-line);}
+  #so-act-modal .so-act-link.lk-done{background:var(--m-good);}
+  #so-act-modal .so-act-link.lk-run{background:linear-gradient(90deg,var(--m-accent),var(--m-line));}
+  /* — stage rails — */
+  #so-act-modal .so-act-stage{margin:.7rem 1.15rem 0; border:1px solid var(--m-hair); border-radius:12px;
+    padding:.6rem .85rem .65rem; background:var(--m-surf);
+    box-shadow:inset 3px 0 0 var(--m-line); transition:box-shadow .25s;}
+  #so-act-modal .so-act-stage.st-run{box-shadow:inset 3px 0 0 var(--m-accent);}
+  #so-act-modal .so-act-stage.st-ok{box-shadow:inset 3px 0 0 var(--m-good);}
+  #so-act-modal .so-act-stage.st-err{box-shadow:inset 3px 0 0 var(--m-bad);}
+  #so-act-modal .so-act-st-h{display:flex; align-items:center; gap:.5rem; font-weight:600; font-size:.76rem;}
+  #so-act-modal .so-act-st-h .so-act-n{flex:0 0 auto; width:1.15rem; height:1.15rem; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center; font-size:.64rem;
+    border:1.5px solid var(--m-line); color:var(--m-dim); background:var(--m-card);}
+  #so-act-modal .so-act-stage.st-run .so-act-n{border-color:var(--m-accent); color:var(--m-accent);}
+  #so-act-modal .so-act-stage.st-ok .so-act-n{border-color:var(--m-good); color:var(--m-good);}
+  #so-act-modal .so-act-stage.st-err .so-act-n{border-color:var(--m-bad); color:var(--m-bad);}
+  #so-act-modal .so-act-st-h small{color:var(--m-dim); font-weight:400; font-size:.66rem;}
+  #so-act-modal .so-act-row{display:flex; align-items:center; gap:.55rem; padding:.4rem 0;
+    border-top:1px solid var(--m-hair); font-size:.72rem; flex-wrap:wrap; border-radius:6px;}
   #so-act-modal .so-act-mid{flex:1 1 38%; min-width:0; font-family:var(--mono); word-break:break-word;}
-  #so-act-modal .so-act-phase{flex:1 1 100%; color:#9a9a9a; font-size:.68rem;}
-  #so-act-modal .so-act-num{color:#c9e3ff; font-family:var(--mono); font-size:.68rem;}
-  #so-act-modal .so-act-bar{flex:0 1 30%; min-width:8rem; height:6px; background:#242424; border-radius:4px; overflow:hidden;}
-  #so-act-modal .so-act-bar i{display:block; height:100%; background:#9bd1ff;}
-  #so-act-modal .so-act-chip{flex:0 0 auto; border:1px solid #333; border-radius:99px; padding:.06rem .5rem; font-size:.66rem; text-transform:lowercase;}
-  #so-act-modal .so-act-chip.s-wait{color:#9a9a9a;}
-  #so-act-modal .so-act-chip.s-run{color:#9bd1ff; border-color:#2b4658;}
-  #so-act-modal .so-act-chip.s-ok{color:#5fae66; border-color:#1f4d1f;}
-  #so-act-modal .so-act-chip.s-warn{color:#c79b3f; border-color:#4d431a;}
-  #so-act-modal .so-act-chip.s-err{color:#d06868; border-color:#5a2626;}
-  #so-act-modal .so-act-err{flex:1 1 100%; color:#d06868; font-size:.68rem;}
-  #so-act-modal .so-act-acts{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; padding:.45rem 0 .1rem;}
-  #so-act-modal .so-act-acts .p-apply{border:1px solid #9bd1ff; background:transparent; color:#9bd1ff; border-radius:5px; padding:.28rem .6rem; font:inherit; font-size:.72rem; cursor:pointer;}
+  #so-act-modal .so-act-phase{flex:1 1 100%; color:var(--m-dim); font-size:.68rem; line-height:1.45;}
+  #so-act-modal .so-act-num{color:var(--m-accent); font-family:var(--mono); font-size:.68rem;}
+  #so-act-modal .so-act-bar{flex:0 1 30%; min-width:8rem; height:7px; border-radius:99px; overflow:hidden;
+    background:rgba(255,255,255,.07); box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);}
+  #so-act-modal .so-act-bar i{display:block; height:100%; border-radius:99px;
+    background:linear-gradient(90deg,#5ea8e8,var(--m-accent)); transition:width .45s ease;}
+  #so-act-modal .so-act-chip{flex:0 0 auto; display:inline-flex; align-items:center; gap:.34rem;
+    border:1px solid transparent; border-radius:99px; padding:.13rem .55rem;
+    font-size:.64rem; font-weight:600; letter-spacing:.02em; text-transform:lowercase;
+    background:rgba(255,255,255,.06);}
+  #so-act-modal .so-act-chip::before{content:""; flex:0 0 auto; width:.4rem; height:.4rem; border-radius:50%;
+    background:currentColor;}
+  #so-act-modal .so-act-chip.s-wait{color:var(--m-dim);}
+  #so-act-modal .so-act-chip.s-run{color:var(--m-accent); background:var(--m-accent-soft);}
+  #so-act-modal .so-act-chip.s-run::before{animation:so-act-pulse 1.6s ease-in-out infinite;}
+  #so-act-modal .so-act-chip.s-ok{color:var(--m-good); background:var(--m-good-soft);}
+  #so-act-modal .so-act-chip.s-warn{color:var(--m-warn); background:var(--m-warn-soft);}
+  #so-act-modal .so-act-chip.s-err{color:var(--m-bad); background:var(--m-bad-soft);}
+  #so-act-modal .so-act-err{flex:1 1 100%; color:var(--m-bad); font-size:.68rem; line-height:1.45;
+    padding:.28rem .5rem; border-radius:6px; background:var(--m-bad-soft);}
+  /* — actions — */
+  #so-act-modal .so-act-acts{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+    margin:.85rem 1.15rem 0; padding-top:.75rem; border-top:1px solid var(--m-hair);}
+  #so-act-modal .so-act-acts .p-apply{border:1px solid var(--m-line); background:transparent; color:var(--m-fg);
+    border-radius:8px; padding:.34rem .7rem; font:inherit; font-size:.72rem; cursor:pointer;
+    transition:background .15s,border-color .15s;}
+  #so-act-modal .so-act-acts .p-apply:hover:not(:disabled){background:var(--m-hover); border-color:var(--m-dim);}
+  #so-act-modal .so-act-acts .p-apply.primary{border-color:var(--m-accent); color:var(--m-accent);
+    background:var(--m-accent-soft);}
+  #so-act-modal .so-act-acts .p-apply.primary:hover:not(:disabled){background:rgba(147,201,255,.22);}
   #so-act-modal .so-act-acts .p-apply:disabled{opacity:.45; cursor:default;}
+  #so-act-modal .so-act-foot{padding:.5rem 1.15rem 1rem;}
   #so-act-modal .p-result{font-size:.72rem; line-height:1.4;}
-  #so-act-modal .p-result.ok{color:var(--good,#7ad17a);} #so-act-modal .p-result.dry{color:var(--accent);}
+  #so-act-modal .p-result.ok{color:var(--good,#7ad17a);} #so-act-modal .p-result.dry{color:var(--m-accent);}
   #so-act-modal .p-result.warn{color:var(--warn,#e6c062);} #so-act-modal .p-result.err{color:var(--bad,#ff7676);}
-  #so-act-modal .p-result.muted{color:var(--muted,#8a8a8a);}
-  #so-act-modal .so-act-complete{margin:.2rem .9rem .7rem; border:1px solid #1f4d1f; border-radius:8px; padding:.5rem .7rem; color:#5fae66; font-size:.75rem;}
-  html[data-theme="light"] #so-act-modal{background:rgba(20,20,20,.35);}
-  html[data-theme="light"] #so-act-modal .so-act-card{background:#ffffff; color:#1c1c1c; border-color:#d5d5d5; box-shadow:0 18px 50px rgba(0,0,0,.25);}
-  html[data-theme="light"] #so-act-modal .so-act-h{border-bottom-color:#e2e2e2; color:#161616;}
-  html[data-theme="light"] #so-act-modal .so-act-x{background:#f4f4f4; color:#1c1c1c; border-color:#c9c9c9;}
-  html[data-theme="light"] #so-act-modal .so-act-sub{color:#5f5f5f;}
-  html[data-theme="light"] #so-act-modal .so-act-sub code{color:#1d4ed8;}
-  html[data-theme="light"] #so-act-modal .so-act-stage{border-color:#e2e2e2;}
-  html[data-theme="light"] #so-act-modal .so-act-row{border-top-color:#ececec;}
-  html[data-theme="light"] #so-act-modal .so-act-phase{color:#5f5f5f;}
-  html[data-theme="light"] #so-act-modal .so-act-num{color:#1d4ed8;}
-  html[data-theme="light"] #so-act-modal .so-act-bar{background:#e8e8e8;}
-  html[data-theme="light"] #so-act-modal .so-act-chip.s-wait{color:#6a6a6a;}
-  html[data-theme="light"] #so-act-modal .so-act-chip.s-run{color:#1d4ed8; border-color:#b9d2ea;}
-  html[data-theme="light"] #so-act-modal .so-act-chip.s-ok{color:#25702c; border-color:#b6d8b8;}
-  html[data-theme="light"] #so-act-modal .so-act-chip.s-warn{color:#8a6413; border-color:#dcc99a;}
-  html[data-theme="light"] #so-act-modal .so-act-chip.s-err{color:#ab3535; border-color:#e2b3b3;}
-  html[data-theme="light"] #so-act-modal .so-act-err{color:#ab3535;}
-  html[data-theme="light"] #so-act-modal .so-act-acts .p-apply{border-color:#1d4ed8; color:#1d4ed8;}
-  html[data-theme="light"] #so-act-modal .so-act-complete{border-color:#b6d8b8; color:#25702c;}
+  #so-act-modal .p-result.muted{color:var(--m-dim);}
+  /* — completion — */
+  #so-act-modal .so-act-complete{margin:.9rem 1.15rem 0; border:1px solid rgba(99,209,158,.35); border-radius:10px;
+    padding:.6rem .8rem; color:var(--m-good); font-size:.74rem; line-height:1.5;
+    background:linear-gradient(180deg,var(--m-good-soft),transparent);}
+  #so-act-modal .so-act-complete::before{content:"\2713"; display:inline-flex; margin-right:.45rem; font-weight:700;}
+  /* — light theme — */
+  html[data-theme="light"] #so-act-modal{
+    --m-card:#ffffff; --m-top:#f8fafc; --m-surf:#f6f8fa; --m-hover:#eef1f5; --m-border:#d8dde5; --m-hair:#e7ebf0;
+    --m-fg:#17202c; --m-dim:#5c6675; --m-accent:#1668b0; --m-accent-soft:rgba(22,104,176,.10);
+    --m-good:#1e7f4f; --m-good-soft:rgba(30,127,79,.10);
+    --m-warn:#8a6413; --m-warn-soft:rgba(138,100,19,.10);
+    --m-bad:#b13a3a; --m-bad-soft:rgba(177,58,58,.08);
+    --m-line:#c6cdd8;
+    background:rgba(15,23,42,.38);
+  }
+  html[data-theme="light"] #so-act-modal .so-act-card{box-shadow:0 30px 80px -12px rgba(15,23,42,.35), 0 6px 18px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.7);}
+  html[data-theme="light"] #so-act-modal .so-act-bar{background:rgba(15,23,42,.08); box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);}
+  html[data-theme="light"] #so-act-modal .so-act-bar i{background:linear-gradient(90deg,#2f7fc2,#1668b0);}
+  html[data-theme="light"] #so-act-modal .so-act-chip{background:rgba(15,23,42,.05);}
 </style>
 
 
@@ -2361,14 +2443,15 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
        every write goes through the signed exec rail (R10212). -->
   <div id="so-act-modal" role="dialog" aria-modal="true" aria-label="Profile activation and download progress" hidden>
     <div class="so-act-card">
-      <div class="so-act-h"><b id="so-act-title">Activation tracker</b><button id="so-act-close" class="so-act-x" aria-label="Close activation tracker">✕ close</button></div>
+      <div class="so-act-h"><div class="so-act-h-t"><span class="so-act-kicker">Bring-up pipeline</span><b id="so-act-title">Activation tracker</b></div><button id="so-act-close" class="so-act-x" aria-label="Close activation tracker">\u2715</button></div>
       <div class="so-act-sub" id="so-act-sub"></div>
+      <div class="so-act-steps" id="so-act-steps" aria-hidden="true"></div>
       <div id="so-act-stage-dl" class="so-act-stage" role="status"></div>
       <div id="so-act-stage-apply" class="so-act-stage" role="status"></div>
       <div id="so-act-stage-load" class="so-act-stage" role="status"></div>
       <div id="so-act-complete" class="so-act-complete" hidden></div>
       <div class="so-act-acts" id="so-act-acts"></div>
-      <div style="padding:0 .9rem .7rem"><span id="so-act-result" class="p-result muted"></span></div>
+      <div class="so-act-foot"><span id="so-act-result" class="p-result muted"></span></div>
     </div>
   </div>
 
@@ -2422,14 +2505,14 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
 .qp .qp-lbl { display: inline-flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--muted, #888); }
 .qp #qp-base { font: inherit; padding: .35rem .5rem; background: var(--bg, #0e0e0e); color: var(--fg, #e6e6e6);
                border: 1px solid var(--border, #262626); border-radius: 5px; min-width: 22rem; max-width: 100%; }
-.qp #qp-base:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+.qp #qp-base:focus { outline: 0; border-color: var(--accent, #93c9ff); }
 .qp .qp-variants { display: flex; flex-wrap: wrap; gap: .5rem; margin: .7rem 0 0; }
 .qp .qp-variant { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .1rem;
                   font: inherit; text-align: left; padding: .4rem .6rem; cursor: pointer;
                   background: var(--bg, #0e0e0e); color: var(--fg, #e6e6e6);
                   border: 1px solid var(--border, #262626); border-radius: 6px; }
-.qp .qp-variant:hover { border-color: var(--accent, #9bd1ff); }
-.qp .qp-variant[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; border-color: var(--accent, #9bd1ff); }
+.qp .qp-variant:hover { border-color: var(--accent, #93c9ff); }
+.qp .qp-variant[aria-pressed="true"] { background: var(--accent, #93c9ff); color: #0a0a0a; border-color: var(--accent, #93c9ff); }
 .qp .qp-variant[aria-pressed="true"] .qp-meta { color: #0a0a0a; opacity: .85; }
 .qp .qp-variant .qp-q { font-weight: 600; font-size: .82rem; }
 .qp .qp-variant .qp-meta { font-size: .72rem; color: var(--muted, #888); }
@@ -2465,7 +2548,7 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   function demoOn() { return !!(window.soDemo && window.soDemo.on()); }
   function scrollToCard(card) {
     (card || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
-    if (card) { card.style.outline = '2px solid var(--accent, #9bd1ff)';
+    if (card) { card.style.outline = '2px solid var(--accent, #93c9ff)';
                 setTimeout(function () { card.style.outline = ''; }, 1600); }
   }
   function mount() {
@@ -2915,16 +2998,41 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const st = actState();
     const p = st.demo ? null : st.profile;
     const pid = ACT.id || '';
-    $('so-act-title').textContent = 'Activation tracker — ' + ((p && (p.name || p.id || p.mode_id)) || pid);
+    $('so-act-title').textContent = ((p && (p.name || p.id || p.mode_id)) || pid) || 'Activation tracker';
     $('so-act-sub').innerHTML = st.demo
       ? '<strong>DEMO mode</strong> — sample pipeline data, not a live daemon. Disable it in Personalization.'
       : 'Reads <code>/api/lm-orchestration/profiles</code> + <code>/api/lm-orchestration/grid</code> every 2 s while open. Every write goes through the signed control-exec rail; a completed apply is not evidence the models became resident — stage 3 is.'
         + (st.pollError ? ' <span class="so-act-err">daemon unreachable: ' + esc(st.pollError) + '</span>' : '');
+    // Stepper + stage rails carry the pipeline state visually (redesign pass);
+    // the state math below is the same evidence the contract pins demand.
+    const dlRunning = st.downloads.some(d => ['queued','preflight','downloading','verifying'].includes(d.status));
+    const dlFailed = st.downloads.some(d => d.status === 'failed' || d.status === 'interrupted');
+    const dlComplete = st.downloads.length === 0 || st.downloads.every(d => d.status === 'complete');
+    const apCls = st.apply.state === 'active' ? 'st-done'
+      : ['blocked','denied','error','unreachable','conflict'].includes(st.apply.state) ? 'st-err'
+      : st.apply.state === 'waiting' ? '' : 'st-run';
+    const allResident = st.tiers.length > 0 && st.tiers.every(t => t.resident === t.want);
+    const ldCls = allResident ? 'st-done' : st.apply.state === 'active' ? 'st-run' : '';
+    function stepNode(n, label, cls){
+      const s = document.createElement('span'); s.className = 'so-act-step ' + cls;
+      s.innerHTML = '<i>' + (cls === 'st-done' ? '\u2713' : cls === 'st-err' ? '\u2715' : n) + '</i><b>' + label + '</b>';
+      return s;
+    }
+    function linkNode(cls){ const l = document.createElement('span'); l.className = 'so-act-link ' + cls; return l; }
+    const stepsEl = $('so-act-steps'); stepsEl.innerHTML = '';
+    const dlCls = dlComplete ? 'st-done' : dlRunning ? 'st-run' : dlFailed ? 'st-err' : '';
+    stepsEl.appendChild(stepNode('1', 'Downloads', dlCls));
+    stepsEl.appendChild(linkNode(dlComplete ? (dlRunning ? 'lk-run' : 'lk-done') : ''));
+    stepsEl.appendChild(stepNode('2', 'Apply', apCls));
+    stepsEl.appendChild(linkNode(dlCls === 'st-done' && st.apply.state === 'active' ? 'lk-done' : ''));
+    stepsEl.appendChild(stepNode('3', 'Models live', ldCls));
+    function railCls(cls){ $('so-act-stage-' + cls[0]).className = 'so-act-stage ' + (cls[1] || ''); }
+    railCls(['dl', dlCls]); railCls(['apply', apCls]); railCls(['load', ldCls]);
     // ① Catalog model downloads — job states + byte counts + hidden phases.
-    let dl = '<div class="so-act-st-h">① Catalog model downloads ';
-    const anyRun = st.downloads.some(d => ['queued','preflight','downloading','verifying'].includes(d.status));
-    const anyFail = st.downloads.some(d => d.status === 'failed' || d.status === 'interrupted');
-    const dlDone = st.downloads.length === 0 || st.downloads.every(d => d.status === 'complete');
+    let dl = '<div class="so-act-st-h"><span class="so-act-n">1</span> Catalog model downloads ';
+    const anyRun = dlRunning;
+    const anyFail = dlFailed;
+    const dlDone = dlComplete;
     dl += actChip(dlDone ? 'complete' : anyRun ? 'running' : anyFail ? 'needs resume' : 'not started') + ' <small>only catalog-selected artifacts; resumable background jobs</small></div>';
     if (!st.downloads.length) dl += '<div class="so-act-row"><span class="so-act-mid">All declared models are resident and verified</span>';
     else st.downloads.forEach(d => {
@@ -2940,7 +3048,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     });
     $('so-act-stage-dl').innerHTML = dl;
     // ② Signed apply — trinity profile switch through the exec rail.
-    let ap = '<div class="so-act-st-h">② Signed profile apply '
+    let ap = '<div class="so-act-st-h"><span class="so-act-n">2</span> Signed profile apply '
       + actChip(st.apply.state)
       + ' <small><code>sovereign-osctl trinity profile switch ' + esc(pid) + '</code> via the sudoer rail</small></div>';
     const apNote = { waiting: 'not applied yet — the active marker will move when the rail accepts it',
@@ -2957,7 +3065,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     ap += `<div class="so-act-row"><span class="so-act-phase">${esc(apNote)}${st.apply.msg ? ' — ' + esc(st.apply.msg) : ''}</span></div>`;
     $('so-act-stage-apply').innerHTML = ap;
     // ③ Language model loading — declared per tier vs actually bound+active.
-    let ld = '<div class="so-act-st-h">③ Language model loading ';
+    let ld = '<div class="so-act-st-h"><span class="so-act-n">3</span> Language model loading ';
     if (!st.tiers.length) ld += actChip('not prescribed') + ' <small>this posture does not prescribe catalog models — the grid shows what serves</small></div>';
     else {
       const allLive = st.tiers.every(t => t.resident === t.want);
@@ -2992,14 +3100,14 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       acts.appendChild(note);
     } else {
       if (st.downloads.some(d => d.status === 'not-started' || d.status === 'failed' || d.status === 'interrupted')) {
-        const b = document.createElement('button'); b.className = 'p-apply';
+        const b = document.createElement('button'); b.className = 'p-apply primary';
         b.textContent = 'Start / resume downloads';
         b.disabled = anyRun;
         b.addEventListener('click', actStartDownloads);
         acts.appendChild(b);
       }
       if (st.apply.state === 'waiting' || st.apply.state === 'blocked' || st.apply.state === 'conflict' || st.apply.state === 'error' || st.apply.state === 'unreachable' || st.apply.state === 'dry') {
-        const b = document.createElement('button'); b.className = 'p-apply';
+        const b = document.createElement('button'); b.className = 'p-apply primary';
         b.textContent = 'Apply profile (signed rail)';
         b.addEventListener('click', () => applyProfile(ACT.id, ACT.fam, $('so-act-result')));
         acts.appendChild(b);
@@ -3419,7 +3527,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const c = s && s.querySelector('[data-cid="' + cid + '"]');
     (c || s || document.body).scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (c) {
-      c.style.outline = '2px solid var(--accent,#9bd1ff)';
+      c.style.outline = '2px solid var(--accent,#93c9ff)';
       setTimeout(() => { c.style.outline = ''; }, 1600);
     }
   }
@@ -3635,8 +3743,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   border-radius: 3px; padding: 0 .35rem;
 }
 .cs-global {
-  font-size: .7rem; color: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 3px; padding: 0 .35rem;
+  font-size: .7rem; color: var(--accent, #93c9ff);
+  border: 1px solid var(--accent, #93c9ff); border-radius: 3px; padding: 0 .35rem;
 }
 .cs-proxy {
   font-size: .7rem; color: #e0b050; border: 1px solid #e0b050;
@@ -3657,21 +3765,21 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   padding: .2rem .5rem; cursor: pointer;
 }
 .cs-verb:last-child { border-right: 0; }
-.cs-verb[aria-pressed="true"] { background: var(--accent, #9bd1ff); color: #0a0a0a; font-weight: 600; }
+.cs-verb[aria-pressed="true"] { background: var(--accent, #93c9ff); color: #0a0a0a; font-weight: 600; }
 .cs-arg {
   font-family: var(--mono, ui-monospace, monospace); font-size: .74rem;
   color: var(--fg, #e6e6e6); background: var(--bg, #0e0e0e);
   border: 1px solid var(--border, #262626); border-radius: 4px;
   padding: .2rem .4rem; min-width: 6ch; max-width: 16ch;
 }
-.cs-arg:focus { outline: 0; border-color: var(--accent, #9bd1ff); }
+.cs-arg:focus { outline: 0; border-color: var(--accent, #93c9ff); }
 
 /* ── action row: Execute (primary) + Copy (fallback) ───────────────────── */
 .cs-actions { display: flex; gap: .35rem; align-items: stretch; margin-top: .1rem; }
 .cs-exec {
   font-size: .76rem; font-weight: 600; cursor: pointer;
-  color: #0a0a0a; background: var(--accent, #9bd1ff);
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+  color: #0a0a0a; background: var(--accent, #93c9ff);
+  border: 1px solid var(--accent, #93c9ff); border-radius: 4px;
   padding: .28rem .6rem; white-space: nowrap;
 }
 .cs-exec:hover { filter: brightness(1.08); }
@@ -3682,12 +3790,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   border: 1px solid var(--border, #262626); border-radius: 4px;
   padding: .25rem .4rem; cursor: pointer; overflow-x: auto; white-space: nowrap; flex: 1;
 }
-.cs-cmd:hover { border-color: var(--accent, #9bd1ff); }
+.cs-cmd:hover { border-color: var(--accent, #93c9ff); }
 .cs-copy { flex: 1; }
 /* result line — dry-run / executed / rejected feedback, always visible */
 .cs-result { font-size: .72rem; line-height: 1.4; min-height: 1em; word-break: break-word; }
 .cs-result.ok { color: #6fcf6f; }
-.cs-result.dry { color: var(--accent, #9bd1ff); }
+.cs-result.dry { color: var(--accent, #93c9ff); }
 .cs-result.warn { color: #e0b050; }
 .cs-result.err { color: #e06a6a; }
 .cs-result.muted { color: var(--muted, #888); }
@@ -3695,7 +3803,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 .cs-confirm {
   display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
   padding: .35rem .4rem; margin-top: .1rem;
-  border: 1px dashed var(--accent, #9bd1ff); border-radius: 4px;
+  border: 1px dashed var(--accent, #93c9ff); border-radius: 4px;
 }
 .cs-confirm-msg { font-size: .72rem; color: var(--muted, #888); }
 .cs-confirm-msg code { color: var(--fg, #e6e6e6); }
@@ -3705,7 +3813,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 .cs-stepup {
   display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
   padding: .35rem .4rem; margin-top: .1rem;
-  border: 1px solid var(--accent, #9bd1ff); border-radius: 4px;
+  border: 1px solid var(--accent, #93c9ff); border-radius: 4px;
 }
 .cs-stepup-msg { flex: 1 0 100%; font-size: .72rem; color: var(--muted, #888); }
 .cs-stepup-msg code { color: var(--fg, #e6e6e6); }
@@ -4418,20 +4526,20 @@ window.SO_ASSIST = {
   body.so-sm-collapsed #so-course-rail{left:var(--so-sidemenu-w-collapsed);}
   body.so-assist-open #so-course-rail{right:var(--so-assist-w);}
   @media (max-width:1024px){ #so-course-rail{left:0 !important; right:0 !important;} }
-  #so-course-rail .so-course-mark{color:var(--accent,#9bd1ff); font-weight:600; white-space:nowrap;}
+  #so-course-rail .so-course-mark{color:var(--accent,#93c9ff); font-weight:600; white-space:nowrap;}
   #so-course-rail .so-course-where{color:var(--muted,#8a8a8a); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
   #so-course-rail .so-course-where b{color:var(--fg,#e6e6e6); font-weight:600;}
   #so-course-bar{flex:1; min-width:40px; height:5px; border-radius:999px; background:var(--bg,#0e0e0e); border:1px solid var(--border,#262626); overflow:hidden;}
-  #so-course-bar > i{display:block; height:100%; width:0; background:var(--accent,#9bd1ff);}
+  #so-course-bar > i{display:block; height:100%; width:0; background:var(--accent,#93c9ff);}
   #so-course-rail .so-course-pct{color:var(--muted,#8a8a8a); font-variant-numeric:tabular-nums; white-space:nowrap;}
-  #so-course-rail.so-course-firstrun{background:linear-gradient(180deg,color-mix(in srgb,var(--accent,#9bd1ff) 12%,var(--panel,#171717)),var(--panel,#171717));}
+  #so-course-rail.so-course-firstrun{background:linear-gradient(180deg,color-mix(in srgb,var(--accent,#93c9ff) 12%,var(--panel,#171717)),var(--panel,#171717));}
   .so-course-actions{display:flex; align-items:center; gap:.3rem; flex:none;}
   .so-course-btn{display:inline-flex; align-items:center; justify-content:center; gap:.3rem; height:28px; padding:0 .55rem;
     background:transparent; color:var(--fg,#e6e6e6); border:1px solid var(--border,#262626); border-radius:6px; cursor:pointer; font:inherit; font-size:.76rem;}
-  .so-course-btn:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#9bd1ff) 40%,transparent);}
+  .so-course-btn:hover{background:color-mix(in srgb,var(--accent,#93c9ff) 14%,transparent); border-color:color-mix(in srgb,var(--accent,#93c9ff) 40%,transparent);}
   .so-course-btn[disabled]{opacity:.35; cursor:not-allowed;}
   /* the one primary action per view (design-grammar rule 2) */
-  .so-course-btn.primary{background:var(--accent,#9bd1ff); border-color:var(--accent,#9bd1ff); color:#08131f; font-weight:600;}
+  .so-course-btn.primary{background:var(--accent,#93c9ff); border-color:var(--accent,#93c9ff); color:#08131f; font-weight:600;}
   .so-course-btn.primary:hover{filter:brightness(1.06);}
   /* the expandable reading panel — grows upward from the rail, same band */
   #so-course-panel{position:fixed; left:var(--so-sidemenu-w); right:0; bottom:var(--so-course-rail-h); z-index:9349;
@@ -4445,23 +4553,23 @@ window.SO_ASSIST = {
   .so-course-ph{display:flex; align-items:center; gap:.6rem; padding:.6rem .9rem; border-bottom:1px solid var(--border,#262626); flex:none;}
   .so-course-ph .so-course-modname{color:var(--muted,#8a8a8a); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em;}
   .so-course-tier{font-size:.64rem; text-transform:uppercase; letter-spacing:.05em; border:1px solid var(--border,#3a3a3a); border-radius:999px; padding:.05rem .45rem; color:var(--muted,#a8a8a8);}
-  .so-course-tier.core{color:#8fd9ff; border-color:color-mix(in srgb,var(--accent,#9bd1ff) 55%,transparent);}
+  .so-course-tier.core{color:#8fd9ff; border-color:color-mix(in srgb,var(--accent,#93c9ff) 55%,transparent);}
   .so-course-tier.standard{color:#7fd18f; border-color:rgba(127,209,143,.5);}
   .so-course-tier.advanced{color:#e0c07a; border-color:rgba(224,192,122,.5);}
   .so-course-tier.optional{color:#a8a8a8;}
   .so-course-ph .sp{margin-left:auto;}
   .so-course-body{flex:1; overflow-y:auto; padding:.9rem 1rem 1.1rem; font-size:.85rem; line-height:1.62;}
   .so-course-lt{font-size:1.02rem; font-weight:600; margin:0 0 .55rem;}
-  .so-course-lt .id{color:var(--accent,#9bd1ff); font-size:.8rem; font-weight:500; margin-right:.35rem;}
+  .so-course-lt .id{color:var(--accent,#93c9ff); font-size:.8rem; font-weight:500; margin-right:.35rem;}
   .so-course-body p{margin:.5rem 0; color:var(--fg-2,#c8c8c8);}
   .so-course-here{display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; color:#7fd18f; border:1px solid rgba(127,209,143,.5); border-radius:999px; padding:.08rem .5rem; margin-bottom:.5rem;}
   .so-course-tip{border:1px solid rgba(155,209,255,.28); background:rgba(155,209,255,.05); border-radius:7px; padding:.55rem .7rem; margin:.7rem 0 .2rem;}
-  .so-course-tip .lb{font-weight:600; font-size:.76rem; color:var(--accent,#9bd1ff); margin-bottom:.2rem;}
+  .so-course-tip .lb{font-weight:600; font-size:.76rem; color:var(--accent,#93c9ff); margin-bottom:.2rem;}
   .so-course-tip .tx{font-size:.8rem; color:var(--fg-2,#c8c8c8);}
   /* "key things to notice" bullets */
   .so-course-notice{margin:.7rem 0 .2rem; padding:0; list-style:none;}
   .so-course-notice li{position:relative; padding-left:1.1rem; margin:.28rem 0; font-size:.8rem; color:var(--fg-2,#c8c8c8);}
-  .so-course-notice li::before{content:'◦'; position:absolute; left:.15rem; color:var(--accent,#9bd1ff);}
+  .so-course-notice li::before{content:'◦'; position:absolute; left:.15rem; color:var(--accent,#93c9ff);}
   /* try-it checkpoint */
   .so-course-todo{display:flex; align-items:flex-start; gap:.5rem; border:1px solid rgba(127,209,143,.4); background:rgba(127,209,143,.05); border-radius:7px; padding:.55rem .7rem; margin:.7rem 0 .2rem; cursor:pointer; user-select:none;}
   .so-course-todo input{margin-top:.15rem; accent-color:var(--good,#7ad17a); flex:none;}
@@ -4475,7 +4583,7 @@ window.SO_ASSIST = {
     background:var(--card,#151515); border:1px solid var(--border,#262626); border-radius:9px; box-shadow:0 10px 34px rgba(0,0,0,.5); padding:.3rem; display:none; z-index:9351;}
   body.so-course-jump #so-course-modlist{display:block;}
   .so-course-mod{display:flex; align-items:center; gap:.5rem; width:100%; text-align:left; background:transparent; border:0; border-radius:6px; cursor:pointer; color:var(--fg,#e6e6e6); font:inherit; font-size:.8rem; padding:.4rem .55rem;}
-  .so-course-mod:hover{background:color-mix(in srgb,var(--accent,#9bd1ff) 12%,transparent);}
+  .so-course-mod:hover{background:color-mix(in srgb,var(--accent,#93c9ff) 12%,transparent);}
   .so-course-mod .mi{color:var(--muted,#8a8a8a); font-variant-numeric:tabular-nums; min-width:1.6rem;}
   .so-course-mod .ml{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .so-course-mod.done .ml{color:var(--muted,#8a8a8a);}
@@ -4485,8 +4593,8 @@ window.SO_ASSIST = {
      app-shell deep-link .so-deeplink-hot look; own class so the course owns
      its lifecycle). Reduced-motion falls back to a static outline. */
   .so-course-spot{animation:so-course-pulse 2.1s ease; border-radius:6px; scroll-margin:96px;}
-  @keyframes so-course-pulse{0%,100%{box-shadow:none;} 12%,55%{box-shadow:0 0 0 2px var(--accent,#9bd1ff),0 0 16px rgba(155,209,255,.55);}}
-  @media (prefers-reduced-motion: reduce){ .so-course-spot{animation:none; outline:2px solid var(--accent,#9bd1ff); outline-offset:2px;} }
+  @keyframes so-course-pulse{0%,100%{box-shadow:none;} 12%,55%{box-shadow:0 0 0 2px var(--accent,#93c9ff),0 0 16px rgba(155,209,255,.55);}}
+  @media (prefers-reduced-motion: reduce){ .so-course-spot{animation:none; outline:2px solid var(--accent,#93c9ff); outline-offset:2px;} }
 </style>
 <script>
 (function(){
