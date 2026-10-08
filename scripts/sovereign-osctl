@@ -5270,12 +5270,14 @@ _trinity_profile() {
   # Operator-authored drafts live outside the repo (composer Save-draft target;
   # mirrors LM_ORCH_USER_PROFILES_DIR in the D-21 daemon).
   local user_dir="${SOVEREIGN_OS_USER_PROFILES_DIR:-${HOME}/.sovereign-os/profiles/orchestration}"
-  # Build orchestration also exports SOVEREIGN_OS_STATE_DIR (normally
-  # /root/.sovereign-os/build-state).  That is build scratch, never runtime
-  # profile authority.  A profile selection must use the single system marker
-  # when privileged, or the operator marker when not.
-  local state_dir="/etc/sovereign-os"
-  if [ ! -w /etc 2>/dev/null ]; then
+  # An explicit state root is authoritative (4ba6193c: "make explicit Trinity
+  # state root merge-stable" — the Layer-3 test pins every Trinity artifact
+  # under it; marker and env file must never split roots).  Without an
+  # explicit root: the single system marker when privileged, the operator
+  # marker when not.  Build orchestration exports SOVEREIGN_OS_STATE_DIR as
+  # build scratch — unset it in shells that run `trinity profile switch`.
+  local state_dir="${SOVEREIGN_OS_STATE_DIR:-/etc/sovereign-os}"
+  if [ -z "${SOVEREIGN_OS_STATE_DIR:-}" ] && [ ! -w /etc 2>/dev/null ]; then
     state_dir="${HOME}/.sovereign-os"
   fi
   local active_file="${state_dir}/active-runtime-profile"
@@ -5521,9 +5523,9 @@ PY
       # does NOT do (SDD-903): multiple models per card or new tiers — the tier
       # unit set + gatewayd routing are converge-owned, not profile-driven yet.
       # state_dir already honors an explicit override and selects the user
-      # fallback only when the default /etc root is unavailable.
+      # fallback only when the default /etc root is unavailable — the env
+      # file therefore always lands beside the active-profile marker.
       local env_file="${state_dir}/active-runtime-profile-env.sh"
-      [ -w /etc 2>/dev/null ] || env_file="${HOME}/.sovereign-os/active-runtime-profile-env.sh"
       mkdir -p "$(dirname "${env_file}")" 2>/dev/null || true
 
       # Generate the runtime-profile env file. SCOPE (SDD-903 Phase 0): this file
