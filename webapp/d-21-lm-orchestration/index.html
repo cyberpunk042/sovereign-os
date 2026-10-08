@@ -2251,60 +2251,72 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
      enter it; test_app_shell_contract) and inside a real <style> element (bare
      CSS text in <body> renders as literal page text — the 2026-10-07 breakage). -->
 <style id="so-act-style">
-  /* SDD-150: profile activation & download tracker modal — high-UX redesign pass
-     (2026-10-08). Same doctrine, same data: catalog model downloads (queued →
-     preflight → downloading → verifying → complete, byte counts + the hidden
-     backend phase meanings surfaced), the signed apply (trinity profile switch
-     via the exec rail), and each declared tier's language model becoming
-     resident. Presentation: a pipeline stepper up top, state-colored stage
-     rails, animated progress, dot-chips, refined chrome — dark + light themes,
-     reduced-motion honored. Lives OUTSIDE the byte-identical APP-SHELL block
-     (test_app_shell_contract) inside a real <style> element (the 2026-10-07
-     bare-CSS-text breakage). */
+  /* SDD-150 round-2 + stage 4: the activation tracker, high-UX pass. Same
+     doctrine, same contract pins — presentation and observation get better:
+     sticky header/stepper/footer (actions never scroll away), profile meta
+     line, overall-pipeline chip, grid rows (name, state, byte math + live
+     rate/ETA from poll deltas, phase meaning on its own line), per-stage
+     counters, a tier matrix, stage 4 grouping the third-party consumers the
+     switch touches (OpenClaw catalog mirror, Open Computer, Claude Code,
+     VSCode), SVG glyphs, full dark/light token sets, reduced-motion. Lives
+     OUTSIDE the byte-identical APP-SHELL block in a real <style> element. */
   #so-act-modal{
-    --m-card:#101318; --m-top:#161a21; --m-surf:#171c24; --m-hover:#1b212b; --m-border:#262c38; --m-hair:#20252e;
-    --m-fg:#eef1f6; --m-dim:#9aa4b4; --m-accent:#93c9ff; --m-accent-soft:rgba(147,201,255,.13);
+    --m-card:#101318; --m-top:#161a21; --m-surf:#171c24; --m-surf2:#131720; --m-hover:#1b212b;
+    --m-border:#262c38; --m-hair:#20252e; --m-line:#2c333f;
+    --m-fg:#eef1f6; --m-fg-soft:#c3ccd9; --m-dim:#99a3b3;
+    --m-accent:#93c9ff; --m-accent-soft:rgba(147,201,255,.13);
     --m-good:#63d19e; --m-good-soft:rgba(99,209,158,.12);
     --m-warn:#e6c062; --m-warn-soft:rgba(230,192,98,.12);
     --m-bad:#ff8f8f; --m-bad-soft:rgba(255,143,143,.10);
-    --m-line:#2c333f;
     position:fixed; inset:0; z-index:9600; display:flex; align-items:center; justify-content:center; padding:1rem;
-    background:rgba(5,7,11,.62); backdrop-filter:blur(7px) saturate(.92); -webkit-backdrop-filter:blur(7px) saturate(.92);
+    background:rgba(5,7,11,.66); backdrop-filter:blur(8px) saturate(.9); -webkit-backdrop-filter:blur(8px) saturate(.9);
   }
   #so-act-modal[hidden]{display:none;}
   #so-act-modal .so-act-card{
-    width:min(840px,96vw); max-height:88vh; overflow:auto; overscroll-behavior:contain;
-    background:linear-gradient(180deg,var(--m-top) 0,var(--m-card) 140px);
+    display:flex; flex-direction:column; width:min(860px,96vw); max-height:min(680px,88vh);
+    background:linear-gradient(180deg,var(--m-top) 0,var(--m-card) 150px);
     color:var(--m-fg); border:1px solid var(--m-border); border-radius:16px;
     box-shadow:0 30px 80px -10px rgba(0,0,0,.65), 0 6px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.045);
-    animation:so-act-in .22s cubic-bezier(.2,.8,.25,1);
+    animation:so-act-in .22s cubic-bezier(.2,.8,.25,1); overflow:hidden;
   }
   @keyframes so-act-in{from{opacity:0; transform:translateY(10px) scale(.985);} to{opacity:1; transform:none;}}
   @media (prefers-reduced-motion:reduce){
     #so-act-modal .so-act-card{animation:none;}
     #so-act-modal *{animation:none !important; transition:none !important;}
   }
-  /* — header — */
-  #so-act-modal .so-act-h{display:flex; align-items:flex-start; gap:.9rem; justify-content:space-between;
-    padding:.95rem 1.15rem .35rem;}
-  #so-act-modal .so-act-h .so-act-kicker{display:block; margin:0 0 .18rem; color:var(--m-accent);
-    font-size:.6rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; opacity:.85;}
-  #so-act-modal .so-act-h b#so-act-title{font-size:.95rem; font-weight:600; letter-spacing:.01em;}
+  /* — header: title + meta line + overall chip — */
+  #so-act-modal .so-act-h{flex:0 0 auto; display:flex; align-items:flex-start; gap:.9rem; justify-content:space-between;
+    padding:1.05rem 1.25rem .15rem;}
+  #so-act-modal .so-act-h .so-act-kicker{display:block; margin:0 0 .22rem; color:var(--m-accent);
+    font-size:.58rem; font-weight:700; letter-spacing:.16em; text-transform:uppercase; opacity:.8;}
+  #so-act-modal .so-act-h b#so-act-title{font-size:1.02rem; font-weight:650; letter-spacing:.01em;}
+  #so-act-modal .so-act-meta{display:flex; align-items:center; gap:.45rem; flex-wrap:wrap;
+    margin-top:.3rem; color:var(--m-dim); font-size:.66rem; line-height:1.5;}
+  #so-act-modal .so-act-meta .so-act-fam{border:1px solid var(--m-border); border-radius:5px; padding:.03rem .4rem;
+    font-size:.6rem; letter-spacing:.06em; text-transform:uppercase; color:var(--m-fg-soft);}
+  #so-act-modal .so-act-meta .so-act-active{color:var(--m-good); border:1px solid rgba(99,209,158,.4);
+    background:var(--m-good-soft); border-radius:5px; padding:.03rem .4rem; font-size:.6rem; letter-spacing:.1em;}
+  #so-act-modal .so-act-hr{display:flex; align-items:center; gap:.6rem; flex:0 0 auto;}
+  #so-act-modal .so-act-overall{display:inline-flex; align-items:center; gap:.36rem; border-radius:99px;
+    padding:.2rem .6rem; font-size:.62rem; font-weight:600; letter-spacing:.03em;
+    border:1px solid var(--m-border); background:var(--m-surf); color:var(--m-dim);}
+  #so-act-modal .so-act-overall::before{content:""; width:.42rem; height:.42rem; border-radius:50%; background:currentColor;}
+  #so-act-modal .so-act-overall.o-run{color:var(--m-accent); border-color:rgba(147,201,255,.35); background:var(--m-accent-soft);}
+  #so-act-modal .so-act-overall.o-run::before{animation:so-act-pulse 1.6s ease-in-out infinite;}
+  #so-act-modal .so-act-overall.o-ok{color:var(--m-good); border-color:rgba(99,209,158,.35); background:var(--m-good-soft);}
+  #so-act-modal .so-act-overall.o-err{color:var(--m-bad); border-color:rgba(255,143,143,.35); background:var(--m-bad-soft);}
   #so-act-modal .so-act-x{flex:0 0 auto; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center;
     border-radius:9px; border:1px solid var(--m-border); background:transparent; color:var(--m-dim);
-    font:inherit; font-size:.85rem; cursor:pointer; transition:background .15s,color .15s,border-color .15s;}
+    font:inherit; cursor:pointer; transition:background .15s,color .15s,border-color .15s;}
   #so-act-modal .so-act-x:hover{color:var(--m-fg); border-color:var(--m-line); background:var(--m-hover);}
+  #so-act-modal .so-act-x svg,#so-act-modal .so-act-step svg,#so-act-modal .p-apply svg{stroke:currentColor; fill:none; stroke-width:2;}
   #so-act-modal .so-act-x:focus-visible,#so-act-modal .p-apply:focus-visible{outline:2px solid var(--m-accent); outline-offset:2px;}
-  #so-act-modal .so-act-sub{color:var(--m-dim); font-size:.7rem; line-height:1.55; padding:0 1.15rem;}
-  #so-act-modal .so-act-sub code{color:var(--m-accent); font-size:.68rem;}
-  /* — pipeline stepper — */
-  #so-act-modal .so-act-steps{display:flex; align-items:center; gap:.4rem; margin:.85rem 1.15rem .15rem;}
-  #so-act-modal .so-act-step{display:flex; align-items:center; gap:.45rem; flex:1 1 0; min-width:0;
-    font-size:.68rem; font-weight:600; color:var(--m-dim);}
-  #so-act-modal .so-act-step i{flex:0 0 auto; width:1.35rem; height:1.35rem; border-radius:50%;
-    display:inline-flex; align-items:center; justify-content:center; font-style:normal; font-size:.68rem;
-    border:1.5px solid var(--m-line); background:var(--m-surf); color:var(--m-dim);}
-  #so-act-modal .so-act-step b{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  /* — pipeline stepper (sticky, outside the scroll area) — */
+  #so-act-modal .so-act-steps{flex:0 0 auto; display:flex; align-items:center; gap:.35rem; margin:.6rem 1.25rem .2rem;}
+  #so-act-modal .so-act-step{display:flex; align-items:center; gap:.45rem; font-size:.66rem; font-weight:600; color:var(--m-dim);}
+  #so-act-modal .so-act-step i{flex:0 0 auto; width:1.4rem; height:1.4rem; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center; font-style:normal; font-size:.66rem;
+    border:1.5px solid var(--m-line); background:var(--m-surf); color:var(--m-dim); transition:border-color .3s,color .3s,background .3s;}
   #so-act-modal .so-act-step.st-run{color:var(--m-fg);}
   #so-act-modal .so-act-step.st-run i{border-color:var(--m-accent); color:var(--m-accent);
     background:var(--m-accent-soft); animation:so-act-pulse 1.6s ease-in-out infinite;}
@@ -2312,38 +2324,55 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   #so-act-modal .so-act-step.st-done i{border-color:var(--m-good); color:var(--m-good); background:var(--m-good-soft);}
   #so-act-modal .so-act-step.st-err i{border-color:var(--m-bad); color:var(--m-bad); background:var(--m-bad-soft);}
   @keyframes so-act-pulse{0%,100%{box-shadow:0 0 0 0 rgba(147,201,255,.35);} 50%{box-shadow:0 0 0 5px rgba(147,201,255,0);}}
-  #so-act-modal .so-act-link{flex:1 1 1.2rem; height:2px; min-width:.8rem; max-width:3rem; border-radius:2px;
-    background:var(--m-line);}
+  #so-act-modal .so-act-link{flex:1 1 .8rem; height:2px; border-radius:2px; background:var(--m-line); transition:background .3s;}
   #so-act-modal .so-act-link.lk-done{background:var(--m-good);}
   #so-act-modal .so-act-link.lk-run{background:linear-gradient(90deg,var(--m-accent),var(--m-line));}
+  /* — scrollable body — */
+  #so-act-modal .so-act-body{flex:1 1 auto; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin;
+    scrollbar-color:var(--m-line) transparent;}
+  #so-act-modal .so-act-body::-webkit-scrollbar{width:10px;}
+  #so-act-modal .so-act-body::-webkit-scrollbar-thumb{background:var(--m-line); border-radius:6px; border:3px solid var(--m-card);}
+  #so-act-modal .so-act-sub{color:var(--m-dim); font-size:.68rem; line-height:1.55; padding:.5rem 1.25rem 0;}
+  #so-act-modal .so-act-sub code{color:var(--m-accent); font-size:.66rem;}
+  #so-act-modal .so-act-banner{margin:.6rem 1.25rem 0; border:1px solid rgba(255,143,143,.35); border-radius:9px;
+    padding:.4rem .7rem; font-size:.68rem; color:var(--m-bad); background:var(--m-bad-soft);}
   /* — stage rails — */
-  #so-act-modal .so-act-stage{margin:.7rem 1.15rem 0; border:1px solid var(--m-hair); border-radius:12px;
-    padding:.6rem .85rem .65rem; background:var(--m-surf);
-    box-shadow:inset 3px 0 0 var(--m-line); transition:box-shadow .25s;}
+  #so-act-modal .so-act-stage{margin:.75rem 1.25rem 0; border:1px solid var(--m-hair); border-radius:12px;
+    padding:.65rem .9rem .7rem; background:var(--m-surf);
+    box-shadow:inset 3px 0 0 var(--m-line); transition:box-shadow .3s;}
   #so-act-modal .so-act-stage.st-run{box-shadow:inset 3px 0 0 var(--m-accent);}
   #so-act-modal .so-act-stage.st-ok{box-shadow:inset 3px 0 0 var(--m-good);}
   #so-act-modal .so-act-stage.st-err{box-shadow:inset 3px 0 0 var(--m-bad);}
-  #so-act-modal .so-act-st-h{display:flex; align-items:center; gap:.5rem; font-weight:600; font-size:.76rem;}
-  #so-act-modal .so-act-st-h .so-act-n{flex:0 0 auto; width:1.15rem; height:1.15rem; border-radius:50%;
-    display:inline-flex; align-items:center; justify-content:center; font-size:.64rem;
-    border:1.5px solid var(--m-line); color:var(--m-dim); background:var(--m-card);}
+  #so-act-modal .so-act-st-h{display:flex; align-items:center; gap:.5rem; font-weight:600; font-size:.74rem;}
+  #so-act-modal .so-act-st-h .so-act-n{flex:0 0 auto; width:1.2rem; height:1.2rem; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center; font-size:.62rem;
+    border:1.5px solid var(--m-line); color:var(--m-dim); background:var(--m-surf2);}
   #so-act-modal .so-act-stage.st-run .so-act-n{border-color:var(--m-accent); color:var(--m-accent);}
   #so-act-modal .so-act-stage.st-ok .so-act-n{border-color:var(--m-good); color:var(--m-good);}
   #so-act-modal .so-act-stage.st-err .so-act-n{border-color:var(--m-bad); color:var(--m-bad);}
-  #so-act-modal .so-act-st-h small{color:var(--m-dim); font-weight:400; font-size:.66rem;}
-  #so-act-modal .so-act-row{display:flex; align-items:center; gap:.55rem; padding:.4rem 0;
-    border-top:1px solid var(--m-hair); font-size:.72rem; flex-wrap:wrap; border-radius:6px;}
-  #so-act-modal .so-act-mid{flex:1 1 38%; min-width:0; font-family:var(--mono); word-break:break-word;}
-  #so-act-modal .so-act-phase{flex:1 1 100%; color:var(--m-dim); font-size:.68rem; line-height:1.45;}
-  #so-act-modal .so-act-num{color:var(--m-accent); font-family:var(--mono); font-size:.68rem;}
-  #so-act-modal .so-act-bar{flex:0 1 30%; min-width:8rem; height:7px; border-radius:99px; overflow:hidden;
+  #so-act-modal .so-act-stat{margin-left:auto; font-weight:600; font-size:.62rem; color:var(--m-dim);}
+  #so-act-modal .so-act-stat:empty{display:none;}
+  #so-act-modal .so-act-st-h small{color:var(--m-dim); font-weight:400; font-size:.63rem;}
+  /* grid rows: name + chip, then byte math, then phase meaning on its own line */
+  #so-act-modal .so-act-row{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.32rem .6rem;
+    align-items:center; padding:.45rem 0; border-top:1px solid var(--m-hair); font-size:.72rem;}
+  #so-act-modal .so-act-mid{grid-column:1; min-width:0; font-weight:500; word-break:break-word;}
+  #so-act-modal .so-act-mid b{font-weight:700;}
+  #so-act-modal .so-act-dlbar{grid-column:1 / -1; display:flex; align-items:center; gap:.6rem;}
+  #so-act-modal .so-act-bar{flex:1 1 auto; height:7px; border-radius:99px; overflow:hidden;
     background:rgba(255,255,255,.07); box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);}
   #so-act-modal .so-act-bar i{display:block; height:100%; border-radius:99px;
     background:linear-gradient(90deg,#5ea8e8,var(--m-accent)); transition:width .45s ease;}
-  #so-act-modal .so-act-chip{flex:0 0 auto; display:inline-flex; align-items:center; gap:.34rem;
-    border:1px solid transparent; border-radius:99px; padding:.13rem .55rem;
-    font-size:.64rem; font-weight:600; letter-spacing:.02em; text-transform:lowercase;
-    background:rgba(255,255,255,.06);}
+  #so-act-modal .so-act-num{flex:0 0 auto; color:var(--m-accent); font-family:var(--mono); font-size:.65rem;
+    letter-spacing:.02em;}
+  #so-act-modal .so-act-phase{grid-column:1 / -1; color:var(--m-dim); font-size:.66rem; line-height:1.5;}
+  #so-act-modal .so-act-phase code{color:var(--m-fg-soft); font-size:.63rem;}
+  #so-act-modal .so-act-tier .so-act-mid{font-family:var(--mono);}
+  #so-act-modal .so-act-fam{color:var(--m-dim);}
+  #so-act-modal .so-act-chip{grid-column:2; justify-self:end; display:inline-flex; align-items:center; gap:.34rem;
+    border:1px solid transparent; border-radius:99px; padding:.14rem .55rem;
+    font-size:.62rem; font-weight:600; letter-spacing:.02em; text-transform:lowercase;
+    background:rgba(255,255,255,.06); font-family:inherit;}
   #so-act-modal .so-act-chip::before{content:""; flex:0 0 auto; width:.4rem; height:.4rem; border-radius:50%;
     background:currentColor;}
   #so-act-modal .so-act-chip.s-wait{color:var(--m-dim);}
@@ -2352,40 +2381,47 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   #so-act-modal .so-act-chip.s-ok{color:var(--m-good); background:var(--m-good-soft);}
   #so-act-modal .so-act-chip.s-warn{color:var(--m-warn); background:var(--m-warn-soft);}
   #so-act-modal .so-act-chip.s-err{color:var(--m-bad); background:var(--m-bad-soft);}
-  #so-act-modal .so-act-err{flex:1 1 100%; color:var(--m-bad); font-size:.68rem; line-height:1.45;
-    padding:.28rem .5rem; border-radius:6px; background:var(--m-bad-soft);}
-  /* — actions — */
-  #so-act-modal .so-act-acts{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
-    margin:.85rem 1.15rem 0; padding-top:.75rem; border-top:1px solid var(--m-hair);}
-  #so-act-modal .so-act-acts .p-apply{border:1px solid var(--m-line); background:transparent; color:var(--m-fg);
-    border-radius:8px; padding:.34rem .7rem; font:inherit; font-size:.72rem; cursor:pointer;
+  #so-act-modal .so-act-err{grid-column:1 / -1; color:var(--m-bad); font-size:.66rem; line-height:1.45;
+    padding:.3rem .55rem; border-radius:6px; background:var(--m-bad-soft);}
+  /* — completion — */
+  #so-act-modal .so-act-complete{margin:1rem 1.25rem .2rem; border:1px solid rgba(99,209,158,.35); border-radius:10px;
+    padding:.65rem .85rem; color:var(--m-good); font-size:.72rem; line-height:1.55;
+    background:linear-gradient(180deg,var(--m-good-soft),transparent);}
+  #so-act-modal .so-act-complete::before{content:""; display:inline-block; width:.75rem; height:.75rem; margin-right:.5rem;
+    background:currentColor;
+    -webkit-mask:url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\"><path d=\"M20 6L9 17l-5-5\"/></svg>') center/contain no-repeat;
+            mask:url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\"><path d=\"M20 6L9 17l-5-5\"/></svg>') center/contain no-repeat;}
+  /* — sticky action footer: never scrolls away — */
+  #so-act-modal .so-act-foot{flex:0 0 auto; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+    padding:.8rem 1.25rem; border-top:1px solid var(--m-border);
+    background:linear-gradient(180deg,rgba(16,19,24,.72),var(--m-card));}
+  #so-act-modal .so-act-acts{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;}
+  #so-act-modal .so-act-acts .p-apply{display:inline-flex; align-items:center; gap:.4rem;
+    border:1px solid var(--m-line); background:transparent; color:var(--m-fg);
+    border-radius:8px; padding:.38rem .75rem; font:inherit; font-size:.7rem; cursor:pointer;
     transition:background .15s,border-color .15s;}
   #so-act-modal .so-act-acts .p-apply:hover:not(:disabled){background:var(--m-hover); border-color:var(--m-dim);}
   #so-act-modal .so-act-acts .p-apply.primary{border-color:var(--m-accent); color:var(--m-accent);
     background:var(--m-accent-soft);}
   #so-act-modal .so-act-acts .p-apply.primary:hover:not(:disabled){background:rgba(147,201,255,.22);}
   #so-act-modal .so-act-acts .p-apply:disabled{opacity:.45; cursor:default;}
-  #so-act-modal .so-act-foot{padding:.5rem 1.15rem 1rem;}
-  #so-act-modal .p-result{font-size:.72rem; line-height:1.4;}
+  #so-act-modal #so-act-result{margin-left:auto; font-size:.7rem; line-height:1.4;}
   #so-act-modal .p-result.ok{color:var(--good,#7ad17a);} #so-act-modal .p-result.dry{color:var(--m-accent);}
   #so-act-modal .p-result.warn{color:var(--warn,#e6c062);} #so-act-modal .p-result.err{color:var(--bad,#ff7676);}
-  #so-act-modal .p-result.muted{color:var(--m-dim);}
-  /* — completion — */
-  #so-act-modal .so-act-complete{margin:.9rem 1.15rem 0; border:1px solid rgba(99,209,158,.35); border-radius:10px;
-    padding:.6rem .8rem; color:var(--m-good); font-size:.74rem; line-height:1.5;
-    background:linear-gradient(180deg,var(--m-good-soft),transparent);}
-  #so-act-modal .so-act-complete::before{content:"\2713"; display:inline-flex; margin-right:.45rem; font-weight:700;}
+  #so-act-modal .p-result.muted{color:var(--m-dim);} #so-act-modal .p-result:empty{display:none;}
   /* — light theme — */
   html[data-theme="light"] #so-act-modal{
-    --m-card:#ffffff; --m-top:#f8fafc; --m-surf:#f6f8fa; --m-hover:#eef1f5; --m-border:#d8dde5; --m-hair:#e7ebf0;
-    --m-fg:#17202c; --m-dim:#5c6675; --m-accent:#1668b0; --m-accent-soft:rgba(22,104,176,.10);
+    --m-card:#ffffff; --m-top:#f8fafc; --m-surf:#f6f8fa; --m-surf2:#eef2f6; --m-hover:#e9edf3;
+    --m-border:#d8dde5; --m-hair:#e7ebf0; --m-line:#c6cdd8;
+    --m-fg:#17202c; --m-fg-soft:#3c4757; --m-dim:#5c6675; --m-accent:#1668b0; --m-accent-soft:rgba(22,104,176,.10);
     --m-good:#1e7f4f; --m-good-soft:rgba(30,127,79,.10);
     --m-warn:#8a6413; --m-warn-soft:rgba(138,100,19,.10);
     --m-bad:#b13a3a; --m-bad-soft:rgba(177,58,58,.08);
-    --m-line:#c6cdd8;
-    background:rgba(15,23,42,.38);
+    background:rgba(15,23,42,.4);
   }
   html[data-theme="light"] #so-act-modal .so-act-card{box-shadow:0 30px 80px -12px rgba(15,23,42,.35), 0 6px 18px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.7);}
+  html[data-theme="light"] #so-act-modal .so-act-foot{background:linear-gradient(180deg,rgba(255,255,255,.72),#ffffff);}
+  html[data-theme="light"] #so-act-modal .so-act-body::-webkit-scrollbar-thumb{border-color:#ffffff;}
   html[data-theme="light"] #so-act-modal .so-act-bar{background:rgba(15,23,42,.08); box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);}
   html[data-theme="light"] #so-act-modal .so-act-bar i{background:linear-gradient(90deg,#2f7fc2,#1668b0);}
   html[data-theme="light"] #so-act-modal .so-act-chip{background:rgba(15,23,42,.05);}
@@ -2443,15 +2479,20 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
        every write goes through the signed exec rail (R10212). -->
   <div id="so-act-modal" role="dialog" aria-modal="true" aria-label="Profile activation and download progress" hidden>
     <div class="so-act-card">
-      <div class="so-act-h"><div class="so-act-h-t"><span class="so-act-kicker">Bring-up pipeline</span><b id="so-act-title">Activation tracker</b></div><button id="so-act-close" class="so-act-x" aria-label="Close activation tracker">\u2715</button></div>
-      <div class="so-act-sub" id="so-act-sub"></div>
+      <div class="so-act-h">
+        <div class="so-act-h-t"><span class="so-act-kicker">Bring-up pipeline</span><b id="so-act-title">Activation tracker</b><div class="so-act-meta" id="so-act-meta"></div></div>
+        <div class="so-act-hr"><span class="so-act-overall" id="so-act-overall"></span><button id="so-act-close" class="so-act-x" aria-label="Close activation tracker"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      </div>
       <div class="so-act-steps" id="so-act-steps" aria-hidden="true"></div>
-      <div id="so-act-stage-dl" class="so-act-stage" role="status"></div>
-      <div id="so-act-stage-apply" class="so-act-stage" role="status"></div>
-      <div id="so-act-stage-load" class="so-act-stage" role="status"></div>
-      <div id="so-act-complete" class="so-act-complete" hidden></div>
-      <div class="so-act-acts" id="so-act-acts"></div>
-      <div class="so-act-foot"><span id="so-act-result" class="p-result muted"></span></div>
+      <div class="so-act-body">
+        <div class="so-act-sub" id="so-act-sub"></div>
+        <div id="so-act-stage-dl" class="so-act-stage" role="status"></div>
+        <div id="so-act-stage-apply" class="so-act-stage" role="status"></div>
+        <div id="so-act-stage-load" class="so-act-stage" role="status"></div>
+        <div id="so-act-stage-companions" class="so-act-stage" role="status"></div>
+        <div id="so-act-complete" class="so-act-complete" hidden></div>
+      </div>
+      <div class="so-act-foot"><div class="so-act-acts" id="so-act-acts"></div><span id="so-act-result" class="p-result muted"></span></div>
     </div>
   </div>
 
@@ -2896,7 +2937,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // panel's own read-only endpoints, polled only while the modal is open.
   // DEMO mode: badged sample pipeline, zero network (SDD-116/117 posture).
   const ACT = { open:false, id:null, fam:null, apply:null, timer:null,
-                poll:{ profiles: LAST_PROFILES_DATA, grid: LAST_GRID, error: '' } };
+                poll:{ profiles: LAST_PROFILES_DATA, grid: LAST_GRID, consumers: null, error: '' } };
   const actModal = document.getElementById('so-act-modal');
   const ACT_PHASE = {
     'not-started': 'no download job yet — Start downloads queues a resumable privileged job',
@@ -2910,7 +2951,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   };
   function actOpen(id, fam){
     ACT.open = true; ACT.id = id; ACT.fam = fam;
-    ACT.poll = { profiles: LAST_PROFILES_DATA, grid: LAST_GRID, error: '' };
+    ACT.poll = { profiles: LAST_PROFILES_DATA, grid: LAST_GRID, consumers: null, error: '' };
+    Object.keys(ACT_RATE).forEach(k => delete ACT_RATE[k]);
     if (!ACT.apply || ACT.apply.id !== id) ACT.apply = null;
     actModal.hidden = false;
     const x = document.getElementById('so-act-close'); if (x) x.focus();
@@ -2926,11 +2968,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   async function actPoll(){
     if (!ACT.open || demoActive()) return;
     try {
-      const [profiles, grid] = await Promise.all([
+      const [profiles, grid, consumers] = await Promise.all([
         fetchJson('/api/lm-orchestration/profiles'),
         fetchJson('/api/lm-orchestration/grid'),
+        fetchJson('/api/lm-orchestration/consumers').catch(() => null),
       ]);
-      ACT.poll = { profiles, grid, error: '' };
+      ACT.poll = { profiles, grid, consumers, error: '' };
       LAST_GRID = grid;
       renderProfilesIfChanged(profiles);
       if (!EDIT_MODELS) renderGrid(grid);
@@ -2946,7 +2989,8 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
                   posting:'s-run', dry:'s-run', loading:'s-run',
                   interrupted:'s-warn', conflict:'s-warn', ready:'s-warn',
                   blocked:'s-err', denied:'s-err', error:'s-err', unreachable:'s-err',
-                  ro:'s-warn', failed:'s-err'})[status] || 's-wait';
+                  ro:'s-warn', failed:'s-err',
+                  'needs mirror':'s-warn', 'not installed':'s-warn'})[status] || 's-wait';
     return `<span class="so-act-chip ${cls}">${esc(status)}</span>`;
   }
   function actDemoState(){
@@ -2957,6 +3001,14 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         { id:'demo/deepseek-r1-70b', status:'not-started' },
       ],
       apply: { state:'waiting', msg:'' },
+      consumers: [
+        { id:'openclaw', label:'OpenClaw', unit_state:'stopped',
+          mirror:{ state:'stale', profile_id:'demo/older-profile', models:['gpu-oracle','gpu-logic'],
+                   published_at:'2026-10-07T21:00:00+00:00' } },
+        { id:'open-computer', label:'Open Computer', unit_state:'serving', backend:'local', model:'demo/qwen3-32b-q4' },
+        { id:'claude-code', label:'Claude Code', backend:'local' },
+        { id:'vscode', label:'VSCode (Cline)', backend:'unconfigured' },
+      ],
       tiers: [
         { tier:'logic',     want:'demo/qwen3-32b-q4',    resident:'demo/qwen3-coder-14b' },
         { tier:'oracle',    want:'demo/deepseek-r1-70b', resident:'' },
@@ -2991,7 +3043,33 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       const resident = (c.models || []).map(m => m.id).find(Boolean) || '';
       return { tier: role, want, resident };
     }).filter(t => t.want);
-    return { demo: false, profile: p, downloads, apply, tiers, pollError: ACT.poll.error };
+    return { demo: false, profile: p, downloads, apply, tiers, pollError: ACT.poll.error,
+             consumers: (ACT.poll.consumers && ACT.poll.consumers.consumers) || [] };
+  }
+  // Download rate + ETA come from the 2 s poll deltas (smoothed) — no new
+  // backend surface, just honest math on bytes_done between renders.
+  const ACT_RATE = {};
+  function fmtGB(b){ return (Number(b || 0) / 1073741824).toFixed(1); }
+  function actRate(id, bytesDone, status){
+    const now = Date.now(); const prev = ACT_RATE[id]; let rate = null;
+    if (prev && prev.rate != null) rate = prev.rate;
+    if (prev && prev.bytes != null && bytesDone != null && now > prev.t) {
+      const inst = (Number(bytesDone) - prev.bytes) / ((now - prev.t) / 1000);
+      if (inst >= 0) rate = (prev.rate == null ? inst : prev.rate * 0.6 + inst * 0.4);
+    }
+    if (['queued','preflight','downloading','verifying'].includes(status) && bytesDone != null)
+      ACT_RATE[id] = { bytes: Number(bytesDone), t: now, rate };
+    else delete ACT_RATE[id];
+    return rate;
+  }
+  function fmtRate(r){ if (r == null) return ''; return r < 1e6 ? Math.round(r/1e3) + ' KB/s' : (r/1e6).toFixed(1) + ' MB/s'; }
+  function fmtEta(sec){
+    if (!isFinite(sec) || sec <= 0) return '';
+    if (sec < 75) return '<1 min left';
+    const m = Math.round(sec / 60);
+    if (m < 60) return '~' + m + ' min left';
+    const h = Math.floor(m / 60);
+    return '~' + h + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '') + ' left';
   }
   function actRender(){
     if (!ACT.open) return;
@@ -2999,58 +3077,99 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const p = st.demo ? null : st.profile;
     const pid = ACT.id || '';
     $('so-act-title').textContent = ((p && (p.name || p.id || p.mode_id)) || pid) || 'Activation tracker';
-    $('so-act-sub').innerHTML = st.demo
-      ? '<strong>DEMO mode</strong> — sample pipeline data, not a live daemon. Disable it in Personalization.'
-      : 'Reads <code>/api/lm-orchestration/profiles</code> + <code>/api/lm-orchestration/grid</code> every 2 s while open. Every write goes through the signed control-exec rail; a completed apply is not evidence the models became resident — stage 3 is.'
-        + (st.pollError ? ' <span class="so-act-err">daemon unreachable: ' + esc(st.pollError) + '</span>' : '');
-    // Stepper + stage rails carry the pipeline state visually (redesign pass);
-    // the state math below is the same evidence the contract pins demand.
+
+    // header math: stage states drive the stepper, rails, counters, and the
+    // overall chip. The completion doctrine itself is unchanged (pinned):
+    // complete = active marker AND every declared model resident per tier.
     const dlRunning = st.downloads.some(d => ['queued','preflight','downloading','verifying'].includes(d.status));
     const dlFailed = st.downloads.some(d => d.status === 'failed' || d.status === 'interrupted');
-    const dlComplete = st.downloads.length === 0 || st.downloads.every(d => d.status === 'complete');
-    const apCls = st.apply.state === 'active' ? 'st-done'
-      : ['blocked','denied','error','unreachable','conflict'].includes(st.apply.state) ? 'st-err'
-      : st.apply.state === 'waiting' ? '' : 'st-run';
-    const allResident = st.tiers.length > 0 && st.tiers.every(t => t.resident === t.want);
-    const ldCls = allResident ? 'st-done' : st.apply.state === 'active' ? 'st-run' : '';
+    const dlDoneAll = st.downloads.length === 0 || st.downloads.every(d => d.status === 'complete');
+    const apActive = st.apply.state === 'active';
+    const apBad = ['blocked','denied','error','unreachable','conflict'].includes(st.apply.state);
+    const allLive = st.tiers.length && st.tiers.every(t => t.resident === t.want);
+    const complete = !st.demo && st.apply.state === 'active' && (st.tiers.length ? allLive : true);
+    const cons = st.consumers || [];
+    const ocRow = cons.find(c => c.id === 'openclaw');
+    const mirrorState = ocRow ? ((ocRow.mirror && ocRow.mirror.state) || 'not-installed') : 'unknown';
+    const compState = !cons.length ? 'unknown' : !apActive ? 'waiting'
+      : mirrorState === 'synced' ? 'synced'
+      : mirrorState === 'not-installed' ? 'not installed' : 'needs mirror';
+    const dlStep = dlDoneAll ? 'st-done' : dlRunning ? 'st-run' : dlFailed ? 'st-err' : '';
+    const apStep = apActive ? 'st-done' : apBad ? 'st-err' : st.apply.state === 'waiting' ? '' : 'st-run';
+    const ldStep = (st.tiers.length && allLive) ? 'st-done' : apActive ? 'st-run' : '';
+    const compStep = compState === 'synced' ? 'st-done'
+      : (compState === 'needs mirror' || compState === 'not installed') ? 'st-err'
+      : apActive ? 'st-run' : '';
+    // meta line: family badge + the profile's own one-liner + tier count.
+    const metaBits = [];
+    if (ACT.fam) metaBits.push('<span class="so-act-fam">' + esc(ACT.fam) + '</span>');
+    if (p && p.description_oneline) metaBits.push('<span>' + esc(p.description_oneline) + '</span>');
+    if (st.tiers.length) metaBits.push('<span>' + st.tiers.length
+      + (st.tiers.length === 1 ? ' prescribed model' : ' prescribed models') + '</span>');
+    if (apActive) metaBits.push('<span class="so-act-active">ACTIVE</span>');
+    $('so-act-meta').innerHTML = metaBits.join(' ');
+    // overall chip: the one-glance answer up top.
+    const doneN = [dlDoneAll, apActive, (st.tiers.length && allLive), compState === 'synced'].filter(Boolean).length;
+    const ov = $('so-act-overall');
+    ov.className = 'so-act-overall ' + (complete ? 'o-ok' : (dlFailed || apBad || compState === 'needs mirror') ? 'o-err' : (dlRunning || apStep === 'st-run' || ldStep === 'st-run') ? 'o-run' : '');
+    ov.textContent = complete ? 'complete' : (st.demo ? 'demo · sample pipeline'
+      : (dlFailed || apBad ? 'attention needed' : 'stage ' + Math.min(4, doneN + 1) + ' of 4 · ' + doneN + ' done'));
+
+    const stepsEl = $('so-act-steps'); stepsEl.innerHTML = '';
     function stepNode(n, label, cls){
       const s = document.createElement('span'); s.className = 'so-act-step ' + cls;
-      s.innerHTML = '<i>' + (cls === 'st-done' ? '\u2713' : cls === 'st-err' ? '\u2715' : n) + '</i><b>' + label + '</b>';
+      s.innerHTML = '<i>' + (cls === 'st-done' ? '<svg width="10" height="10" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
+        : cls === 'st-err' ? '<svg width="9" height="9" viewBox="0 0 24 24" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>' : n) + '</i><b>' + label + '</b>';
       return s;
     }
-    function linkNode(cls){ const l = document.createElement('span'); l.className = 'so-act-link ' + cls; return l; }
-    const stepsEl = $('so-act-steps'); stepsEl.innerHTML = '';
-    const dlCls = dlComplete ? 'st-done' : dlRunning ? 'st-run' : dlFailed ? 'st-err' : '';
-    stepsEl.appendChild(stepNode('1', 'Downloads', dlCls));
-    stepsEl.appendChild(linkNode(dlComplete ? (dlRunning ? 'lk-run' : 'lk-done') : ''));
-    stepsEl.appendChild(stepNode('2', 'Apply', apCls));
-    stepsEl.appendChild(linkNode(dlCls === 'st-done' && st.apply.state === 'active' ? 'lk-done' : ''));
-    stepsEl.appendChild(stepNode('3', 'Models live', ldCls));
-    function railCls(cls){ $('so-act-stage-' + cls[0]).className = 'so-act-stage ' + (cls[1] || ''); }
-    railCls(['dl', dlCls]); railCls(['apply', apCls]); railCls(['load', ldCls]);
+    function linkNode(cls){ const l = document.createElement('span'); l.className = 'so-act-link ' + (cls || ''); return l; }
+    stepsEl.appendChild(stepNode('1', 'Downloads', dlStep));
+    stepsEl.appendChild(linkNode(dlDoneAll ? (dlRunning ? 'lk-run' : 'lk-done') : ''));
+    stepsEl.appendChild(stepNode('2', 'Apply', apStep));
+    stepsEl.appendChild(linkNode(dlDoneAll && apActive ? 'lk-done' : ''));
+    stepsEl.appendChild(stepNode('3', 'Models live', ldStep));
+    stepsEl.appendChild(linkNode(dlDoneAll && apActive && (st.tiers.length && allLive) ? 'lk-done' : ''));
+    stepsEl.appendChild(stepNode('4', 'Consumers', compStep));
+    $('so-act-stage-dl').className = 'so-act-stage ' + dlStep;
+    $('so-act-stage-apply').className = 'so-act-stage ' + apStep;
+    $('so-act-stage-load').className = 'so-act-stage ' + ldStep;
+    $('so-act-stage-companions').className = 'so-act-stage ' + compStep;
+
+    $('so-act-sub').innerHTML = st.demo
+      ? '<strong>DEMO mode</strong> — sample pipeline data, not a live daemon. Disable it in Personalization.'
+      : 'Reads <code>/api/lm-orchestration/profiles</code> · <code>grid</code> · <code>consumers</code> every 2 s while open. Every write goes through the signed control-exec rail; a completed apply is not evidence the models became resident — stage 3 is — and the switch also mirrors the OpenClaw catalog — stage 4.';
+    const oldBanner = document.getElementById('so-act-banner');
+    if (oldBanner) oldBanner.remove();
+    if (!st.demo && st.pollError)
+      $('so-act-sub').insertAdjacentHTML('afterend',
+        '<div class="so-act-banner" role="alert" id="so-act-banner">daemon unreachable: ' + esc(st.pollError) + '</div>');
+
     // ① Catalog model downloads — job states + byte counts + hidden phases.
-    let dl = '<div class="so-act-st-h"><span class="so-act-n">1</span> Catalog model downloads ';
-    const anyRun = dlRunning;
-    const anyFail = dlFailed;
-    const dlDone = dlComplete;
-    dl += actChip(dlDone ? 'complete' : anyRun ? 'running' : anyFail ? 'needs resume' : 'not started') + ' <small>only catalog-selected artifacts; resumable background jobs</small></div>';
-    if (!st.downloads.length) dl += '<div class="so-act-row"><span class="so-act-mid">All declared models are resident and verified</span>';
-    else st.downloads.forEach(d => {
+    let dl = '<div class="so-act-st-h"><span class="so-act-n">1</span> Catalog model downloads '
+      + actChip(dlDoneAll ? 'complete' : dlRunning ? 'running' : dlFailed ? 'needs resume' : 'not started')
+      + '<span class="so-act-stat">' + (st.downloads.length ? st.downloads.filter(d => d.status === 'complete').length + '/' + st.downloads.length + ' verified' : 'all resident') + '</span></div>';
+    if (!st.downloads.length) dl += '<div class="so-act-row"><span class="so-act-mid">All declared models are resident and verified</span></div>';
+    st.downloads.forEach(d => {
       const pct = d.bytes_total ? Math.min(100, 100 * Number(d.bytes_done || 0) / Number(d.bytes_total)) : 0;
-      dl += `<div class="so-act-row"><span class="so-act-mid">${esc(d.id)}</span>${actChip(d.status)}`;
-      if (['queued','preflight','downloading','verifying'].includes(d.status) && d.bytes_total)
-        dl += `<span class="so-act-bar"><i style="width:${pct.toFixed(1)}%"></i></span><span class="so-act-num">${(Number(d.bytes_done||0)/1073741824).toFixed(1)} / ${(Number(d.bytes_total)/1073741824).toFixed(1)} GiB</span>`;
+      const active = ['queued','preflight','downloading','verifying'].includes(d.status);
+      const rate = st.demo ? null : actRate(d.id, d.bytes_done, d.status);
+      dl += '<div class="so-act-row"><span class="so-act-mid">' + esc(d.id) + '</span>' + actChip(d.status);
+      if (active && d.bytes_total)
+        dl += '<span class="so-act-dlbar"><span class="so-act-bar"><i style="width:' + pct.toFixed(1) + '%"></i></span><span class="so-act-num">'
+          + fmtGB(d.bytes_done) + ' / ' + fmtGB(d.bytes_total) + ' GiB'
+          + (rate ? ' · ' + fmtRate(rate) + ' · ' + fmtEta((Number(d.bytes_total) - Number(d.bytes_done || 0)) / rate) : '') + '</span></span>';
       else if (d.status === 'complete' && d.bytes_total)
-        dl += `<span class="so-act-num">${(Number(d.bytes_total)/1073741824).toFixed(1)} GiB verified</span>`;
-      dl += `<span class="so-act-phase">${esc(ACT_PHASE[d.status] || d.status)}</span>`;
-      if (d.err) dl += `<span class="so-act-err">${esc(d.err)}${d.stage ? ' (stage: ' + esc(d.stage) + ')' : ''}${d.etype ? ' (' + esc(d.etype) + ')' : ''}</span>`;
+        dl += '<span class="so-act-dlbar"><span class="so-act-num">' + fmtGB(d.bytes_total) + ' GiB verified</span></span>';
+      dl += '<span class="so-act-phase">' + esc(ACT_PHASE[d.status] || d.status) + '</span>';
+      if (d.err) dl += '<span class="so-act-err">' + esc(d.err) + (d.stage ? ' (stage: ' + esc(d.stage) + ')' : '') + (d.etype ? ' (' + esc(d.etype) + ')' : '') + '</span>';
       dl += '</div>';
     });
     $('so-act-stage-dl').innerHTML = dl;
+
     // ② Signed apply — trinity profile switch through the exec rail.
     let ap = '<div class="so-act-st-h"><span class="so-act-n">2</span> Signed profile apply '
       + actChip(st.apply.state)
-      + ' <small><code>sovereign-osctl trinity profile switch ' + esc(pid) + '</code> via the sudoer rail</small></div>';
+      + '<span class="so-act-stat">' + (apActive ? 'marker moved' : 'via :8130 rail') + '</span></div>';
     const apNote = { waiting: 'not applied yet — the active marker will move when the rail accepts it',
                      posting: 'the exec rail is running the switch (operator key + step-up gated)',
                      dry: 'dry-run only — the privileged switch service is not enabled on this origin',
@@ -3062,14 +3181,15 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
                      unreachable: 'exec rail unreachable (:8130) — copy the command below',
                      ro: 'read-only origin — copy the command below and run it',
                      error: 'rail refused the switch' }[st.apply.state] || st.apply.state;
-    ap += `<div class="so-act-row"><span class="so-act-phase">${esc(apNote)}${st.apply.msg ? ' — ' + esc(st.apply.msg) : ''}</span></div>`;
+    ap += '<div class="so-act-row"><span class="so-act-phase">' + esc(apNote) + (st.apply.msg ? ' — ' + esc(st.apply.msg) : '') + '</span></div>';
     $('so-act-stage-apply').innerHTML = ap;
+
     // ③ Language model loading — declared per tier vs actually bound+active.
     let ld = '<div class="so-act-st-h"><span class="so-act-n">3</span> Language model loading ';
-    if (!st.tiers.length) ld += actChip('not prescribed') + ' <small>this posture does not prescribe catalog models — the grid shows what serves</small></div>';
+    if (!st.tiers.length) ld += actChip('not prescribed') + '<span class="so-act-stat">the grid shows what serves</span></div>';
     else {
-      const allLive = st.tiers.every(t => t.resident === t.want);
-      ld += actChip(allLive ? 'live' : anyRun || st.apply.state !== 'active' ? 'pending' : 'loading') + ' <small>declared model per tier vs the model actually bound on the device</small></div>';
+      ld += actChip(allLive ? 'live' : dlRunning || st.apply.state !== 'active' ? 'pending' : 'loading')
+        + '<span class="so-act-stat">' + st.tiers.filter(t => t.resident === t.want).length + '/' + st.tiers.length + ' tiers live</span></div>';
       st.tiers.forEach(t => {
         const bound = t.resident === t.want;
         const cell = st.demo ? { mode: 'active · ' + t.tier }
@@ -3080,15 +3200,46 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         // gating live on it left an idle-but-correctly-bound oracle/logic pair
         // stuck at "loading" forever (operator report 2026-10-07).
         const state = bound ? 'live' : (st.apply.state === 'active' ? 'loading' : 'pending');
-        ld += `<div class="so-act-row"><span class="so-act-mid">${esc(t.tier)} → ${esc(t.want)}</span>${actChip(state)}`
-          + `<span class="so-act-num">resident: ${esc(t.resident || 'no model loaded')}${bound ? (serving ? ' · serving' : ' · bound, route idle') : ''}</span></div>`;
+        ld += '<div class="so-act-row so-act-tier"><span class="so-act-mid"><b>' + esc(t.tier) + '</b> → ' + esc(t.want) + '</span>' + actChip(state)
+          + '<span class="so-act-phase">resident: ' + esc(t.resident || 'no model loaded') + (bound ? (serving ? ' · serving' : ' · bound, route idle') : '') + '</span></div>';
       });
     }
     $('so-act-stage-load').innerHTML = ld;
+
+    // ④ Third-party consumers the activation touches — grouped. The switch
+    // mirrors the OpenClaw sovereign catalog (its non-fatal step,
+    // sync-openclaw-models.py); Open Computer / Claude Code / VSCode follow
+    // their backend env fragments and the gateway routes. Facts from
+    // /api/lm-orchestration/consumers — never secret values.
+    let cp = '<div class="so-act-st-h"><span class="so-act-n">4</span> Consumers &amp; companion runtimes '
+      + actChip(compState)
+      + '<span class="so-act-stat">' + (cons.length ? cons.filter(c => (c.mirror && c.mirror.state === 'synced') || c.backend === 'local' || c.unit_state === 'serving').length + '/' + cons.length + ' aligned' : '') + '</span></div>';
+    if (!cons.length) cp += '<div class="so-act-row"><span class="so-act-mid">' + (st.demo ? 'DEMO sample below' : 'consumer snapshot unavailable from the daemon') + '</span></div>';
+    cons.forEach(c => {
+      cp += '<div class="so-act-row"><span class="so-act-mid"><b>' + esc(c.label) + '</b> <span class="so-act-fam">' + esc(c.id) + '</span></span>';
+      if (c.mirror) cp += actChip(c.mirror.state === 'synced' ? 'synced' : c.mirror.state === 'stale' ? 'needs mirror' : 'not installed');
+      else if (c.unit_state === 'serving' || c.backend === 'local') cp += actChip('live');
+      else if (c.backend === 'hosted') cp += actChip('ro');
+      else if (c.backend === 'unconfigured' || c.unit_state === 'absent') cp += actChip('not started');
+      else cp += actChip('waiting');
+      const bits = [];
+      if (c.unit) bits.push('unit: ' + esc(c.unit_state) + ' <code>' + esc(c.unit) + '</code>');
+      if (c.mirror) {
+        const m = c.mirror;
+        bits.push(m.state === 'synced' ? 'catalog mirror current (' + esc((m.models || []).join(', ') || 'no gpu-tier entries') + ')'
+          : m.state === 'stale' ? 'catalog mirror is from <code>' + esc(m.profile_id || 'an older profile') + '</code> — rerun the switch (the mirror is a non-fatal step of it)'
+          : m.state === 'not-installed' ? 'no openclaw.json found — the mirror is a no-op'
+          : 'mirror state unknown');
+        if (m.published_at) bits.push('mirrored ' + esc(String(m.published_at).slice(0, 16).replace('T', ' ')));
+      }
+      if (c.backend) bits.push('backend: ' + esc(c.backend) + (c.model ? ' · <code>' + esc(c.model) + '</code>' : ''));
+      if (c.note) bits.push(esc(c.note));
+      cp += '<span class="so-act-phase">' + bits.join(' · ') + '</span></div>';
+    });
+    $('so-act-stage-companions').innerHTML = cp;
+
     // Completion banner + actions.
     const allDownloadsComplete = st.downloads.every(d => d.status === 'complete');
-    const allLive = st.tiers.length && st.tiers.every(t => t.resident === t.want);
-    const complete = !st.demo && st.apply && st.apply.state === 'active' && (st.tiers.length ? allLive : true);
     const doneEl = $('so-act-complete');
     doneEl.hidden = !complete;
     if (complete) doneEl.innerHTML = 'Profile ' + esc(p && (p.name || p.id) || pid) + ' is active and every declared model is resident on its device. The deployment deck above shows the same evidence at a glance.';
@@ -3102,7 +3253,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       if (st.downloads.some(d => d.status === 'not-started' || d.status === 'failed' || d.status === 'interrupted')) {
         const b = document.createElement('button'); b.className = 'p-apply primary';
         b.textContent = 'Start / resume downloads';
-        b.disabled = anyRun;
+        b.disabled = dlRunning;
         b.addEventListener('click', actStartDownloads);
         acts.appendChild(b);
       }
@@ -3115,13 +3266,14 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       const c = document.createElement('button'); c.className = 'p-apply'; c.textContent = 'Copy exact commands';
       c.addEventListener('click', () => copyCmd('sovereign-osctl trinity profile switch ' + pid +
         (allDownloadsComplete || !st.downloads.length ? '' : '\n' + st.downloads.filter(d => d.status !== 'complete').map(d => d.command).join('\n')),
-        'The sanctioned CLI for this pipeline (downloads first, then the switch):'));
+        'The sanctioned CLI for this pipeline (downloads first, then the switch — which also mirrors the OpenClaw catalog):'));
       acts.appendChild(c);
     }
     // Stop polling once the pipeline is settled (active + resident, or nothing
     // in flight at all) — the modal stays open as an evidence surface.
     if (!st.demo && complete && ACT.timer){ clearInterval(ACT.timer); ACT.timer = null; }
   }
+
   async function actStartDownloads(){
     const st = actState();
     if (st.demo) return;

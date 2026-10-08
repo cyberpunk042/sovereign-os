@@ -421,3 +421,22 @@ def test_activation_tracker_modal():
     )
     # Every non-generated profile card/inspector can open the tracker directly.
     assert 'data-act="track"' in body
+    # SDD-150 stage 4 (operator follow-up 2026-10-08): the third-party consumers
+    # an activation touches — OpenClaw's mirrored sovereign catalog (the
+    # non-fatal sync-openclaw-models.py step of trinity profile switch), Open
+    # Computer, Claude Code, VSCode — are a GROUPED first-class stage, fed by a
+    # read-only daemon snapshot. The mirror must never be invisible again.
+    assert 'id="so-act-stage-companions"' in body, "stage 4 (grouped consumers) missing"
+    assert "fetchJson('/api/lm-orchestration/consumers')" in body, (
+        "the tracker must read the grouped consumer snapshot the daemon exposes"
+    )
+    daemon = API_DAEMON.read_text(encoding="utf-8")
+    assert "def consumers_view" in daemon and '"/api/lm-orchestration/consumers"' in daemon, (
+        "the daemon must serve the consumers snapshot"
+    )
+    assert "openclaw-catalog-revision.json" in daemon, (
+        "the OpenClaw catalog mirror stamp is the sync-truth source"
+    )
+    # Rate/ETA math is computed client-side from the 2 s poll deltas — honest
+    # arithmetic on bytes_done, no invented backend telemetry.
+    assert "ACT_RATE" in body and "fmtEta" in body

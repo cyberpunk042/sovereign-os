@@ -98,3 +98,36 @@ with action buttons disabled — zero network, never confusable with live.
   this host, 29 live profiles): Track button renders in the inspector, modal
   opens with all three stages populated from live data, close hides + clears
   the timer, zero page JS errors.
+
+## Round 2 + stage 4 (operator follow-up, 2026-10-08)
+
+> "the modal doesn't talk about the openclaw or other update.. openclaw is
+> updated too and possibly other third parties we must group. we need to add
+> the missing stuff and fix the visual of what is currently there."
+
+- **Stage ④ — Consumers & companion runtimes (the missing truth).** The
+  switch chain (`cmd_trinity` → `scripts/inference/sync-openclaw-models.py`)
+  mirrors the profile's GPU-tier models into OpenClaw's sovereign catalog as a
+  real (non-fatal) step — previously invisible in the tracker. The grouped
+  stage now covers OpenClaw (mirror freshness vs the active profile, unit
+  state), Open Computer (unit + backend env verdict), Claude Code, and the
+  VSCode/Cline fragment. Facts come from the new read-only daemon snapshot
+  `GET /api/lm-orchestration/consumers` (`consumers_view()` in
+  `lm-orchestration-api.py`): `/etc/sovereign-os/openclaw-catalog-revision.json`
+  + per-consumer env/settings fragments reduced to a loopback-vs-cloud verdict
+  — no secret values are ever echoed. Stale mirrors name the profile they
+  came from and point at the fix (rerun the switch — the mirror is part of
+  it), never a fabricated repair verb.
+- **Visual round 2.** Sticky header + stepper + footer (actions never scroll
+  away), profile meta line (family · one-liner · prescribed-model count ·
+  ACTIVE badge), overall-pipeline chip ("stage N of 4 · N done" / complete /
+  attention needed), grid rows (name + chip on one line, byte math + live
+  rate/ETA from smoothed 2 s poll deltas, phase meaning on its own line),
+  per-stage counters ("2/3 verified", "3/4 tiers live", "3/4 aligned"), tier
+  matrix with bold tier names, SVG glyphs for stepper/check/close, full
+  dark/light token sets, styled scrollbars, reduced-motion posture. A real
+  round-1 defect is fixed: the close button had shipped a literal `\u2715`
+  escape as button text.
+- **Pins:** stage-4 anchor + consumers fetch (panel) + `consumers_view` +
+  revision-stamp source + client-side rate math (ACT_RATE/fmtEta) added to
+  `test_activation_tracker_modal`; all round-1 doctrine pins unchanged.

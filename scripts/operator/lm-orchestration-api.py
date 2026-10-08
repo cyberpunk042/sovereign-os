@@ -51,6 +51,7 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -258,6 +259,102 @@ def _active_profile_id() -> str | None:
         except OSError:
             continue
     return None
+
+
+CONSUMER_STATE_FILES = {
+    "openclaw-revision": "openclaw-catalog-revision.json",
+    "open-computer-env": "open-computer.env",
+    "claude-code-env": "claude-code.env",
+    "vscode-cline-settings": "vscode-cline-settings.json",
+}
+
+
+def _env_file_backend(path: Path) -> tuple[str, str]:
+    """(backend verdict, model) from an agent-backend env/settings file
+    (SDD-600/707): loopback base URL -> 'local', a public api host -> 'hosted',
+    absent file -> 'unconfigured'. Facts only — values are never echoed back,
+    just the loopback-vs-cloud verdict and the model name."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return "unconfigured", ""
+    base, model = "", ""
+    for line in text.splitlines():
+        if line.startswith(("OPENAI_BASE_URL=", "ANTHROPIC_BASE_URL=")):
+            base = line.split("=", 1)[1].strip()
+        elif line.startswith(("OPENAI_MODEL=", "ANTHROPIC_MODEL=")):
+            model = line.split("=", 1)[1].strip()
+    if not base:
+        return "unconfigured", model
+    host = urllib.parse.urlsplit(base).hostname or ""
+    if host and host not in ("127.0.0.1", "localhost", "10.0.2.2", "[::1]"):
+        return "hosted", model
+    return "local", model
+
+
+def consumers_view() -> dict[str, Any]:
+    """SDD-150 stage 4 — the third-party consumers a profile activation touches,
+    grouped in one snapshot: OpenClaw (whose sovereign catalog the switch mirrors
+    via scripts/inference/sync-openclaw-models.py — a real, non-fatal step of
+    `trinity profile switch`, previously invisible in the tracker), Open
+    Computer, Claude Code, and the VSCode/Cline fragment. Read-only facts from
+    /etc/sovereign-os state files + systemd unit states; no secret values."""
+    etc = Path(os.environ.get("SOVEREIGN_OS_ETC", "/etc/sovereign-os"))
+    active = _active_profile_id()
+
+    def unit_state(unit: str) -> str:
+        try:
+            if subprocess.run(["systemctl", "is-active", "--quiet", unit],
+                              timeout=3, capture_output=True).returncode == 0:
+                return "serving"
+            r = subprocess.run(["systemctl", "is-enabled", unit],
+                               timeout=3, capture_output=True, text=True)
+            st = (r.stdout or "").strip()
+            # installed-but-not-running units report enabled/disabled/static/…;
+            # only masked/not-found mean the unit genuinely isn't on this box.
+            return "stopped" if st and st not in ("masked", "not-found") else "absent"
+        except Exception:  # noqa: BLE001 - host without systemd: stay factual
+            return "unknown"
+
+    mirror: dict[str, Any] = {"state": "not-installed"}
+    rev_path = etc / CONSUMER_STATE_FILES["openclaw-revision"]
+    try:
+        rev = json.loads(rev_path.read_text(encoding="utf-8"))
+        mirror = {
+            "state": "synced" if (active and rev.get("profile_id") == active) else "stale",
+            "profile_id": rev.get("profile_id"),
+            "models": [m.get("id") for m in (rev.get("models") or []) if m.get("id")],
+            "published_at": rev.get("published_at"),
+        }
+    except (OSError, ValueError):
+        pass
+
+    oc_backend, oc_model = _env_file_backend(etc / CONSUMER_STATE_FILES["open-computer-env"])
+    cc_backend, _ = _env_file_backend(etc / CONSUMER_STATE_FILES["claude-code-env"])
+    vs_backend, _ = _env_file_backend(etc / CONSUMER_STATE_FILES["vscode-cline-settings"])
+
+    return {
+        "active_profile": active,
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "consumers": [
+            {"id": "openclaw", "label": "OpenClaw",
+             "note": "sovereign catalog mirrored from the profile by the switch",
+             "unit": "sovereign-openclaw.service",
+             "unit_state": unit_state("sovereign-openclaw.service"),
+             "mirror": mirror},
+            {"id": "open-computer", "label": "Open Computer",
+             "note": "serves its own stack; LLM backend env rewritten by the backend rail",
+             "unit": "sovereign-open-computer.service",
+             "unit_state": unit_state("sovereign-open-computer.service"),
+             "backend": oc_backend, "model": oc_model},
+            {"id": "claude-code", "label": "Claude Code",
+             "note": "base-URL env fragment rewritten by the backend rail",
+             "backend": cc_backend},
+            {"id": "vscode", "label": "VSCode (Cline)",
+             "note": "settings fragment rewritten by the backend rail",
+             "backend": vs_backend},
+        ],
+    }
 
 
 def _active_os_profile() -> str | None:
@@ -736,6 +833,10 @@ class LmOrchAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(200, features_view())
                 _emit_metric("features", "ok")
                 return
+            if path == "/api/lm-orchestration/consumers":
+                self._send_json(200, consumers_view())
+                _emit_metric("consumers", "ok")
+                return
             if path == "/api/lm-orchestration/models":
                 self._send_json(200, models_view())
                 _emit_metric("models", "ok")
@@ -754,10 +855,11 @@ class LmOrchAPIHandler(BaseHTTPRequestHandler):
             return
         self._send_json(404, {
             "error": f"unknown endpoint: {path!r}",
-            "available": ["/api/lm-orchestration/grid",
-                          "/api/lm-orchestration/profiles",
-                          "/api/lm-orchestration/features",
-                          "/api/lm-orchestration/attestation",
+                "available": ["/api/lm-orchestration/grid",
+                              "/api/lm-orchestration/profiles",
+                              "/api/lm-orchestration/features",
+                              "/api/lm-orchestration/consumers",
+                              "/api/lm-orchestration/attestation",
                           "/api/lm-orchestration/stream",
                           "/version", "/healthz", "/webapp/"],
         })
