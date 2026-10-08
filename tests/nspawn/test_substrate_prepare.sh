@@ -110,7 +110,7 @@ out="$(SOVEREIGN_OS_PROFILE=sain-01 \
        "${STEP}" 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -ne 0 ] && grep -q "valid: mkosi, live-build, rpm-ostree, nixos" <<< "${out}"; then
+if [ "${rc}" -ne 0 ] && grep -qE "unknown substrate: bogus-substrate \(valid: [a-z, -]*mkosi[a-z, -]*live-build[a-z, -]*rpm-ostree[a-z, -]*nixos[a-z, -]*\)" <<< "${out}"; then
   ok "unknown substrate fails with valid-list hint"
 else
   ko "unknown-substrate gate broken: rc=${rc} out=${out:0:200}"
