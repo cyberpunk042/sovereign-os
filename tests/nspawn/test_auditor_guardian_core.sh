@@ -99,9 +99,13 @@ m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 # SIGKILL action → trigger
 t,_ = m.parse_event('{\"action\":\"SIGKILL\"}')
 print('sigkill', t)
-# action contains 'process' → trigger
+# real nested Tetragon kill event (process_kprobe.action, captured 2026-08-20) → trigger
+t,_ = m.parse_event('{\"process_kprobe\":{\"action\":\"KPROBE_ACTION_SIGKILL\",\"process\":{\"binary\":\"/usr/bin/evil\",\"docker\":\"abc123\"},\"function_name\":\"sys_execve\"}}')
+print('nested', t)
+# bare exec action without SIGKILL → NO trigger (§ 10.1 predicate is kill-only;
+# PROCESS_EXEC is benign — triggering here would neutralize every exec event)
 t,_ = m.parse_event('{\"action\":\"PROCESS_EXEC\"}')
-print('process', t)
+print('exec', t)
 # benign LOG → no trigger
 t,_ = m.parse_event('{\"action\":\"LOG\"}')
 print('log', t)
@@ -110,7 +114,8 @@ t,e = m.parse_event('garbage')
 print('badjson', t, len(e))
 ")"
 grep -q "^sigkill True"   <<< "${out}" && ok "parse: SIGKILL → trigger"   || ko "parse: SIGKILL trigger broken"
-grep -q "^process True"   <<< "${out}" && ok "parse: action~process → trigger" || ko "parse: process trigger broken"
+grep -q "^nested True"    <<< "${out}" && ok "parse: nested KPROBE_ACTION_SIGKILL → trigger" || ko "parse: nested-kill trigger broken"
+grep -q "^exec False"     <<< "${out}" && ok "parse: bare PROCESS_EXEC → no trigger (kill-only predicate)" || ko "parse: bare PROCESS_EXEC falsely triggers"
 grep -q "^log False"      <<< "${out}" && ok "parse: benign LOG → no trigger"  || ko "parse: benign LOG misfired"
 grep -q "^badjson False 0" <<< "${out}" && ok "parse: bad JSON returns (False, {})" || ko "parse: bad JSON broken"
 
