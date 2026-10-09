@@ -440,3 +440,48 @@ def test_activation_tracker_modal():
     # Rate/ETA math is computed client-side from the 2 s poll deltas — honest
     # arithmetic on bytes_done, no invented backend telemetry.
     assert "ACT_RATE" in body and "fmtEta" in body
+
+
+def test_activation_tracker_proper_options() -> None:
+    """SDD-150 round 3 (operator directive 2026-10-08: "remaster the profile
+    activation modal … proper options too"). The action bar is a STABLE
+    surface (options disabled with named reasons, never vanishing mid-
+    pipeline), heavy verbs gate behind the rail's OWN type-to-confirm doctrine
+    (confirm:false → {confirm_required, argv} → the strip names the exact
+    command; nothing privileged runs on the first click), rollback reuses the
+    same signed switch verb with the previous profile's id (no invented
+    restore API), and stage ① rows carry per-model Start/Resume."""
+    body = WEBAPP_HTML.read_text(encoding="utf-8")
+    # Type-to-confirm: the preview POST must NOT set confirm:true; the strip
+    # is a real element in the footer, and the rail's confirm_required answer
+    # is what opens it.
+    assert 'id="so-act-confirm"' in body, "the type-to-confirm strip must exist"
+    assert "body.confirm_required" in body, (
+        "the strip must open on the rail's own confirm_required answer"
+    )
+    assert 'confirm: false })' in body or "confirm: false })" in body, (
+        "the first click previews through the rail without confirm:true"
+    )
+    assert "actAskConfirm" in body and "actConfirmYes" in body
+    # Stable action bar: every option always rendered; disabled ones carry a
+    # named reason (the operator must never hunt for a vanished button).
+    assert "so-act-div" in body and "footBtn" in body
+    for option in ("Start / resume downloads", "Apply profile",
+                   "Switch back", "Re-run switch (catalog mirror)", "Copy exact commands"):
+        assert option in body, f"action option {option!r} missing"
+    # Rollback = the same trinity profile switch verb with the previous
+    # profile's id — captured at open time, never a fake restore surface.
+    assert "ACT.prevId" in body and "ACT.prevFam" in body
+    assert 'args: { verb: targetId }' in body, "preview must target the named profile id"
+    # Per-model Start/Resume rides the existing model-download control.
+    assert "data-dl=" in body and "actStartDownload(" in body
+    # No new rails/controls/daemons: every control id the panel uses must be a
+    # registered control-systems.yaml id (model-download/runtime-mode/
+    # orchestration-profile for the tracker; model-load and profile-compose are
+    # pre-existing grid/composer controls on the same panel).
+    registry = (REPO_ROOT / "config" / "control-systems.yaml").read_text(encoding="utf-8")
+    registered = set(re.findall(r"^\s*- id: ([a-z-]+)$", registry, re.M))
+    for control in re.findall(r"control_id:\s*'([a-z-]+)'", body) + re.findall(r"control_id = '([a-z-]+)'", body):
+        assert control in registered, (
+            f"panel uses {control!r} which is not registered in control-systems.yaml"
+        )

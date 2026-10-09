@@ -131,3 +131,48 @@ with action buttons disabled — zero network, never confusable with live.
 - **Pins:** stage-4 anchor + consumers fetch (panel) + `consumers_view` +
   revision-stamp source + client-side rate math (ACT_RATE/fmtEta) added to
   `test_activation_tracker_modal`; all round-1 doctrine pins unchanged.
+
+## Round 3 — proper options (operator directive, 2026-10-08)
+
+> "We want to remaster the profile activation modal. We want a better UX and
+> style. Proper options too."
+
+- **Type-to-confirm (the option doctrine).** The rail's own refusal names the
+  doctrine — `confirm_required … (type-to-confirm on the panel)` — and the
+  round-2 modal violated it: Apply fired `confirm:true` immediately. The first
+  click now PRE-POSTs with `confirm:false`; the rail answers with
+  `{confirm_required, argv}` and the footer strip names the EXACT command the
+  rail would run; only the strip's Confirm click re-POSTs with `confirm:true`
+  (the rail re-validates at execution time). Rail refusals on the preview map
+  to real states (422 prerequisites+remediation → blocked, 403 key → denied,
+  409 single-flight → conflict, dry-run → preview). The client never offers a
+  dry-run *toggle* — dry-run is the daemon's primitive gate
+  (`SOVEREIGN_OS_ACTION_EXEC_LIVE`), and the strip honestly reports what the
+  rail itself returned.
+- **The full option set (all grounded, nothing invented).** Stable action bar:
+  every option is always visible, disabled buttons carry their named reason in
+  `title` — the bar never appears/vanishes mid-pipeline. Options: Start /
+  resume downloads (whole profile) · Apply profile · **Switch back to
+  <previous>** (rollback = the SAME signed switch verb with the previously
+  active profile's id, captured at open time — there is no restore API in the
+  system) · **Re-run switch (catalog mirror)** (the named repair for a stale
+  OpenClaw mirror, gated to `needs mirror`) · per-model **Start/Resume**
+  buttons ride the stage-① rows (same `model-download` control, one model per
+  job) · Copy exact commands (always, tertiary). Download *cancel* is NOT
+  offered — no cancel endpoint exists on the download job surface.
+- **UX/visual.** Footer becomes a two-row control surface: the amber type-to-
+  confirm strip (mono argv block, selectable, focus moves to Confirm) above a
+  grouped action row (pipeline | recovery | utility, hairline dividers);
+  primary emphasis follows the pipeline frontier; warn-violet for recovery
+  verbs; hover lift + focus-visible on all buttons; result line is
+  `role=status` `aria-live=polite`; applyProfile re-renders the modal the
+  moment the rail answers (previously buttons stayed stale-gated until the
+  next 2 s poll).
+- **Pins:** `test_activation_tracker_proper_options` — strip anchor +
+  `body.confirm_required` handling + preview carries `confirm:false` + all
+  five options present + rollback keys (`ACT.prevId/prevFam`) + per-model
+  `data-dl`/`actStartDownload` + every control id the panel uses is verified
+  against the `control-systems.yaml` registry (no invented controls). Live jsdom harness `confirm-flow.js` (stubbed :8130 rail, nothing
+  privileged runs): 14/14 — first click never reaches the privileged path,
+  confirm POSTs the same verb, rollback names the previous profile and
+  enables only after a switch lands.

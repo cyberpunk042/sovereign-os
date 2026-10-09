@@ -2391,20 +2391,53 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
     background:currentColor;
     -webkit-mask:url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\"><path d=\"M20 6L9 17l-5-5\"/></svg>') center/contain no-repeat;
             mask:url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\"><path d=\"M20 6L9 17l-5-5\"/></svg>') center/contain no-repeat;}
-  /* — sticky action footer: never scrolls away — */
-  #so-act-modal .so-act-foot{flex:0 0 auto; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+  /* — sticky action footer: stable control surface (options never appear/vanish
+     mid-pipeline — they disable with a named reason instead) — */
+  #so-act-modal .so-act-foot{flex:0 0 auto; display:flex; flex-direction:column; align-items:stretch; gap:.55rem;
     padding:.8rem 1.25rem; border-top:1px solid var(--m-border);
     background:linear-gradient(180deg,rgba(16,19,24,.72),var(--m-card));}
-  #so-act-modal .so-act-acts{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;}
+  #so-act-modal .so-act-foot-row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;}
+  #so-act-modal .so-act-acts{display:flex; align-items:center; gap:.45rem; flex-wrap:wrap;}
+  #so-act-modal .so-act-div{flex:0 0 auto; width:1px; align-self:stretch; min-height:1.4rem;
+    background:var(--m-line); opacity:.6; margin:0 .2rem;}
   #so-act-modal .so-act-acts .p-apply{display:inline-flex; align-items:center; gap:.4rem;
     border:1px solid var(--m-line); background:transparent; color:var(--m-fg);
-    border-radius:8px; padding:.38rem .75rem; font:inherit; font-size:.7rem; cursor:pointer;
-    transition:background .15s,border-color .15s;}
-  #so-act-modal .so-act-acts .p-apply:hover:not(:disabled){background:var(--m-hover); border-color:var(--m-dim);}
+    border-radius:8px; padding:.4rem .8rem; font:inherit; font-size:.7rem; cursor:pointer;
+    transition:background .15s,border-color .15s,transform .15s,box-shadow .15s;}
+  #so-act-modal .so-act-acts .p-apply:hover:not(:disabled){background:var(--m-hover); border-color:var(--m-dim); transform:translateY(-1px);}
+  #so-act-modal .so-act-acts .p-apply:active:not(:disabled){transform:translateY(0);}
   #so-act-modal .so-act-acts .p-apply.primary{border-color:var(--m-accent); color:var(--m-accent);
-    background:var(--m-accent-soft);}
+    background:var(--m-accent-soft); font-weight:600;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 6px 16px -8px rgba(147,201,255,.55);}
   #so-act-modal .so-act-acts .p-apply.primary:hover:not(:disabled){background:rgba(147,201,255,.22);}
-  #so-act-modal .so-act-acts .p-apply:disabled{opacity:.45; cursor:default;}
+  #so-act-modal .so-act-acts .p-apply.warnv{border-color:var(--m-warn); color:var(--m-warn); background:var(--m-warn-soft);}
+  #so-act-modal .so-act-acts .p-apply.warnv:hover:not(:disabled){background:rgba(230,192,98,.18); border-color:var(--m-warn);}
+  #so-act-modal .so-act-acts .p-apply.tertiary{color:var(--m-dim); border-color:var(--m-hair);}
+  #so-act-modal .so-act-acts .p-apply.tertiary:hover:not(:disabled){color:var(--m-fg); border-color:var(--m-line);}
+  #so-act-modal .so-act-acts .p-apply:disabled{opacity:.45; cursor:not-allowed; box-shadow:none; transform:none;}
+  /* — type-to-confirm strip (rail doctrine: "type-to-confirm on the panel").
+     The first POST (confirm:false) makes the rail answer with the EXACT argv;
+     nothing heavy runs until the operator confirms that named verb. — */
+  #so-act-modal .so-act-confirm{border:1px solid rgba(230,192,98,.4); border-radius:10px;
+    padding:.55rem .8rem; font-size:.7rem; line-height:1.5; color:var(--m-fg-soft);
+    background:linear-gradient(180deg,var(--m-warn-soft),transparent);
+    animation:so-act-in .18s cubic-bezier(.2,.8,.25,1);}
+  #so-act-modal .so-act-confirm b{color:var(--m-warn); font-size:.68rem; text-transform:uppercase; letter-spacing:.05em;}
+  #so-act-modal .so-act-confirm .so-act-argv{display:block; margin:.4rem 0 .5rem; padding:.35rem .6rem;
+    border:1px solid var(--m-hair); border-radius:7px; background:var(--m-surf2); color:var(--m-fg);
+    font-family:var(--mono); font-size:.66rem; word-break:break-all; user-select:all;}
+  #so-act-modal .so-act-confirm .so-act-cbtns{display:flex; align-items:center; gap:.45rem; flex-wrap:wrap;}
+  #so-act-modal .so-act-confirm button{border-radius:7px; padding:.34rem .7rem; font:inherit; font-size:.7rem; cursor:pointer;
+    border:1px solid var(--m-line); background:transparent; color:var(--m-fg);}
+  #so-act-modal .so-act-confirm button.cyes{border-color:var(--m-accent); color:var(--m-accent); background:var(--m-accent-soft); font-weight:600;}
+  #so-act-modal .so-act-confirm button.cyes:hover{background:rgba(147,201,255,.22);}
+  #so-act-modal .so-act-confirm button:focus-visible{outline:2px solid var(--m-accent); outline-offset:2px;}
+  /* per-model start/resume affordances ride the stage-① rows themselves */
+  #so-act-modal .so-act-mini{border:1px solid var(--m-line); background:transparent; color:var(--m-accent);
+    border-radius:6px; padding:.16rem .55rem; font:inherit; font-size:.64rem; cursor:pointer; transition:background .15s;}
+  #so-act-modal .so-act-mini:hover{background:var(--m-accent-soft);}
+  #so-act-modal .so-act-mini:focus-visible{outline:2px solid var(--m-accent); outline-offset:2px;}
+  #so-act-modal .so-act-dlact{grid-column:1 / -1; display:flex; align-items:center; gap:.45rem; padding-top:.1rem;}
   #so-act-modal #so-act-result{margin-left:auto; font-size:.7rem; line-height:1.4;}
   #so-act-modal .p-result.ok{color:var(--good,#7ad17a);} #so-act-modal .p-result.dry{color:var(--m-accent);}
   #so-act-modal .p-result.warn{color:var(--warn,#e6c062);} #so-act-modal .p-result.err{color:var(--bad,#ff7676);}
@@ -2421,6 +2454,9 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
   }
   html[data-theme="light"] #so-act-modal .so-act-card{box-shadow:0 30px 80px -12px rgba(15,23,42,.35), 0 6px 18px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.7);}
   html[data-theme="light"] #so-act-modal .so-act-foot{background:linear-gradient(180deg,rgba(255,255,255,.72),#ffffff);}
+  html[data-theme="light"] #so-act-modal .so-act-confirm{border-color:rgba(138,100,19,.4);}
+  html[data-theme="light"] #so-act-modal .so-act-acts .p-apply.primary{box-shadow:inset 0 1px 0 rgba(255,255,255,.6), 0 6px 16px -8px rgba(22,104,176,.35);}
+  html[data-theme="light"] #so-act-modal .so-act-mini{background:transparent;}
   html[data-theme="light"] #so-act-modal .so-act-body::-webkit-scrollbar-thumb{border-color:#ffffff;}
   html[data-theme="light"] #so-act-modal .so-act-bar{background:rgba(15,23,42,.08); box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);}
   html[data-theme="light"] #so-act-modal .so-act-bar i{background:linear-gradient(90deg,#2f7fc2,#1668b0);}
@@ -2492,7 +2528,10 @@ text-input guard: Cmd-N is suppressed when typing in <input>/
         <div id="so-act-stage-companions" class="so-act-stage" role="status"></div>
         <div id="so-act-complete" class="so-act-complete" hidden></div>
       </div>
-      <div class="so-act-foot"><div class="so-act-acts" id="so-act-acts"></div><span id="so-act-result" class="p-result muted"></span></div>
+      <div class="so-act-foot">
+        <div id="so-act-confirm" class="so-act-confirm" hidden></div>
+        <div class="so-act-foot-row"><div class="so-act-acts" id="so-act-acts"></div><span id="so-act-result" class="p-result muted" role="status" aria-live="polite"></span></div>
+      </div>
     </div>
   </div>
 
@@ -2937,6 +2976,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
   // panel's own read-only endpoints, polled only while the modal is open.
   // DEMO mode: badged sample pipeline, zero network (SDD-116/117 posture).
   const ACT = { open:false, id:null, fam:null, apply:null, timer:null,
+                // prevId/prevFam: the profile that was ACTIVE when the tracker
+                // opened — the honest rollback target (the switch verb with a
+                // different id), never an invented restore API.
+                // confirm: {targetId, fam, kind, argv} once the rail answers
+                // confirm_required with the exact argv (type-to-confirm).
+                prevId:null, prevFam:null, confirm:null,
                 poll:{ profiles: LAST_PROFILES_DATA, grid: LAST_GRID, consumers: null, error: '' } };
   const actModal = document.getElementById('so-act-modal');
   const ACT_PHASE = {
@@ -2954,6 +2999,13 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     ACT.poll = { profiles: LAST_PROFILES_DATA, grid: LAST_GRID, consumers: null, error: '' };
     Object.keys(ACT_RATE).forEach(k => delete ACT_RATE[k]);
     if (!ACT.apply || ACT.apply.id !== id) ACT.apply = null;
+    ACT.confirm = null;
+    // Rollback target = whichever profile the active marker names right now,
+    // captured at open time (before any apply in this session moves it).
+    const cur = ((LAST_PROFILES_DATA && LAST_PROFILES_DATA.profiles) || PROFILES || []).find(x => x.active);
+    const curId = cur ? (cur.id || cur.mode_id) : null;
+    ACT.prevId = (curId && curId !== id) ? curId : null;
+    ACT.prevFam = cur ? (cur.family || 'orchestration') : null;
     actModal.hidden = false;
     const x = document.getElementById('so-act-close'); if (x) x.focus();
     actRender();
@@ -3162,6 +3214,9 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         dl += '<span class="so-act-dlbar"><span class="so-act-num">' + fmtGB(d.bytes_total) + ' GiB verified</span></span>';
       dl += '<span class="so-act-phase">' + esc(ACT_PHASE[d.status] || d.status) + '</span>';
       if (d.err) dl += '<span class="so-act-err">' + esc(d.err) + (d.stage ? ' (stage: ' + esc(d.stage) + ')' : '') + (d.etype ? ' (' + esc(d.etype) + ')' : '') + '</span>';
+      if (!st.demo && ['not-started','failed','interrupted'].includes(d.status))
+        dl += '<span class="so-act-dlact"><button class="so-act-mini" data-dl="' + esc(d.id) + '" title="Queues a resumable privileged job for this model alone (partial files continue)">'
+          + (d.status === 'not-started' ? 'Start' : 'Resume') + '</button></span>';
       dl += '</div>';
     });
     $('so-act-stage-dl').innerHTML = dl;
@@ -3243,37 +3298,91 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const doneEl = $('so-act-complete');
     doneEl.hidden = !complete;
     if (complete) doneEl.innerHTML = 'Profile ' + esc(p && (p.name || p.id) || pid) + ' is active and every declared model is resident on its device. The deployment deck above shows the same evidence at a glance.';
+    // ── Action bar. Options are a STABLE surface: every option is always
+    // present and disabled with its named reason when it cannot run — the
+    // bar never appears/vanishes mid-pipeline. Heavy verbs (apply, rollback,
+    // mirror re-run) NEVER run on the first click: they ask the rail for its
+    // exact argv (confirm:false) and route the operator through the rail's
+    // own type-to-confirm strip. Same signed controls as before (R10212).
     const acts = $('so-act-acts');
     acts.innerHTML = '';
+    function footBtn(label, kind, disabled, reason, onClick){
+      const b = document.createElement('button'); b.className = 'p-apply ' + (kind || '');
+      b.textContent = label;
+      if (disabled){ b.disabled = true; if (reason) b.title = reason; }
+      else if (onClick) b.addEventListener('click', onClick);
+      acts.appendChild(b); return b;
+    }
+    function footDiv(){ const d = document.createElement('span'); d.className = 'so-act-div'; acts.appendChild(d); }
+    const dlPending = st.downloads.some(d => d.status === 'not-started' || d.status === 'failed' || d.status === 'interrupted');
+    const canApply = !['active', 'posting'].includes(st.apply.state);
+    const canRollback = !!(ACT.prevId) && ['active', 'applied'].includes(st.apply.state);
     if (st.demo) {
       const note = document.createElement('span'); note.className = 'so-act-phase';
       note.textContent = 'DEMO — sample pipeline; no daemon to act on. Buttons disabled.';
       acts.appendChild(note);
+      footBtn('Start / resume downloads', 'primary', true, 'DEMO — no daemon to act on');
+      footBtn('Apply profile', '', true, 'DEMO — no daemon to act on');
+      footBtn('Re-run switch (catalog mirror)', '', true, 'DEMO — no daemon to act on');
+      footBtn('Copy exact commands', 'tertiary', true, 'DEMO — no daemon to act on');
     } else {
-      if (st.downloads.some(d => d.status === 'not-started' || d.status === 'failed' || d.status === 'interrupted')) {
-        const b = document.createElement('button'); b.className = 'p-apply primary';
-        b.textContent = 'Start / resume downloads';
-        b.disabled = dlRunning;
-        b.addEventListener('click', actStartDownloads);
-        acts.appendChild(b);
-      }
-      if (st.apply.state === 'waiting' || st.apply.state === 'blocked' || st.apply.state === 'conflict' || st.apply.state === 'error' || st.apply.state === 'unreachable' || st.apply.state === 'dry') {
-        const b = document.createElement('button'); b.className = 'p-apply primary';
-        b.textContent = 'Apply profile (signed rail)';
-        b.addEventListener('click', () => applyProfile(ACT.id, ACT.fam, $('so-act-result')));
-        acts.appendChild(b);
-      }
-      const c = document.createElement('button'); c.className = 'p-apply'; c.textContent = 'Copy exact commands';
+      // pipeline options (primary emphasis follows the pipeline frontier)
+      footBtn('Start / resume downloads', dlPending ? 'primary' : '', !dlPending,
+        dlRunning ? 'a download job is already running — the rail serializes transfers'
+                  : 'every declared model is verified and resident — nothing to download', actStartDownloads);
+      footBtn('Apply profile', (!dlPending && canApply) ? 'primary' : '', !canApply,
+        st.apply.state === 'active' ? 'this profile is already active — the marker names it'
+                                    : 'an apply is in flight (the rail is single-flight) — wait for it to clear',
+        () => actAskConfirm(ACT.id, ACT.fam, 'apply'));
+      footDiv();
+      // recovery options
+      footBtn(ACT.prevId ? 'Switch back to ' + ACT.prevId : 'Switch back', canRollback ? 'warnv' : '', !canRollback,
+        !ACT.prevId ? 'no other profile was active when this tracker opened'
+                    : 'the switch has not landed yet — rollback needs an active/applied switch in this tracker',
+        () => actAskConfirm(ACT.prevId, ACT.prevFam || 'orchestration', 'rollback'));
+      footBtn('Re-run switch (catalog mirror)', compState === 'needs mirror' ? 'warnv' : '',
+        !(apActive && compState === 'needs mirror'),
+        !apActive ? 'nothing is active yet — Apply mirrors the catalog as part of the switch'
+        : mirrorState === 'synced' ? 'the OpenClaw catalog mirror is already current'
+        : mirrorState === 'not-installed' ? 'no openclaw.json found — the mirror is a no-op on this host'
+        : 'the switch also mirrors the OpenClaw catalog; re-run it to refresh',
+        () => actAskConfirm(ACT.id, ACT.fam, 'mirror'));
+      footDiv();
+      // utility — always available (read-only)
+      const c = footBtn('Copy exact commands', 'tertiary', false, '', null);
       c.addEventListener('click', () => copyCmd('sovereign-osctl trinity profile switch ' + pid +
         (allDownloadsComplete || !st.downloads.length ? '' : '\n' + st.downloads.filter(d => d.status !== 'complete').map(d => d.command).join('\n')),
         'The sanctioned CLI for this pipeline (downloads first, then the switch — which also mirrors the OpenClaw catalog):'));
-      acts.appendChild(c);
     }
+    // Type-to-confirm strip: names the EXACT argv the rail itself returned.
+    const cEl = $('so-act-confirm');
+    if (!st.demo && ACT.confirm) {
+      cEl.hidden = false;
+      cEl.innerHTML = '<b>Type-to-confirm</b> — a profile switch reshuffles models across devices; the rail will run exactly:'
+        + '<span class="so-act-argv">' + esc(ACT.confirm.argv) + '</span>'
+        + '<div class="so-act-cbtns"><button class="cyes" id="so-act-confirm-yes">Confirm — '
+        + (ACT.confirm.kind === 'rollback' ? 'switch back ' : 'switch ') + 'to ' + esc(ACT.confirm.targetId)
+        + '</button><button id="so-act-confirm-no">Cancel</button>'
+        + '<span class="so-act-phase">nothing runs until Confirm is pressed; the rail re-validates at execution time</span></div>';
+      document.getElementById('so-act-confirm-yes').addEventListener('click', actConfirmYes);
+      document.getElementById('so-act-confirm-no').addEventListener('click', function(){ ACT.confirm = null; actRender(); });
+      const yesBtn = document.getElementById('so-act-confirm-yes'); if (yesBtn) yesBtn.focus();
+    } else { cEl.hidden = true; cEl.innerHTML = ''; }
     // Stop polling once the pipeline is settled (active + resident, or nothing
     // in flight at all) — the modal stays open as an evidence surface.
     if (!st.demo && complete && ACT.timer){ clearInterval(ACT.timer); ACT.timer = null; }
   }
 
+  function actStartDownload(modelId){
+    return fetch(EXECUTE_URL, {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({control_id:'model-download',args:{model:modelId},confirm:true})})
+      .then(response => response.json().catch(() => ({})).then(body => {
+        if (!response.ok || !body.ok) throw new Error(body.error || body.stderr || 'Download service unavailable');
+        if (body.dry_run) { setP($('so-act-result'), 'dry', 'Preview only — privileged download service is not enabled.'); }
+        return body;
+      }));
+  }
   async function actStartDownloads(){
     const st = actState();
     if (st.demo) return;
@@ -3281,18 +3390,71 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     try {
       for (const d of st.downloads) {
         if (['queued','preflight','downloading','verifying','complete'].includes(d.status)) continue;
-        const response = await fetch(EXECUTE_URL, {method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({control_id:'model-download',args:{model:d.id},confirm:true})});
-        const body = await response.json();
-        if (!response.ok || !body.ok) throw new Error(body.error || body.stderr || 'Download service unavailable');
-        if (body.dry_run) { setP($('so-act-result'), 'dry', 'Preview only — privileged download service is not enabled.'); return; }
+        await actStartDownload(d.id);
       }
       setP($('so-act-result'), 'ok', 'Downloads accepted — stage ① updates live below.');
     } catch (error) { setP($('so-act-result'), 'err', error.message); }
     actPoll();
   }
+  // Type-to-confirm (round-3 remaster). The rail's own doctrine is "type-to-
+  // confirm on the panel": the FIRST POST carries confirm:false and the rail
+  // answers with {confirm_required, argv} — the exact command it would run —
+  // or a real refusal (422 prerequisites w/ remediation, 403 key, 409 single-
+  // flight). Nothing heavy ever runs on the first click; the confirm click
+  // re-POSTs with confirm:true and the rail re-validates at execution time.
+  function actAskConfirm(targetId, fam, kind){
+    if (!targetId) return;
+    setP($('so-act-result'), 'muted', 'asking the rail for the exact verb…');
+    const control_id = (fam === 'orchestration' || fam === 'user') ? 'orchestration-profile' : 'runtime-mode';
+    fetch(EXECUTE_URL, { method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({ control_id, args: { verb: targetId }, confirm: false }) })
+      .then(res => res.json().catch(() => ({})).then(body => {
+        if (res.status === 403 && body.confirm_required) {
+          ACT.confirm = { targetId: targetId, fam: fam, kind: kind,
+            argv: ((body.argv && body.argv.length) ? body.argv : ['sovereign-osctl','trinity','profile','switch',targetId]).join(' ') };
+        } else if (res.status === 200 && body.dry_run) {
+          setP($('so-act-result'), 'dry', 'preview ✓ the rail would run: ' + ((body.would_run || body.argv || []).join(' ')));
+        } else if (res.status === 422) {
+          ACT.apply = { id: ACT.id, state: 'blocked',
+            msg: (body.error || 'prerequisites not met') + (body.remediation ? ' — ' + body.remediation : '') };
+        } else if (res.status === 403) {
+          ACT.apply = { id: ACT.id, state: 'denied', msg: body.error || 'operator key not loaded — apply from a signed session' };
+        } else if (res.status === 409) {
+          ACT.apply = { id: ACT.id, state: 'conflict', msg: body.error || 'another apply is in flight' };
+        } else if (res.status === 405) {
+          setP($('so-act-result'), 'muted', 'read-only origin — use Copy exact commands');
+        } else {
+          setP($('so-act-result'), 'err', body.error || ('rail refused the preview (HTTP ' + res.status + ')'));
+        }
+        actRender();
+      }))
+      .catch(e => setP($('so-act-result'), 'err', 'rail unreachable — ' + (e.message || e) + '; use Copy exact commands'));
+  }
+  function actConfirmYes(){
+    const c = ACT.confirm; ACT.confirm = null;
+    if (!c) { actRender(); return; }
+    // The pinned apply path for the tracked profile; rollback reuses the SAME
+    // signed verb with the previous profile's id (the real restore path —
+    // there is no separate restore API anywhere in the system).
+    if (c.targetId === ACT.id) applyProfile(ACT.id, ACT.fam, $('so-act-result'));
+    else applyProfile(c.targetId, c.fam, $('so-act-result'));
+    if (c.kind === 'rollback') ACT.prevId = null; // landed switch: no stale target
+    setTimeout(actPoll, 800);
+    actRender();
+  }
   actModal.addEventListener('click', function(e){ if (e.target === actModal) actClose(); });
+  // per-model Start/Resume (stage ① rows re-render every poll, so the handler
+  // is delegated once on the static container).
+  $('so-act-stage-dl').addEventListener('click', function(e){
+    const b = e.target.closest('[data-dl]');
+    if (!b) return;
+    setP($('so-act-result'), 'muted', 'starting ' + b.getAttribute('data-dl') + '…');
+    actStartDownload(b.getAttribute('data-dl'))
+      .then(() => setP($('so-act-result'), 'ok', 'download accepted — stage ① updates live below.'))
+      .catch(err => setP($('so-act-result'), 'err', err.message))
+      .finally(actPoll);
+  });
   document.getElementById('so-act-close').addEventListener('click', actClose);
   document.addEventListener('keydown', function(e){ if (actModal && !actModal.hidden && e.key === 'Escape') actClose(); });
 
@@ -3406,9 +3568,11 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         : res.status === 422 ? 'blocked' : res.status === 409 ? 'conflict'
         : res.status === 403 ? 'denied' : res.status === 405 ? 'ro' : 'error';
       if (ACT.open && ACT.id === id) ACT.apply = { id, state: st, msg: body.error || '' };
+      if (ACT.open) actRender(); // re-gate the action bar the moment the rail answers
     } catch (e) {
       setP(resultEl, 'muted', 'exec rail unreachable — run: sovereign-osctl trinity profile switch ' + id);
       if (ACT.open && ACT.id === id) ACT.apply = { id, state: 'unreachable', msg: e.message || String(e) };
+      if (ACT.open) actRender();
     }
   }
 
