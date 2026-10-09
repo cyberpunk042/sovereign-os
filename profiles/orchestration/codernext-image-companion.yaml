@@ -25,8 +25,8 @@ orchestration_profile:
       model: Qwen3-Coder-Next-Q6_K
       model_path: /mnt/vault/models/Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K/Qwen3-Coder-Next-Q6_K-00001-of-00004.gguf
       port: 8083
-      vram_limit_bytes: 85899345920
-      max_model_len: 65536
+      vram_limit_bytes: 90194313216
+      max_model_len: 262144
       extra_args: "--alias gpu-oracle --jinja --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --split-mode none --parallel 1"
       max_output_tokens: 8192
       active: true
@@ -43,4 +43,4 @@ orchestration_profile:
     - {agent_id: embed_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
     - {agent_id: rerank_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
   context_budget:
-    initial_tokens: {"cuda:0": 65536, "cuda:2": 8192}
+    initial_tokens: {"cuda:0": 262144, "cuda:2": 8192}

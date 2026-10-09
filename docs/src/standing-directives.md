@@ -19,6 +19,8 @@ Operator standing-directives (verbatim mandate records), newest by date last.
 - [Standing directive — Ubuntu 26.04 LTS is a SECOND distro option, not a replacement](../standing-directives/2026-07-28-ubuntu-26-04-as-a-second-distro.md)
 - [Standing directive — a build artifact must NAME its distro, and the panels must SAY it](../standing-directives/2026-07-29-artifacts-must-name-their-distro.md)
 - [LM profile catalog and download readiness — 2026-09-10](../standing-directives/2026-09-10-lm-profile-catalog-and-download-readiness.md)
+- [Operator directive](../standing-directives/2026-10-09-cockpit-download-errors.md)
+- [Operator directive](../standing-directives/2026-10-09-dynamic-profile-rail.md)
 - [Operator request — 2026-10-09](../standing-directives/2026-10-09-image-model-profiles.md)
 - [Operator directive — 2026-10-09](../standing-directives/2026-10-09-profile-test-isolation.md)
 - [Re-arming `/goal` autopilot — root cause + the fix](../standing-directives/goal-rearming.md)

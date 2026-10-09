@@ -222,6 +222,54 @@ def _derive_entry(alloc: dict, cat: dict[str, dict], oc_id: str) -> dict:
     return entry
 
 
+def _warn_context_shrink(oc_id: str, old_ctx: int, new_ctx: int, cfg_path: Path) -> None:
+    """Warn loudly when a switch shrinks a model's advertised context below the
+    size of live sessions that will keep running on it.
+
+    Live provenance (2026-10-09): switching the Oracle to Coder-Next (a truthful
+    65K launch window on the 6000) re-advertised gpu-oracle at 65536 while this
+    very session carried a ~150K prompt. The next turn mid-turn-precheck
+    overflowed, compaction had nothing to compact, and the conversation was
+    blocked — the configs were all *true*, but nothing warned that the switch
+    would strand the running chat. A session bigger than the new window is
+    structurally unrunnable on the new model: it needs /reset (or a profile
+    whose window still fits it).
+    """
+    agents_dir = cfg_path.parent / "agents"
+    if not agents_dir.is_dir():
+        return
+    oversized: list[str] = []
+    for store in sorted(agents_dir.glob("*/sessions/sessions.json")):
+        try:
+            data = json.loads(store.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        entries = data.get("entries") if isinstance(data, dict) else None
+        if not isinstance(entries, dict):
+            continue
+        for key, ent in entries.items():
+            path = ent.get("sessionFile") if isinstance(ent, dict) else None
+            if not path:
+                continue
+            p = Path(path)
+            if not p.is_absolute():
+                p = store.parent / path
+            try:
+                size = p.stat().st_size
+            except OSError:
+                continue
+            est = size // 4  # conservative chars→tokens for mixed tool transcripts
+            if est > new_ctx:
+                oversized.append(f"{key} (~{est // 1000}K)")
+    if oversized:
+        _log(
+            f"WARNING: {oc_id} contextWindow {old_ctx} -> {new_ctx}; these LIVE sessions "
+            f"are larger than the new window and will be blocked until /reset: "
+            + ", ".join(oversized[:6])
+            + (" …" if len(oversized) > 6 else "")
+        )
+
+
 def _openclaw_config_path() -> Path:
     if os.environ.get("OPENCLAW_CONFIG"):
         return Path(os.environ["OPENCLAW_CONFIG"]).expanduser()
@@ -806,10 +854,14 @@ def main(argv: list[str] | None = None) -> int:
             _log(f"profile {profile_id!r} has no {tier} tier — leaving {oc_id} unchanged")
             continue
         derived = _derive_entry(alloc, cat, oc_id)
+        old_ctx = entry.get("contextWindow")
         for k, v in derived.items():
             if entry.get(k) != v:
                 changes.append(f"{oc_id}.{k}: {entry.get(k)!r} -> {v!r}")
                 entry[k] = v
+        new_ctx = derived.get("contextWindow")
+        if isinstance(old_ctx, int) and isinstance(new_ctx, int) and new_ctx < old_ctx:
+            _warn_context_shrink(oc_id, old_ctx, new_ctx, cfg_path)
 
     _ensure_qwythos_worker(cfg, models, allocs, cat, profile_id, changes)
     _ensure_local_memory(cfg, profile_id, changes)
