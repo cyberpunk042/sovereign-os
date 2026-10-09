@@ -441,6 +441,15 @@ def snapshot() -> dict[str, Any]:
     lat = _read_json(MODEL_LATENCY_PATH) or {}
 
     loaded = state.get("loaded") or {}  # {role: [{id,precision,size_bytes}, ...]}
+    # A published runtime witness (model-state.json exists) is a claim about
+    # the machine: roles missing from it are NOT serving, right now. Without
+    # this flag, a tier mid-restart (profile switch, cold boot) vanished from
+    # `loaded` and the per-role fallback below re-dressed catalog candidates
+    # as residents — the 2026-10-09 D-21 incident showed "GPU0 · idle
+    # gpt-oss-120b / GPU1 · idle Qwen-32B-Ternary-Quant" while the swap had
+    # in fact loaded the right GGUFs. Plan-as-state is the failure module 86
+    # was built to kill; the fallback branch must not resurrect it.
+    witness_published = bool(state)
     tps = state.get("tokens_per_sec") or {}  # {role: float}
 
     roles: dict[str, Any] = {}
@@ -456,6 +465,9 @@ def snapshot() -> dict[str, Any]:
         runtime_models = loaded.get(role)
         if runtime_models is not None:
             models, source = runtime_models, "runtime"
+        elif witness_published:
+            # The witness says this role serves nothing — report the absence.
+            models, source = [], "unresident"
         else:
             models, source = cat.get(role, []), "catalog"
         entry: dict[str, Any] = {
@@ -503,7 +515,7 @@ def snapshot() -> dict[str, Any]:
         "summary": {
             "total": total, "blackwell": bw, "rtx4090": rtx, "cpu": cpu,
             "router": rtr,
-            "source": "runtime" if loaded else "catalog",
+            "source": "runtime" if loaded else ("unresident" if witness_published else "catalog"),
         },
         "roles": roles,
         "gpus": gpus,
