@@ -44,15 +44,16 @@ catalog:
     Verified-real entries cross-checked at L0 ingest.
 
   models:
-    - id: Qwen-Image-2.1-Uncensored-Q4_K_M
+    - id: Qwen-Image-2.1-Uncensored-BF16
       class: multimodal
+      quantization: bf16
       tier: oracle
       engine: custom
       status: verified-real
       license: qwen-research
       hf_repo_id: abenzerps/Qwen-Image-2.1-Uncensored-GGUF
       hf_revision: 6b34e59458d3eb7ba6a6f86a116aed5253dc02c3
-      hf_include_patterns: [qwen-image-2.1-UC-Q4_K_M.gguf, text_encoders/qwen3vl_8b_bf16.safetensors, vae/qwen_image_2.1_vae_bf16.safetensors, README.md, SHA256SUMS]
+      hf_include_patterns: [qwen-image-2.1-UC-BF16.gguf, text_encoders/qwen3vl_8b_bf16.safetensors, vae/qwen_image_2.1_vae_bf16.safetensors, README.md, SHA256SUMS]
       operator_note: Image generator, not a chat model. ComfyUI GGUF runtime required; CPU text-encoder offload. Hardware qualification pending.
       runtime_profile_bindings: []
 

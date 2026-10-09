@@ -1,5 +1,13 @@
 # Operator request — 2026-10-09
 
+> why Q4_K_M.and not BF16 ?
+
+> wtf... fix it
+
+Correction: use the requested repository's UC BF16 GGUF transformer on the
+RTX 5090, with the BF16 text encoder offloaded to CPU. No automatic quantized
+fallback. Peak generation memory remains subject to qualification.
+
 > one fit on the rtx5090 and the other on the 6000
 
 > create the profile I asked...
@@ -20,7 +28,7 @@ would not create a working image-generation profile.
 
 Proposed candidates, not yet deployable or qualified:
 
-- Qwen Image 2.1: original requested repository, UC Q4_K_M transformer,
+- Qwen Image 2.1: original requested repository, UC BF16 transformer,
   companion text encoder and VAE; ComfyUI plus compatible GGUF loader.
   Validate repository revisions and component compatibility before download.
 - FLUX.2 dev: original requested repository, BF16 transformer on the PRO 6000
