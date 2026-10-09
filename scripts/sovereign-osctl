@@ -5524,13 +5524,24 @@ PY
       }
       # Release the image residents before restoring any GPU chat profile.
       # Transient image units exist whenever any image profile is live, so
-      # the stop is unit-state driven, not marker-name driven.
-      if systemctl is-active --quiet sovereign-image-qwen.service || systemctl is-active --quiet sovereign-image-flux.service; then
-        systemctl stop sovereign-image-qwen.service sovereign-image-flux.service || {
-          log_error "could not stop image services; refusing to compete for GPU memory"
-          return 1
-        }
-      fi
+      # the stop is unit-state driven, not marker-name driven. The units are
+      # systemd-run --collect TRANSIENT units: they vanish when they exit, so
+      # a multi-unit `systemctl stop A B` failed with "Unit ... not loaded"
+      # for the one already gone and aborted the whole switch (operator
+      # report 2026-10-09). Stop each unit on its own; already-gone is
+      # success, still-active is the failure that must refuse GPU competition.
+      local image_unit image_state
+      for image_unit in sovereign-image-qwen.service sovereign-image-flux.service; do
+        if systemctl is-active --quiet "${image_unit}"; then
+          if ! systemctl stop "${image_unit}" 2>/dev/null; then
+            image_state="$(systemctl is-active "${image_unit}" 2>/dev/null || true)"
+            if [ "${image_state}" != inactive ] && [ "${image_state}" != unknown ]; then
+              log_error "could not stop ${image_unit} (state: ${image_state}); refusing to compete for GPU memory"
+              return 1
+            fi
+          fi
+        fi
+      done
       # Remove the profile-owned llama.cpp overrides before an explicit return
       # to a regular profile.  Leaving them in place would make systemd serve
       # Qwythos while OpenClaw advertised the newly selected profile.

@@ -54,6 +54,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -225,6 +226,7 @@ def grid_view() -> dict[str, Any]:
         })
     return {"schema_version": snap.get("schema_version"),
             "summary": snap.get("summary", {}), "cells": cells,
+            "image_state": image_state_view(),
             "runtime_attestation": runtime_attestation_view()}
 
 
@@ -267,6 +269,99 @@ CONSUMER_STATE_FILES = {
     "claude-code-env": "claude-code.env",
     "vscode-cline-settings": "vscode-cline-settings.json",
 }
+
+
+# ── image-tier live state (activation modal + Image Generation visibility) ──
+# sd-server is NOT a gateway route, so an image allocation can never appear as
+# a grid cell — the activation modal showed "1/2 tiers live" with the image row
+# missing entirely (operator report 2026-10-09). The image state is therefore
+# derived from files + probes: the ACTIVE profile's own `tier: image`
+# allocations declare the ports; each declared port is probed at /v1/models.
+# Discovery is file-driven — never a hardcoded port/model list (operator
+# directive 2026-10-09).
+
+def _profile_file_for(pid: str) -> Path | None:
+    """Resolve a profile id to its YAML across the same families osctl
+    resolves (orchestration, runtime, operator drafts)."""
+    for d in (_ORCH_DIR, _RUNTIME_DIR, _USER_PROFILES_DIR):
+        try:
+            cand = d / f"{pid}.yaml"
+            if cand.is_file():
+                return cand
+        except OSError:
+            continue
+    return None
+
+
+def _image_allocations(path: Path) -> list[dict[str, Any]]:
+    """The `tier: image` allocations of one profile file — model + declared
+    port — parsed in the same tolerant dash-record style as _alloc_tiers
+    (handles both block and flow style). Inactive allocations are skipped."""
+    out: list[dict[str, Any]] = []
+    cur: list[str] = []
+
+    def _flush() -> None:
+        blob = " ".join(cur)
+        tm = re.search(r"\btier:\s*['\"]?([a-z0-9_-]+)", blob)
+        if not tm or tm.group(1) != "image":
+            return
+        am = re.search(r"\bactive:\s*(true|false)", blob)
+        if am and am.group(1) == "false":
+            return
+        mm = re.search(r"\bmodel:\s*['\"]?([A-Za-z0-9._/-]+)", blob)
+        pm = re.search(r"\bport:\s*['\"]?(\d+)", blob)
+        if mm and pm:
+            out.append({"model": mm.group(1), "port": int(pm.group(1))})
+
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    in_alloc = False
+    alloc_indent = -1
+    for raw in lines:
+        s = raw.strip()
+        indent = len(raw) - len(raw.lstrip())
+        if not in_alloc:
+            if s.startswith("allocations:"):
+                in_alloc, alloc_indent = True, indent
+            continue
+        if s and indent <= alloc_indent and not s.startswith("-"):
+            _flush()
+            cur = []
+            break
+        if s.startswith("-"):
+            _flush()
+            cur = [s.lstrip("- ").strip()]
+        elif s:
+            cur.append(s)
+    _flush()
+    return out
+
+
+def _probe_image_port(port: int) -> dict[str, Any]:
+    try:
+        with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/v1/models", timeout=2.0) as r:
+            models = [m.get("id") for m in json.load(r).get("data", []) if m.get("id")]
+        return {"ready": bool(models), "models": models}
+    except Exception:  # noqa: BLE001 — any failure is honest "not answering"
+        return {"ready": False, "models": []}
+
+
+def image_state_view() -> dict[str, Any]:
+    """Live image-tier state for the ACTIVE profile: declared allocations +
+    per-port /v1/models probes. Never raises; an unresolvable profile simply
+    reports its images as absent."""
+    pid = _active_profile_id()
+    if not pid:
+        return {"profile": None, "images": []}
+    path = _profile_file_for(pid)
+    if not path:
+        return {"profile": pid, "images": []}
+    images = [{**alloc, **_probe_image_port(alloc["port"])}
+              for alloc in _image_allocations(path)]
+    return {"profile": pid, "images": images}
 
 
 def _env_file_backend(path: Path) -> tuple[str, str]:

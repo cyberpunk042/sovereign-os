@@ -3097,7 +3097,23 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       const resident = (c.models || []).map(m => m.id).find(Boolean) || '';
       return { tier: role, want, resident };
     }).filter(t => t.want);
-    return { demo: false, profile: p, downloads, apply, tiers, pollError: ACT.poll.error,
+    // Image tier — sd-server is NOT a gateway route, so it can never appear as
+    // a grid cell; the activation modal used to show it nowhere (operator
+    // report 2026-10-09: "it doesn't show the image one"). The grid payload
+    // carries image_state: the ACTIVE profile's declared `tier: image`
+    // allocations + live /v1/models probes (file-driven, never hardcoded).
+    // Binding an image tier is the probe — the resident id is the runtime-
+    // stable sd-cpp id, not the profile's model name.
+    const imgState = (ACT.poll.grid && ACT.poll.grid.image_state) || null;
+    const imgProbe = (active && imgState && imgState.images) || [];
+    const imageTiers = (((p && p.tiers) || [])
+        .filter(t => t.active !== false && String(t.tier || '').toLowerCase() === 'image'))
+      .map(t => {
+        const hit = imgProbe.find(x => x.model === t.model) || {};
+        return { tier: 'image', want: t.model, live: !!hit.ready,
+                 resident: (hit.models || []).filter(Boolean).join(', ') + (hit.port ? ' @ :' + hit.port : '') };
+      });
+    return { demo: false, profile: p, downloads, apply, tiers, imageTiers, pollError: ACT.poll.error,
              consumers: (ACT.poll.consumers && ACT.poll.consumers.consumers) || [] };
   }
   // Download rate + ETA come from the 2 s poll deltas (smoothed) — no new
@@ -3140,8 +3156,10 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const dlDoneAll = st.downloads.length === 0 || st.downloads.every(d => d.status === 'complete');
     const apActive = st.apply.state === 'active';
     const apBad = ['blocked','denied','error','unreachable','conflict'].includes(st.apply.state);
-    const allLive = st.tiers.length && st.tiers.every(t => t.resident === t.want);
-    const complete = !st.demo && st.apply.state === 'active' && (st.tiers.length ? allLive : true);
+    const declaredN = st.tiers.length + (st.imageTiers || []).length;
+    const allLive = declaredN && st.tiers.every(t => t.resident === t.want)
+                 && (st.imageTiers || []).every(t => t.live);
+    const complete = !st.demo && st.apply.state === 'active' && (declaredN ? allLive : true);
     const cons = st.consumers || [];
     const ocRow = cons.find(c => c.id === 'openclaw');
     const mirrorState = ocRow ? ((ocRow.mirror && ocRow.mirror.state) || 'not-installed') : 'unknown';
@@ -3150,7 +3168,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       : mirrorState === 'not-installed' ? 'not installed' : 'needs mirror';
     const dlStep = dlDoneAll ? 'st-done' : dlRunning ? 'st-run' : dlFailed ? 'st-err' : '';
     const apStep = apActive ? 'st-done' : apBad ? 'st-err' : st.apply.state === 'waiting' ? '' : 'st-run';
-    const ldStep = (st.tiers.length && allLive) ? 'st-done' : apActive ? 'st-run' : '';
+    const ldStep = (declaredN && allLive) ? 'st-done' : apActive ? 'st-run' : '';
     const compStep = compState === 'synced' ? 'st-done'
       : (compState === 'needs mirror' || compState === 'not installed') ? 'st-err'
       : apActive ? 'st-run' : '';
@@ -3158,12 +3176,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
     const metaBits = [];
     if (ACT.fam) metaBits.push('<span class="so-act-fam">' + esc(ACT.fam) + '</span>');
     if (p && p.description_oneline) metaBits.push('<span>' + esc(p.description_oneline) + '</span>');
-    if (st.tiers.length) metaBits.push('<span>' + st.tiers.length
-      + (st.tiers.length === 1 ? ' prescribed model' : ' prescribed models') + '</span>');
+    if (st.tiers.length || (st.imageTiers || []).length) metaBits.push('<span>' + (st.tiers.length + (st.imageTiers || []).length)
+      + (st.tiers.length + (st.imageTiers || []).length === 1 ? ' prescribed model' : ' prescribed models') + '</span>');
     if (apActive) metaBits.push('<span class="so-act-active">ACTIVE</span>');
     $('so-act-meta').innerHTML = metaBits.join(' ');
     // overall chip: the one-glance answer up top.
-    const doneN = [dlDoneAll, apActive, (st.tiers.length && allLive), compState === 'synced'].filter(Boolean).length;
+    const doneN = [dlDoneAll, apActive, (declaredN && allLive), compState === 'synced'].filter(Boolean).length;
     const ov = $('so-act-overall');
     ov.className = 'so-act-overall ' + (complete ? 'o-ok' : (dlFailed || apBad || compState === 'needs mirror') ? 'o-err' : (dlRunning || apStep === 'st-run' || ldStep === 'st-run') ? 'o-run' : '');
     ov.textContent = complete ? 'complete' : (st.demo ? 'demo · sample pipeline'
@@ -3243,10 +3261,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 
     // ③ Language model loading — declared per tier vs actually bound+active.
     let ld = '<div class="so-act-st-h"><span class="so-act-n">3</span> Language model loading ';
-    if (!st.tiers.length) ld += actChip('not prescribed') + '<span class="so-act-stat">the grid shows what serves</span></div>';
+    if (!st.tiers.length && !(st.imageTiers || []).length) ld += actChip('not prescribed') + '<span class="so-act-stat">the grid shows what serves</span></div>';
     else {
+      const liveN = st.tiers.filter(t => t.resident === t.want).length + (st.imageTiers || []).filter(t => t.live).length;
+      const totalN = st.tiers.length + (st.imageTiers || []).length;
       ld += actChip(allLive ? 'live' : dlRunning || st.apply.state !== 'active' ? 'pending' : 'loading')
-        + '<span class="so-act-stat">' + st.tiers.filter(t => t.resident === t.want).length + '/' + st.tiers.length + ' tiers live</span></div>';
+        + '<span class="so-act-stat">' + liveN + '/' + totalN + ' tiers live</span></div>';
       st.tiers.forEach(t => {
         const bound = t.resident === t.want;
         const cell = st.demo ? { mode: 'active · ' + t.tier }
@@ -3259,6 +3279,11 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
         const state = bound ? 'live' : (st.apply.state === 'active' ? 'loading' : 'pending');
         ld += '<div class="so-act-row so-act-tier"><span class="so-act-mid"><b>' + esc(t.tier) + '</b> → ' + esc(t.want) + '</span>' + actChip(state)
           + '<span class="so-act-phase">resident: ' + esc(t.resident || 'no model loaded') + (bound ? (serving ? ' · serving' : ' · bound, route idle') : '') + '</span></div>';
+      });
+      (st.imageTiers || []).forEach(t => {
+        const state = t.live ? 'live' : (st.apply.state === 'active' ? 'loading' : 'pending');
+        ld += '<div class="so-act-row so-act-tier"><span class="so-act-mid"><b>' + esc(t.tier) + '</b> → ' + esc(t.want) + '</span>' + actChip(state)
+          + '<span class="so-act-phase">resident: ' + esc(t.resident || 'image runtime not answering /v1/models') + (t.live ? ' · generation-ready' : ' · transient systemd-run unit') + '</span></div>';
       });
     }
     $('so-act-stage-load').innerHTML = ld;

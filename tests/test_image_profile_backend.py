@@ -131,3 +131,40 @@ def test_missing_backend_does_not_stop_running_models(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match='runtime installation is missing'):
         module.main()
     assert calls == []
+
+
+def test_profile_switch_stops_transient_image_units_individually():
+    """Regression (operator report 2026-10-09): the image units are TRANSIENT
+    (systemd-run --collect); one combined `systemctl stop A B` returned
+    non-zero for the unit already gone ("Unit ... not loaded") and aborted the
+    whole profile switch while any image profile was live. Each unit must be
+    stopped on its own: already-gone is success, still-active must refuse."""
+    source = (ROOT / 'scripts/sovereign-osctl').read_text()
+    assert 'systemctl stop sovereign-image-qwen.service sovereign-image-flux.service' not in source
+    assert 'for image_unit in sovereign-image-qwen.service sovereign-image-flux.service' in source
+    assert 'refusing to compete for GPU memory' in source
+
+
+def test_activation_modal_sees_image_tiers():
+    """The D-21 activation modal must show declared `tier: image` allocations —
+    sd-server is not a gateway route, so grid cells never carry them and the
+    stage-3 strip read "1/2 tiers live" with the image row missing entirely.
+    The grid payload exposes image_state (declared allocations + live port
+    probes, file-driven); the modal renders + counts imageTiers."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'lm_orch_api_image_state', ROOT / 'scripts/operator/lm-orchestration-api.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    single = module._image_allocations(
+        ROOT / 'profiles/orchestration/codernext-image-companion.yaml')
+    assert single == [{'model': 'Qwen-Image-2.1-Uncensored-BF16', 'port': 8188}]
+    dual = module._image_allocations(ROOT / 'profiles/orchestration/qwen-image-flux-dual.yaml')
+    assert {a['port'] for a in dual} == {8188, 8189}
+    assert {a['model'] for a in dual} == {'Qwen-Image-2.1-Uncensored-BF16', 'FLUX.2-dev'}
+    state = module.image_state_view()
+    assert set(state) >= {'profile', 'images'}
+    api_src = (ROOT / 'scripts/operator/lm-orchestration-api.py').read_text()
+    assert '"image_state": image_state_view()' in api_src
+    panel = (ROOT / 'webapp/d-21-lm-orchestration/index.html').read_text()
+    assert 'imageTiers' in panel and 'image_state' in panel
