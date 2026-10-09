@@ -42,12 +42,12 @@ USER_ORCH_DIR = Path(os.environ.get(
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 # The verbatim-locked names the composer must never overwrite.
+# (The master-spec §18 runtime trio — ultra-sovereign-efficiency /
+# high-concurrency-burst / deep-context-synthesis — was retired 2026-10-08
+# with the profiles themselves; only the repo orchestration names remain.)
 _LOCKED_ORCH = {
     "full-orchestration", "coding-focus", "thinking-focus",
     "hybrid-coding-thinking", "full-hybrid",
-}
-_LOCKED_RUNTIME = {
-    "ultra-sovereign-efficiency", "high-concurrency-burst", "deep-context-synthesis",
 }
 
 # device → (agent_id, tier, role, target_hardware, engine, extra)
@@ -167,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = REPO_ORCH_DIR if args.target == "repo" else USER_ORCH_DIR
     out_path = out_dir / f"{pid}.yaml"
 
-    if pid in _LOCKED_ORCH or pid in _LOCKED_RUNTIME:
+    if pid in _LOCKED_ORCH:
         _fail(f"{pid!r} is a verbatim-locked profile name — choose another id")
     if out_path.exists() and not args.force:
         _fail(f"{out_path} already exists — pass --force to overwrite", 2)

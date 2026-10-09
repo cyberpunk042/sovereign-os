@@ -9,11 +9,10 @@ drift):
   - the model-health core (scripts/inference/model-health.py) — the live
     hardware/GPU/CPU + per-role model state, reshaped into the panel's
     GPU0/GPU1/Ext-GPU/CPU0 assignment grid (M075 SRP topology).
-  - the runtime-modes profile lister (scripts/operator/runtime-modes-api.py
-    `_list_profiles()`) — the M076 runtime load-balancing profiles the
-    Profiles row renders. The panel is profile-agnostic: it lists whatever
-    profiles/runtime/*.yaml the system ships (today the 3 verbatim-locked
-    §18 profiles; a future orchestration-intent family renders here too).
+  - the on-disk runtime posture family (profiles/runtime/*.yaml) — the
+    Profiles row renders whatever this directory ships. (The 3 verbatim-locked
+    §18 profiles were retired 2026-10-08; the orchestration-intent family and
+    generated combos render here too.)
   - /proc/cpuinfo flags — the CPU AVX-512 feature capabilities (Features
     CPU) + GPU capability flags from the model-health GPU probe (Features
     GPUs).
@@ -29,7 +28,7 @@ do_POST/PUT/DELETE fail-closed 405.
 Endpoints (the exact contract webapp/d-21-lm-orchestration/index.html
 fetches):
   GET /api/lm-orchestration/grid      GPU0/GPU1/Ext-GPU/CPU0 assignment grid
-  GET /api/lm-orchestration/profiles  runtime profiles (M076) for the row
+  GET /api/lm-orchestration/profiles  profile families (runtime/orchestration/generated/user)
   GET /api/lm-orchestration/features  CPU (AVX-512) + GPU capability flags
   GET /api/lm-orchestration/stream    Server-Sent Events (state-change)
   GET /webapp/ | /webapp/index.html   the D-21 single-file dashboard
@@ -106,10 +105,10 @@ def _import_optional(name: str, path: Path):
 
 
 # Reuse the SAME shipped data sources (no new model, no drift). model-health
-# is essential (the assignment grid); runtime-modes is optional (Profiles row).
+# is essential (the assignment grid); the runtime family is read from disk
+# (profiles/runtime/*.yaml — the §18 trio was retired 2026-10-08).
 _core = _import("_modelhealth_core", _REPO_ROOT / "scripts" / "inference" / "model-health.py")
 _downloads = _import("_model_download_jobs", _REPO_ROOT / "scripts/models/download-job.py")
-_rtmodes = _import_optional("_runtimemodes_api", _REPO_ROOT / "scripts" / "operator" / "runtime-modes-api.py")
 
 # The panel's four hardware cells (M075 SRP topology + the sketched Ext-GPU).
 # SDD-993 three-card build mapped onto the fixed 4 cells (all cards installed):
@@ -230,6 +229,7 @@ def grid_view() -> dict[str, Any]:
 
 
 _ORCH_DIR = _REPO_ROOT / "profiles" / "orchestration"
+_RUNTIME_DIR = _REPO_ROOT / "profiles" / "runtime"
 _OS_PROFILES_DIR = _REPO_ROOT / "profiles"
 # The 3 SDD-043 named strategies the runtime-combo generator parameterizes over.
 _GEN_STRATEGIES = ("efficiency", "high-concurrency", "deep-context")
@@ -479,6 +479,18 @@ def _orchestration_profiles() -> list[dict[str, Any]]:
             if (r := _parse_orch_yaml(p, "orchestration"))]
 
 
+def _runtime_profiles() -> list[dict[str, Any]]:
+    """The on-disk runtime posture family (profiles/runtime/*.yaml) — same
+    stdlib parser as the orchestration family (it keys off id/name/description
+    + allocations, which both profile shapes share; the `runtime_profile:`
+    vs `orchestration_profile:` wrapper is irrelevant to it). Absent dir /
+    malformed file → skipped (never raises)."""
+    if not _RUNTIME_DIR.is_dir():
+        return []
+    return [r for p in sorted(_RUNTIME_DIR.glob("*.yaml"))
+            if (r := _parse_orch_yaml(p, "runtime"))]
+
+
 def _user_profiles() -> list[dict[str, Any]]:
     """Operator-authored orchestration profiles saved outside the repo
     (LM_ORCH_USER_PROFILES_DIR — the composer's "Save draft" target). Same
@@ -542,12 +554,9 @@ def profiles_view() -> dict[str, Any]:
       - generated    OS-profile × strategy runtime combos (SDD-043 generator),
       - user         operator-authored drafts (LM_ORCH_USER_PROFILES_DIR).
     Each entry carries id/name/description/family + its apply/generate verb."""
-    try:
-        runtime = _rtmodes._list_profiles() if _rtmodes is not None else []
-    except Exception:  # noqa: BLE001
-        runtime = []
+    runtime = _runtime_profiles()
     for p in runtime:
-        pid = p.get("id") or p.get("mode_id") or "?"
+        pid = p.get("id") or "?"
         p["family"] = "runtime"
         p["apply_cmd"] = f"sovereign-osctl trinity profile switch {pid}"
     orchestration = _orchestration_profiles()
@@ -593,7 +602,7 @@ def profiles_view() -> dict[str, Any]:
         "families": ["runtime", "orchestration", "generated", "user"],
         "user_profiles_dir": str(_USER_PROFILES_DIR),
         "models_dir": str(_MODELS_DIR),
-        "note": "four families: 3 runtime (§18 locked) + "
+        "note": "four families: runtime (on-disk postures) + "
                 f"{len(orchestration)} orchestration (repo) + "
                 f"{len(generated)} generated combos (OS×strategy) + "
                 f"{len(user)} operator drafts",
@@ -716,7 +725,7 @@ def _version_payload() -> dict:
         "module": "d-21-lm-orchestration",
         "shipped_in": SHIPPED_IN,
         "catalog_source": "reuses model-health.py (M060 D-03 grid) + "
-                          "runtime-modes-api._list_profiles (M076) + /proc/cpuinfo",
+                          "profiles/runtime/*.yaml (on-disk runtime family) + /proc/cpuinfo",
         "core": str(_REPO_ROOT / "scripts" / "inference" / "model-health.py"),
         "webapp_path": str(WEBAPP_PATH),
         "surfaces": ["core", "api", "webapp", "service"],

@@ -54,7 +54,7 @@ ADOPTED_PANELS = [
     "d-24-cpu-features", "d-25-selfdef-management", "code-console", "doc-coverage",
     "edge-firewall", "emulate", "flash", "global-history", "master-dashboard",
     "models-catalog", "network-edge", "orchestration", "personalization",
-    "profile-generation", "router", "runtime-modes", "selfdef-management",
+    "profile-generation", "router", "selfdef-management",
     "science", "surface-map", "trinity", "ups", "ux-design-audit", "warp", "weaver",
     "feature-test-lab", "d-26-friction-audit", "d-27-guardian", "d-28-perimeter", "d-29-scheduler",
     "avx-modes", "rustdoc-panel", "chromofold", "token-law-coverage",

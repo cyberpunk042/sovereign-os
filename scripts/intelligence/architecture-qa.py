@@ -577,37 +577,6 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
         "spec_ref": "master spec §9 + §9.1 verbatim (Low-Level Orchestration Vectorization)",
     },
     {
-        "id": "C-13",
-        "name": "Load Balancing Runtime Profiles (Asymmetric_Burst JSON)",
-        "explanation": ("To implement this architecture "
-                         "deterministically, you must construct "
-                         "explicit runtime configuration profiles. "
-                         "These profiles are ingested by the "
-                         "orchestration layer to dynamically balance "
-                         "model deployment across your hardware based "
-                         "on current workload demands. Profile 2: "
-                         "High-Concurrency Agent Burst Mode "
-                         "(Asymmetric Load Balancing) — node_"
-                         "allocation_profile: Asymmetric_Burst with "
-                         "three allocations: conductor_01 on cpu with "
-                         "core_mask 0-11 using bitnet.cpp engine "
-                         "running BitNet-b1.58-13B; translator_01 on "
-                         "cuda:0 with vram_limit_bytes 22548578304 "
-                         "using vllm-vulkan engine running "
-                         "Qwen-32B-Ternary-Quant; deep_reasoner_01 on "
-                         "cuda:1 with vram_limit_bytes 94489280512 "
-                         "using llama.cpp engine running "
-                         "DeepSeek-R1-Distill-Llama-70B-FP16. The host "
-                         "CPU coordinates state tracking while the "
-                         "workloads are strictly distributed according "
-                         "to VRAM capacity and compute generation."),
-        "tags": ["runtime-profiles", "asymmetric-burst", "load-balancing",
-                 "node-allocation-profile", "bitnet-13b",
-                 "qwen-32b-ternary-quant", "deepseek-r1", "vllm-vulkan",
-                 "llama-cpp", "vram-limit-bytes"],
-        "spec_ref": "master spec §18 verbatim (Load Balancing & Runtime Profiles Profile 2)",
-    },
-    {
         "id": "C-14",
         "name": "Tetragon TracingPolicy verbatim (sovereign-kernel-fence)",
         "explanation": ("A native eBPF profile running inside Tetragon "
@@ -977,65 +946,6 @@ ARCHITECTURE_CONCEPTS: list[dict[str, Any]] = [
                  "iso-synthesis", "physical-audit", "security-deployment",
                  "4-step", "end-of-specification"],
         "spec_ref": "master spec §6 verbatim (Implementation Ledger)",
-    },
-    {
-        "id": "C-26",
-        "name": "Profile 1 — Ultra-Sovereign Efficiency Mode (CPU Focused)",
-        "explanation": ("Profile 1: Ultra-Sovereign Efficiency Mode "
-                         "(CPU Focused) — Designed for continuous "
-                         "background state monitoring, log auditing, "
-                         "and autonomous maintenance tasks with near-"
-                         "zero power draw. Conductor Configuration: "
-                         "Pinned to CPU cores 0-7. Executes "
-                         "BitNet-b1.58-3B through bitnet.cpp. GPU "
-                         "State: GPUs placed into low-power compute "
-                         "sleep states via nvidia-smi -pm 1 "
-                         "(Persistence Mode enabled, core clocks "
-                         "throttled). Orchestration Vector: taskset "
-                         "-c 0-7 bitnet-cli -m ./models/bitnet_b1_58"
-                         "_3b/ggml-model-i2.gguf -p \"Evaluate state "
-                         "transition from CLAUDE.md\" --threads 8 "
-                         "--memory-f32 — pinned execution forcing full "
-                         "AVX-512 pipeline utilization without "
-                         "scheduling tasks across the physical CCD "
-                         "boundary."),
-        "tags": ["profile-1", "ultra-sovereign-efficiency",
-                 "cpu-focused", "bitnet-b1.58-3b", "taskset", "ccd-0",
-                 "nvidia-smi-pm", "persistence-mode", "background-state",
-                 "log-auditing", "memory-f32"],
-        "spec_ref": "master spec §18 verbatim (Load Balancing Profile 1)",
-    },
-    {
-        "id": "C-27",
-        "name": "Profile 3 — Deep Context Synthesis Mode (Unified Memory Span)",
-        "explanation": ("Profile 3: Deep Context Synthesis Mode "
-                         "(Unified Memory Span) — Designed for "
-                         "reading whole-system telemetry outputs or "
-                         "parsing an entire application's source files "
-                         "simultaneously. Load Balancing Strategy: "
-                         "Chains the dual GPUs into a unified execution "
-                         "space via unified memory architectures or "
-                         "optimized layer split maps, utilizing the "
-                         "CPU solely to run high-speed streaming "
-                         "tokenizers. Layer Allocation Scheme: "
-                         "Layer 0-30 pinned to the high-throughput "
-                         "processing layer of GPU 0; Layer 31-80 "
-                         "pinned to the massive VRAM footprint of GPU "
-                         "1; KV Cache compressed to 4-bit width to "
-                         "maximize active token context length. "
-                         "Orchestration: podman run --device "
-                         "nvidia.com/gpu=all -v /mnt/vault/models:/"
-                         "models:ro vllm/vllm-openai:latest --model "
-                         "/models/DeepSeek-V3-Quant --tensor-parallel-"
-                         "size 2 --pipeline-parallel-size 1 "
-                         "--gpu-memory-utilization 0.95 --kv-cache-"
-                         "dtype fp8."),
-        "tags": ["profile-3", "deep-context-synthesis",
-                 "unified-memory", "layer-allocation", "tensor-parallel",
-                 "vllm-openai", "deepseek-v3-quant", "kv-cache-fp8",
-                 "gpu-memory-utilization", "streaming-tokenizers",
-                 "podman", "layer-split"],
-        "spec_ref": "master spec §18 verbatim (Load Balancing Profile 3)",
     },
     {
         "id": "C-10",

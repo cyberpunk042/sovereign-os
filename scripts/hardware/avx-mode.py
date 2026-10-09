@@ -30,7 +30,7 @@ PER-TOKEN INFERENCE integration — selecting `custom`/`hybrid` records the
 mode and gates the `/v1/control-word/round` route; it does not yet steer
 token-by-token routing inside the LM serving path. The compat layer gates
 this switch too: C008/C011 relate avx-mode to inference-tier pulse and the
-ultra-sovereign-efficiency profile, and `sovereign-osctl avx-mode set` runs
+CPU-focused posture profiles, and `sovereign-osctl avx-mode set` runs
 the compat precheck before executing (see docs/src/avx-mode-bit-machine.md
 § Compatibility).
 

@@ -88,7 +88,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 2.5
 - **Context window (tokens):** 4,096
 - **Master spec:** § 18.1 (ultra-sovereign-efficiency conductor)
-- **Runtime profiles:** ultra-sovereign-efficiency
 - **Closest real alternative:** `microsoft/bitnet-b1.58-2B-4T`
 
 **Operator note:**
@@ -109,7 +108,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 10
 - **Context window (tokens):** 4,096
 - **Master spec:** § 18.2 (high-concurrency-burst conductor_01)
-- **Runtime profiles:** high-concurrency-burst
 - **Closest real alternative:** `microsoft/bitnet-b1.58-2B-4T`
 
 **Operator note:**
@@ -130,7 +128,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 4
 - **Context window (tokens):** 32,768
 - **Master spec:** R212 operator addition — SLM agent loop tier
-- **Runtime profiles:** ultra-sovereign-efficiency
 
 **Operator note:**
 
@@ -182,7 +179,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Parameters:** 60.0 M
 - **VRAM minimum (GiB):** 0.3
 - **Master spec:** M046 E0442 candidate adapter (coding-style LoRA)
-- **Runtime profiles:** dual-turing-serving
 
 **Operator note:**
 
@@ -205,7 +201,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 3
 - **Context window (tokens):** 32,768
 - **Master spec:** operator handwritten catalog addition 2026-07-02
-- **Runtime profiles:** dual-turing-serving
 
 **Operator note:**
 
@@ -665,7 +660,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 24
 - **Context window (tokens):** 131,072
 - **Master spec:** § 18.2 (high-concurrency-burst translator_01)
-- **Runtime profiles:** high-concurrency-burst
 - **Closest real alternative:** `Qwen/Qwen2.5-32B-Instruct-AWQ`
 
 **Operator note:**
@@ -750,7 +744,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 65
 - **Context window (tokens):** 1,000,000
 - **Master spec:** R212 operator addition — coder tier
-- **Runtime profiles:** high-concurrency-burst
 
 **Operator note:**
 
@@ -867,7 +860,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 1
 - **Context window (tokens):** 32,768
 - **Master spec:** SDD-717 — speculative draft (DSpark) for Ternary-Bonsai-27B on the dual-Turing node
-- **Runtime profiles:** dual-turing-serving
 
 **Operator note:**
 
@@ -1314,7 +1306,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 140
 - **Context window (tokens):** 131,072
 - **Master spec:** § 18.2 (high-concurrency-burst deep_reasoner_01)
-- **Runtime profiles:** high-concurrency-burst
 
 **Operator note:**
 
@@ -1366,7 +1357,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 120
 - **Context window (tokens):** 131,072
 - **Master spec:** § 18.3 (deep-context-synthesis synthesizer_01)
-- **Runtime profiles:** deep-context-synthesis
 
 **Operator note:**
 
@@ -1509,7 +1499,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **Parameters:** 120.0 M
 - **VRAM minimum (GiB):** 0.5
 - **Master spec:** M046 E0442 candidate adapter (sovereign-os/admin LoRA)
-- **Runtime profiles:** dual-turing-serving
 
 **Operator note:**
 
@@ -1533,7 +1522,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 1
 - **Context window (tokens):** 32,768
 - **Master spec:** SDD-717 — vision projector (mmproj) for Ternary-Bonsai-27B
-- **Runtime profiles:** dual-turing-serving
 
 **Operator note:**
 
@@ -1558,7 +1546,6 @@ This doc is regenerated from `models/catalog.yaml` on every invocation of `scrip
 - **VRAM minimum (GiB):** 11
 - **Context window (tokens):** 262,144
 - **Master spec:** operator directive 2026-07-16 (dual-turing serving plan, SDD-714)
-- **Runtime profiles:** dual-turing-serving
 
 **Operator note:**
 

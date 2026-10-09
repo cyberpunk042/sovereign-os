@@ -59,7 +59,7 @@ _A11Y_BACKPORT = [
     "cpu-features", "d-21-lm-orchestration", "d-22-lm-status-operability",
     "d-23-models-catalog", "d-24-cpu-features", "d-25-selfdef-management",
     "emulate", "feature-test-lab", "flash", "models-catalog", "orchestration",
-    "profile-generation", "runtime-modes", "science", "selfdef-management",
+    "profile-generation", "science", "selfdef-management",
     "ups", "warp",
 ]
 

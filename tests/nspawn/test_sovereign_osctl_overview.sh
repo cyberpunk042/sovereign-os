@@ -158,14 +158,19 @@ set -e
   || ko "bridge fired unexpectedly: ${out_b2}"
 
 # ---- R217: runtime-profile suggest section ----
+# The default follows the resolution order (env → marker → as-deployed),
+# so the expected id is whatever this box's marker says (CI: no marker).
+R217_EXPECTED="$(cat /etc/sovereign-os/active-runtime-profile 2>/dev/null \
+                  || cat "${HOME}/.sovereign-os/active-runtime-profile" 2>/dev/null \
+                  || echo as-deployed)"
 set +e
 out_r217="$("${OSCTL}" overview 2>&1)"
 set -e
 grep -q "Runtime profile suggest (R217" <<< "${out_r217}" \
   && ok "R217 overview section emitted" \
   || ko "R217 section missing"
-grep -qE "active profile: +high-concurrency-burst" <<< "${out_r217}" \
-  && ok "R217 defaults to high-concurrency-burst" \
+grep -qE "active profile: +${R217_EXPECTED}" <<< "${out_r217}" \
+  && ok "R217 defaults marker-aware to: ${R217_EXPECTED}" \
   || ko "R217 default profile wrong"
 grep -qE "(allocation\(s\) flagged|every allocation maps)" <<< "${out_r217}" \
   && ok "R217 flagged-count line present" \
@@ -179,7 +184,7 @@ python3 -c "
 import json,sys
 d = json.loads('''${out_r217_json}''')
 rps = d.get('runtime_profile_suggest', {})
-assert rps.get('profile') == 'high-concurrency-burst', rps
+assert rps.get('profile') == '${R217_EXPECTED}', rps
 assert 'flagged_allocations' in rps, rps
 assert 'exit_code' in rps, rps
 " 2>/dev/null \
@@ -188,9 +193,9 @@ assert 'exit_code' in rps, rps
 
 # Override via SOVEREIGN_OS_RUNTIME_PROFILE
 set +e
-out_r217_alt="$(SOVEREIGN_OS_RUNTIME_PROFILE=ultra-sovereign-efficiency "${OSCTL}" overview 2>&1)"
+out_r217_alt="$(SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid "${OSCTL}" overview 2>&1)"
 set -e
-grep -qE "active profile: +ultra-sovereign-efficiency" <<< "${out_r217_alt}" \
+grep -qE "active profile: +full-hybrid" <<< "${out_r217_alt}" \
   && ok "R217 honors SOVEREIGN_OS_RUNTIME_PROFILE env override" \
   || ko "R217 env override broken"
 

@@ -152,7 +152,7 @@ def build_detail(models: list[dict[str, Any]], target: dict[str, Any]) -> dict[s
             "verify": f"scripts/models/verify.sh {target.get('id')}",
             "suggest_for_active_profile":
                 "sovereign-osctl models suggest --runtime-profile "
-                "high-concurrency-burst",
+                "$(cat /etc/sovereign-os/active-runtime-profile 2>/dev/null || echo <profile-id>)",
         },
     }
 

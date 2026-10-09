@@ -150,12 +150,12 @@ set +e
 out="$("${OSCTL}" trinity profile list 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -eq 0 ] && grep -q "master spec § 18" <<< "${out}"; then
-  ok "trinity profile list → exit 0 + cites § 18"
+if [ "${rc}" -eq 0 ] && grep -q "Orchestration-intent profiles" <<< "${out}"; then
+  ok "trinity profile list → exit 0 + on-disk families"
 else
   ko "profile list broken (rc=${rc})"
 fi
-for p in ultra-sovereign-efficiency high-concurrency-burst deep-context-synthesis; do
+for p in as-deployed coding-focus thinking-focus; do
   if grep -q "${p}" <<< "${out}"; then
     ok "profile list contains: ${p}"
   else
@@ -165,7 +165,7 @@ done
 
 # ---------- trinity profile show <id> ----------
 set +e
-out="$("${OSCTL}" trinity profile show ultra-sovereign-efficiency 2>&1)"
+out="$("${OSCTL}" trinity profile show bonsai-27b-test 2>&1)"
 rc=$?
 set -e
 if [ "${rc}" -eq 0 ] && grep -q "ALLOCATIONS" <<< "${out}"; then
@@ -173,7 +173,7 @@ if [ "${rc}" -eq 0 ] && grep -q "ALLOCATIONS" <<< "${out}"; then
 else
   ko "profile show broken (rc=${rc})"
 fi
-for kw in "BitNet-b1.58-3B" "core_mask" "GPU STATE" "EXPECTED POWER"; do
+for kw in "Ternary-Bonsai-27B" "llama.cpp" "Qwen3-Coder-32B-Instruct"; do
   if grep -q "${kw}" <<< "${out}"; then
     ok "profile show surfaces: ${kw}"
   else
@@ -205,18 +205,18 @@ fi
 
 # ---------- trinity profile switch + active ----------
 set +e
-out="$("${OSCTL}" trinity profile switch high-concurrency-burst 2>&1)"
+out="$("${OSCTL}" trinity profile switch as-deployed 2>&1)"
 rc=$?
 set -e
-if [ "${rc}" -eq 0 ] && grep -q "active profile set to: high-concurrency-burst" <<< "${out}"; then
-  ok "profile switch → exit 0 + confirmation"
+if [ "${rc}" -eq 1 ] && grep -q "refusing live profile activation" <<< "${out}"; then
+  ok "scratch-state profile switch refuses live activation"
 else
   ko "profile switch broken (rc=${rc})"
 fi
 
 env_file="${state_dir}/active-runtime-profile-env.sh"
-if [ -s "${env_file}" ] && grep -qF "# profile: high-concurrency-burst" "${env_file}"; then
-  ok "profile switch writes env state beside the active-profile marker"
+if [ ! -e "${env_file}" ] && [ ! -e "${state_dir}/active-runtime-profile" ]; then
+  ok "refused profile switch writes no activation state"
 else
   ko "profile switch did not write the runtime env file under SOVEREIGN_OS_STATE_DIR"
 fi
@@ -224,8 +224,8 @@ fi
 set +e
 out="$("${OSCTL}" trinity profile active 2>&1)"
 set -e
-if grep -q "high-concurrency-burst" <<< "${out}"; then
-  ok "profile active returns the just-switched-to profile"
+if grep -q "(none)" <<< "${out}"; then
+  ok "refused switch leaves active profile unset"
 else
   ko "profile active not reflecting switch"
 fi

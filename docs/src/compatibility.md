@@ -112,12 +112,13 @@ the registry is per-rule operator review. Current families:
 | Rules | Relation |
 |---|---|
 | C001 | cost-policy halt-cloud **forces off** every anthropic backend (force) |
-| C002–C004 | DSpark / deep-context / oc-kiosk **require** their backing tier or backend (warn) |
-| C005, C010 | power-posture coherence advisories (suggest) |
+| C002, C004 | DSpark / oc-kiosk **require** their backing tier or backend (warn) |
+| C005 | power-posture coherence advisory (suggest) |
 | C006 | oracle-hybrid bench serve vs the pure-VRAM Oracle/Logic tiers (warn) |
 | C007 | one draft strategy per invocation — DSpark xor DFlash (warn, one_of) |
-| C008, C011 | the AVX/u64 bit-machine relations — Pulse and the CPU-only profile vs `avx-mode off` (warn/suggest) |
-| C009 | high-concurrency-burst **requires** all three Trinity tiers (warn) |
+| C008 | the AVX/u64 bit-machine relation — Pulse vs `avx-mode off` (warn) |
+
+(Retired 2026-10-08 with the §18 runtime-mode trio: C003, C009, C010, C011.)
 
 ## CLI quick reference
 

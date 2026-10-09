@@ -60,29 +60,8 @@ systems:
     applies_to: [d-02-profile-choices, build-configurator, personalization]
     refs: [schemas/profile.schema.yaml]
 
-  # ── 2. Runtime profiles / modes (master-spec §18) ────────────────────
-  - id: runtime-mode
-    kind: mode
-    scope: scoped
-    label: "Runtime Mode"
-    description: >-
-      The master-spec §18 runtime profile — how the 3 Trinity tiers are
-      allocated across CPU/GPU: ultra-sovereign-efficiency (CPU-only
-      background), high-concurrency-burst (multi-agent, all tiers), or
-      deep-context-synthesis (whole-system, 1M+ tokens on Oracle). Drives
-      core pinning, GPU power, and tier_intent model selection.
-    options: [ultra-sovereign-efficiency, high-concurrency-burst, deep-context-synthesis]
-    options_cli: "sovereign-osctl trinity profile list"
-    state_cli: "sovereign-osctl trinity profile active"
-    change_cli: "sovereign-osctl trinity profile switch {ultra-sovereign-efficiency|high-concurrency-burst|deep-context-synthesis}"
-    state_path: "/run/sovereign-os/active-runtime-mode"
-    privileged: true
-    # SDD-509 step-up MFA tier (opt-in; engages once a factor is enrolled).
-    auth: step-up
-    applies_to: [runtime-modes, trinity, d-01-active-sessions, d-03-model-health, router, orchestration, d-21-lm-orchestration, d-22-lm-status-operability]
-    refs: [schemas/runtime-profile.schema.yaml, SDD-043]
-
-  # ── 2b. Orchestration-intent profiles (SDD-043 growable family) ──────
+  # ── 2. Orchestration-intent profiles (SDD-043 growable family) ──────────
+  # (The §18 runtime-mode control was retired 2026-10-08 with the profiles themselves.)
   - id: orchestration-profile
     kind: mode
     scope: scoped
@@ -123,7 +102,7 @@ systems:
     change_cli: "sovereign-osctl profiles flex set <key> <value>"
     state_path: "/var/lib/sovereign-os/flex-profile.json"
     privileged: false
-    applies_to: [runtime-modes, d-02-profile-choices, d-03-model-health, trinity]
+    applies_to: [d-02-profile-choices, d-03-model-health, trinity]
     refs: [scripts/hardware/profile-flex.py]
 
   # ── 4. CPU modes — scaling governor ──────────────────────────────────
@@ -142,7 +121,7 @@ systems:
     change_cli: "sovereign-osctl cpu-mode set {ultra-low-power|balanced|sustained-burst|peak-inference}"
     state_path: "/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
     privileged: true
-    applies_to: [runtime-modes, d-09-hardware-pressure, cpu-features]
+    applies_to: [d-09-hardware-pressure, cpu-features]
     refs: [scripts/hardware/cpu-mode.py]
 
   # ── 5. GPU modes — power policy ──────────────────────────────────────
@@ -160,7 +139,7 @@ systems:
     change_cli: "sovereign-osctl gpu-mode set {conservative|balanced|sustained|peak}"
     state_path: "/etc/sovereign-os/gpu-policy.toml"
     privileged: true
-    applies_to: [runtime-modes, d-09-hardware-pressure]
+    applies_to: [d-09-hardware-pressure]
     refs: [config/gpu-policy.toml.example]
 
   # ── 5b. DSpark speculative decoding — opt-in, ON BY DEFAULT for now ──
@@ -184,7 +163,7 @@ systems:
     change_cli: "sovereign-osctl dspark {enable|disable}"
     state_path: "/etc/sovereign-os/dspark.toml"
     privileged: true
-    applies_to: [d-21-lm-orchestration, d-22-lm-status-operability, orchestration, runtime-modes]
+    applies_to: [d-21-lm-orchestration, d-22-lm-status-operability, orchestration]
     refs: [config/inference/m083-dflash-speculative-decoding.yaml, scripts/inference/dspark-wrap.sh]
 
   # ── 6b. DFlash — the M083 predecessor draft strategy (per-invocation) ──
@@ -207,7 +186,7 @@ systems:
     state_cli: "SOVEREIGN_OS_DRY_RUN=1 scripts/inference/dflash-wrap.sh --task-type code --backend vllm -- true"
     change_cli: "scripts/inference/dflash-wrap.sh --task-type {code|math|conversational|creative} --backend {vllm|llama_cpp|transformers} -- <argv>"
     privileged: false
-    applies_to: [d-21-lm-orchestration, d-22-lm-status-operability, orchestration, runtime-modes]
+    applies_to: [d-21-lm-orchestration, d-22-lm-status-operability, orchestration]
     refs: [config/inference/m083-dflash-speculative-decoding.yaml, scripts/inference/dflash-wrap.sh, scripts/inference/bench-dflash.sh]
 
   # ── 6. Dashboard toggles — every dashboard on/off (global) ───────────
@@ -340,7 +319,7 @@ systems:
     change_cli: "sovereign-osctl workload-knobs set {mps|hugepages|thp|irq-affinity|cpu-isolation|nvidia-persistence} <value>"
     state_path: "kernel + systemd fragments"
     privileged: true
-    applies_to: [runtime-modes, d-09-hardware-pressure]
+    applies_to: [d-09-hardware-pressure]
     refs: [scripts/intelligence/workload-knobs.py]
 
   # ── 12. Maintenance — on-demand host maintenance actions ─────────────
@@ -1041,7 +1020,7 @@ systems:
     change_cli: "sovereign-osctl frontend set {gnome|kde-plasma|dashboards-kiosk|open-computer-kiosk|none}"
     state_path: "/etc/sovereign-os/frontend.active"
     privileged: true
-    applies_to: [runtime-modes]
+    applies_to: [d-02-profile-choices]
     refs: [SDD-600, SDD-704, scripts/operator/frontend.py]
 
   # Provider / origin hotswap (SDD-600 Part 2 + SDD-707) — per AI consumer, swap

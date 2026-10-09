@@ -125,16 +125,14 @@ $defs:
 
       runtime_profile_bindings:
         description: |
-          The runtime-profile ids (master spec § 18) where this model
+          The runtime-profile ids (profiles/runtime/*.yaml) where this model
           appears. Cross-checked at L1 against profiles/runtime/*.yaml.
+          (The master-spec §18 trio was retired 2026-10-08, then the family
+          itself was emptied the same day — bindings are expected empty until
+          a new on-disk runtime profile ships.)
         type: array
         items:
           type: string
-          enum:
-            - ultra-sovereign-efficiency
-            - high-concurrency-burst
-            - deep-context-synthesis
-            - dual-turing-serving   # SDD-714 — operator-additive § 18 profile
 
       operator_note:
         description: "Free-text operator-facing note (provenance, caveat, swap rationale)."

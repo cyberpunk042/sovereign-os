@@ -297,10 +297,10 @@ MODULE_COVERAGE = {
         },
     },
     "lm-orchestration": {
-        "shipped_in": "D-21-lm-orchestration (cockpit panel — profiles + model→hardware assignment grid + AVX-512/GPU capabilities; reuses the model-health core + runtime-modes profile lister)",
+        "shipped_in": "D-21-lm-orchestration (cockpit panel — profiles + model→hardware assignment grid + AVX-512/GPU capabilities; reuses the model-health core + the on-disk profile families)",
         "surfaces": ["core", "api", "webapp", "service"],
         "waivers": {
-            "cli":       "not applicable — CLI is `sovereign-osctl model-health` + `runtime-modes` on the shared cores",
+            "cli":       "not applicable — CLI is `sovereign-osctl model-health` + `trinity profile` on the shared cores",
             "tui":       "not applicable — cockpit web panel, not an interactive TUI",
             "dashboard": "not applicable — the webapp IS this panel's operator dashboard",
             "mcp":       "not applicable — read-only render of shared cores",

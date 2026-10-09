@@ -202,21 +202,17 @@ def test_multiple_models_per_card_is_expressible():
 
 
 def test_runtime_profile_family_untouched():
-    """Guard: the runtime family holds exactly the 3 master-spec §18 profiles
-    plus any tracked operator-additive §18 profiles — and the orchestration
-    family must not have leaked into it. The exact allowlist (not a bare count)
-    is the real guard; see tests/lint/test_runtime_profiles_verbatim.py."""
-    # Master-spec §18 (verbatim-locked) + operator-additive §18 (SDD-714).
-    expected = sorted([
-        "ultra-sovereign-efficiency",
-        "deep-context-synthesis",
-        "high-concurrency-burst",
-        "dual-turing-serving",  # SDD-714 — operator-additive
-    ])
+    """Guard: the runtime family holds exactly the tracked on-disk runtime
+    profiles (the §18 trio was retired 2026-10-08; dual-turing-serving is the
+    SDD-714 operator-additive survivor) — and the orchestration family must
+    not have leaked into it. The exact allowlist (not a bare count) is the
+    real guard."""
+    # The runtime family was emptied 2026-10-08 (§18 trio + SDD-714 additive
+    # all retired). A new runtime profile must be registered here when shipped.
+    expected: list[str] = []
     runtime = sorted(p.stem for p in (REPO_ROOT / "profiles" / "runtime").glob("*.yaml"))
     assert runtime == expected, (
         f"runtime profile family drift: got {runtime} vs expected {expected} "
-        f"(§18 master-spec 3 + tracked operator-additive; a new profile must be "
-        f"registered here + in test_runtime_profiles_verbatim.py, and an "
+        f"(a new runtime profile must be registered here, and an "
         f"orchestration profile must NOT land in profiles/runtime/)"
     )

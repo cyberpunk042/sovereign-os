@@ -185,7 +185,6 @@ tests/lint/test_course_snippet_contract.py.
       {dir:'auditor', tip:'A blind Auditor is a security event, not a slow one. Check the perimeter is live and streaming, then read what it has flagged.'},
       {dir:'router', tip:'Watch where prompts actually landed. The doctrine is that most prompts do not deserve the expensive model — catch everything piling onto the Oracle.',
         notice:['Rules are ordered; first match wins, so the same prompt always routes the same way.','Pulse (cheap) → Logic (mid) → Oracle (deep) are the tiers a prompt can land on.']},
-      {dir:'runtime-modes', tip:'Each mode is a whole stance (efficiency / concurrency / deep-context). Note the trade-off: you cannot have all three at once.'},
       {dir:'d-01-active-sessions', tip:'A session parked at one lifecycle step is a session that needs attention. Scan for anything stuck.'},
       {dir:'d-03-model-health', tip:'The live-serving view. The p95/p99 tail is what a user feels, not the average — read the tail latencies.'},
       {dir:'d-05-traces', tip:'The debugger’s panel. After a bad or slow response, the trace is the ground truth the summary dashboards abstract away.'}

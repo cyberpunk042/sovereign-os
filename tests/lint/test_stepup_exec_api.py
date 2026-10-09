@@ -83,9 +83,9 @@ def test_status_reflects_enrollment_and_step_up_controls(tmp_path):
         assert status == 200, body
         assert body["enrolled"] is False and body["factors"] == []
         assert body["break_glass_remaining"] == 0
-        # os-profile + runtime-mode carry auth: step-up in the registry
+        # os-profile carries auth: step-up in the registry (runtime-mode
+        # retired with the §18 family 2026-10-08)
         assert "os-profile" in body["step_up_controls"]
-        assert "runtime-mode" in body["step_up_controls"]
     finally:
         proc.kill()
 

@@ -158,5 +158,5 @@ def test_master_dashboard_shows_all_controls_others_filter():
     md = (WEBAPP / "master-dashboard" / "index.html").read_text(encoding="utf-8")
     assert "renderControls" in md, "master-dashboard must render the full control surface"
     # a representative scoped panel filters by its slug
-    rm = (WEBAPP / "runtime-modes" / "index.html").read_text(encoding="utf-8")
-    assert "filterSlug:'runtime-modes'" in rm, "runtime-modes must filter to its own controls"
+    rm = (WEBAPP / "d-09-hardware-pressure" / "index.html").read_text(encoding="utf-8")
+    assert "filterSlug:'d-09-hardware-pressure'" in rm, "d-09 must filter to its own controls"

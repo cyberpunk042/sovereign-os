@@ -69,13 +69,6 @@
       "sdd": "SDD-121"
     },
     {
-      "slug": "runtime-modes",
-      "demoConst": "DEMO_MODES",
-      "apiPrefix": "/api/runtime-modes",
-      "rowSelector": "#modes-grid .mode-card",
-      "sdd": "SDD-121"
-    },
-    {
       "slug": "orchestration",
       "demoConst": "DEMO_ORCH",
       "apiPrefix": "/orchestration.json",

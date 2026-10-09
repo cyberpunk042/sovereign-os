@@ -66,7 +66,7 @@ def test_registry_marks_the_high_privilege_controls_step_up():
     import yaml
 
     systems = {s["id"]: s for s in yaml.safe_load(REGISTRY.read_text())["systems"]}
-    for cid in ("os-profile", "runtime-mode"):
+    for cid in ("os-profile",):
         assert systems[cid].get("auth") == "step-up", f"{cid} must be step-up tier"
 
 

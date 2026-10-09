@@ -191,9 +191,9 @@ DEFAULT_MODES: list[dict[str, Any]] = [
             "sovereign-osctl models adapt suggest <base-model>",
             "sovereign-osctl models build plan <base> --recipe X",
             "sovereign-osctl models eval <model> <task>",
-            "sovereign-osctl trinity profile show ultra-sovereign-efficiency",
-            "sovereign-osctl trinity profile show high-concurrency-burst",
-            "sovereign-osctl trinity profile show deep-context-synthesis",
+            "sovereign-osctl trinity profile list",
+            "sovereign-osctl trinity profile active",
+            "sovereign-osctl trinity profile show as-deployed",
         ],
         "env_vars": {
             "PS1": ("\\[\\033[1;36m\\]sovereign-os/llm\\[\\033[0m\\] "

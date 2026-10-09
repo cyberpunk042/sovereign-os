@@ -371,13 +371,6 @@
     "status": "no-actions"
   },
   {
-    "slug": "runtime-modes",
-    "exec_rail": 0,
-    "proxy_copy": false,
-    "wireable_gap": false,
-    "status": "no-actions"
-  },
-  {
     "slug": "rustdoc-panel",
     "exec_rail": 0,
     "proxy_copy": false,

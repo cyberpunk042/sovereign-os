@@ -56,7 +56,6 @@ routes:
   - {prefix: "/api/operator-key", port: 8110, api: sovereign-approvals-api}
   - {prefix: "/api/profile", port: 8117, api: sovereign-profile-mirror-api}
   - {prefix: "/api/router", port: 8096, api: sovereign-router-api}
-  - {prefix: "/api/runtime-modes", port: 7713, api: sovereign-runtime-modes-api}
   - {prefix: "/api/science", port: 8134, api: sovereign-science-api}
   - {prefix: "/api/selfdef-management", port: 8125, api: sovereign-selfdef-management-api}
   - {prefix: "/api/sessions", port: 8109, api: sovereign-sessions-api}

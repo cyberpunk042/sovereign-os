@@ -80,10 +80,11 @@ must = ['inference status', 'inference query', 'models list',
         'trinity profile show']
 for cmd in must:
     assert cmd in refs, f'llm mode missing {cmd}'
-# Operator-named 3 runtime profiles cross-link
-assert 'ultra-sovereign-efficiency' in refs
-assert 'high-concurrency-burst' in refs
-assert 'deep-context-synthesis' in refs
+# Profile verbs cross-link (the §18 trio retired 2026-10-08; the
+# show/active/list trio of verbs is the surviving surface)
+assert 'trinity profile list' in refs
+assert 'trinity profile active' in refs
+assert 'trinity profile show' in refs
 " || fail "llm reference"
 pass "5. show llm — inference/models/trinity verbs + 3 operator-named runtime profiles cross-linked"
 

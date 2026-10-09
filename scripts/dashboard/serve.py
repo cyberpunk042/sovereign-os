@@ -701,9 +701,11 @@ def card_models() -> dict[str, Any]:
             verified += 1
         elif m.get("status") == "aspirational":
             aspirational += 1
-    # Per-runtime-profile suggester rollup (R214)
+    # Per-runtime-profile suggester rollup (R214) — the on-disk runtime
+    # family (the §18 trio was retired 2026-10-08; this follows the disk).
     suggester_rollup: list[dict[str, Any]] = []
-    for pid in ("ultra-sovereign-efficiency", "high-concurrency-burst", "deep-context-synthesis"):
+    for yaml_path in sorted((REPO_ROOT / "profiles" / "runtime").glob("*.yaml")):
+        pid = yaml_path.stem
         s = _run_models_script("suggest-by-profile.py", ["--runtime-profile", pid])
         if s is not None:
             allocations = s.get("allocations") or []

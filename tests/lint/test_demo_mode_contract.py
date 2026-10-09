@@ -259,14 +259,6 @@ def test_d09_hardware_pressure_demo():
     )
 
 
-def test_runtime_modes_demo():
-    """SDD-121 — runtime-modes: badged sample active mode + modes grid; both render
-    fns short-circuit before any /api/runtime-modes fetch in demo."""
-    body = _assert_head_demo("runtime-modes", "DEMO_MODES")
-    assert body.count("if (demoActive()) {") >= 2, "both render fns need a demo short-circuit"
-    assert "for (const mode of DEMO_MODES.modes)" in body
-
-
 def test_orchestration_demo():
     """SDD-121 — orchestration: badged sample rules+metrics via load() ternary, no fetch in demo."""
     body = _assert_head_demo("orchestration", "DEMO_ORCH")

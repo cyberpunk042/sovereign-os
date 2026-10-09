@@ -95,7 +95,6 @@ ADOPTED_PANELS: list[str] = [
     "personalization",
     "profile-generation",
     "router",
-    "runtime-modes",
     "science",
     "selfdef-management",
     "surface-map",

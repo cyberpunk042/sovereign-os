@@ -304,10 +304,11 @@ def test_preexisting_violations_do_not_gate_unrelated_changes(monkeypatch):
         f["rule_id"].startswith("C001") for f in intro["findings"])
 
 
-# ── the AVX / runtime-mode rule families (C008–C011) ────────────────────────
+# ── the AVX / runtime-mode rule families (C008) ───────────────────────────
 # Operator 2026-07-20: "you need to identify what is Not-compatible with
 # other things. like the u64 custom bits control" — avx-mode previously had
-# NO cross-system rules; C008/C011 give it its grounded relations.
+# NO cross-system rules; C008 gives it its grounded relations. (C009–C011
+# gated the master-spec §18 trio — retired 2026-10-08 with the trio.)
 
 
 def test_avx_mode_has_cross_system_relations(monkeypatch):
@@ -323,30 +324,6 @@ def test_avx_mode_has_cross_system_relations(monkeypatch):
     res = compat.pre_change({"inference-tier": "pulse"})
     assert any(f["rule_id"].startswith("C008") and f["severity"] == "warn"
                for f in res["findings"])
-
-
-def test_high_concurrency_requires_all_three_tiers(monkeypatch):
-    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
-    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT",
-                       "inference-tier=oracle")
-    compat = _load("compat_avx_t2", COMPAT_TOOL)
-    res = compat.pre_change({"runtime-mode": "high-concurrency-burst"})
-    hits = [f for f in res["findings"] if f["rule_id"].startswith("C009")]
-    assert hits and hits[0]["severity"] == "warn"
-    # the missing tiers are named in the hits
-    joined = " ".join(hits[0]["hits"])
-    assert "pulse" in joined and "logic" in joined and "oracle" not in joined
-
-
-def test_ultra_sovereign_efficiency_advisories(monkeypatch):
-    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
-    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT",
-                       "gpu-mode=peak,avx-mode=off")
-    compat = _load("compat_avx_t3", COMPAT_TOOL)
-    res = compat.pre_change({"runtime-mode": "ultra-sovereign-efficiency"})
-    ids = {f["rule_id"][:4] for f in res["findings"]}
-    assert "C010" in ids and "C011" in ids
-    assert not res["gating"]        # suggest never gates
 
 
 # ── compat-gate refusals emit through notifykit (the compat-gate trigger) ──
@@ -393,11 +370,11 @@ def test_resolve_plans_only_the_active_offenders(monkeypatch):
 
 def test_resolve_requires_plans_only_missing_tiers(monkeypatch):
     monkeypatch.setenv("SOVEREIGN_OS_COMPAT_STATE", "off")
-    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT", "inference-tier=oracle")
+    monkeypatch.setenv("SOVEREIGN_OS_COMPAT_CURRENT", "inference-tier=pulse")
     compat = _load("compat_res_t2", COMPAT_TOOL)
-    r = compat.resolve({"runtime-mode": "high-concurrency-burst"})
+    r = compat.resolve({"dspark-speculative-decoding": "on"})
     tiers = sorted(s["args"]["tier"] for s in r["plan"])
-    assert tiers == ["logic", "pulse"]     # oracle already up — not planned
+    assert tiers == ["oracle"]             # the one tier C002 is missing
     assert all(next(iter(s["effect"])) == "add" for s in r["plan"])
     assert r["clean_after"] and r["resolved_all"]
 
@@ -427,13 +404,13 @@ def test_exec_rail_409_carries_the_resolution_plan():
 
 
 def test_cli_check_resolve_prints_verified_plan():
-    env = _hermetic_env("inference-tier=oracle")
+    env = _hermetic_env("inference-tier=pulse")
     r = subprocess.run(
         [sys.executable, str(COMPAT_TOOL), "check",
-         "--set", "runtime-mode=high-concurrency-burst", "--resolve"],
+         "--set", "dspark-speculative-decoding=on", "--resolve"],
         capture_output=True, text=True, env=env)
     assert "resolution plan" in r.stdout and "VERIFIED" in r.stdout
-    assert "tier=pulse" in r.stdout and "tier=logic" in r.stdout
+    assert "tier=oracle" in r.stdout
 
 
 def test_pane_renders_fix_buttons():
@@ -620,6 +597,6 @@ def test_control_surface_embeds_carry_the_greying():
     that the propagation actually happened (the canonical body with greying
     is what panels carry)."""
     js = CONTROL_SURFACE.read_text(encoding="utf-8").strip()
-    for slug in ("auditor", "runtime-modes", "d-23-models-catalog"):
+    for slug in ("auditor", "d-21-lm-orchestration", "d-23-models-catalog"):
         html = (REPO_ROOT / "webapp" / slug / "index.html").read_text(encoding="utf-8")
         assert js in html, f"{slug}: control-surface embed drifted from canonical"

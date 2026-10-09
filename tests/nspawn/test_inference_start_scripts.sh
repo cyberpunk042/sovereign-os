@@ -28,9 +28,8 @@ export SOVEREIGN_OS_DRY_RUN=1
 export SOVEREIGN_OS_LOG_DIR="${tmp}/log"
 export SOVEREIGN_OS_METRICS_DIR="${tmp}/metrics"
 
-# Isolate from host runtime profile (dev host may have
-# high-concurrency-burst active, which overrides the default 0-5
-# affinity to match its 12-core layout).
+# Isolate from host runtime profile (dev host may have an
+# active profile overriding the default 0-5 affinity).
 unset SOVEREIGN_OS_RUNTIME_PROFILE
 rm -f /etc/sovereign-os/active-runtime-profile \
        "${HOME}/.sovereign-os/active-runtime-profile"

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # tests/nspawn/test_models_suggest.sh — R214 profile-aware suggester.
-# Cross-references master-spec § 18 runtime profile allocations against
-# the R212 catalog and produces operator-actionable advice.
+# Cross-references runtime-profile allocations against the R212 catalog
+# and produces operator-actionable advice. The flagged-allocation scenario
+# runs on a synthetic fixture profile (the §18 trio — whose flagged
+# allocations this test used — was retired 2026-10-08).
 
 set -euo pipefail
 PYTHON3="${PYTHON3:-python3}"
@@ -41,25 +43,53 @@ list_out="$("${PYTHON3}" "${SCRIPT}" --list)"
 rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "--list rc=0" || ko "--list rc=${rc}"
-for pid in ultra-sovereign-efficiency high-concurrency-burst deep-context-synthesis; do
-  grep -qF "${pid}" <<< "${list_out}" && ok "list includes ${pid}" \
-    || ko "list missing ${pid}"
-done
+grep -qF "ultra-sovereign-efficiency" <<< "${list_out}" \
+  && ko "list still carries retired §18 id" \
+  || ok "list no longer carries the retired §18 ids"
 
-# --- high-concurrency-burst — known to have flagged allocations ---
+# --- fixture profile with known flagged allocations ---
 WORK="$(mktemp -d)"
-trap 'rm -rf "${WORK}"' EXIT
+FLAG="${__REPO_ROOT}/profiles/runtime/_test_suggest_flagged.yaml"
+trap 'rm -rf "${WORK}"; rm -f "${FLAG}"' EXIT
+cat > "${FLAG}" <<'FIXTURE'
+schema_version: "1.0.0"
+runtime_profile:
+  id: _test_suggest_flagged
+  name: "Test fixture — flagged allocations"
+  description: >-
+    Suggester test fixture: carries the aspirational + VRAM-overrun
+    allocations the retired §18 trio exercised.
+  hardware_profile_compat: [sain-01]
+  allocations:
+    - agent_id: conductor_01
+      tier: pulse
+      target_hardware: cpu
+      core_mask: "0-11"
+      engine: bitnet.cpp
+      model: BitNet-b1.58-13B
+    - agent_id: deep_reasoner_01
+      tier: oracle
+      target_hardware: cuda:0
+      vram_limit_bytes: 94489280512   # 88 GiB
+      engine: llama.cpp
+      model: DeepSeek-R1-Distill-Llama-70B-FP16
+    - agent_id: translator_01
+      tier: logic
+      target_hardware: cuda:1
+      engine: vllm
+      model: Qwen-32B-Ternary-Quant
+FIXTURE
 set +e
-"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst > "${WORK}/hcb.txt"
+"${PYTHON3}" "${SCRIPT}" --runtime-profile _test_suggest_flagged > "${WORK}/hcb.txt"
 rc=$?
 set -e
-[ "${rc}" -eq 1 ] && ok "high-concurrency-burst rc=1 (flagged allocations)" \
+[ "${rc}" -eq 1 ] && ok "fixture profile rc=1 (flagged allocations)" \
   || ko "expected rc=1 on flagged profile, got ${rc}"
 grep -q "R214 model suggester" "${WORK}/hcb.txt" \
   && ok "banner cites R214" || ko "no R214 banner"
 
 # Allocations enumerated with declared models
-for needle in "Agent: conductor_01" "Agent: translator_01" "Agent: deep_reasoner_01"; do
+for needle in "Agent: conductor_01" "Agent: deep_reasoner_01"; do
   grep -qF "${needle}" "${WORK}/hcb.txt" && ok "row present: ${needle}" \
     || ko "missing row: ${needle}"
 done
@@ -83,18 +113,18 @@ grep -q "At least one allocation flagged" "${WORK}/hcb.txt" \
 
 # --- JSON mode ---
 set +e
-"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst --json > "${WORK}/hcb.json"
+"${PYTHON3}" "${SCRIPT}" --runtime-profile _test_suggest_flagged --json > "${WORK}/hcb.json"
 rc=$?
 set -e
 [ "${rc}" -eq 1 ] && ok "--json rc=1 on flagged profile" || ko "--json rc=${rc}"
 "${PYTHON3}" - "${WORK}/hcb.json" <<'PY' 2>/dev/null \
-  && ok "JSON shape correct + any_flagged=True + 3 allocations" \
+  && ok "JSON shape correct + any_flagged=True + 2 allocations" \
   || ko "JSON shape wrong"
 import json, sys
 d = json.load(open(sys.argv[1]))
-assert d["profile_id"] == "high-concurrency-burst"
+assert d["profile_id"] == "_test_suggest_flagged"
 assert d["any_flagged"] is True
-assert len(d["allocations"]) == 3
+assert len(d["allocations"]) == 3  # conductor + deep_reasoner + translator (R216 reuses this fixture)
 # deep_reasoner_01 must carry alternatives
 deep = next(a for a in d["allocations"] if a["agent_id"] == "deep_reasoner_01")
 assert any("Q4_K_M" in alt["id"] for alt in deep["alternatives"]), deep["alternatives"]
@@ -123,12 +153,12 @@ rc=$?
 set -e
 [ "${rc}" -eq 0 ] && ok "osctl models suggest --list rc=0" \
   || ko "osctl bridge failed (rc=${rc})"
-grep -qF "ultra-sovereign-efficiency" <<< "${out_osctl}" \
+grep -qF "_test_suggest_flagged" <<< "${out_osctl}" \
   && ok "osctl --list surfaces profiles" || ko "osctl --list wrong"
 
 # --- R216: --gpu-vram-gib host budget override ---
 set +e
-"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst \
+"${PYTHON3}" "${SCRIPT}" --runtime-profile _test_suggest_flagged \
   --gpu-vram-gib 8,8 > "${WORK}/r216.txt"
 rc=$?
 set -e
@@ -147,7 +177,7 @@ grep -q "VRAM requirement 24 GiB exceeds allocation limit 8.0 GiB" "${WORK}/r216
 
 # JSON shape carries host_gpu_vram_gib echo
 set +e
-"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst \
+"${PYTHON3}" "${SCRIPT}" --runtime-profile _test_suggest_flagged \
   --gpu-vram-gib 24,96 --json > "${WORK}/r216.json"
 set -e
 "${PYTHON3}" - "${WORK}/r216.json" <<'PY' 2>/dev/null \
@@ -160,7 +190,7 @@ PY
 
 # Bad budget → rc=2
 set +e
-"${PYTHON3}" "${SCRIPT}" --runtime-profile high-concurrency-burst \
+"${PYTHON3}" "${SCRIPT}" --runtime-profile _test_suggest_flagged \
   --gpu-vram-gib "junk" >/dev/null 2>&1
 rc=$?
 set -e

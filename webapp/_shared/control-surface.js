@@ -23,7 +23,7 @@
  *
  * Usage:
  *   const n = SovereignControlSurface.render(el, systems, {
- *     filterSlug: 'runtime-modes',      // only global + systems governing slug
+ *     filterSlug: 'd-21-lm-orchestration',      // only global + systems governing slug
  *     executeUrl: '/api/control/execute', // same-origin sanctioned write daemon
  *     onCopy: (cmd) => showToast(cmd)     // optional copy callback
  *   });

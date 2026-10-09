@@ -6,7 +6,7 @@
 # after adding/renaming a panel API or an infra upstream:
 #   python3 scripts/operator/gen-dashboard-routes.py
 #
-# 60 proxied routes (6 infra + 54 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
+# 59 proxied routes (6 infra + 53 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
 
 schema_version: "1.0.0"
 
@@ -62,7 +62,6 @@ routes:
   - {slug: trinity-pulse, port: 8081, healthz_path: "/v1/models", subpath: "/pulse/", source_repo: sovereign-os, label: "Trinity Pulse (bitnet.cpp HTTP)"}
   - {slug: router-engine, port: 8080, healthz_path: "/healthz", subpath: "/router-engine/", source_repo: sovereign-os, label: "SDD-011 Deterministic Router daemon"}
   - {slug: router, port: 8096, healthz_path: "/healthz", subpath: "/router/", source_repo: sovereign-os, label: "Router"}
-  - {slug: runtime-modes, port: 7713, healthz_path: "/healthz", subpath: "/runtime-modes/", source_repo: sovereign-os, label: "Runtime Modes"}
   - {slug: science, port: 8134, healthz_path: "/healthz", subpath: "/science/", source_repo: sovereign-os, label: "Science Tools (NVIDIA Warp)"}
   - {slug: surface-map, port: 8101, healthz_path: "/healthz", subpath: "/surface-map/", source_repo: sovereign-os, label: "Surface Map"}
   - {slug: token-law-coverage, port: 8148, healthz_path: "/healthz", subpath: "/token-law-coverage/", source_repo: sovereign-os, label: "Token-Law Mask Coverage"}

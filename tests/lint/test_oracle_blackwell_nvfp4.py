@@ -37,7 +37,7 @@ def _dry_run_env(**overrides) -> dict:
       3. `~/.sovereign-os/active-runtime-profile`
     and, if the active profile names an oracle model, fills an empty
     ORACLE_MODEL from it — which on a developer box (where a profile like
-    `high-concurrency-burst` is active and pins a specific oracle model)
+    an active profile is set and pins a specific oracle model)
     DEFEATS these quantization->model default tests and makes them fail only
     there, not on a clean CI box.
 

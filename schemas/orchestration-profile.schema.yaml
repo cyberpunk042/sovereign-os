@@ -72,11 +72,11 @@ properties:
               pattern: '^[a-z][a-z0-9_-]*$'
             tier:
               type: string
-              enum: [pulse, logic, oracle, router, embed, rerank]
+              enum: [pulse, logic, oracle, router, embed, rerank, image]
             role:
               description: SRP role label (Conductor / Logic / Oracle / Embed / Rerank).
               type: string
-              enum: [conductor, logic, oracle, embed, rerank]
+              enum: [conductor, logic, oracle, embed, rerank, image]
             target_hardware:
               type: string
               pattern: '^(cpu|cuda:[0-9](,cuda:[0-9])*)$'
@@ -84,7 +84,7 @@ properties:
               type: string
             engine:
               type: string
-              enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp]
+              enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp, comfyui, diffusers]
             model:
               type: string
             active:

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """scripts/models/suggest-by-profile.py — R214 profile-aware model suggester.
 
-Given a master-spec § 18 runtime profile (ultra-sovereign-efficiency,
-high-concurrency-burst, deep-context-synthesis), cross-references the
+Given a runtime/orchestration profile id (on-disk under profiles/runtime/ or
+profiles/orchestration/), cross-references the
 profile's `allocations` against the R212 model catalog and reports for
 each Trinity agent:
 
@@ -16,7 +16,7 @@ static catalog YAML into actionable runtime advice without the
 operator manually cross-walking both files.
 
 CLI:
-  suggest-by-profile.py --runtime-profile high-concurrency-burst
+  suggest-by-profile.py --runtime-profile <id>   (any profile on disk)
   suggest-by-profile.py --runtime-profile <id> --json
   suggest-by-profile.py --list  (list known profile ids)
 
@@ -39,6 +39,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = REPO_ROOT / "models" / "catalog.yaml"
 PROFILES_DIR = REPO_ROOT / "profiles" / "runtime"
+ORCHESTRATION_DIR = REPO_ROOT / "profiles" / "orchestration"
 
 
 def load_catalog() -> dict[str, dict[str, Any]]:
@@ -47,18 +48,31 @@ def load_catalog() -> dict[str, dict[str, Any]]:
     return {m["id"]: m for m in doc["catalog"]["models"]}
 
 
+def _profile_path(pid: str) -> Path | None:
+    for d in (PROFILES_DIR, ORCHESTRATION_DIR):
+        p = d / f"{pid}.yaml"
+        if p.exists():
+            return p
+    return None
+
+
 def load_profile(pid: str) -> dict[str, Any] | None:
-    p = PROFILES_DIR / f"{pid}.yaml"
-    if not p.exists():
+    p = _profile_path(pid)
+    if p is None:
         return None
     with p.open() as fh:
-        return yaml.safe_load(fh)["runtime_profile"]
+        doc = yaml.safe_load(fh)
+    # runtime family nests under runtime_profile; orchestration under
+    # orchestration_profile (the launcher lib resolves both, mirror it).
+    return doc.get("runtime_profile") or doc.get("orchestration_profile")
 
 
 def list_profile_ids() -> list[str]:
-    if not PROFILES_DIR.exists():
-        return []
-    return sorted(p.stem for p in PROFILES_DIR.glob("*.yaml"))
+    ids: set[str] = set()
+    for d in (PROFILES_DIR, ORCHESTRATION_DIR):
+        if d.exists():
+            ids.update(p.stem for p in d.glob("*.yaml"))
+    return sorted(ids)
 
 
 def alternatives(catalog: dict[str, dict[str, Any]],
@@ -241,7 +255,7 @@ def main() -> int:
             "profile's allocations against the R212 model catalog."
         )
     )
-    p.add_argument("--runtime-profile", dest="profile", help="profile id (e.g. high-concurrency-burst)")
+    p.add_argument("--runtime-profile", dest="profile", help="profile id (on-disk under profiles/runtime/ or profiles/orchestration/)")
     p.add_argument("--list", action="store_true", help="list known profile ids and exit 0")
     p.add_argument("--json", action="store_true")
     p.add_argument(
@@ -279,8 +293,8 @@ def main() -> int:
     profile = load_profile(args.profile)
     if profile is None:
         print(
-            f"ERROR runtime profile {args.profile!r} not found at "
-            f"{PROFILES_DIR}/{args.profile}.yaml",
+            f"ERROR runtime profile {args.profile!r} not found under "
+            f"{PROFILES_DIR} or {ORCHESTRATION_DIR}",
             file=sys.stderr,
         )
         return 2

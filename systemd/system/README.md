@@ -1,7 +1,7 @@
 # systemd unit files
 
 These are the systemd units shipped with sovereign-os. The full fleet is
-**135 units** (113 `.service` · 21 `.timer` · 1 `.target`) — the inference tier
+**134 units** (112 `.service` · 21 `.timer` · 1 `.target`) — the inference tier
 below is only 4 of them.
 
 ## The full fleet + `make install-units`

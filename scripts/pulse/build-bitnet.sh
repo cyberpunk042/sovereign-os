@@ -240,5 +240,5 @@ fi
 emit_pulse_metric success
 emit_metric sovereign_os_pulse_build_last_run_timestamp "$(date +%s)" ""
 log_info "==== Pulse runtime ready ===="
-log_info "  next: sovereign-osctl trinity profile switch <profile> (e.g. ultra-sovereign-efficiency)"
+log_info "  next: sovereign-osctl trinity profile list && sovereign-osctl trinity profile switch <profile>"
 log_info "  then: systemctl start sovereign-pulse  (or scripts/inference/start-pulse.sh)"

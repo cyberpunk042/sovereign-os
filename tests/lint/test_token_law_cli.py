@@ -57,12 +57,28 @@ def test_flag_beats_env():
 
 
 def test_profile_knob_is_read():
-    # the shipped high-concurrency-burst profile pins grammar,schema,tool,safety
-    r = _run("layers", "--json",
-             env_extra={"SOVEREIGN_OS_RUNTIME_PROFILE": "high-concurrency-burst"})
-    out = json.loads(r.stdout)
-    assert out["source"] == "profile"
-    assert out["active"] == ["grammar", "regex", "denylist", "regex_denylist"]
+    # a profile declaring token_law_engine_mask_layers grammar,schema,tool,safety
+    # must resolve through the profile source (fixture: the retired §18 trio
+    # carried this knob; write a throwaway draft with the same declaration).
+    fixture = REPO / "profiles" / "orchestration" / "_test_tokenlaw_knob.yaml"
+    assert not fixture.exists(), "fixture name collides with a shipped profile"
+    fixture.write_text(
+        "schema_version: \"1.0.0\"\n"
+        "orchestration_profile:\n"
+        "  id: _test_tokenlaw_knob\n"
+        "  name: \"Token-law knob fixture\"\n"
+        "  description: \"lint fixture declaring the token-law mask layers\"\n"
+        "  token_law_engine_mask_layers: grammar,schema,tool,safety\n"
+        "  allocations: []\n"
+    )
+    try:
+        r = _run("layers", "--json",
+                 env_extra={"SOVEREIGN_OS_RUNTIME_PROFILE": "_test_tokenlaw_knob"})
+        out = json.loads(r.stdout)
+        assert out["source"] == "profile"
+        assert out["active"] == ["grammar", "regex", "denylist", "regex_denylist"]
+    finally:
+        fixture.unlink(missing_ok=True)
 
 
 def test_unknown_layer_is_rejected():

@@ -51,8 +51,6 @@ dashboards:
      description: "The always-on immutable gatekeeper — Tetragon eBPF perimeter + Guardian violation tail. The last line that cannot be bypassed.", refs: [master-spec §17, M084]}
   - {slug: router, category: trinity, label: "Router", path: /router/, api: sovereign-router-api, status: live,
      description: "The deterministic request router (SDD-011): which tier answers a prompt, per-rule classification, routing-decision metrics. Pairs with the thinking-router planner (CLI: router plan).", refs: [SDD-011, R516]}
-  - {slug: runtime-modes, category: trinity, label: "Runtime Modes", path: /runtime-modes/, api: sovereign-runtime-modes-api, status: live,
-     description: "The master-spec §18 runtime profiles (ultra-sovereign-efficiency / high-concurrency / deep-context) — pick the mode; it drives core pinning, GPU power, model allocation.", refs: [M076, SDD-043]}
   - {slug: d-01-active-sessions, category: trinity, label: "D-01 Active Sessions", path: /d-01-active-sessions/, api: sovereign-sessions-api, status: live,
      description: "The 12-step task lifecycle per live operator session (init → inference → response → validation → cleanup).", refs: [M057]}
   - {slug: d-03-model-health, category: trinity, label: "D-03 Model Health", path: /d-03-model-health/, api: sovereign-model-health-api, status: live,

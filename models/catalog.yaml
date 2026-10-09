@@ -44,6 +44,29 @@ catalog:
     Verified-real entries cross-checked at L0 ingest.
 
   models:
+    - id: Qwen-Image-2.1-Uncensored-Q4_K_M
+      class: multimodal
+      tier: oracle
+      engine: custom
+      status: verified-real
+      license: qwen-research
+      hf_repo_id: abenzerps/Qwen-Image-2.1-Uncensored-GGUF
+      hf_revision: 6b34e59458d3eb7ba6a6f86a116aed5253dc02c3
+      hf_include_patterns: [qwen-image-2.1-UC-Q4_K_M.gguf, text_encoders/qwen3vl_8b_bf16.safetensors, vae/qwen_image_2.1_vae_bf16.safetensors, README.md, SHA256SUMS]
+      operator_note: Image generator, not a chat model. ComfyUI GGUF runtime required; CPU text-encoder offload. Hardware qualification pending.
+      runtime_profile_bindings: []
+
+    - id: FLUX.2-dev
+      class: multimodal
+      tier: oracle
+      engine: custom
+      status: verified-real
+      license: flux-non-commercial-license
+      hf_repo_id: black-forest-labs/FLUX.2-dev
+      hf_revision: 26afe3a78bb242c0a8bb181dcc8937bb16e5c66c
+      hf_include_patterns: [model_index.json, scheduler/*, text_encoder/*, tokenizer/*, transformer/*, vae/*, LICENSE.md, README.md]
+      operator_note: Image generator, not a chat model. Gated access; local Diffusers components only, excluding duplicate single-file weights. PRO 6000 with CPU text-encoder offload; qualification pending.
+      runtime_profile_bindings: []
 
     # ============================================================
     # Pulse tier (master spec § 17.1 Vector Core) — ternary + AOT
@@ -84,7 +107,7 @@ catalog:
       vram_gib_min: 2.5
       context_window_tokens: 4096
       master_spec_section: "§ 18.1 (ultra-sovereign-efficiency conductor)"
-      runtime_profile_bindings: [ultra-sovereign-efficiency]
+      runtime_profile_bindings: []   # §18 trio retired 2026-10-08
       operator_note: |
         Master spec § 18.1 names BitNet-b1.58-3B for the
         ultra-sovereign-efficiency profile. No 3B BitNet release on HF
@@ -103,7 +126,7 @@ catalog:
       vram_gib_min: 10
       context_window_tokens: 4096
       master_spec_section: "§ 18.2 (high-concurrency-burst conductor_01)"
-      runtime_profile_bindings: [high-concurrency-burst]
+      runtime_profile_bindings: []   # §18 trio retired 2026-10-08
       operator_note: |
         Master spec § 18.2 names BitNet-b1.58-13B. Waiting on upstream.
 
@@ -125,7 +148,7 @@ catalog:
       vram_gib_min: 4
       context_window_tokens: 32768
       master_spec_section: "R212 operator addition — SLM agent loop tier"
-      runtime_profile_bindings: [ultra-sovereign-efficiency]
+      runtime_profile_bindings: []   # §18 trio retired 2026-10-08
       operator_note: |
         R212 — SLM tier for low-latency agent loops. Qwen3 family on
         HF Hub. ≤4 GiB VRAM at bf16; quick warm starts on CCD-0 cores.
@@ -179,7 +202,7 @@ catalog:
       vram_gib_min: 24
       context_window_tokens: 131072
       master_spec_section: "§ 18.2 (high-concurrency-burst translator_01)"
-      runtime_profile_bindings: [high-concurrency-burst]
+      runtime_profile_bindings: []   # §18 trio retired 2026-10-08
       operator_note: |
         Master spec § 18.2 names Qwen-32B-Ternary-Quant. No
         ternary-quantized 32B Qwen on HF; AWQ 4-bit is the operator
@@ -341,7 +364,7 @@ catalog:
       vram_gib_min: 65
       context_window_tokens: 1000000
       master_spec_section: "R212 operator addition — coder tier"
-      runtime_profile_bindings: [high-concurrency-burst]
+      runtime_profile_bindings: []   # §18 trio retired 2026-10-08
       operator_note: |
         R212 — Qwen3-Coder-32B. 1M-token context at bf16; needs the
         RTX PRO 6000 (96 GiB) for headroom. Top-tier coding model.
@@ -364,7 +387,7 @@ catalog:
       vram_gib_min: 140
       context_window_tokens: 131072
       master_spec_section: "§ 18.2 (high-concurrency-burst deep_reasoner_01)"
-      runtime_profile_bindings: [high-concurrency-burst]
+      runtime_profile_bindings: []   # §18 trio retired 2026-10-08
       operator_note: |
         Master spec specifies FP16. Operator runs through llama.cpp's
         quantizer to GGUF if FP16 doesn't fit; the FP16 declaration
@@ -416,7 +439,7 @@ catalog:
       vram_gib_min: 120  # native FP8 on dual-GPU tensor parallel
       context_window_tokens: 131072
       master_spec_section: "§ 18.3 (deep-context-synthesis synthesizer_01)"
-      runtime_profile_bindings: [deep-context-synthesis]
+      runtime_profile_bindings: []   # §18 trio retired 2026-10-08
       operator_note: |
         Master spec § 18.3 runs with --tensor-parallel-size 2
         --kv-cache-dtype fp8 across both GPUs. Mixture-of-experts (671B
@@ -728,7 +751,7 @@ catalog:
       parameters_millions: 120
       vram_gib_min: 0.5
       master_spec_section: "M046 E0442 candidate adapter (sovereign-os/admin LoRA)"
-      runtime_profile_bindings: [dual-turing-serving]
+      runtime_profile_bindings: []   # runtime family emptied 2026-10-08
       operator_note: |
         M046 E0442 "sovereign-os/admin LoRA" candidate — an admin/ops behavioral
         overlay on the 27B oracle. Trained on SAIN-01 (E0446 4090/Blackwell),
@@ -749,7 +772,7 @@ catalog:
       parameters_millions: 60
       vram_gib_min: 0.3
       master_spec_section: "M046 E0442 candidate adapter (coding-style LoRA)"
-      runtime_profile_bindings: [dual-turing-serving]
+      runtime_profile_bindings: []   # runtime family emptied 2026-10-08
       operator_note: |
         M046 E0442 "coding-style LoRA" candidate — a house-style overlay on the
         8B scout for fast, on-style code. Trained on SAIN-01, served here on the
@@ -775,7 +798,7 @@ catalog:
       vram_gib_min: 1
       context_window_tokens: 32768
       master_spec_section: "SDD-717 — vision projector (mmproj) for Ternary-Bonsai-27B"
-      runtime_profile_bindings: [dual-turing-serving]
+      runtime_profile_bindings: []   # runtime family emptied 2026-10-08
       operator_note: |
         The `Ternary-Bonsai-27B-mmproj-BF16.gguf` the operator named — a vision
         projector that makes the 27B oracle image-capable (Qwen3-VL lineage;
@@ -799,7 +822,7 @@ catalog:
       context_window_tokens: 32768
       hf_repo_id: prism-ml/Ternary-Bonsai-27B-gguf
       master_spec_section: "SDD-717 — speculative draft (DSpark) for Ternary-Bonsai-27B on the dual-Turing node"
-      runtime_profile_bindings: [dual-turing-serving]
+      runtime_profile_bindings: []   # runtime family emptied 2026-10-08
       operator_note: |
         The `Ternary-Bonsai-27B-dspark-bf16.gguf` the operator named — a small
         speculative-decoding DRAFT model that drafts tokens the 27B oracle
@@ -831,7 +854,7 @@ catalog:
       vram_gib_min: 3
       context_window_tokens: 32768
       master_spec_section: "operator handwritten catalog addition 2026-07-02"
-      runtime_profile_bindings: [dual-turing-serving]
+      runtime_profile_bindings: []   # runtime family emptied 2026-10-08
       operator_note: |
         Operator handwritten catalog 2026-07-02 ("Prism ML: Ternary
         Bonsai"). prism-ml/Ternary-Bonsai is a real active HF line
@@ -859,7 +882,7 @@ catalog:
       # active orchestration profile remains the authoritative lower bound.
       context_window_tokens: 262144
       master_spec_section: "operator directive 2026-07-16 (dual-turing serving plan, SDD-714)"
-      runtime_profile_bindings: [dual-turing-serving]
+      runtime_profile_bindings: []   # runtime family emptied 2026-10-08
       operator_note: |
         HF-verified 2026-07-16: prism-ml/Ternary-Bonsai-27B-gguf, released
         2026-07-04 (base Qwen/Qwen3.6-27B, ternary; llama.cpp/GGUF; cuda +

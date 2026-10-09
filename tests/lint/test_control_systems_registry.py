@@ -21,7 +21,7 @@ CATALOG = REPO / "config" / "dashboard-catalog.yaml"
 
 EXPECTED_IDS = {
     "model-download",
-    "os-profile", "runtime-mode", "orchestration-profile", "flex-profile", "cpu-mode", "gpu-mode",
+    "os-profile", "orchestration-profile", "flex-profile", "cpu-mode", "gpu-mode",
     "dspark-speculative-decoding",
     "dashboard-toggle", "auth-tier", "selfdef", "perimeter",
     "inference-tier", "workload-knobs", "maintenance", "eval-run",
@@ -193,14 +193,14 @@ def test_non_modeprofile_closed_pick_controls_stay_one_click():
 
 
 def test_every_dashboard_governed_or_catalog_only():
-    """Sanity: the control-heavy dashboards (runtime-modes, trinity, d-09,
+    """Sanity: the control-heavy dashboards (d-21, trinity, d-09,
     auth-tier, master-dashboard) must each be governed by >=1 control system,
     proving the registry actually reaches the control surfaces."""
     governed: dict[str, int] = {}
     for s in _systems():
         for slug in s["applies_to"]:
             governed[slug] = governed.get(slug, 0) + 1
-    for must in ("runtime-modes", "trinity", "d-09-hardware-pressure",
+    for must in ("d-21-lm-orchestration", "trinity", "d-09-hardware-pressure",
                  "auth-tier", "master-dashboard"):
         assert governed.get(must, 0) >= 1, (
             f"control-heavy dashboard {must!r} is governed by no control system"

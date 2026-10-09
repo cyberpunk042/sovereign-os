@@ -81,15 +81,28 @@ def _resolve_selection(flag: str | None) -> tuple[list[str], str]:
 
 
 def _profile_knob() -> str | None:
-    """Read `token_law_engine_mask_layers` from the active runtime profile
-    (`SOVEREIGN_OS_RUNTIME_PROFILE`, default high-concurrency-burst). Returns None
-    if unset / unreadable — the resolver then falls through to 'all'."""
+    """Read `token_law_engine_mask_layers` from the active runtime/orchestration
+    profile (SOVEREIGN_OS_RUNTIME_PROFILE, else the active-runtime-profile
+    marker). Returns None if unset / unreadable — the resolver then falls
+    through to 'all'."""
     try:
         import yaml
-        pid = os.environ.get("SOVEREIGN_OS_RUNTIME_PROFILE", "high-concurrency-burst")
-        p = _REPO / "profiles" / "runtime" / f"{pid}.yaml"
+        pid = os.environ.get("SOVEREIGN_OS_RUNTIME_PROFILE", "")
+        if not pid:
+            for cand in ("/etc/sovereign-os/active-runtime-profile",
+                         str(Path.home() / ".sovereign-os" / "active-runtime-profile")):
+                if os.path.isfile(cand):
+                    pid = Path(cand).read_text(encoding="utf-8").strip()
+                    break
+        if not pid:
+            return None
+        p = next((cand for cand in (_REPO / "profiles" / "runtime" / f"{pid}.yaml",
+                                    _REPO / "profiles" / "orchestration" / f"{pid}.yaml")
+                  if cand.is_file()), None)
+        if p is None:
+            return None
         data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
-        rp = data.get("runtime_profile", {})
+        rp = data.get("runtime_profile") or data.get("orchestration_profile") or {}
         v = rp.get("token_law_engine_mask_layers")
         if isinstance(v, list):
             return ",".join(str(x) for x in v)

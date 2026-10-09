@@ -77,12 +77,12 @@ def _write_state(tmp_path, role, model_id, precision):
 
 def test_context_reads_precision_and_runtime_mode(monkeypatch, tmp_path):
     state = _write_state(tmp_path, "logic", "served-model", "gguf-q4_k_m")
-    rm = tmp_path / "rm"; rm.write_text("high-concurrency-burst\n")
+    rm = tmp_path / "rm"; rm.write_text("full-hybrid\n")
     warm = _load_warm(monkeypatch, port=1, state_path=state, runtime_path=rm)
     ctx = warm._context("logic")
     assert ctx["state_model"] == "served-model"
     assert ctx["precision"] == "gguf-q4_k_m"
-    assert ctx["runtime_mode"] == "high-concurrency-burst"
+    assert ctx["runtime_mode"] == "full-hybrid"
 
 
 def test_context_degrades_gracefully_without_state(monkeypatch):

@@ -19,11 +19,8 @@ coverage:
      memory-pressure, memory-pressure-damper, memory-profile, oc-headroom,
      pcie-lane-detect, pcie-policy, power-shutdown, power-status, psu-oc,
      psu-oc-mode, raid, ram-advisor, storage-health, thermal-oc-budget, thermals,
-     virt-info, wattage-heat-trend, xmp-oc-room, diagnose]
-  runtime-modes:
-    [cpu-mode, cpu-isolation, gpu-mode, dspark, hugepages, irq-affinity, nvidia-mps,
-     nvidia-persistence, power-profiles, thp-mode, workload-knobs, workload-mode,
-     kernel, kernel-cmdline]
+     virt-info, wattage-heat-trend, xmp-oc-room, diagnose,
+     cpu-mode, gpu-mode, workload-knobs]
   cpu-features:
     [avx512-advisor, wasm-aot, zmm-ternary]
   models-catalog:
@@ -45,7 +42,7 @@ coverage:
   router:
     [router]
   orchestration:
-    [cot, mcp-aggregate, research-loop, architecture-qa]
+    [cot, mcp-aggregate, research-loop, architecture-qa, dspark]
   code-console:
     [jobs, plane, model-serve]
   d-01-active-sessions:
@@ -144,3 +141,18 @@ cli_only:
   - {verb: open-computer, rationale: "SDD-706 open-computer QEMU AI-sandbox lifecycle (status/on/off/install/url/logs/doctor) — an installed-off VM-host manager over systemd units (selfdef shape); open-computer serves its own agent UI on :9800 (kiosk/browser target), so a sovereign panel would duplicate it. CLI is the sovereign management surface, no dashboard home."}
   - {verb: claude-code, rationale: "SDD-600 Part 2 provider/origin hotswap (backend {local|anthropic|show}) — rewrites the managed claude-code.env (ANTHROPIC_BASE_URL); a config-swap CLI action. Surfaced as copy-CLI in the settings-pane provider modal + the orchestration control, not its own panel."}
   - {verb: vscode, rationale: "SDD-600 Part 2 provider/origin hotswap (backend {local|anthropic|show}) — renders the Cline/Claude-Dev settings fragment; a config-swap CLI action (a live editor profile can't be written for you). Surfaced as copy-CLI in the settings-pane provider modal + the orchestration control, not its own panel."}
+  # Retired master-spec §18 trio (2026-10-08): these host-tuning verbs hung
+  # under the M076 runtime-modes coverage key; no cockpit surface ever hosted
+  # them, so they are honestly waived CLI-only now. cpu-mode/gpu-mode/
+  # workload-knobs moved to d-09-hardware-pressure (where their controls
+  # apply); dspark moved to orchestration.
+  - {verb: kernel, rationale: "kernel version/package management CLI (install/list/current) — distro-package plumbing, no live panel state"}
+  - {verb: kernel-cmdline, rationale: "kernel boot-parameter editor over GRUB — a boot-config CLI action, applied on next boot; nothing live to render"}
+  - {verb: hugepages, rationale: "hugepage reservation/status tuning (transparent + static) — a sysctl tuning CLI; the pressure readouts live in d-09"}
+  - {verb: irq-affinity, rationale: "IRQ affinity pinning tuner — a low-level interrupt-placement CLI, deliberately not a click-target"}
+  - {verb: nvidia-mps, rationale: "NVIDIA Multi-Process Service lifecycle — a service-mode CLI (like inference tier lifecycle), no own panel"}
+  - {verb: nvidia-persistence, rationale: "GPU persistence-mode toggle — a one-line driver-mode CLI mirrored in d-09's GPU posture readouts"}
+  - {verb: power-profiles, rationale: "system power-profile daemon mode selector — an OS posture CLI, reflected live in d-09's power readouts"}
+  - {verb: thp-mode, rationale: "transparent-hugepage mode selector — a memory-tuning CLI reflected live in d-09's memory-pressure readouts"}
+  - {verb: cpu-isolation, rationale: "nohz_full/isolcpus core isolation tuner — boot-adjacent CPU surgery, deliberately CLI-only"}
+  - {verb: workload-mode, rationale: "workload-class scheduler posture selector — a tuning CLI; the per-profile posture itself lives in the profile families"}

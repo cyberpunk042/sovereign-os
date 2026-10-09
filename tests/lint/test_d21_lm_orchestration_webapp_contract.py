@@ -8,8 +8,8 @@ endpoints, zero external dependencies, same-origin fetches only, READ-ONLY
 — R10212).
 
 The panel composes THREE shipped sources (no new data model): the
-model-health core (assignment grid), the runtime-modes profile lister
-(M076 profiles row), and /proc/cpuinfo (AVX-512 features).
+model-health core (assignment grid), the on-disk profile families
+(profiles row), and /proc/cpuinfo (AVX-512 features).
 
 Per operator §1g (verbatim, sacrosanct): "We do not minimize anything."
 """
@@ -296,15 +296,16 @@ def test_apply_is_per_profile_card_via_exec_rail():
         "each profile card must render a .p-apply button + .p-result line"
     )
     # Apply POSTs the sanctioned control-exec rail, routing by family to the
-    # allowlisted profile controls: runtime-mode (§18 fixed enum) +
-    # orchestration-profile (the growable composer family) — both are the
-    # `trinity profile switch` verb through the sudoer rail.
+    # allowlisted profile control: orchestration-profile (the growable composer
+    # family) — the `trinity profile switch` verb through the sudoer rail.
+    # The 'runtime-mode' control was retired 2026-10-08 with the §18 family;
+    # routing to it must be gone.
     assert "/api/control/execute" in body, "Apply must POST to the control-exec rail"
-    assert re.search(r"['\"]runtime-mode['\"]", body), (
-        "Apply must route the §18 runtime family through the 'runtime-mode' control"
+    assert not re.search(r"control_id\s*[:=]\s*['\"]runtime-mode['\"]", body), (
+        "routing to the retired 'runtime-mode' control must be gone"
     )
     assert re.search(r"['\"]orchestration-profile['\"]", body), (
-        "Apply must route the orchestration/user family through 'orchestration-profile'"
+        "Apply must route the applicable profile families through 'orchestration-profile'"
     )
     # The selected profile is applied in one action; server-side validation and
     # authorization remain on the control rail, not in a duplicate browser gate.
@@ -476,7 +477,7 @@ def test_activation_tracker_proper_options() -> None:
     # Per-model Start/Resume rides the existing model-download control.
     assert "data-dl=" in body and "actStartDownload(" in body
     # No new rails/controls/daemons: every control id the panel uses must be a
-    # registered control-systems.yaml id (model-download/runtime-mode/
+    # registered control-systems.yaml id (model-download/
     # orchestration-profile for the tracker; model-load and profile-compose are
     # pre-existing grid/composer controls on the same panel).
     registry = (REPO_ROOT / "config" / "control-systems.yaml").read_text(encoding="utf-8")

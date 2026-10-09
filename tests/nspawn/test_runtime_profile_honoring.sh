@@ -58,9 +58,9 @@ trap '
   fi
 ' EXIT
 
-# Set ultra-sovereign-efficiency as the active profile
+# Set as-deployed as the active profile
 mkdir -p "${HOME}/.sovereign-os"
-echo "ultra-sovereign-efficiency" > "${HOME}/.sovereign-os/active-runtime-profile"
+echo "as-deployed" > "${HOME}/.sovereign-os/active-runtime-profile"
 
 # Use SOVEREIGN_OS_RUNTIME_PROFILE env override so we're not subject to
 # /etc/sovereign-os/active-runtime-profile potentially set by an
@@ -68,47 +68,47 @@ echo "ultra-sovereign-efficiency" > "${HOME}/.sovereign-os/active-runtime-profil
 # precedence over both /etc and ~/.
 
 # get the pulse-tier core_mask
-core_mask="$(SOVEREIGN_OS_RUNTIME_PROFILE=ultra-sovereign-efficiency bash -c ". '${LIB}'; runtime_profile_get_tier_field pulse core_mask")"
+core_mask="$(SOVEREIGN_OS_RUNTIME_PROFILE=as-deployed bash -c ". '${LIB}'; runtime_profile_get_tier_field pulse core_mask")"
 if [ "${core_mask}" = "0-7" ]; then
-  ok "ultra-sovereign-efficiency pulse core_mask resolves to 0-7"
+  ok "as-deployed pulse core_mask resolves to 0-7"
 else
   ko "core_mask wrong: '${core_mask}'"
 fi
 
 # get the pulse-tier model
-model="$(SOVEREIGN_OS_RUNTIME_PROFILE=ultra-sovereign-efficiency bash -c ". '${LIB}'; runtime_profile_get_tier_field pulse model")"
+model="$(SOVEREIGN_OS_RUNTIME_PROFILE=as-deployed bash -c ". '${LIB}'; runtime_profile_get_tier_field pulse model")"
 if [ "${model}" = "BitNet-b1.58-3B" ]; then
-  ok "ultra-sovereign-efficiency pulse model resolves to BitNet-b1.58-3B"
+  ok "as-deployed pulse model resolves to BitNet-b1.58-3B"
 else
   ko "model wrong: '${model}'"
 fi
 
-# Switch to high-concurrency-burst → pulse core_mask should be 0-11
-core_mask="$(SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst bash -c ". '${LIB}'; runtime_profile_get_tier_field pulse core_mask")"
-if [ "${core_mask}" = "0-11" ]; then
-  ok "high-concurrency-burst pulse core_mask resolves to 0-11"
+# Switch to full-hybrid → pulse core_mask is 0-7 there as well; the tier MODELS change
+core_mask="$(SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid bash -c ". '${LIB}'; runtime_profile_get_tier_field pulse core_mask")"
+if [ "${core_mask}" = "0-7" ]; then
+  ok "full-hybrid pulse core_mask resolves to 0-7"
 else
   ko "switched core_mask wrong: '${core_mask}'"
 fi
 
-# Logic-tier model on high-concurrency-burst
-logic_model="$(SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst bash -c ". '${LIB}'; runtime_profile_get_tier_field logic model")"
-if [ "${logic_model}" = "Qwen-32B-Ternary-Quant" ]; then
-  ok "high-concurrency-burst logic model resolves to Qwen-32B-Ternary-Quant"
+# Logic-tier model on full-hybrid
+logic_model="$(SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid bash -c ". '${LIB}'; runtime_profile_get_tier_field logic model")"
+if [ "${logic_model}" = "Qwen3-Coder-32B-Instruct" ]; then
+  ok "full-hybrid logic model resolves to Qwen3-Coder-32B-Instruct"
 else
   ko "logic model wrong: '${logic_model}'"
 fi
 
 # Oracle-tier model
-oracle_model="$(SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst bash -c ". '${LIB}'; runtime_profile_get_tier_field oracle model")"
+oracle_model="$(SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid bash -c ". '${LIB}'; runtime_profile_get_tier_field oracle model")"
 if [ "${oracle_model}" = "DeepSeek-R1-Distill-Llama-70B-FP16" ]; then
-  ok "high-concurrency-burst oracle model resolves to DeepSeek-R1-..."
+  ok "full-hybrid oracle model resolves to DeepSeek-R1-..."
 else
   ko "oracle model wrong: '${oracle_model}'"
 fi
 
 # Tier not present in profile → empty
-ghost="$(SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst bash -c ". '${LIB}'; runtime_profile_get_tier_field synthesizer no_such_field")"
+ghost="$(SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid bash -c ". '${LIB}'; runtime_profile_get_tier_field synthesizer no_such_field")"
 if [ -z "${ghost}" ]; then
   ok "missing tier/field returns empty (no crash)"
 else
@@ -118,10 +118,10 @@ fi
 # ---------- runtime_profile_override behavior ----------
 # When env var unset, override picks from active profile
 unset MY_TEST_VAR
-SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst bash -c ". '${LIB}'; runtime_profile_override MY_TEST_VAR pulse core_mask; echo \"\${MY_TEST_VAR}\"" > /tmp/test-output-$$ 2>&1
+SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid bash -c ". '${LIB}'; runtime_profile_override MY_TEST_VAR pulse core_mask; echo \"\${MY_TEST_VAR}\"" > /tmp/test-output-$$ 2>&1
 out="$(cat /tmp/test-output-$$)"
 rm -f /tmp/test-output-$$
-if [ "${out}" = "0-11" ]; then
+if [ "${out}" = "0-7" ]; then
   ok "override sets unset env var from active profile"
 else
   ko "override broken: got '${out}'"
@@ -130,18 +130,18 @@ fi
 # A selected profile owns a declared value, including when a stale service
 # EnvironmentFile supplied a previous value.
 export MY_TEST_VAR="operator-explicit-value"
-SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst bash -c "MY_TEST_VAR='operator-explicit-value'; . '${LIB}'; runtime_profile_override MY_TEST_VAR pulse core_mask; echo \"\${MY_TEST_VAR}\"" > /tmp/test-output-$$ 2>&1
+SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid bash -c "MY_TEST_VAR='operator-explicit-value'; . '${LIB}'; runtime_profile_override MY_TEST_VAR pulse core_mask; echo \"\${MY_TEST_VAR}\"" > /tmp/test-output-$$ 2>&1
 out="$(cat /tmp/test-output-$$)"
 rm -f /tmp/test-output-$$
-if [ "${out}" = "0-11" ]; then
+if [ "${out}" = "0-7" ]; then
   ok "override replaces stale service env with active profile value"
 else
   ko "override did not apply active profile value: '${out}'"
 fi
 
 # ---------- runtime_profile_active_file ----------
-yaml_path="$(SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst bash -c ". '${LIB}'; runtime_profile_active_file")"
-if [ "${yaml_path}" = "${__REPO_ROOT}/profiles/runtime/high-concurrency-burst.yaml" ]; then
+yaml_path="$(SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid bash -c ". '${LIB}'; runtime_profile_active_file")"
+if [ "${yaml_path}" = "${__REPO_ROOT}/profiles/orchestration/full-hybrid.yaml" ]; then
   ok "active_file resolves to the correct yaml path"
 else
   ko "active_file wrong: '${yaml_path}'"
@@ -168,29 +168,29 @@ fi
 # and (b) the runtime-profile log header fired.
 
 set +e
-out="$(SOVEREIGN_OS_RUNTIME_PROFILE=ultra-sovereign-efficiency \
+out="$(SOVEREIGN_OS_RUNTIME_PROFILE=as-deployed \
        PULSE_AFFINITY= \
        bash "${__REPO_ROOT}/scripts/inference/start-pulse.sh" 2>&1)"
 set -e
 if grep -q "CCD 0 cores 0-7" <<< "${out}" || grep -q "affinity: 0-7" <<< "${out}"; then
-  ok "start-pulse picks PULSE_AFFINITY=0-7 from ultra-sovereign-efficiency"
+  ok "start-pulse picks PULSE_AFFINITY=0-7 from as-deployed"
 else
   ko "start-pulse didn't honor profile: out=${out:0:300}"
 fi
-if grep -q "runtime profile:  ultra-sovereign-efficiency" <<< "${out}"; then
+if grep -q "runtime profile:  as-deployed" <<< "${out}"; then
   ok "start-pulse logs active runtime profile in header"
 else
   ko "start-pulse header missing runtime-profile log line; out=${out:0:200}"
 fi
 
-# Switch to high-concurrency-burst (pulse core_mask=0-11)
+# Switch to full-hybrid (models change; pulse core_mask stays 0-7)
 set +e
-out="$(SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst \
+out="$(SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid \
        PULSE_AFFINITY= \
        bash "${__REPO_ROOT}/scripts/inference/start-pulse.sh" 2>&1)"
 set -e
-if grep -q "0-11" <<< "${out}"; then
-  ok "start-pulse re-resolves to 0-11 on profile switch"
+if grep -q "0-7" <<< "${out}"; then
+  ok "start-pulse re-resolves to 0-7 on profile switch"
 else
   ko "start-pulse didn't pick up switched profile"
 fi
@@ -198,11 +198,11 @@ fi
 # The active profile owns declared tier fields, so a stale environment value
 # cannot leave the previous profile's process resident after a switch.
 set +e
-out="$(SOVEREIGN_OS_RUNTIME_PROFILE=high-concurrency-burst \
+out="$(SOVEREIGN_OS_RUNTIME_PROFILE=full-hybrid \
        PULSE_AFFINITY=2-3 \
        bash "${__REPO_ROOT}/scripts/inference/start-pulse.sh" 2>&1)"
 set -e
-if grep -q "0-11" <<< "${out}"; then
+if grep -q "0-7" <<< "${out}"; then
   ok "active runtime profile replaces stale PULSE_AFFINITY"
 else
   ko "active profile did not replace stale PULSE_AFFINITY"

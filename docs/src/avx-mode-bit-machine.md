@@ -112,10 +112,11 @@ What gates this switch today:
 
 - **C008** (warn) — inference-tier **pulse** conflicts with avx-mode **off**:
   Pulse is the CPU/AVX-512 bitnet.cpp tier; the scalar baseline starves it.
-- **C011** (suggest) — the **ultra-sovereign-efficiency** runtime profile leans
-  on the CPU's AVX-512 engine; avx-mode **off** drops it to scalar.
 - **Pick-one exclusivity** — the four modes are mutually exclusive by
   construction (the u64 group mask); the ⚖ pane's drill-in shows it.
+
+(Retired 2026-10-08: the §18 runtime-mode trio — C009/C010/C011 gated its
+options; the profiles themselves left the program and the cockpit.)
 
 Enforcement is layered: `sovereign-osctl avx-mode set <mode>` runs the compat
 precheck before executing (force refuses with reason + remediation;

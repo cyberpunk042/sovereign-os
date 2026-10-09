@@ -127,7 +127,8 @@ def recommend_profile(probe: dict) -> dict:
     if profile == "sain-01":
         next_steps.extend(
             [
-                "sovereign-osctl trinity profile switch ultra-sovereign-efficiency",
+                "sovereign-osctl trinity profile list  # see the on-disk families (the §18 trio was retired 2026-10-08)",
+                "sovereign-osctl trinity profile switch as-deployed",
                 "sovereign-osctl bootstrap verify --strict",
                 "sovereign-osctl bootstrap phases  # confirm Phase I-V artifacts",
                 "sovereign-osctl bootstrap hardware-match  # sanity-check verdict",

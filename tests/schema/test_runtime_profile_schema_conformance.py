@@ -43,18 +43,15 @@ def test_schema_file_present():
     assert SCHEMA_FILE.is_file(), f"runtime-profile schema missing: {SCHEMA_FILE}"
 
 
-def test_three_master_spec_runtime_profiles_present():
-    """Master spec § 18 names exactly 3 profiles. R150 ships those 3.
-    Additional profiles are operator-additive; this test pins the 3
-    master-spec-mandated ones."""
+def test_runtime_family_retired_or_valid():
+    """The runtime family was emptied 2026-10-08 (§18 trio + SDD-714 additive
+    retired). Whatever ships here later must still pass schema validation —
+    the parametrized test below covers that; this test only asserts the
+    directory no longer MANDATES any id."""
     ids = {p.stem for p in _all_runtime_files()}
-    for required in (
-        "ultra-sovereign-efficiency",
-        "high-concurrency-burst",
-        "deep-context-synthesis",
-    ):
-        assert required in ids, \
-            f"master spec § 18 mandates '{required}' but it's missing"
+    assert not ({"ultra-sovereign-efficiency", "high-concurrency-burst",
+                 "deep-context-synthesis", "dual-turing-serving"} & ids), \
+        "retired runtime profiles must not come back unregistered"
 
 
 @pytest.mark.parametrize("rp_file", _all_runtime_files(), ids=lambda p: p.stem)

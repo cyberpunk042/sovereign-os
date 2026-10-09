@@ -1321,17 +1321,29 @@ EOF
     fi
   fi
 
-  # R217: model-suggest flagged-allocation count for the active
-  # runtime profile (master spec § 18). Composes R214+R216 — overview
-  # now answers "is your active profile actually fittable?" at a
-  # glance. SOVEREIGN_OS_RUNTIME_PROFILE selects which profile to
-  # check; defaults to the SAIN-01 high-concurrency-burst profile
-  # operators most commonly start from.
-  local suggest_profile="${SOVEREIGN_OS_RUNTIME_PROFILE:-high-concurrency-burst}"
+  # R217: model-suggest flagged-allocation count for the ACTIVE profile.
+  # Composes R214+R216 — overview now answers "is your active profile
+  # actually fittable?" at a glance. Resolution order matches
+  # scripts/build/lib/runtime-profile.sh: SOVEREIGN_OS_RUNTIME_PROFILE →
+  # the active-runtime-profile marker → the as-deployed default. (The §18
+  # trio defaulted this before its 2026-10-08 retirement.)
+  local suggest_profile="${SOVEREIGN_OS_RUNTIME_PROFILE:-}"
+  if [ -z "${suggest_profile}" ]; then
+    local _cand
+    for _cand in /etc/sovereign-os/active-runtime-profile \
+                 "${HOME:-/root}/.sovereign-os/active-runtime-profile"; do
+      if [ -r "${_cand}" ]; then
+        suggest_profile="$(cat "${_cand}")"
+        break
+      fi
+    done
+  fi
+  suggest_profile="${suggest_profile:-as-deployed}"
   local suggest_rc=0 suggest_flagged=0
   local suggest_script="${script_dir}/models/suggest-by-profile.py"
   if [ -x "${suggest_script}" ] \
-       && [ -f "${script_dir}/../profiles/runtime/${suggest_profile}.yaml" ]; then
+       && { [ -f "${script_dir}/../profiles/runtime/${suggest_profile}.yaml" ] \
+            || [ -f "${script_dir}/../profiles/orchestration/${suggest_profile}.yaml" ]; }; then
     set +e
     local suggest_json; suggest_json="$(python3 "${suggest_script}" --runtime-profile "${suggest_profile}" --json 2>/dev/null)"
     suggest_rc=$?
@@ -4014,14 +4026,9 @@ cmd_trinity() {
       # surface-expansion arc.
       _trinity_watch "$@"
       ;;
-    docs)
-      # R208: regenerate docs/src/trinity-runtime-profiles.md from
-      # profiles/runtime/*.yaml. Fourth SDD-028 application.
-      "${PYTHON3}" "${__REPO_ROOT}/scripts/trinity/render-runtime-profiles-md.py" "$@"
-      ;;
     *)
       log_error "unknown trinity subcommand: ${sub}"
-      log_error "  available: status | pulse | weaver | auditor | watch | profile {list,show,active,switch} | docs"
+      log_error "  available: status | pulse | weaver | auditor | watch | profile {list,show,active,switch}"
       return 2
       ;;
   esac
@@ -5352,7 +5359,7 @@ _trinity_profile() {
       # All on-disk families (generated combos are produced on demand, not
       # listed here — see `profiles generate-runtime`).
       local fam_label
-      for pair in "runtime:${runtime_dir}:Runtime profiles (master spec § 18)" \
+      for pair in "runtime:${runtime_dir}:Runtime posture profiles (on-disk)" \
                   "orchestration:${orch_dir}:Orchestration-intent profiles (repo)" \
                   "user:${user_dir}:Operator drafts"; do
         local fam d
@@ -5465,6 +5472,19 @@ PY
         return 1
       }
       fam="${resolved%%$'\t'*}"; f="${resolved#*$'\t'}"
+      # Relocating state does not isolate systemd, deployment, GPUs or OpenClaw.
+      # Refuse scratch-state activation before any host side effects.
+      if [ "${state_dir}" != /etc/sovereign-os ]; then
+        log_error "refusing live profile activation with non-system state directory: ${state_dir}"
+        return 1
+      fi
+      # Qwythos uses three independent llama.cpp residents, including the
+      # Image profiles are visible candidates, not chat-tier launch plans.
+      # Reject before synchronizing files or changing the active marker.
+      if ! ${PYTHON3} -c 'import sys,yaml; d=yaml.safe_load(open(sys.argv[1])); p=d.get("orchestration_profile",d.get("runtime_profile",{})); reason=p.get("activation_blocked_reason"); print(reason or "",end="\n" if reason else ""); sys.exit(1 if reason else 0)' "${f}"; then
+        log_error "profile activation blocked; current runtime unchanged"
+        return 1
+      fi
       # Qwythos uses three independent llama.cpp residents, including the
       # 4090 worker.  The legacy switcher can only restart two pre-existing
       # vLLM units, so it must never write the active marker or OpenClaw labels
