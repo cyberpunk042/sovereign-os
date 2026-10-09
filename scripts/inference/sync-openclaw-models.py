@@ -666,6 +666,77 @@ def _ensure_profile_primary_model(cfg: dict, profile_id: str,
         )
 
 
+def _image_allocations(profile_yaml: Path) -> list[dict]:
+    """Active image-tier allocations, in profile order.
+
+    ``_profile_allocations`` keys by tier, so two image residents (Qwen on the
+    5090, FLUX.2 on the PRO 6000) would collapse into one entry. Image tool
+    wiring needs the full list to pick the primary endpoint port.
+    """
+    data = yaml.safe_load(profile_yaml.read_text(encoding="utf-8")) or {}
+    rp = data.get("runtime_profile") or data.get("orchestration_profile") or {}
+    return [a for a in rp.get("allocations") or []
+            if a.get("tier") == "image" and a.get("active", True)]
+
+
+def _ensure_image_generation(cfg: dict, images: list[dict], changes: list[str]) -> None:
+    """Point OpenClaw's image_generate tool at the active stable-diffusion.cpp server.
+
+    While an image profile is active, the sd-server on its first image port
+    exposes the OpenAI Images API (verified: /v1/images/generations with
+    b64_json responses; it ignores the request's model field). OpenClaw's
+    first-class image_generate tool reaches it through an explicit
+    models.providers.openai entry (custom baseUrl opts into the direct Images
+    API route) plus the private-network opt-in; the gpt-image-2 ref is
+    deliberate — OpenClaw validates capability hints by model ref, and the
+    model field itself is ignored by sd-server. This makes image_generate
+    appear for the operator without registering image models as chat models.
+
+    When no image profile is active, only the exact keys this function owns
+    are removed: an openai baseUrl pointing at the managed sd-cpp ports, its
+    placeholder key, and the managed mediaModels.image block. Any other
+    openai configuration is operator-owned and never touched.
+    """
+    import re
+
+    defaults = cfg.setdefault("agents", {}).setdefault("defaults", {})
+    if images:
+        port = int(images[0].get("port") or 8188)
+        base = f"http://127.0.0.1:{port}/v1"
+        openai = cfg.setdefault("models", {}).setdefault("providers", {}).setdefault("openai", {})
+        for key, value in (("baseUrl", base), ("apiKey", "sovereign-local")):
+            if openai.get(key) != value:
+                openai[key] = value
+                changes.append(f"models.providers.openai.{key}: -> {value!r} (stable-diffusion.cpp)")
+        image = defaults.setdefault("mediaModels", {}).setdefault("image", {})
+        for key, value in (("primary", "openai/gpt-image-2"), ("timeoutMs", 120000)):
+            if image.get(key) != value:
+                image[key] = value
+                changes.append(f"agents.defaults.mediaModels.image.{key}: -> {value!r}")
+        ssrf = cfg.setdefault("browser", {}).setdefault("ssrfPolicy", {})
+        # Private image endpoints are blocked by default; the opt-in stays
+        # even after the image profile leaves (removing it could break other
+        # local media routes; it is inert without a private media config).
+        if ssrf.get("dangerouslyAllowPrivateNetwork") is not True:
+            ssrf["dangerouslyAllowPrivateNetwork"] = True
+            changes.append("browser.ssrfPolicy.dangerouslyAllowPrivateNetwork: true (local image endpoint)")
+        return
+
+    openai = cfg.get("models", {}).get("providers", {}).get("openai")
+    if isinstance(openai, dict) and re.match(r"^http://127\.0\.0\.1:818[89]/v1$", str(openai.get("baseUrl") or "")):
+        for key in ("baseUrl", "apiKey"):
+            if key in openai:
+                del openai[key]
+                changes.append(f"models.providers.openai.{key}: removed (image runtime not active)")
+        if not openai:
+            del cfg["models"]["providers"]["openai"]
+            changes.append("models.providers.openai: removed empty managed provider")
+    image = defaults.get("mediaModels", {}).get("image")
+    if image == {"primary": "openai/gpt-image-2", "timeoutMs": 120000}:
+        del defaults["mediaModels"]["image"]
+        changes.append("agents.defaults.mediaModels.image: removed (image runtime not active)")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--profile", help="profile id (default: active-runtime-profile)")
@@ -746,6 +817,7 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_qwen38_sampling(cfg, allocs, changes)
     _ensure_local_agent_completion(cfg, allocs, changes)
     _ensure_profile_primary_model(cfg, profile_id, changes)
+    _ensure_image_generation(cfg, _image_allocations(profile_yaml), changes)
     _ensure_compaction_defaults(cfg, changes)
     # OpenClaw materializes provider metadata per agent.  Keep those catalogs
     # aligned with the global source before deciding whether this is a no-op:

@@ -84,7 +84,7 @@ properties:
               type: string
             engine:
               type: string
-              enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp, comfyui, diffusers]
+              enum: [bitnet.cpp, vllm, vllm-vulkan, llama.cpp, comfyui, diffusers, stable-diffusion.cpp]
             model:
               type: string
             active:

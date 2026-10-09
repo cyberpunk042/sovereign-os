@@ -15,6 +15,10 @@
 
 set -euo pipefail
 
+# Build libraries assign a default scratch directory. Preserve only the
+# caller's explicit override for runtime profile operations.
+__PROFILE_STATE_OVERRIDE="${SOVEREIGN_OS_STATE_DIR:-}"
+
 # Resolve through symlinks so a symlinked entrypoint (e.g. /usr/local/bin/
 # sovereign-osctl → the repo) locates the REAL repo, not the symlink's dir. This
 # is what lets a dev host keep the operator CLI live-linked to the working tree
@@ -5283,8 +5287,8 @@ _trinity_profile() {
   # explicit root: the single system marker when privileged, the operator
   # marker when not.  Build orchestration exports SOVEREIGN_OS_STATE_DIR as
   # build scratch — unset it in shells that run `trinity profile switch`.
-  local state_dir="${SOVEREIGN_OS_STATE_DIR:-/etc/sovereign-os}"
-  if [ -z "${SOVEREIGN_OS_STATE_DIR:-}" ] && [ ! -w /etc 2>/dev/null ]; then
+  local state_dir="${__PROFILE_STATE_OVERRIDE:-/etc/sovereign-os}"
+  if [ -z "${__PROFILE_STATE_OVERRIDE}" ] && [ ! -w /etc 2>/dev/null ]; then
     state_dir="${HOME}/.sovereign-os"
   fi
   local active_file="${state_dir}/active-runtime-profile"
@@ -5478,9 +5482,19 @@ PY
         log_error "refusing live profile activation with non-system state directory: ${state_dir}"
         return 1
       fi
-      # Qwythos uses three independent llama.cpp residents, including the
-      # Image profiles are visible candidates, not chat-tier launch plans.
-      # Reject before synchronizing files or changing the active marker.
+      # Image models have a dedicated runtime, never the chat-tier launcher.
+      local runtime_handler
+      runtime_handler="$(${PYTHON3} -c 'import sys,yaml; d=yaml.safe_load(open(sys.argv[1])); print((d.get("orchestration_profile") or {}).get("runtime_handler", ""))' "${f}")"
+      if [ "${runtime_handler}" = image-dual ]; then
+        ${PYTHON3} "${__REPO_ROOT}/scripts/inference/activate-image-profile.py"
+        return $?
+      fi
+      if [ "${runtime_handler}" = image-companion ]; then
+        # One llama chat resident preserved (the Oracle), one image runtime
+        # on the 5090: the companion activator owns the mixed transaction.
+        ${PYTHON3} "${__REPO_ROOT}/scripts/inference/activate-image-companion.py" "${f}"
+        return $?
+      fi
       if ! ${PYTHON3} -c 'import sys,yaml; d=yaml.safe_load(open(sys.argv[1])); p=d.get("orchestration_profile",d.get("runtime_profile",{})); reason=p.get("activation_blocked_reason"); print(reason or "",end="\n" if reason else ""); sys.exit(1 if reason else 0)' "${f}"; then
         log_error "profile activation blocked; current runtime unchanged"
         return 1
@@ -5508,6 +5522,15 @@ PY
         log_error "profile was not changed; the live runtime could not be synchronized"
         return 1
       }
+      # Release the image residents before restoring any GPU chat profile.
+      # Transient image units exist whenever any image profile is live, so
+      # the stop is unit-state driven, not marker-name driven.
+      if systemctl is-active --quiet sovereign-image-qwen.service || systemctl is-active --quiet sovereign-image-flux.service; then
+        systemctl stop sovereign-image-qwen.service sovereign-image-flux.service || {
+          log_error "could not stop image services; refusing to compete for GPU memory"
+          return 1
+        }
+      fi
       # Remove the profile-owned llama.cpp overrides before an explicit return
       # to a regular profile.  Leaving them in place would make systemd serve
       # Qwythos while OpenClaw advertised the newly selected profile.

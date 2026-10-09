@@ -54,7 +54,7 @@ catalog:
       hf_repo_id: abenzerps/Qwen-Image-2.1-Uncensored-GGUF
       hf_revision: 6b34e59458d3eb7ba6a6f86a116aed5253dc02c3
       hf_include_patterns: [qwen-image-2.1-UC-BF16.gguf, text_encoders/qwen3vl_8b_bf16.safetensors, vae/qwen_image_2.1_vae_bf16.safetensors, README.md, SHA256SUMS]
-      operator_note: Image generator, not a chat model. ComfyUI GGUF runtime required; CPU text-encoder offload. Hardware qualification pending.
+      operator_note: Image generator, not a chat model. stable-diffusion.cpp CUDA runtime; BF16 weights with CPU text-encoder offload. Hardware qualification pending.
       runtime_profile_bindings: []
 
     - id: FLUX.2-dev
@@ -66,7 +66,7 @@ catalog:
       hf_repo_id: black-forest-labs/FLUX.2-dev
       hf_revision: 26afe3a78bb242c0a8bb181dcc8937bb16e5c66c
       hf_include_patterns: [model_index.json, scheduler/*, text_encoder/*, tokenizer/*, transformer/*, vae/*, LICENSE.md, README.md]
-      operator_note: Image generator, not a chat model. Gated access; local Diffusers components only, excluding duplicate single-file weights. PRO 6000 with CPU text-encoder offload; qualification pending.
+      operator_note: Image generator, not a chat model. stable-diffusion.cpp loads the downloaded safetensors indexes; no Python Diffusers runtime. PRO 6000 with CPU text-encoder offload; qualification pending.
       runtime_profile_bindings: []
 
     # ============================================================

@@ -1,5 +1,11 @@
 # Operator request — 2026-10-09
 
+> stable-diffusion.cpp then....
+
+Backend choice supersedes the initial ComfyUI/Diffusers plan. Preserve both
+BF16 model selections and GPU placement; qualify stable-diffusion.cpp against
+the already-downloaded artifacts before live activation.
+
 > why Q4_K_M.and not BF16 ?
 
 > wtf... fix it
@@ -15,6 +21,16 @@ fallback. Peak generation memory remains subject to qualification.
 > i have a new profile to create / test:
 > abenzerps/Qwen-Image-2.1-Uncensored-GGUF
 > black-forest-labs/FLUX.2-dev
+
+> test only with the rtx5090 for now, you cannot remove the oracle
+> since you are the oracle
+
+> I never said the 5090 was going to to hold logic.. wtf.. and you
+> dont need to generate IMAGEs... tits not the goal.. the goal is for
+> me to be able to be able to generate images.... you should not need
+> to test, what you need to do is do the code.. do the code so that I
+> can use them MYSELF. so finish the work so that I can activate the
+> profile successfully and use a fucking image generation tool
 
 ## Qualification scope
 

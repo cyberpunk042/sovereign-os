@@ -53,7 +53,7 @@ VALID_KINDS = {"profile", "mode", "toggle", "lifecycle"}
 VALID_SCOPES = {"global", "scoped"}
 REQUIRED_FIELDS = {
     "id", "kind", "scope", "label", "description",
-    "options", "options_cli", "state_cli", "change_cli",
+    "options_cli", "state_cli", "change_cli",
     "privileged", "applies_to",
 }
 
@@ -115,7 +115,16 @@ def test_every_change_has_a_copy_command():
 
 def test_options_non_empty():
     for s in _systems():
-        assert isinstance(s.get("options"), list) and s["options"], (
+        opts = s.get("options")
+        if opts is None:
+            # Discovery-driven controls (SDD-043 growable families, per
+            # a27ded55): choices are enumerated at request time by a runnable
+            # options_cli, so a static manifest list is deliberately absent.
+            assert (s.get("options_cli") or "").startswith(("sovereign-osctl", "scripts/")), (
+                f"system {s['id']!r} has neither a static options list nor a runnable options_cli"
+            )
+            continue
+        assert isinstance(opts, list) and opts, (
             f"system {s['id']!r} has no options"
         )
 

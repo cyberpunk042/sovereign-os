@@ -31,8 +31,8 @@ EXPECTED_PROFILES = [
     "hybrid-coding-thinking",
     "full-hybrid",
 ]
-KNOWN_TIERS = {"pulse", "logic", "oracle", "router", "embed", "rerank"}
-KNOWN_ENGINES = {"bitnet.cpp", "vllm", "vllm-vulkan", "llama.cpp"}
+KNOWN_TIERS = {"pulse", "logic", "oracle", "router", "embed", "rerank", "image"}
+KNOWN_ENGINES = {"bitnet.cpp", "vllm", "vllm-vulkan", "llama.cpp", "stable-diffusion.cpp"}
 # The 5 named seed intents + `custom` (operator-composed profiles, D-21 composer).
 KNOWN_INTENTS = {"full-orchestration", "coding", "thinking", "hybrid", "full-hybrid", "custom"}
 

@@ -99,3 +99,11 @@ webapp/_shared/cockpit-wasm/cockpit_wasm_full_bg.wasm
 
 # operator build secrets live in /etc/sovereign-os/build.env, NEVER the repo (secrets doctrine)
 build.env
+
+# Local image backend checkouts and build toolchains (not source artifacts).
+/.runtime/stable-diffusion.cpp/
+/.runtime/image-comfyui/
+/.runtime/sd-cuda13/
+/.runtime/sd-cuda13-matched/
+/.runtime/sd-cuda133/
+/.runtime/image-artifacts/

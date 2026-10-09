@@ -10,9 +10,9 @@ orchestration_profile:
   intent: custom
   hardware_profile_compat: [sain-01]
   readiness: candidate
-  activation_blocked_reason: Image-serving activation is not implemented; do not apply through the chat tier switcher.
+  runtime_handler: image-dual
   prerequisites:
-    - Install and validate ComfyUI with Qwen Image 2.1 GGUF support and a local FLUX.2 Diffusers runtime.
+    - Build and validate stable-diffusion.cpp with CUDA support for Qwen Image 2.1 and FLUX.2-dev.
     - Download selected Qwen transformer, text encoder and VAE; verify checksums.
     - Accept FLUX.2-dev repository terms and download the local Diffusers components.
     - Stop Oracle and Logic through an image-aware activation transaction before loading either image model.
@@ -22,7 +22,7 @@ orchestration_profile:
       tier: image
       role: image
       target_hardware: "cuda:1"
-      engine: comfyui
+      engine: stable-diffusion.cpp
       model: Qwen-Image-2.1-Uncensored-BF16
       port: 8188
       vram_limit_bytes: 30064771072
@@ -32,7 +32,7 @@ orchestration_profile:
       tier: image
       role: image
       target_hardware: "cuda:0"
-      engine: diffusers
+      engine: stable-diffusion.cpp
       model: FLUX.2-dev
       port: 8189
       vram_limit_bytes: 90194313216

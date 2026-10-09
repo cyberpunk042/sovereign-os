@@ -3564,12 +3564,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       } else if (res.status === 405) {
         setP(resultEl, 'muted', 'read-only origin — run: ' + verb);
       } else {
-        setP(resultEl, 'err', body.error || ('HTTP ' + res.status));
+        setP(resultEl, 'err', body.error || body.stderr || ('HTTP ' + res.status));
       }
       const st = res.status === 200 ? (body.dry_run ? 'dry' : 'applied')
         : res.status === 422 ? 'blocked' : res.status === 409 ? 'conflict'
         : res.status === 403 ? 'denied' : res.status === 405 ? 'ro' : 'error';
-      if (ACT.open && ACT.id === id) ACT.apply = { id, state: st, msg: body.error || '' };
+      if (ACT.open && ACT.id === id) ACT.apply = { id, state: st, msg: body.error || body.stderr || '' };
       if (ACT.open) actRender(); // re-gate the action bar the moment the rail answers
     } catch (e) {
       setP(resultEl, 'muted', 'exec rail unreachable — run: sovereign-osctl trinity profile switch ' + id);

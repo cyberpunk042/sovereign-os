@@ -1,0 +1,47 @@
+schema_version: "1.0.0"
+orchestration_profile:
+  id: qwen38-27b-image-companion
+  name: Qwen3.8-27B + Qwen Image — Test Companion B
+  description: >-
+    LLM-half test: Qwen3.8-27B-Q4_K_M moves up to the RTX PRO 6000 as the
+    Oracle (128K, the window proven on the 5090 under qwen38-flash-next-256k)
+    while the qualified Qwen Image 2.1 UC BF16 runtime owns the RTX 5090.
+    No Logic resident — the 5090 belongs to the image runtime. RTX 4090 BGE
+    stack unchanged. Candidate until this pairing passes an OpenClaw chat
+    session plus repeated generations.
+  intent: coding
+  hardware_profile_compat: [sain-01]
+  readiness: candidate
+  runtime_handler: image-companion
+  prerequisites:
+    - "Qwen3.8-27B-Q4_K_M GGUF downloaded and checksum-verified."
+    - "stable-diffusion.cpp CUDA runtime built with Qwen Image 2.1 support."
+    - "Qwen Image transformer, text encoder and VAE downloaded and verified."
+  allocations:
+    - agent_id: qwen38_27b_oracle
+      tier: oracle
+      role: oracle
+      target_hardware: "cuda:0"
+      engine: llama.cpp
+      model: Qwen3.8-27B-Q4_K_M
+      model_path: /mnt/vault/models/Qwen3.8-27B-Q4_K_M/Qwen3.8-27B-Q4_K_M.gguf
+      port: 8083
+      vram_limit_bytes: 30064771072
+      max_model_len: 131072
+      extra_args: "--alias gpu-oracle --jinja --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --split-mode none --parallel 1"
+      max_output_tokens: 4096
+      active: true
+    - agent_id: qwen_image_5090
+      tier: image
+      role: image
+      target_hardware: "cuda:1"
+      engine: stable-diffusion.cpp
+      model: Qwen-Image-2.1-Uncensored-BF16
+      port: 8188
+      vram_limit_bytes: 30064771072
+      active: true
+      image_settings: {width: 1024, height: 1024, batch_size: 1, dtype: bfloat16, text_encoder_offload: cpu, seed: 42}
+    - {agent_id: embed_4090, tier: embed, role: embed, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-m3, port: 8084, vram_limit_bytes: 4294967296, active: true}
+    - {agent_id: rerank_4090, tier: rerank, role: rerank, target_hardware: "cuda:2", engine: vllm, model: BAAI-bge-reranker-v2-m3, port: 8085, vram_limit_bytes: 4294967296, active: true}
+  context_budget:
+    initial_tokens: {"cuda:0": 131072, "cuda:2": 8192}
