@@ -6,7 +6,7 @@
 # after adding/renaming a panel API or an infra upstream:
 #   python3 scripts/operator/gen-dashboard-routes.py
 #
-# 59 proxied routes (6 infra + 53 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
+# 60 proxied routes (6 infra + 54 api-backed panels); 9 static-only panels (served by the :8100 hub, not proxied).
 
 schema_version: "1.0.0"
 
@@ -54,6 +54,7 @@ routes:
   - {slug: flash, port: 8126, healthz_path: "/healthz", subpath: "/flash/", source_repo: sovereign-os, label: "Flash to USB"}
   - {slug: global-history, port: 8094, healthz_path: "/healthz", subpath: "/global-history/", source_repo: sovereign-os, label: "Global History"}
   - {slug: grafana-dashboard, port: 3000, healthz_path: "/api/health", subpath: "/grafana/", source_repo: sovereign-os, label: "Grafana"}
+  - {slug: image-generation, port: 8150, healthz_path: "/healthz", subpath: "/image-generation/", source_repo: sovereign-os, label: "Image Generation"}
   - {slug: trinity-logic-engine, port: 8082, healthz_path: "/v1/models", subpath: "/logic/", source_repo: sovereign-os, label: "Trinity Logic Engine (vLLM)"}
   - {slug: master-dashboard, port: 8090, healthz_path: "/healthz", subpath: "/master-dashboard/", source_repo: sovereign-os, label: "Master Dashboard"}
   - {slug: metrics-textfile-collector, port: 9100, healthz_path: "/metrics", subpath: "/metrics/", source_repo: sovereign-os, label: "node_exporter (textfile collector)"}

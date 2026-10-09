@@ -44,6 +44,7 @@ routes:
   - {prefix: "/api/four-watchdog", port: 7712, api: sovereign-four-watchdog-api}
   - {prefix: "/api/global-history", port: 8094, api: sovereign-global-history-api}
   - {prefix: "/api/hardware", port: 8131, api: sovereign-hardware-pressure-api}
+  - {prefix: "/api/image-gen", port: 8150, api: sovereign-image-generation-api}
   - {prefix: "/api/jobs", port: 8142, api: sovereign-jobs-api}
   - {prefix: "/api/lm-orchestration", port: 8129, api: sovereign-lm-orchestration-api}
   - {prefix: "/api/lm-status", port: 8122, api: sovereign-lm-status-operability-api}

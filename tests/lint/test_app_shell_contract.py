@@ -49,6 +49,7 @@ ADOPTED_APP_SHELL_PANELS = [
     "rustdoc-panel",
     "chromofold",
     "token-law-coverage",
+    "image-generation",
 ]
 
 

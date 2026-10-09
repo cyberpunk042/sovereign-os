@@ -1,0 +1,43 @@
+[Unit]
+Description=Sovereign Image Generation panel — direct stable-diffusion.cpp test surface (no OpenClaw)
+Documentation=https://github.com/cyberpunk042/sovereign-os/blob/main/scripts/operator/image-generation-api.py
+# The cockpit's honest no-agent image test: browser → this daemon → sd-server
+# (OpenAI Images API on the ACTIVE image profile's declared ports, probed via
+# /v1/models — never a hardcoded port). Inference only: it starts/stops nothing
+# and mutates no host state; profile activation stays the control-exec rail's
+# exclusive job (R10274/R10212). Persists generated artifacts to its gallery.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/sovereign-os/scripts/operator/image-generation-api.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Loopback-by-default — operator-§1g exposure decision is theirs.
+Environment=IMAGE_GENERATION_API_BIND=127.0.0.1
+Environment=IMAGE_GENERATION_API_PORT=8150
+
+# Defense-in-depth — R171 (Layer-1 lint enforced). Reads repo profiles + the
+# active marker; writes ONLY its gallery. StateDirectory CREATES the /var dir;
+# a bare ReadWritePaths entry refuses to spawn (226/NAMESPACE) on hosts where
+# the gallery has never been written (2026-06-12 first-bring-up lesson).
+ProtectSystem=strict
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+StateDirectory=sovereign-os/image-generation
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
