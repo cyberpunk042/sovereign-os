@@ -131,6 +131,31 @@ runtime_profile_override() {
 # to surface in their log header.
 runtime_profile_log_active() {
   local yaml; yaml="$(runtime_profile_active_file)" || {
+    # Distinguish "no marker at all" from "marker names a profile this payload
+    # cannot resolve": the latter used to log "(none active)" and let the
+    # launcher silently serve start-script defaults while the cockpit declared
+    # a different model (wrong-model activations, 2026-10-09 — the operator
+    # re-applied switches repeatedly because every 'successful' activation ran
+    # the wrong weights). This now returns non-zero; the tier launchers
+    # fail-closed on it. Repair: re-run `sovereign-osctl trinity profile
+    # switch <id>` (it re-syncs the activation contract) or remove the marker
+    # to run defaults deliberately.
+    local active_id="" cand
+    [ -n "${SOVEREIGN_OS_RUNTIME_PROFILE:-}" ] && active_id="${SOVEREIGN_OS_RUNTIME_PROFILE}"
+    if [ -z "${active_id}" ]; then
+      for cand in "/etc/sovereign-os/active-runtime-profile" \
+                  "${HOME:-/root}/.sovereign-os/active-runtime-profile"; do
+        if [ -r "${cand}" ]; then active_id="$(cat "${cand}")"; break; fi
+      done
+    fi
+    if [ -n "${active_id}" ]; then
+      if command -v log_error >/dev/null 2>&1; then
+        log_error "  runtime profile: marker '${active_id}' NOT RESOLVABLE in this payload — start-script defaults would be WRONG; re-run: sovereign-osctl trinity profile switch ${active_id}"
+      else
+        echo "CRITICAL: runtime profile marker '${active_id}' not resolvable in this payload; start-script defaults would be wrong" >&2
+      fi
+      return 1
+    fi
     if command -v log_info >/dev/null 2>&1; then
       log_info "  runtime profile:  (none active; using start-script defaults)"
     fi

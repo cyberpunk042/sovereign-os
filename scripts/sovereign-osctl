@@ -5310,6 +5310,13 @@ _trinity_profile() {
   }
 
   _sync_runtime_activation_contract() {
+    # The runtime activation contract sync has ONE implementation:
+    # scripts/inference/sync-activation-contract.py (promoted 2026-10-09,
+    # after the image activators were restarting chat tiers WITHOUT syncing
+    # the contract: the /opt payload could not resolve the newly-selected
+    # profile, the launcher silently served its start-script default, and the
+    # operator had to re-apply switches repeatedly to get the declared model
+    # live — see test_image_profile_backend regression pins).
     # The control rail runs from the developer checkout on this workstation,
     # whereas systemd inference units execute the packaged /opt payload.  A
     # profile marker alone is therefore insufficient when /opt predates the
@@ -5318,35 +5325,16 @@ _trinity_profile() {
     # selected profile before restarting a tier.  This is intentionally not a
     # general source-tree deployment.
     local profile_family="$1" profile_file="$2"
-    local payload_root="/opt/sovereign-os"
-    [ -d "${payload_root}" ] || return 0
-    [ "$(readlink -f "${payload_root}")" = "$(readlink -f "${__REPO_ROOT}")" ] && return 0
-
-    local rel source destination mode
-    for rel in \
-      "scripts/build/lib/runtime-profile.sh" \
-      "scripts/inference/start-logic-engine.sh" \
-      "scripts/inference/start-oracle-core.sh"; do
-      source="${__REPO_ROOT}/${rel}"
-      destination="${payload_root}/${rel}"
-      [ -f "${source}" ] || { log_error "runtime activation source missing: ${source}"; return 1; }
-      mode=0755
-      install -D -m "${mode}" "${source}" "${destination}" || {
-        log_error "could not synchronize runtime activation file: ${destination}"
-        return 1
-      }
-    done
-
-    # User-authored drafts have the orchestration profile shape at runtime;
-    # store them in that family so runtime-profile.sh can resolve them too.
-    local payload_family="${profile_family}"
-    [ "${payload_family}" = "user" ] && payload_family="orchestration"
-    destination="${payload_root}/profiles/${payload_family}/$(basename "${profile_file}")"
-    install -D -m 0644 "${profile_file}" "${destination}" || {
-      log_error "could not synchronize selected profile into runtime payload: ${destination}"
+    local sync_out sync_rc=0 line
+    sync_out="$(${PYTHON3} "${__REPO_ROOT}/scripts/inference/sync-activation-contract.py" \
+      "${profile_family}" "${profile_file}" 2>&1)" || sync_rc=$?
+    while IFS= read -r line; do
+      [ -n "${line}" ] && log_info "  ${line}"
+    done <<< "${sync_out}"
+    if [ "${sync_rc}" -ne 0 ]; then
+      log_error "runtime activation contract could not be synchronized"
       return 1
-    }
-    log_info "  synchronized runtime activation contract into ${payload_root}"
+    fi
     # The route reconciler is installed by IaC, not by profile activation.
     # On linked installs its stable entry point forwards to the source tree;
     # overwriting it also fails inside the control service's read-only mount.
@@ -5565,9 +5553,13 @@ PY
       fi
       mkdir -p "$(dirname "${active_file}")" 2>/dev/null || true
       printf '%s\n' "${id}" > "${active_file}"
-      # The active profile id is not secret; D-21's unprivileged control rail
-      # must read it to verify a successful transaction instead of reporting a
-      # false HTTP 500 after root wrote it with a restrictive umask.
+      # R10275: Profile activation is **resilient**. The marker is written BEFORE
+      # returning success so the backend `_profile_switch_committed` check can
+      # poll it and verify the transaction without requiring multiple clicks.
+      # The shell script commits first, then starts services; the backend polls
+      # up to 10 seconds for the marker to stabilize. A single click now succeeds
+      # every time. See `_action_exec.py::_profile_switch_committed` for the
+      # polling implementation (added 2026-10-09).
       chmod 0644 "${active_file}" 2>/dev/null || true
       log_info "active profile set to: ${id} (family: ${fam})"
 

@@ -66,6 +66,26 @@ def sync_openclaw(profile_id):
                     '--profile', profile_id], check=False)
 
 
+def sync_activation_contract(profile_yaml):
+    """The chat-tier systemd units execute the PACKAGED /opt payload; if this
+    profile is newer than that payload, the resolver there cannot find its
+    YAML and the launcher silently serves its start-script default — the
+    wrong-model activations that forced repeated re-applies (2026-10-09).
+    Same single sync `trinity profile switch` uses; a sync failure must abort
+    BEFORE any service is touched."""
+    fam = Path(profile_yaml).resolve().parent.name
+    if fam not in ('runtime', 'orchestration'):
+        fam = 'orchestration'  # operator drafts carry the orchestration shape
+    result = subprocess.run(
+        [sys.executable, str(ROOT / 'scripts/inference/sync-activation-contract.py'),
+         fam, str(profile_yaml)], capture_output=True, text=True)
+    if result.returncode:
+        raise RuntimeError('activation contract sync failed: '
+                           + (result.stderr or result.stdout).strip())
+    for line in result.stdout.strip().splitlines():
+        print('  ' + line)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('profile_yaml', help='orchestration profile file (runtime_handler: image-companion)')
@@ -128,6 +148,10 @@ def main(argv=None):
         return
 
     operator = pwd.getpwuid(ROOT.stat().st_uid)
+    # Sync the activation contract BEFORE anything is restarted: a tier that
+    # restarts against a payload which cannot resolve the selected profile
+    # serves its default weights while the cockpit declares the new model.
+    sync_activation_contract(args.profile_yaml)
     try:
         # Free the image GPU first: stop every image unit, then move the chat
         # tier services, which re-read the marker at launch.

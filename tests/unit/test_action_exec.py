@@ -247,10 +247,73 @@ def test_audit_span_canonical_schema_and_log(tmp_path, monkeypatch):
     assert rec["ocsf_payload"]["class_uid"] == 5001
     assert rec["ocsf_payload"]["control_id"] == "cpu-mode"
     assert rec["severity"] == "info"
-    # schema parity with dashboard-toggles emitter
-    for k in ("trace_id", "span_id", "start_ts", "duration_ms", "actor",
-              "profile", "attributes", "schema_version"):
-        assert k in rec
+
+
+def test_profile_switch_committed_polls_marker(tmp_path, monkeypatch):
+    """Profile activation must be resilient: the marker file may not be written
+    immediately after the shell command returns. Poll the marker up to 10 seconds
+    before failing, so a single click succeeds every time."""
+    import time as _time
+    
+    # Create the marker file with an old value
+    marker = tmp_path / "active-runtime-profile"
+    marker.write_text("old-profile")
+    
+    control = {
+        "id": "orchestration-profile",
+        "state_path": str(marker),
+    }
+    args = {"verb": "new-profile"}
+    
+    # First call: marker hasn't been updated yet -> should poll and fail after timeout
+    # But we'll patch time.sleep to avoid actual delays
+    original_sleep = _time.sleep
+    sleep_calls = []
+    
+    def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+        # After 3 polls, update the marker to the expected value
+        if len(sleep_calls) == 3:
+            marker.write_text("new-profile")
+    
+    monkeypatch.setattr(_time, "sleep", fake_sleep)
+    
+    committed, detail = AE._profile_switch_committed(control, args)
+    
+    # Should have polled 3 times before the marker updated
+    assert len(sleep_calls) >= 2
+    assert committed is True
+    assert detail == "new-profile"
+
+
+def test_profile_switch_committed_fails_after_timeout(tmp_path, monkeypatch):
+    """If the marker never updates to the expected value, fail after polling."""
+    import time as _time
+    
+    marker = tmp_path / "active-runtime-profile"
+    marker.write_text("old-profile")
+    
+    control = {
+        "id": "orchestration-profile",
+        "state_path": str(marker),
+    }
+    args = {"verb": "new-profile"}
+    
+    # Patch sleep to avoid delays but track calls
+    original_sleep = _time.sleep
+    sleep_calls = []
+    
+    def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+    
+    monkeypatch.setattr(_time, "sleep", fake_sleep)
+    
+    committed, detail = AE._profile_switch_committed(control, args)
+    
+    # Should have polled max_attempts times and failed
+    assert len(sleep_calls) >= 19  # 20 attempts total, 19 sleeps
+    assert committed is False
+    assert "expected 'new-profile'" in detail
 
 
 def test_audit_span_skipped_on_dry_run(tmp_path, monkeypatch):

@@ -191,7 +191,11 @@ export ORACLE_MODEL ORACLE_HOST ORACLE_PORT ORACLE_KV_CACHE_DTYPE ORACLE_DFLASH_
        ORACLE_QUANTIZATION ORACLE_VRAM_REQUIRED_GIB ORACLE_MAX_MODEL_LEN
 
 log_step_header "${STEP_ID}" "start Oracle Core (vLLM, Blackwell native)"
-runtime_profile_log_active
+# Fail-closed on an unresolvable profile marker: serving the start-script
+# default while the cockpit declares another model is the lie that cost the
+# operator repeated re-activations (2026-10-09). The switch re-syncs the
+# activation contract; deleting the marker runs defaults deliberately.
+runtime_profile_log_active || exit 1
 
 emit_start_metric() {
   emit_metric sovereign_os_inference_backend_start_total 1 \

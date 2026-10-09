@@ -107,7 +107,8 @@ fi
 export SOVEREIGN_OS_LOGIC_BACKEND LOGIC_MODEL LOGIC_HOST LOGIC_PORT
 
 log_step_header "${STEP_ID}" "start Logic Engine (backend=${SOVEREIGN_OS_LOGIC_BACKEND}, RTX 5090 internal secondary — operator D-022; the RTX 4090 is now the OcuLink eGPU / opt-in VFIO DSpark draft)"
-runtime_profile_log_active
+# Fail-closed on an unresolvable profile marker (see start-oracle-core.sh).
+runtime_profile_log_active || exit 1
 
 emit_start_metric() {
   emit_metric sovereign_os_inference_backend_start_total 1 \

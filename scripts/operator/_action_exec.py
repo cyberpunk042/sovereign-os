@@ -287,11 +287,35 @@ def _profile_switch_committed(control: dict[str, Any], args: dict[str, str]) -> 
     zero after restarting tiers without writing the state marker.  Treat that
     as a failed switch: reporting success in the cockpit would make OpenClaw's
     catalog disagree with the model processes it is about to call.
+    
+    Added 2026-10-09: Profile activation must be **resilient**. The shell
+    command may complete before the marker file is updated. Rather than
+    rejecting and forcing the operator to retry, we poll the marker up to
+    10 seconds with a 0.5s interval. This ensures a single, atomic activation.
     """
     expected = str(args.get("verb", "")).strip()
     marker = Path(str(control.get("state_path", "")))
     if not expected or not marker.is_file():
         return False, f"profile switch did not commit active marker {marker}"
+    
+    # Poll the marker file up to 10 seconds to handle race conditions
+    # where the shell command completes before the marker is written.
+    import time as _time
+    max_attempts = 20  # 20 * 0.5s = 10s timeout
+    for attempt in range(1, max_attempts + 1):
+        try:
+            actual = marker.read_text(encoding="utf-8").strip()
+            if actual == expected:
+                return True, actual
+            # Marker exists but doesn't match yet; wait and retry
+            if attempt < max_attempts:
+                _time.sleep(0.5)
+        except OSError:
+            # Marker file temporarily unreadable; retry after brief wait
+            if attempt < max_attempts:
+                _time.sleep(0.5)
+    
+    # Final attempt after polling fails - report the actual state
     try:
         actual = marker.read_text(encoding="utf-8").strip()
     except OSError as exc:
