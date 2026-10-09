@@ -21,6 +21,50 @@ STATE = Path('/var/lib/sovereign-os/model-downloads')
 SAFE_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,100}')
 
 
+def failure_details(kind, status=None):
+    """Public, credential-free diagnostics, also applicable to legacy jobs."""
+    if kind == 'GatedRepoError':
+        return dict(error_code='hf_access_required', retryable=False,
+                    error='Hugging Face gated repository access was denied. Accept the model terms on Hugging Face, then ensure the service HF_TOKEN belongs to that approved account and allows gated-repository reads. Credentials are loaded from /etc/sovereign-os/model.env (0600). After correcting access, select Retry access. Disk space is not the cause of this error.')
+    if status in (401, 403):
+        return dict(error_code='hf_authentication', retryable=False,
+                    error='Hugging Face rejected authentication or permissions. Check the service token in /etc/sovereign-os/model.env (0600), its validity and repository read access, then retry.')
+    if kind == 'InsufficientSpaceError':
+        return dict(error_code='disk_space', retryable=False,
+                    error='The model vault lacks space for the remaining artifacts plus the 2 GiB safety margin. Free space, then retry.')
+    if kind in ('ConnectionError', 'ConnectError', 'ReadTimeout', 'TimeoutError') or status == 429 or (status and status >= 500):
+        return dict(error_code='network', retryable=True,
+                    error='The transfer was interrupted by a network or remote-service error. Retry to continue retained partial files and verify artifacts.')
+    return dict(error_code='download_failed', retryable=False,
+                error='Download or verification failed. Inspect the reported error type and stage; retained files are not considered ready until verification passes.')
+
+
+class InsufficientSpaceError(ValueError):
+    pass
+
+
+def transfer(row, revision, files, target, token, previous, state):
+    """Recover Hub/Xet transport failures within the same cockpit job."""
+    use_http = previous.get('transport') == 'http-range' or (
+        previous.get('error_stage') == 'downloading' and
+        previous.get('error_type') in ('RuntimeError', 'ConnectionError'))
+    if not use_http:
+        from huggingface_hub import snapshot_download
+        try:
+            snapshot_download(repo_id=row['hf_repo_id'], revision=revision,
+                              allow_patterns=[f['path'] for f in files],
+                              local_dir=str(target), token=token, max_workers=2,
+                              force_download=previous.get('error_stage') == 'verifying')
+            return
+        except (RuntimeError, ConnectionError):
+            # Xet wraps transfer failures in RuntimeError. Do not serialize its
+            # message (may contain signed URLs); retain files and bypass Xet.
+            pass
+    state.update(transport='http-range', recovery='Hub transport interrupted; continuing with resumable HTTP ranges')
+    fallback = runpy.run_path(str(ROOT / 'scripts/models/http-range-download.py'))
+    fallback['download'](row['hf_repo_id'], revision, files, target, token)
+
+
 def entry(model_id):
     import yaml
     if not SAFE_ID.fullmatch(model_id) or '..' in model_id:
@@ -95,6 +139,8 @@ def readiness(model_id, row, vault=VAULT, state_dir=STATE):
         job = json.loads((state_dir / (model_id + '.json')).read_text())
     except (OSError, ValueError):
         job = {}
+    if job.get('status') == 'failed':
+        job.update(failure_details(job.get('error_type'), job.get('http_status')))
     if job.get('status') in ('queued', 'preflight', 'downloading', 'verifying'):
         # Interrupted/rebooted jobs must not remain a permanent spinner.
         try:
@@ -158,27 +204,30 @@ def worker(model_id):
             reject_symlinks(target)
             target.mkdir(parents=True, exist_ok=True, mode=0o755)
             auth = runpy.run_path(str(ROOT / 'scripts/models/hf-auth.py'))
+            auth.get('migrate_legacy_token', lambda: None)()
             env = auth['token_environment'](os.environ)
             token = env.get('HF_TOKEN')
-            from huggingface_hub import HfApi, snapshot_download
+            from huggingface_hub import HfApi, snapshot_download, get_hf_file_metadata, hf_hub_url
             info = HfApi(token=token).model_info(row['hf_repo_id'],
                                                revision=row.get('hf_revision'), files_metadata=True)
             files = select_files(row, info.siblings)
+            # Public metadata does not prove permission to fetch gated weights.
+            # Test actual artifact access before announcing a running transfer.
+            weight = next(f for f in files if f['path'].endswith(('.gguf', '.safetensors')))
+            state['repo'] = row['hf_repo_id']
+            get_hf_file_metadata(hf_hub_url(row['hf_repo_id'], weight['path'], revision=info.sha), token=token)
             total = sum(f['size'] for f in files)
             needed = sum(max(0, f['size'] - ((target / f['path']).stat().st_size
                          if (target / f['path']).is_file() else 0)) for f in files)
             if shutil.disk_usage(target).free < needed + 2 * 1024**3:
-                raise ValueError('Insufficient vault space, including 2 GiB safety margin')
+                raise InsufficientSpaceError('Insufficient vault space, including 2 GiB safety margin')
             state.update(status='downloading', revision=info.sha, bytes_total=total,
                          files=files, repo=row['hf_repo_id'])
-            use_http = previous.get('transport') == 'http-range' or previous.get('error_type') == 'ConnectionError'
-            if use_http:
-                state['transport'] = 'http-range'
             def progress():
                 while not stop.is_set():
                     done = sum(min(f['size'], (target / f['path']).stat().st_size)
                                for f in files if (target / f['path']).is_file())
-                    pattern = f'*.{info.sha}.http.incomplete' if use_http else '*.incomplete'
+                    pattern = f'*.{info.sha}.http.incomplete' if state.get('transport') == 'http-range' else '*.incomplete'
                     done += sum(p.stat().st_size for p in target.rglob(pattern)
                                 if p.is_file())
                     state['bytes_done'] = min(total, done)
@@ -186,14 +235,7 @@ def worker(model_id):
                     stop.wait(2)
             monitor = threading.Thread(target=progress, daemon=True)
             monitor.start()
-            if use_http:
-                fallback = runpy.run_path(str(ROOT / 'scripts/models/http-range-download.py'))
-                fallback['download'](row['hf_repo_id'], info.sha, files, target, token)
-            else:
-                snapshot_download(repo_id=row['hf_repo_id'], revision=info.sha,
-                                  allow_patterns=[f['path'] for f in files],
-                                  local_dir=str(target), token=token, max_workers=2,
-                                  force_download=previous.get('error_stage') == 'verifying')
+            transfer(row, info.sha, files, target, token, previous, state)
             stop.set()
             monitor.join()
             state['status'] = 'verifying'
@@ -210,12 +252,12 @@ def worker(model_id):
             state.update(status='complete', bytes_done=total)
     except Exception as exc:
         # No exception text: HTTP diagnostics can contain credential-bearing URLs.
-        state.update(error_stage=state['status'], status='failed', error_type=type(exc).__name__,
-                     error='Download failed. Check disk space, HF access/token and artifact integrity; retry resumes partial files.')
+        state.update(error_stage=state['status'], status='failed', error_type=type(exc).__name__)
         response = getattr(exc, 'response', None)
         status_code = getattr(response, 'status_code', None)
         if isinstance(status_code, int):
             state['http_status'] = status_code  # Never serialize headers/URLs/tokens.
+        state.update(failure_details(type(exc).__name__, status_code if isinstance(status_code, int) else None))
     finally:
         stop.set()
         if monitor:

@@ -43,6 +43,24 @@ def test_warp_render_is_user_level_without_extra_confirmation(monkeypatch):
     assert AE.load_registry()['warp-sync']['privileged'] is True
 
 
+def test_profile_discovery_tracks_files_without_manifest_edits(tmp_path, monkeypatch):
+    config = tmp_path / 'config'
+    config.mkdir()
+    monkeypatch.setattr(AE, '_CONTROL_SYSTEMS_FILE', config / 'control-systems.yaml')
+    monkeypatch.setenv('SOVEREIGN_OS_USER_PROFILES_DIR', str(tmp_path / 'user'))
+    profiles = tmp_path / 'profiles/orchestration'
+    profiles.mkdir(parents=True)
+    control = {'id': 'orchestration-profile', 'change_cli': 'sovereign-osctl trinity profile switch <verb>'}
+    path = profiles / 'new-image-profile.yaml'
+    path.write_text('orchestration_profile:\n  id: new-image-profile\n  allocations: []\n')
+    argv, error = AE.resolve_argv(control, {'verb': 'new-image-profile'})
+    assert error is None and argv[-1] == 'new-image-profile'
+    for invalid in ('unknown', '../new-image-profile', 'new-image-profile;id'):
+        assert AE.resolve_argv(control, {'verb': invalid})[0] is None
+    path.unlink()
+    assert AE.resolve_argv(control, {'verb': 'new-image-profile'})[0] is None
+
+
 def test_warp_render_rejects_bad_option_tokens():
     """SDD-303 placeholders stay _SAFE_VALUE-clean at the rail; the CLI
     whitelists them on top (defense in depth, never either layer alone)."""

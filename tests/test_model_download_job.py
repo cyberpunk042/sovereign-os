@@ -13,6 +13,49 @@ job = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(job)
 
 
+def test_gated_error_is_actionable_not_space_or_resume(tmp_path):
+    details = job.failure_details('GatedRepoError', 401)
+    assert details['error_code'] == 'hf_access_required'
+    assert details['retryable'] is False
+    assert 'Accept the model terms' in details['error']
+    assert 'Disk space is not the cause' in details['error']
+    (tmp_path / 'model.json').write_text(json.dumps({
+        'status': 'failed', 'error_type': 'GatedRepoError', 'http_status': 401,
+        'error': 'old misleading message'}))
+    ready, state = job.readiness('model', {}, vault=tmp_path, state_dir=tmp_path)
+    assert not ready
+    assert state['error_code'] == 'hf_access_required'
+
+
+def test_failure_categories():
+    assert job.failure_details('InsufficientSpaceError')['error_code'] == 'disk_space'
+    assert job.failure_details('HTTPError', 403)['error_code'] == 'hf_authentication'
+    assert job.failure_details('ReadTimeout')['retryable'] is True
+
+
+def test_runtime_transport_failure_recovers_in_same_job(monkeypatch, tmp_path):
+    def broken(**kwargs):
+        raise RuntimeError('sensitive signed URL must not be published')
+    monkeypatch.setitem(sys.modules, 'huggingface_hub', SimpleNamespace(snapshot_download=broken))
+    calls = []
+    monkeypatch.setattr(job.runpy, 'run_path', lambda _: {'download': lambda *a: calls.append(a)})
+    state = {}
+    job.transfer({'hf_repo_id': 'test/model'}, 'revision', [], tmp_path, 'secret', {}, state)
+    assert len(calls) == 1
+    assert state['transport'] == 'http-range'
+    assert 'sensitive' not in json.dumps(state)
+
+
+def test_failed_runtime_job_retries_without_xet(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(job.runpy, 'run_path', lambda _: {'download': lambda *a: calls.append(a)})
+    state = {}
+    job.transfer({'hf_repo_id': 'test/model'}, 'revision', [], tmp_path, None,
+                 {'error_stage': 'downloading', 'error_type': 'RuntimeError'}, state)
+    assert len(calls) == 1
+    assert state['transport'] == 'http-range'
+
+
 @pytest.mark.parametrize('value', ['../x', '/tmp/x', 'x;id', 'x y', '--worker', 'no-such-model'])
 def test_invalid_catalog_id_rejected(value):
     with pytest.raises(ValueError):
@@ -97,7 +140,9 @@ def test_worker_verifies_and_keeps_token_out_of_state(tmp_path, monkeypatch, cor
         assert kw['allow_patterns'] == ['weights.gguf']
         (Path(kw['local_dir']) / 'weights.gguf').write_bytes(b'bad' if corrupt else b'abc')
     monkeypatch.setitem(sys.modules, 'huggingface_hub', SimpleNamespace(
-        HfApi=Api, snapshot_download=download))
+        HfApi=Api, snapshot_download=download,
+        hf_hub_url=lambda *a, **k: 'https://example.invalid/weight',
+        get_hf_file_metadata=lambda *a, **k: None))
     assert job.worker('model') == (1 if corrupt else 0)
     raw = (job.STATE / 'model.json').read_text()
     assert 'secret-test-value' not in raw

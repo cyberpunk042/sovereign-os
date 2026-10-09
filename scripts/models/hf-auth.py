@@ -9,6 +9,45 @@ import sys
 TOKEN_NAMES = ("HF_TOKEN", "SOVEREIGN_OS_HF_TOKEN", "HUGGINGFACE_HUB_TOKEN")
 
 
+def migrate_legacy_token():
+    """Root download worker: migrate the checkout's existing credential once.
+
+    Never source shell code, overwrite the canonical credential, or remove the
+    operator's legacy file. The destination is private from its creation.
+    """
+    if os.geteuid() != 0:
+        return
+    destination = Path('/etc/sovereign-os/model.env')
+    if destination.exists():
+        return
+    root = Path(__file__).resolve().parents[2]
+    source = root / '.env'
+    if not source.exists():
+        return
+    info = source.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != root.stat().st_uid or info.st_mode & 0o002:
+        raise ValueError('Unsafe legacy HF credential file')
+    token = None
+    for line in source.read_text().splitlines():
+        line = line.strip()
+        if line.startswith('export '):
+            line = line[7:]
+        key, sep, value = line.partition('=')
+        if sep and key.strip() in TOKEN_NAMES:
+            words = shlex.split(value, comments=True)
+            if len(words) == 1 and words[0]:
+                token = words[0]
+                if key.strip() == 'HF_TOKEN':
+                    break
+    if not token:
+        return
+    if '\n' in token or '\r' in token:
+        raise ValueError('Invalid HF credential format')
+    fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'w') as handle:
+        handle.write('HF_TOKEN=' + shlex.quote(token) + '\n')
+
+
 def token_environment(environ):
     env = dict(environ)
     token = next((env[k] for k in TOKEN_NAMES if env.get(k)), None)

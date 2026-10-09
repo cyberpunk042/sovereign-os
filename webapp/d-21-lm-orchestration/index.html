@@ -3076,9 +3076,12 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
       status: (m.download && m.download.status) || 'not-started',
       bytes_done: m.download && m.download.bytes_done,
       bytes_total: m.download && m.download.bytes_total,
-      err: m.download && m.download.error,
+      err: m.download && m.download.error_type === 'GatedRepoError'
+        ? 'Hugging Face denied gated-model access. Accept the repository terms and configure an approved read token in /etc/sovereign-os/model.env (0600), then Retry access. This is not a disk-space error.'
+        : m.download && m.download.error,
       stage: m.download && m.download.error_stage,
       etype: m.download && m.download.error_type,
+      accessBlocked: m.download && (m.download.error_type === 'GatedRepoError' || ['hf_access_required','hf_authentication'].includes(m.download.error_code)),
       command: m.download_command || ('sovereign-osctl models download ' + m.id),
     }));
     const active = !!(p && p.active);
@@ -3197,7 +3200,7 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
 
     // ① Catalog model downloads — job states + byte counts + hidden phases.
     let dl = '<div class="so-act-st-h"><span class="so-act-n">1</span> Catalog model downloads '
-      + actChip(dlDoneAll ? 'complete' : dlRunning ? 'running' : dlFailed ? 'needs resume' : 'not started')
+      + actChip(dlDoneAll ? 'complete' : dlRunning ? 'running' : st.downloads.some(d => d.accessBlocked) ? 'access required' : dlFailed ? 'needs attention' : 'not started')
       + '<span class="so-act-stat">' + (st.downloads.length ? st.downloads.filter(d => d.status === 'complete').length + '/' + st.downloads.length + ' verified' : 'all resident') + '</span></div>';
     if (!st.downloads.length) dl += '<div class="so-act-row"><span class="so-act-mid">All declared models are resident and verified</span></div>';
     st.downloads.forEach(d => {
@@ -3211,11 +3214,11 @@ body.so-course-on #so-demo-badge { bottom: calc(var(--so-course-rail-h, 46px) + 
           + (rate ? ' · ' + fmtRate(rate) + ' · ' + fmtEta((Number(d.bytes_total) - Number(d.bytes_done || 0)) / rate) : '') + '</span></span>';
       else if (d.status === 'complete' && d.bytes_total)
         dl += '<span class="so-act-dlbar"><span class="so-act-num">' + fmtGB(d.bytes_total) + ' GiB verified</span></span>';
-      dl += '<span class="so-act-phase">' + esc(ACT_PHASE[d.status] || d.status) + '</span>';
+      dl += '<span class="so-act-phase">' + esc(d.accessBlocked ? 'blocked by Hugging Face access — resolve account approval/token before retrying' : (ACT_PHASE[d.status] || d.status)) + '</span>';
       if (d.err) dl += '<span class="so-act-err">' + esc(d.err) + (d.stage ? ' (stage: ' + esc(d.stage) + ')' : '') + (d.etype ? ' (' + esc(d.etype) + ')' : '') + '</span>';
       if (!st.demo && ['not-started','failed','interrupted'].includes(d.status))
         dl += '<span class="so-act-dlact"><button class="so-act-mini" data-dl="' + esc(d.id) + '" title="Queues a resumable privileged job for this model alone (partial files continue)">'
-          + (d.status === 'not-started' ? 'Start' : 'Resume') + '</button></span>';
+          + (d.accessBlocked ? 'Retry access' : d.status === 'not-started' ? 'Start' : 'Resume') + '</button></span>';
       dl += '</div>';
     });
     $('so-act-stage-dl').innerHTML = dl;

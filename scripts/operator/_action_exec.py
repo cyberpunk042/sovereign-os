@@ -149,6 +149,28 @@ def _compat_pre_change(control: dict, control_id: str,
 
 # ── registry ────────────────────────────────────────────────────────────────
 
+def profile_options() -> list[str]:
+    """Discover safe IDs from the same profile roots as the CLI, without exec."""
+    import yaml
+    root = _CONTROL_SYSTEMS_FILE.resolve().parents[1]
+    directories = [root / 'profiles/runtime', root / 'profiles/orchestration',
+                   Path(os.environ.get('SOVEREIGN_OS_USER_PROFILES_DIR',
+                        str(Path.home() / '.sovereign-os/profiles/orchestration')))]
+    found = set()
+    for directory in directories:
+        for path in directory.glob('*.yaml'):
+            if not re.fullmatch(r'[a-z][a-z0-9-]*', path.stem):
+                continue
+            try:
+                doc = yaml.safe_load(path.read_text()) or {}
+                profile = doc.get('orchestration_profile') or doc.get('runtime_profile') or {}
+                if profile.get('id') == path.stem and isinstance(profile.get('allocations'), list):
+                    found.add(path.stem)
+            except (OSError, ValueError, AttributeError, yaml.YAMLError):
+                continue
+    return sorted(found)
+
+
 def load_registry() -> dict[str, dict]:
     """control_id → control dict, from config/control-systems.yaml.
     Degrades to {} (never raises) when PyYAML or the file is unavailable."""
@@ -160,7 +182,10 @@ def load_registry() -> dict[str, dict]:
         doc = yaml.safe_load(_CONTROL_SYSTEMS_FILE.read_text())
     except OSError:
         return {}
-    return {s["id"]: s for s in (doc or {}).get("systems", []) if s.get("id")}
+    registry = {s["id"]: s for s in (doc or {}).get("systems", []) if s.get("id")}
+    if 'orchestration-profile' in registry:
+        registry['orchestration-profile']['options'] = profile_options()
+    return registry
 
 
 def operator_key_loaded() -> bool:
@@ -210,6 +235,10 @@ def resolve_argv(control: dict, args: dict[str, str]) -> tuple[list[str] | None,
     if not change_cli:
         return None, "control has no change_cli"
     options = set(map(str, control.get("options", []) or []))
+    if control.get('id') == 'orchestration-profile':
+        value = str(args.get('verb', '')).strip()
+        if value not in profile_options():
+            return None, 'Unknown or invalid profile ID; no matching profile file'
     out: list[str] = []
     enum_seen = 0
     for tok in _tokens(change_cli):
