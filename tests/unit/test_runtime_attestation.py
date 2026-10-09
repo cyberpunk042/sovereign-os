@@ -180,3 +180,28 @@ def test_openclaw_output_budget_leaves_agent_prompt_headroom():
     )
     assert oracle["contextWindow"] == 65536
     assert oracle["maxTokens"] == 8192
+
+
+def test_ollama_shaped_tier_witnesses_itself_and_maps_to_the_catalog_id(monkeypatch):
+    """Pulse/bitnet.cpp answers /v1/models in ollama shape ({"models":
+    [{"name": ...}]}). A tier that ANSWERS must witness itself — treating it
+    as silent kept the conductor role permanently out of `loaded`, which the
+    panel papered over with catalog candidates (plan-as-state again). The
+    casefold pass maps the HF-repo-derived vault dir
+    (microsoft__bitnet-b1.58-2B-4T-gguf) to the display-cased catalog id
+    (BitNet-b1.58-2B-4T) instead of publishing the raw directory name."""
+    path = "/mnt/vault/models/microsoft__bitnet-b1.58-2B-4T-gguf/ggml-model-i2_s.gguf"
+    doc = {"models": [{"name": path}]}
+    monkeypatch.setattr(publisher, "_json_endpoint",
+                        lambda ep, p: doc if p == "/v1/models" else None)
+    probe = publisher._probe_tier("127.0.0.1:8081")
+    assert probe["reachable"] is True
+    assert probe["models"][0]["id"] == path
+
+    monkeypatch.setattr(publisher, "_model_path_from_process", lambda port: path)
+    index = {"BitNet-b1.58-2B-4T": {"id": "BitNet-b1.58-2B-4T",
+                                    "precision": "ternary-1.58bit"}}
+    loaded, observations = publisher.collect(
+        "conductor@127.0.0.1:8081@BitNet-b1.58-2B-4T", index)
+    assert loaded["conductor"][0]["id"] == "BitNet-b1.58-2B-4T"
+    assert observations[0]["reachable"] is True

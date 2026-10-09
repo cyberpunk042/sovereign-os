@@ -49,6 +49,9 @@ catalog:
       quantization: bf16
       tier: oracle
       engine: custom
+      size_class: xl
+      purpose: [multimodal]
+      master_spec_section: image companion workstream — SDD-150 activation (2026-10-09)
       status: verified-real
       license: qwen-research
       hf_repo_id: abenzerps/Qwen-Image-2.1-Uncensored-GGUF
@@ -61,6 +64,10 @@ catalog:
       class: multimodal
       tier: oracle
       engine: custom
+      quantization: bf16
+      size_class: xl
+      purpose: [multimodal]
+      master_spec_section: image companion workstream — SDD-150 activation (2026-10-09)
       status: verified-real
       license: flux-non-commercial-license
       hf_repo_id: black-forest-labs/FLUX.2-dev

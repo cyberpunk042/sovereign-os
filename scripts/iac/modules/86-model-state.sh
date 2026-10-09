@@ -65,6 +65,12 @@ _TIERS="logic@${IAC_GPU_TIER_ENDPOINT:-127.0.0.1:8082}@${IAC_VLLM_MODEL_ID:-Nemo
 _TIERS="${_TIERS},oracle@127.0.0.1:${IAC_ORACLE_PORT:-8083}@${IAC_ORACLE_MODEL_ID:-gpt-oss-120b}"
 _TIERS="${_TIERS},router@127.0.0.1:${IAC_ROUTER_EMBED_PORT:-8084}@${IAC_ROUTER_EMBED_ID:-BAAI-bge-m3}"
 _TIERS="${_TIERS},router@127.0.0.1:${IAC_ROUTER_RERANK_PORT:-8085}@${IAC_ROUTER_RERANK_ID:-BAAI-bge-reranker-v2-m3}"
+# conductor (Pulse, bitnet.cpp on :8081) was missing from this table, so the
+# Conductor's residency was NEVER witnessed — the panels showed it correctly
+# only because model-health papered the gap with catalog candidates, the same
+# plan-as-state failure this module exists to kill. bitnet answers /v1/models
+# in ollama shape; the publisher understands that too.
+_TIERS="${_TIERS},conductor@127.0.0.1:${IAC_PULSE_PORT:-8081}@${IAC_PULSE_MODEL_ID:-BitNet-b1.58-2B-4T}"
 
 ensure_dir /etc/sovereign-os 0755 root:root
 ensure_file /etc/sovereign-os/model-state-publish.env 0644 root:root <<EOF

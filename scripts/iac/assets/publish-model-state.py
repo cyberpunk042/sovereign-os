@@ -231,6 +231,25 @@ def _probe_tier(endpoint: str) -> dict[str, Any]:
     doc = _json_endpoint(endpoint, "/v1/models")
     data = doc.get("data") if doc else None
     if not isinstance(data, list):
+        # ollama-shaped servers answer `{"models": [{"name": ...}]}` — the
+        # Pulse/bitnet.cpp tier does. A tier that ANSWERS in a different
+        # shape must still witness itself; treating it as silent left the
+        # conductor role permanently out of `loaded`, which the model-health
+        # catalog fallback then papered over with candidate rows (2026-10-09
+        # — same plan-as-state failure class as module 86's WHY).
+        alt = doc.get("models") if doc else None
+        if isinstance(alt, list):
+            models = [m for m in alt
+                      if isinstance(m, dict) and (m.get("name") or m.get("id"))]
+            if models:
+                return {
+                    "endpoint": endpoint,
+                    "reachable": True,
+                    "models": [{
+                        "id": str(m.get("name") or m.get("id")),
+                        "resident_context_tokens": _resident_context(m, None),
+                    } for m in models],
+                }
         return {"endpoint": endpoint, "reachable": False, "models": []}
     props: dict[str, Any] | None = None
     models = [model for model in data if isinstance(model, dict) and model.get("id")]
@@ -376,6 +395,14 @@ def collect(tiers: str, index: dict[str, dict[str, Any]]) -> tuple[dict[str, lis
         # Qwythos-…-GGUF identity rather than collapsing it to the BF16 parent.
         actual_id = next((mid for mid in sorted(index, key=len, reverse=True)
                           if mid in served_id), None)
+        # Case-insensitive second pass: vault dirs are HF-repo-derived
+        # (`microsoft__bitnet-b1.58-2B-4T-gguf`) while catalog ids are
+        # display-cased (`BitNet-b1.58-2B-4T`); an exact substring miss
+        # would publish the raw directory name over the catalogued model.
+        if actual_id is None:
+            _folded = served_id.casefold()
+            actual_id = next((mid for mid in sorted(index, key=len, reverse=True)
+                              if mid.casefold() in _folded), None)
         # Fallback 1: the alias matched no catalog ID — ask the process what
         # model file it actually loaded (llama.cpp -m flag → deepest ancestor
         # directory that names a catalogued model; quant subfolders under the
