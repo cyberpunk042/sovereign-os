@@ -1119,6 +1119,11 @@ class Handler(BaseHTTPRequestHandler):
             # conn.sock = None, so the streaming branch below cannot reach it
             # afterwards — see the timeout-clearing comment there.
             sock = conn.sock
+            # Image generation is a finite response, not SSE: its API allows
+            # 900s for inference before returning headers. Keep connection setup
+            # bounded at 30s but let this route outlive that upstream deadline.
+            if method == "POST" and path.split("?", 1)[0] == "/api/image-gen/generate" and sock is not None:
+                sock.settimeout(930)
             r = conn.getresponse()
         except (OSError, http.client.HTTPException) as e:
             conn.close()

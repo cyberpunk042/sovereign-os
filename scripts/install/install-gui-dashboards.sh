@@ -291,6 +291,20 @@ step "3/5 install + enable dashboard services (loopback)"
 enable_unit() { # <unit> — enable via systemctl, else offline wants-symlink
   local unit="$1"
   install -m 644 "${SRC}/systemd/system/${unit}" /etc/systemd/system/
+  # Newly installed APIs also need access when the deployed tree is a live
+  # link into /home; ProtectHome otherwise hides ExecStart's resolved script.
+  local live_source
+  live_source="$(readlink -f /usr/local/lib/sovereign-os 2>/dev/null || true)"
+  case "${live_source}" in
+    /home/*)
+      case "${live_source}" in
+        *[[:space:]%]*) echo "unsupported live source path: ${live_source}" >&2; return 1 ;;
+      esac
+      install -d "/etc/systemd/system/${unit}.d"
+      printf '[Service]\nProtectHome=tmpfs\nBindReadOnlyPaths=%s\n' "${live_source}" \
+        > "/etc/systemd/system/${unit}.d/dev-source.conf"
+      ;;
+  esac
   if systemctl enable "${unit}" 2>/dev/null; then
     info "enabled ${unit}"
   else

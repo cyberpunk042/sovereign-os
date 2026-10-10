@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -79,6 +80,17 @@ def _panel_path(slug: str) -> Path:
     return WEBAPP / slug / "index.html"
 
 
+def validate_scripts(block: str) -> None:
+    """Reject invalid canonical JavaScript before changing any cockpit."""
+    for index, (attrs, script) in enumerate(re.findall(r"<script\b([^>]*)>(.*?)</script>", block, re.DOTALL | re.IGNORECASE), 1):
+        module = bool(re.search(r'''type\s*=\s*["']module["']''', attrs, re.IGNORECASE))
+        command = ["node", "--check", "--input-type=" + ("module" if module else "commonjs")]
+        result = subprocess.run(command, input=script,
+                                text=True, capture_output=True)
+        if result.returncode:
+            raise ValueError(f"app-shell script {index} is invalid:\n{result.stderr}")
+
+
 def render(html: str, block: str) -> tuple[str, str]:
     """Return (new_html, action). action ∈ replace|insert|unchanged."""
     if _BLOCK_RE.search(html):
@@ -101,6 +113,11 @@ def main() -> int:
     args = ap.parse_args()
 
     block = canonical_block()
+    try:
+        validate_scripts(block)
+    except (ValueError, OSError) as exc:
+        print(f"FATAL: {exc}", file=sys.stderr)
+        return 1
     targets = args.panel if args.panel else ADOPTED_PANELS
 
     drift, changed = [], 0
