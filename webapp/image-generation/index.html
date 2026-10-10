@@ -1667,12 +1667,153 @@
   window.__cockpitKeystrokeResolve = keystrokeResolve;
 </script>
 <!-- APP-SHELL:END M067 -->
-<main id="so-content">
-  <h1>Image Generation <span class="tag">direct sd-server · no OpenClaw</span></h1>
-  <p class="sub">Tests the live stable-diffusion.cpp runtime through its OpenAI Images API
-    (POST /v1/images/generations). Discovery comes from the active profile marker, the profile
-    YAMLs and live /v1/models probes — never a hardcoded list. This page mutates no host state:
-    profile activation rides the control-exec rail (or the exact sudo command below).</p>
+<script>
+(function(){
+  "use strict";
+  if (window.__soAppShell) return; window.__soAppShell = true;
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  var GROUPS = [
+    {name:'Learn', items:[
+      {id:'--', dir:'course',tier:'core', label:'Course', ico:'✦', desc:'The guided course — a persistent bottom journey-rail that walks you through sovereign-os module by module.'}
+    ]},
+    {name:'Trinity & Orchestration', items:[
+      {id:'--', dir:'trinity',tier:'core', label:'Trinity', ico:'△', desc:'The 3-tier runtime at a glance.'},
+      {id:'--', dir:'weaver',tier:'adv', label:'Weaver', ico:'☲', desc:'The sandboxed fabric layer.'},
+      {id:'--', dir:'auditor',tier:'adv', label:'Auditor', ico:'🔍', desc:'The always-on immutable gatekeeper.'},
+      {id:'--', dir:'router',tier:'core', label:'Router', ico:'⎈', desc:'The deterministic request router.'}
+    ]},
+    {name:'Models & Compute', items:[
+      {id:'D-03', dir:'d-03-model-health',tier:'core', label:'D-03 Model Health', ico:'♥', desc:'Per-tier inference health.'},
+      {id:'D-21', dir:'d-21-lm-orchestration',tier:'core', label:'D-21 LM Orchestration', ico:'⛭', desc:'Profiles + model→hardware assignment.'},
+      {id:'D-23', dir:'d-23-models-catalog',tier:'adv', label:'D-23 Model Catalog', ico:'▤', desc:'The canonical model registry.'}
+    ]},
+    {name:'Self-Defense', items:[
+      {id:'D-12', dir:'d-12-networking',tier:'adv', label:'D-12 Networking', ico:'⇄', desc:'The cockpit networking view.'}
+    ]},
+    {name:'Advanced', items:[
+      {id:'--', dir:'avx-modes',tier:'adv', label:'AVX Modes', ico:'⋔', desc:'The AVX execution-mode surface.'}
+    ]},
+    {name:'Self-Defense Mirrors', items:[
+      {id:'D-13', dir:'d-13-filesystem-grants',tier:'adv', label:'D-13 Filesystem Grants', ico:'🗂', desc:'READ-ONLY grant mirror.'}
+    ]}
+  ];
+  function findPanel(dir){
+    for(var g=0;g<GROUPS.length;g++){
+      for(var i=0;i<GROUPS[g].items.length;i++){
+        if(GROUPS[g].items[i].dir===dir)return GROUPS[g].items[i];
+      }
+    }
+    return{label:'Panel',desc:'Panel description'};
+  }
+  function curDir(){
+    var seg=location.pathname.match(/^\/([a-z0-9][a-z0-9-]*)\//);
+    return seg?seg[1]:'--';
+  }
+  function buildHeader(cur){
+    var h=el('<header id="so-header" role="banner"><div class="so-h-left"><a href="/" class="so-brand" aria-label="sovereign-os home"><span class="mark">⬢</span><span class="lbl">sovereign-os</span></a><button class="so-h-btn" id="so-palette" title="Command palette (⌘K)">⌘K</button><button class="so-h-btn" id="so-theme" title="Theme (auto / dark / light)">◑ auto</button></div><div class="so-h-right"><span class="so-pill" id="so-status-pill"><span class="dot"></span><span class="t">live</span></span></div></header>');
+    document.body.insertBefore(h,document.body.firstChild);
+  }
+  function buildSidemenu(dir){
+    var html=GROUPS.map(function(g){
+      var closed=g.name!=='Trinity & Orchestration'?' closed':'';
+      var items=g.items.map(function(it){
+        var active=it.dir===dir?' active':''.replace(' ','');
+        return '<a href="../'+it.dir+'" class="so-sm-item'+active+'" data-dir="'+esc(it.dir)+'"><span class="ico">'+esc(it.ico)+'</span><span class="lbl">'+esc(it.label)+'</span><span class="id">'+esc(it.id||'—')+'</span></a>';
+      }).join('');
+      return '<div class="so-grp'+closed+'"><button class="so-grp-h" type="button"><span>'+esc(g.name)+'</span><span class="chev">▾</span></button><div class="so-grp-items">'+items+'</div></div>';
+    }).join('');
+    var nav=el('<nav id="so-sidemenu" aria-label="dashboards"><div class="so-sm-filter"><input type="text" id="so-sm-search" placeholder="filter panels…" autocomplete="off"></div><div class="so-sm-scroll">'+html+'</div></nav>');
+    document.body.insertBefore(nav,document.body.firstChild);
+  }
+  function buildAssistant(cur){
+    var a=el('<aside id="so-assist" role="complementary" aria-label="assistant"><div class="so-assist-h"><span class="t"><span class="spark">✦</span> Assistant</span><button class="so-h-btn" id="so-assist-close" title="Close" aria-label="Close assistant">✕</button></div><div class="so-assist-body" id="so-assist-body"></div><div class="so-ask" id="so-ask"><div class="so-ask-h"><span>✦ ask about this</span><span class="chev" id="so-ask-chev" title="collapse/expand" role="button" tabindex="0">▾</span></div><div class="so-ask-opt"><label class="so-ask-chk" title="also prepend this panel\'s visible on-screen data before the assistant guide"><input type="checkbox" id="so-ask-page"> include page contents</label></div></div><div class="so-ask-ans" id="so-ask-ans" aria-live="polite"></div></aside>');
+    document.body.appendChild(a);
+  }
+  function el(html){var d=document.createElement('div');d.innerHTML=html.trim();return d.firstChild;}
+  function init(){
+    var dir=curDir(), cur=findPanel(dir);
+    var content=document.createElement('div'); content.id='so-content';
+    while(document.body.firstChild){ content.appendChild(document.body.firstChild); }
+    document.body.appendChild(content);
+    buildHeader(cur); buildSidemenu(dir); buildAssistant(cur);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
+<!-- LIVERELOAD:BEGIN M203 — dev live-reload client (SDD-203). LOOPBACK-ONLY and
+     READ-ONLY: a GET EventSource to the `make panel` broker (127.0.0.1:8136)
+     that offers a refresh when THIS panel's own assets, data daemon, or the
+     scripts it shells actually change. It never mutates server state (a refresh
+     is navigation — consistent with the chrome's "navigates + explains, never
+     executes" charter), fires only on a real relevant change (the broker scopes
+     per panel), and is completely inert unless the loopback broker is running,
+     so it ships harmless in the image. Backing broker:
+     scripts/operator/livereload-broker.py; daemon self-reload:
+     scripts/operator/lib/reload-run.py. -->
+<script>
+(function(){
+  "use strict";
+  if (window.__soLiveReload) return; window.__soLiveReload = true;
+  try {
+    var h = location.hostname;
+    if (h!=="127.0.0.1" && h!=="localhost" && h!=="::1" && h!=="[::1]") return;
+    var PORT = 8136;
+    var seg = /^\/([a-z0-9][a-z0-9-]*)\//.exec(location.pathname);
+    var qs = "?port=" + encodeURIComponent(location.port||"")
+           + (seg ? "&panel=" + encodeURIComponent(seg[1]) : "");
+    var es=null, fails=0, hits=0, box=null;
+    function build(){
+      box=document.createElement("div");
+      box.setAttribute("role","status"); box.setAttribute("aria-live","polite");
+      box.style.cssText="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483000;"
+        +"display:flex;align-items:center;gap:.55rem;padding:.5rem .55rem .5rem .82rem;border-radius:10px;"
+        +"background:var(--panel,#171717);color:var(--fg,#e6e6e6);"
+        +"border:1px solid color-mix(in srgb,var(--accent,#9bd1ff) 45%,transparent);"
+        +"box-shadow:0 8px 30px rgba(0,0,0,.5);max-width:92vw;"
+        +"font:500 13px/1.35 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;";
+      var dot=document.createElement("span");
+      dot.style.cssText="width:8px;height:8px;border-radius:50%;background:var(--good,#7ad17a);flex:none;";
+      var msg=document.createElement("span"); msg.className="so-lr-msg";
+      var refresh=document.createElement("button"); refresh.type="button"; refresh.textContent="Refresh";
+      refresh.style.cssText="cursor:pointer;font:inherit;padding:.22rem .62rem;border-radius:7px;color:var(--fg,#e6e6e6);"
+        +"border:1px solid var(--accent,#9bd1ff);background:color-mix(in srgb,var(--accent,#9bd1ff) 16%,transparent);";
+      refresh.addEventListener("click",function(){ location.reload(); });
+      var close=document.createElement("button"); close.type="button"; close.textContent="✕";
+      close.setAttribute("aria-label","dismiss");
+      close.style.cssText="cursor:pointer;font:inherit;padding:.22rem .5rem;border-radius:7px;"
+        +"border:1px solid transparent;background:transparent;color:var(--muted,#8a8a8a);";
+      close.addEventListener("click",function(){ if(box&&box.parentNode) box.parentNode.removeChild(box); box=null; hits=0; });
+      box.appendChild(dot); box.appendChild(msg); box.appendChild(refresh); box.appendChild(close);
+      (document.body||document.documentElement).appendChild(box);
+      return msg;
+    }
+    function toast(){
+      hits++;
+      var msg = box ? box.querySelector(".so-lr-msg") : build();
+      msg.textContent = hits>1 ? ("Panel updated · "+hits+" changes — refresh to load")
+                               : "This panel updated — refresh to load";
+    }
+    function connect(){
+      try { es=new EventSource("http://127.0.0.1:"+PORT+"/events"+qs); }
+      catch(e){ return; }
+      es.onopen=function(){ fails=0; };
+      es.addEventListener("reload",function(){ toast(); });
+      es.onerror=function(){ if(++fails>=5 && es){ es.close(); es=null; } };
+    }
+    connect();
+  } catch(e){ /* live-reload is best-effort; it must never break a panel */ }
+})();
+</script>
+<!-- LIVERELOAD:END M203 -->
+<script type="module">
+  // F-2026-001 (invasive adoption): expose the crate-backed command-palette navigator to the
+  // (non-module) app-shell above. Shares the one cockpit-runtime module the panel already loads,
+  // so it reads the same wasm bridge. No-op until the bridge finishes loading (palette falls back).
+  import { autocompleteNav, keystrokeResolve } from '/_shared/cockpit-runtime.js';
+  window.__cockpitAutocompleteNav = autocompleteNav;
+  window.__cockpitKeystrokeResolve = keystrokeResolve;
+</script>
 
   <div id="banner"></div>
 
