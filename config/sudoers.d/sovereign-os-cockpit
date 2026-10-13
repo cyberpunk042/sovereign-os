@@ -54,6 +54,7 @@ Cmnd_Alias SOVEREIGN_OS_COCKPIT = \
     /usr/local/bin/sovereign-osctl maintenance *, \
     /usr/local/bin/sovereign-osctl models eval run *, \
     /usr/local/bin/sovereign-osctl models download *, \
+    /usr/local/bin/sovereign-osctl image-artifacts delete --confirm *, \
     /usr/local/bin/sovereign-osctl costs export *, \
     /usr/local/bin/sovereign-osctl cost-policy *, \
     /usr/local/bin/sovereign-osctl traces replay-verify *, \

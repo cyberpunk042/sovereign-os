@@ -7502,6 +7502,9 @@ case "${cmd}" in
     # when actual config diverges from the operator's safe limits.
     "${PYTHON3}" "${__REPO_ROOT}/scripts/hardware/gpu-watch.py" "$@"
     ;;
+  image-artifacts)
+    "${PYTHON3}" "${__REPO_ROOT}/scripts/inference/image-artifacts.py" "$@"
+    ;;
   science)
     # R558 (SDD-070): science-tools catalog + NVIDIA Warp particle-sim.
     # Non-LLM domain compute tools (DNA / protein / particles) materialized

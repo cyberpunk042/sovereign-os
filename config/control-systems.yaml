@@ -859,6 +859,16 @@ systems:
   # Rendering is user-level compute: retain validation/audit, but do not sudo
   # into root's HOME or require a second confirmation for the Render click.
   # Benchmark approval policy remains unchanged.
+  - id: image-artifact-delete
+    kind: lifecycle
+    scope: scoped
+    label: "Permanently delete generated image"
+    description: "DANGER: permanently deletes one generated PNG from the gallery and filesystem. Cannot be undone. Requires confirmation; never accepts arbitrary paths."
+    change_cli: "sovereign-osctl image-artifacts delete --confirm <name>"
+    state_cli: "sovereign-osctl image-artifacts --help"
+    state_path: "/var/lib/sovereign-os/image-generation"
+    privileged: true
+    applies_to: [image-generation]
   - id: warp-render
     kind: lifecycle
     scope: scoped

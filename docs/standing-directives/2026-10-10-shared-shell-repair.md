@@ -1,5 +1,30 @@
 # Shared cockpit shell repair
 
+Delete interaction follow-up (verbatim):
+
+> The Delete permanently does nothing, we need to fix that
+
+Gallery removal request (verbatim):
+
+> there should be a way / option to delete from the gallery / filesystem
+
+Superseding operator direction (verbatim):
+
+> i asked for delete, a full delete, no just a move to trash. and also it should work. not like right now
+
+Implementation: confirmed, audited permanent deletion of one named generated PNG; no arbitrary path access.
+
+Gallery report (verbatim):
+
+> the gallery is not working properly..&#x20;
+>
+> This [http://127.0.0.1:8100/api/image-gen/artifact?name=2026-10-10T111429Z-8188.png](http://127.0.0.1:8100/api/image-gen/artifact?name=2026-10-10T111429Z-8188.png)
+>
+> returns&#x20;
+>
+> | error | "invalid artifact name" |
+> | ----- | ----------------------- |
+
 Operator request (verbatim):
 
 > the agent was working well for a while but it seems unable to achieve / resolve this one:

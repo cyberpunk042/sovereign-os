@@ -5,8 +5,8 @@ An image-companion profile keeps ONE llama.cpp chat resident (the Oracle
 allocation, so the OpenClaw assistant survives a model reload) and puts ONE
 stable-diffusion.cpp runtime on the RTX 5090. Unlike the dual image profile
 this is a mixed transaction: chat tiers move through the systemd launchers
-(which re-read the marker written here), image tiers are transient
-systemd-run units, and OpenClaw is re-synced only after both halves are
+(which re-read the marker written here), image tiers use persistent,
+profile-conditioned systemd units, and OpenClaw is re-synced only after both halves are
 ready. Any failure restores the previous marker and chat services.
 """
 import argparse
@@ -23,6 +23,9 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+_boot_spec = importlib.util.spec_from_file_location('image_profile_boot', ROOT / 'scripts/inference/image-profile-boot.py')
+boot = importlib.util.module_from_spec(_boot_spec)
+_boot_spec.loader.exec_module(boot)
 MARKER = Path('/etc/sovereign-os/active-runtime-profile')
 SD_SERVER = ROOT / '.runtime/stable-diffusion.cpp/build-cuda133/bin/sd-server'
 CARD_NAME = {'cuda:0': 'RTX PRO 6000', 'cuda:1': 'RTX 5090', 'cuda:2': 'RTX 4090'}
@@ -141,7 +144,7 @@ def main(argv=None):
 
     image_units = list(zip(images, kinds))
     old = MARKER.read_text().strip()
-    if old == profile_id and llm_ready(chat['oracle']['port']) \
+    if old == profile_id and all((Path('/etc/systemd/system') / (UNIT[k] + '.service')).is_file() for k in kinds) and llm_ready(chat['oracle']['port']) \
             and all(image_ready(a['port']) for a in images):
         sync_openclaw(profile_id)
         print('Image companion already active; OpenClaw re-synced')
@@ -176,15 +179,8 @@ def main(argv=None):
             raise RuntimeError('oracle did not become ready within 600 seconds')
 
         for alloc, kind in image_units:
-            run('systemd-run', '--collect', '--unit=' + UNIT[kind],
-                '--uid=' + operator.pw_name, '--property=WorkingDirectory=' + str(ROOT),
-                '--setenv=HOME=' + operator.pw_dir,
-                '--setenv=CUDA_VISIBLE_DEVICES=' + uuid_for(alloc['target_hardware']),
-                '--setenv=LD_LIBRARY_PATH=' + str(ROOT / '.runtime/sd-cuda133/nvidia/cu13/lib')
-                + ':/opt/sovereign-os/venv/vllm/lib/python3.14/site-packages/nvidia/cu13/lib',
-                str(SD_SERVER), '--listen-ip', '127.0.0.1', '--listen-port', str(alloc['port']),
-                '--backend', 'te=cpu', '--mmap', '--diffusion-fa',
-                '--sampling-method', 'euler', '--steps', '28', *_dual.model_arguments(kind))
+            boot.install(UNIT[kind], operator, uuid_for(alloc['target_hardware']),
+                         alloc['port'], SD_SERVER, _dual.model_arguments(kind), alloc['model'])
         deadline = time.monotonic() + 300
         while time.monotonic() < deadline:
             for alloc, kind in image_units:

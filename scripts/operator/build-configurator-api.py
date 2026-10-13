@@ -999,6 +999,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
+        # Match routes on the path only, but preserve the original encoded
+        # query for backing APIs (artifact names, filters, pagination, etc.).
+        query = ("?" + self.path.split("?", 1)[1]) if "?" in self.path else ""
         if path == "/healthz":
             return self._send(200, json.dumps({"ok": True}))
         # Panel-prefixed GETs (/<slug>/api/..., /<slug>/x.json) route to the
@@ -1011,7 +1014,7 @@ class Handler(BaseHTTPRequestHandler):
         # follows live through the hub. Mirrors do_POST's _panel_prefixed gate.
         pp_port, pp_path = _panel_prefixed(path)
         if pp_port is not None:
-            return self._proxy(pp_port, pp_path)
+            return self._proxy(pp_port, pp_path + query)
         # Background-run status + re-attach (survive page navigation). Suffix-
         # matched so they work whether served at / or /build-configurator/.
         if path.endswith("/api/run/status"):
@@ -1034,9 +1037,9 @@ class Handler(BaseHTTPRequestHandler):
         # /healthz for this server's liveness).
         hit, ppath = _route_and_path(path)
         if hit is not None:
-            return self._proxy(hit, ppath)
+            return self._proxy(hit, ppath + query)
         if path in DEV_GATEWAY_EXACT:
-            return self._proxy(DEV_GATEWAY_EXACT[path], path)
+            return self._proxy(DEV_GATEWAY_EXACT[path], path + query)
         if path == "/version":
             return self._send(200, json.dumps(
                 {"module": "build-configurator-api", "version": VERSION}))

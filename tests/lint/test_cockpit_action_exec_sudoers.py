@@ -12,6 +12,8 @@ Per operator §1g (verbatim, sacrosanct): "We do not minimize anything."
 from __future__ import annotations
 
 import importlib.util
+import subprocess
+import shutil
 from pathlib import Path
 
 import yaml
@@ -20,6 +22,19 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SUDOERS = REPO_ROOT / "config" / "sudoers.d" / "sovereign-os-cockpit"
 REGISTRY = REPO_ROOT / "config" / "control-systems.yaml"
 MOD = REPO_ROOT / "scripts" / "operator" / "_action_exec.py"
+
+
+def test_generated_policy_passes_local_visudo():
+    import pytest
+    validator = shutil.which('visudo') or '/usr/sbin/visudo'
+    if not Path(validator).exists():
+        pytest.skip('visudo not installed')
+    generated = subprocess.run(
+        ['bash', str(REPO_ROOT / 'scripts/operator/operator-sudoers.sh'), '--print'],
+        capture_output=True, text=True, check=True)
+    result = subprocess.run([validator, '-cf', '/dev/stdin'],
+                            input=generated.stdout, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def _ae():

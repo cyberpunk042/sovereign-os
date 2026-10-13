@@ -1744,20 +1744,73 @@
     <h2 id="viewer-title">Image preview</h2>
     <button type="button" id="viewer-zoom" aria-pressed="false">Actual size (100%)</button>
     <a id="viewer-download" download="generated-image.png">Download PNG</a>
+    <button type="button" id="viewer-delete">Delete permanently</button>
     <button type="button" id="viewer-close" autofocus>Close</button>
   </div>
   <div id="viewer-canvas"><img id="viewer-image" alt="Full-size generated image"></div>
+</dialog>
+<dialog id="delete-confirm" aria-labelledby="delete-title">
+  <h2 id="delete-title">Permanently delete image?</h2>
+  <p id="delete-name"></p>
+  <p>DANGER: this removes the file from disk. It cannot be undone.</p>
+  <p id="delete-status" role="status" aria-live="polite"></p>
+  <button type="button" id="delete-cancel" autofocus>Cancel</button>
+  <button type="button" id="delete-commit">Delete permanently</button>
 </dialog>
 <script>
 (function(){
   var $=function(id){return document.getElementById(id);};
   var STATUS=null;
+  var previewArtifact=null;
+  var pendingDelete=null, deleting=false;
+  function deleteImage(name){
+    if(!name||deleting) return;
+    pendingDelete=name;
+    $('delete-name').textContent=name;
+    $('delete-status').textContent='';
+    $('delete-confirm').showModal();
+  }
+  $('delete-cancel').addEventListener('click',function(){if(!deleting) $('delete-confirm').close();});
+  $('delete-confirm').addEventListener('keydown',function(e){e.stopPropagation();});
+  $('delete-confirm').addEventListener('cancel',function(e){if(deleting)e.preventDefault();});
+  $('delete-commit').addEventListener('click',function(){
+    if(!pendingDelete||deleting) return;
+    var name=pendingDelete;
+    deleting=true;
+    $('delete-commit').disabled=true;
+    $('delete-cancel').disabled=true;
+    $('delete-status').textContent='Deleting file…';
+    say($('result'),'muted','Permanently deleting image…');
+    fetch('/api/control/execute',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({control_id:'image-artifact-delete',args:{name:name},confirm:true})})
+      .then(function(r){return r.json().then(function(b){
+        if(!r.ok||!b.ok||b.exit_code) throw new Error(b.error||b.stderr||'Removal failed');
+        if(b.dry_run) throw new Error('Dry run only — image was not removed');
+        return b;
+      });}).then(function(){
+        $('delete-confirm').close();
+        $('image-viewer').close();
+        if(previewArtifact===name){$('out').style.display='none';previewArtifact=null;}
+        say($('result'),'ok','Permanently deleted '+name+' from the gallery and filesystem.');
+        load();
+      }).catch(function(e){
+        say($('result'),'err',e.message);
+        $('delete-status').textContent='Image was not removed: '+e.message;
+      }).finally(function(){
+        deleting=false;
+        $('delete-commit').disabled=false;
+        $('delete-cancel').disabled=false;
+      });
+  });
   function openImage(src, name){
     if(!src) return;
     $('viewer-image').src=src;
     $('viewer-title').textContent=name||'Generated image';
     $('viewer-download').href=src;
     $('viewer-download').download=name||'generated-image.png';
+    var artifact=name||previewArtifact;
+    $('viewer-delete').disabled=!artifact;
+    $('viewer-delete').onclick=function(){deleteImage(artifact);};
     $('viewer-canvas').classList.remove('actual');
     $('viewer-zoom').textContent='Actual size (100%)';
     $('viewer-zoom').setAttribute('aria-pressed','false');
@@ -1777,6 +1830,8 @@
     if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) this.close();
   });
   $('gallery').addEventListener('click',function(e){
+    var remove=e.target.closest('button[data-delete]');
+    if(remove){deleteImage(remove.getAttribute('data-delete'));return;}
     var link=e.target.closest('a');
     if(!link||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey) return;
     e.preventDefault();openImage(link.href,link.querySelector('img').alt);
@@ -1865,7 +1920,7 @@
     var g=$('gallery');
     if(!files.length){g.innerHTML='<span style="color:var(--muted);font-size:.75rem">(no artifacts yet)</span>';return;}
     g.innerHTML=files.slice(0,8).map(function(n){
-      return '<a href="/api/image-gen/artifact?name='+encodeURIComponent(n)+'" target="_blank" rel="noopener"><img alt="'+esc(n)+'" src="/api/image-gen/artifact?name='+encodeURIComponent(n)+'"></a>';
+      return '<div><a href="/api/image-gen/artifact?name='+encodeURIComponent(n)+'" target="_blank" rel="noopener"><img alt="'+esc(n)+'" src="/api/image-gen/artifact?name='+encodeURIComponent(n)+'"></a><br><button type="button" data-delete="'+esc(n)+'" aria-label="Permanently delete '+esc(n)+'">Delete permanently</button></div>';
     }).join('');
   }
 
@@ -1911,6 +1966,7 @@
         if(r.status===200){
           say(res,'ok','generated in '+(b.elapsed_s||'?')+'s · '+Math.round((b.bytes||0)/1024)+' KB @ :'+b.port);
           var out=$('out');
+          previewArtifact=b.artifact||null;
           if(b.b64||b.artifact){ $('outimg').src=b.b64?'data:image/png;base64,'+b.b64:'/api/image-gen/artifact?name='+encodeURIComponent(b.artifact); out.style.display='block'; }
           $('outmeta').textContent=(b.artifact?('artifact: /api/image-gen/artifact?name='+b.artifact):'gallery persistence failed — see daemon journal')
             +' · model served from port '+b.port+' · sd-server ignores the model field (single runtime per port)';
